@@ -1,0 +1,41 @@
+# .gitignore — Meridian App
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+
+# Node
+node_modules/
+npm-debug.*
+*.jsbundle
+
+# macOS
+.DS_Store
+
+# Environment secrets — NEVER COMMIT THESE
+.env
+.env.*
+!.env.example
+
+# Android build artifacts
+android/app/build/
+android/build/
+*.keystore
+!debug.keystore
+
+# iOS build artifacts
+ios/Pods/
+ios/build/
+
+# Log files
+*.log
+build.log
+
+# TypeScript cache
+tsconfig.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
