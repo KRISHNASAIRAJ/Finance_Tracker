@@ -16,7 +16,6 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
       "package": "com.krishnasairaj.meridian"
     },
     "web": {
@@ -27,10 +26,6 @@
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
       }
     },
-    "updates": {
-      "url": "https://u.expo.dev/cf70f456-c860-412c-8692-d26ee19926c3"
-    },
-    "runtimeVersion": "1.0.0",
     "plugins": []
   }
 }
