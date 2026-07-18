@@ -20,8 +20,14 @@ Write-Host "✅ Device found" -ForegroundColor Green
 Set-Location "$PSScriptRoot\..\mobile"
 
 if (-not $SkipBuild) {
+    if (-not (Test-Path "node_modules")) {
+        Write-Host "📦 node_modules not found. Installing dependencies..." -ForegroundColor Cyan
+        npm install
+    }
+
     Write-Host "🔎 Running TypeScript check..." -ForegroundColor Cyan
-    npx tsc --noEmit
+    # Run local compiler directly to avoid npx package prompting
+    & "node_modules\.bin\tsc.cmd" --noEmit
     if ($LASTEXITCODE -ne 0) {
         Write-Error "❌ TypeScript errors found. Fix them before installing."
         exit 1
