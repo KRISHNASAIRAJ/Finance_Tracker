@@ -9,12 +9,15 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "image": "ubuntu-22.04-jdk-17"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": {
-        "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
+      "android": {
+        "image": "ubuntu-22.04-jdk-17"
       }
     }
   },

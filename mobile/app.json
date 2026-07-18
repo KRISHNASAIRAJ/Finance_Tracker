@@ -26,6 +26,18 @@
       "eas": {
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
+    ]
   }
 }
