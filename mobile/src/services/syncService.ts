@@ -69,8 +69,6 @@ export async function startSyncService(): Promise<void> {
 
   syncTimer = setInterval(async () => {
     try {
-      const { error } = await supabase.from('_health').select('count', { count: 'exact', head: true });
-      if (error) throw error;
       const result = await performSync();
       if (result.success) {
         console.log('[Sync] OK:', result.synced.join(', '));
