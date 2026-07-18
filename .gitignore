@@ -39,3 +39,20 @@ tsconfig.tsbuildinfo
 .vscode/
 .idea/
 *.swp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.so
+
+# Backend database
+backend/*.db
+backend/*.sqlite3
+
+# Mobile AI agent configs (per-submodule)
+mobile/.claude/
+mobile/AGENTS.md
+mobile/CLAUDE.md
+mobile/old_data/

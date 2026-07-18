@@ -53,13 +53,21 @@ krishnas-tracker/
 │   └── android/               ← Android native layer
 ├── backend/                   ← FastAPI backend
 │   ├── app/
-│   │   ├── routers/           ← API route handlers (one per module)
+│   │   ├── main.py            ← FastAPI app entry point
+│   │   ├── config.py          ← Settings / env vars
+│   │   ├── database.py        ← SQLAlchemy engine & session
+│   │   ├── routers/           ← API route handlers (7 routers)
 │   │   ├── services/          ← Business logic layer
-│   │   ├── models/            ← SQLAlchemy ORM models
-│   │   ├── schemas/           ← Pydantic request/response schemas
-│   │   ├── ai/                ← AI service wrappers (Claude API)
-│   │   └── jobs/              ← Cron jobs (portfolio report)
-│   ├── migrations/            ← Alembic migration files
+│   │   ├── models/            ← SQLAlchemy ORM models (15 models)
+│   │   ├── schemas/           ← Pydantic request/response schemas (15 schemas)
+│   │   ├── ai/                ← AI service wrappers (Claude API) [future]
+│   │   └── jobs/              ← Cron jobs (portfolio report) [future]
+│   ├── migrations/            ← Alembic migration files (wired up)
+│   ├── Procfile               ← Render deployment
+│   ├── render.yaml            ← Render blueprint (web + postgres)
+│   ├── requirements.txt
+│   ├── runtime.txt
+│   ├── alembic.ini
 │   └── tests/                 ← Pytest test suite
 └── .env.example               ← Required environment variables
 ```
@@ -72,7 +80,7 @@ Always work within the current phase. Do NOT skip ahead.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | Foundation: scaffold, auth, DB schema, shared transactions table | ⬜ TODO |
+| **Phase 0** | Foundation: scaffold, auth, DB schema, shared transactions table | ✅ DONE |
 | **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | ⬜ TODO |
 | **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | ⬜ TODO |
 | **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | ⬜ TODO |
