@@ -13,9 +13,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "android": {
-        "image": "ubuntu-22.04-jdk-17-ndk-r21e"
-      }
+      "channel": "production"
     }
   },
   "submit": {
