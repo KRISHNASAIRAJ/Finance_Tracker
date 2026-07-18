@@ -51,7 +51,7 @@ export default function GoalSelectionScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#ccc3d8" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Meridian</Text>
+        <Text style={styles.headerTitle}>Your Goals</Text>
         <View style={{ width: 40 }} />
       </View>
 

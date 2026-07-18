@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly';
+
 export interface Subtask {
   id: string;
   name: string;
@@ -16,11 +18,12 @@ export interface Task {
   dueDate: string; // ISO date string
   completed: boolean;
   subtasks: Subtask[];
+  recurrence: RecurrenceType;
 }
 
 interface TasksState {
   tasks: Task[];
-  addTask: (task: Omit<Task, 'id' | 'completed' | 'subtasks'> & { subtasks: string[] }) => void;
+  addTask: (task: Omit<Task, 'id' | 'completed' | 'subtasks' | 'recurrence'> & { subtasks: string[]; recurrence?: RecurrenceType }) => void;
   updateTask: (id: string, updatedFields: Partial<Omit<Task, 'id' | 'subtasks'>>) => void;
   toggleTaskCompleted: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -36,21 +39,23 @@ export const useTasksStore = create<TasksState>()(
           name: 'Renew Car Insurance policy',
           description: 'HDFC Ergo policy expires on Oct 30. Check quotes first.',
           priority: 'urgent',
-          dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
+          dueDate: new Date(Date.now() + 86400000 * 2).toISOString(),
           completed: false,
           subtasks: [
             { id: '1-1', name: 'Get PUC certificate', completed: true },
             { id: '1-2', name: 'Compare policy premiums online', completed: false },
           ],
+          recurrence: 'none',
         },
         {
           id: '2',
           name: 'Quarterly investment portfolio rebalancing',
           description: 'Adjust weights according to AI target allocations.',
           priority: 'high',
-          dueDate: new Date(Date.now() + 86400000 * 5).toISOString(), // 5 days from now
+          dueDate: new Date(Date.now() + 86400000 * 5).toISOString(),
           completed: false,
           subtasks: [],
+          recurrence: 'none',
         },
         {
           id: '3',
@@ -59,6 +64,7 @@ export const useTasksStore = create<TasksState>()(
           dueDate: new Date().toISOString(),
           completed: true,
           subtasks: [],
+          recurrence: 'none',
         },
       ],
       addTask: (newTaskData) => {
@@ -76,6 +82,7 @@ export const useTasksStore = create<TasksState>()(
           dueDate: newTaskData.dueDate,
           completed: false,
           subtasks,
+          recurrence: newTaskData.recurrence ?? 'none',
         };
 
         set((state) => ({

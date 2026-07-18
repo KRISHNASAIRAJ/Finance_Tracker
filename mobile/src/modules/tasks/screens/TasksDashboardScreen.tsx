@@ -17,20 +17,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useTasksStore, Task } from '../store';
-import { useFinanceStore } from '../../finance/store';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
-import SidebarDrawer from '../../../shared/components/SidebarDrawer';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TasksDashboard'>;
 
 export default function TasksDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { tasks, toggleTaskCompleted } = useTasksStore();
-  const notifications = useFinanceStore((state) => state.notifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'upcoming' | 'done'>('all');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -51,23 +46,34 @@ export default function TasksDashboardScreen() {
 
     switch (activeTab) {
       case 'today':
-        return tasks.filter((t) => {
-          const d = new Date(t.dueDate);
-          d.setHours(0, 0, 0, 0);
-          return d.getTime() === today.getTime() && !t.completed;
-        });
+        return tasks
+          .filter((t) => {
+            if (!t.dueDate) return false;
+            const d = new Date(t.dueDate);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime() === today.getTime() && !t.completed;
+          })
+          .sort((a, b) => {
+            const order = { urgent: 0, high: 1, medium: 2, low: 3 };
+            return (order[a.priority] ?? 2) - (order[b.priority] ?? 2);
+          });
       case 'upcoming':
-        return tasks.filter((t) => new Date(t.dueDate) > today && !t.completed);
+        return tasks
+          .filter((t) => t.dueDate && new Date(t.dueDate) > today && !t.completed)
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
       case 'done':
-        return tasks.filter((t) => t.completed);
+        return tasks.filter((t) => t.completed).sort((a, b) => a.name.localeCompare(b.name));
       default:
-        return tasks.filter((t) => !t.completed); // Default show active tasks
+        return tasks
+          .filter((t) => !t.completed)
+          .sort((a, b) => new Date(a.dueDate ?? 0).getTime() - new Date(b.dueDate ?? 0).getTime());
     }
   };
 
   const renderTaskItem = ({ item }: { item: Task }) => {
-    const completedSubtasks = item.subtasks.filter((st) => st.completed).length;
-    const totalSubtasks = item.subtasks.length;
+    const subtasks = item.subtasks || [];
+    const completedSubtasks = subtasks.filter((st) => st.completed).length;
+    const totalSubtasks = subtasks.length;
 
     return (
       <TouchableOpacity
@@ -121,34 +127,6 @@ export default function TasksDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Shared slide-out left Drawer */}
-      <SidebarDrawer
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        navigation={navigation}
-      />
-
-      {/* Top Header */}
-      <View style={styles.appBar}>
-        <View style={styles.appBarLeft}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setSidebarOpen(true)}>
-            <Ionicons name="menu-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.logoText}>Meridian</Text>
-        </View>
-        <View style={styles.appBarRight}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="filter-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications' as any)}>
-            <View style={styles.notificationWrapper}>
-              <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-              {unreadCount > 0 && <View style={styles.notificationDot} />}
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Filter Tabs Segment */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -209,46 +187,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  appBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  appBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  notificationWrapper: {
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.error,
   },
   tabContainer: {
     flexDirection: 'row',

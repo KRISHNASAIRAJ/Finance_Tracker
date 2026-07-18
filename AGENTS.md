@@ -13,7 +13,7 @@
 | **App Name** | Meridian |
 | **Type** | Personal-use mobile app (Android-first) |
 | **Platform** | React Native (Android → iOS later) |
-| **Backend** | FastAPI (Python) |
+| **Backend** | Supabase Edge Functions (Deno/TypeScript) — no FastAPI (see ADR-008) |
 | **Database** | PostgreSQL (Supabase-hosted) + SQLite local cache |
 | **Auth** | Supabase Auth / JWT |
 | **AI Layer** | Claude API (Anthropic) — scoped assistants only |
@@ -51,24 +51,19 @@ krishnas-tracker/
 │   │   ├── store/             ← Zustand global state
 │   │   └── services/          ← API clients, local DB, notifications
 │   └── android/               ← Android native layer
-├── backend/                   ← FastAPI backend
-│   ├── app/
-│   │   ├── main.py            ← FastAPI app entry point
-│   │   ├── config.py          ← Settings / env vars
-│   │   ├── database.py        ← SQLAlchemy engine & session
-│   │   ├── routers/           ← API route handlers (7 routers)
-│   │   ├── services/          ← Business logic layer
-│   │   ├── models/            ← SQLAlchemy ORM models (15 models)
-│   │   ├── schemas/           ← Pydantic request/response schemas (15 schemas)
-│   │   ├── ai/                ← AI service wrappers (Claude API) [future]
-│   │   └── jobs/              ← Cron jobs (portfolio report) [future]
-│   ├── migrations/            ← Alembic migration files (wired up)
-│   ├── Procfile               ← Render deployment
-│   ├── render.yaml            ← Render blueprint (web + postgres)
-│   ├── requirements.txt
-│   ├── runtime.txt
-│   ├── alembic.ini
-│   └── tests/                 ← Pytest test suite
+├── supabase/                  ← Supabase project
+│   ├── config.toml             ← Supabase project config
+│   ├── migrations/            ← SQL migration files (replaces Alembic)
+│   │   ├── 0001_init.sql      ← All 14 tables
+│   │   ├── 0002_rls.sql       ← Row-Level Security policies
+│   │   └── ...                ← Per-phase add/drop migrations
+│   └── functions/             ← Deno Edge Functions (hold secrets)
+│       ├── _shared/claude.ts   ← Shared Claude API client
+│       ├── ai-tnc-query/       ← Card T&C RAG chat (Phase 6)
+│       ├── ai-portfolio-recommend/  ← Portfolio recommendations (Phase 6)
+│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5)
+│       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4, gated)
+│       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4)
 └── .env.example               ← Required environment variables
 ```
 
@@ -80,12 +75,12 @@ Always work within the current phase. Do NOT skip ahead.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | Foundation: scaffold, auth, DB schema, shared transactions table | ✅ DONE |
+| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟡 IN PROGRESS |
 | **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | ⬜ TODO |
 | **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | ⬜ TODO |
 | **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | ⬜ TODO |
-| **Phase 4** | SMS Auto-capture: listener, parser (rules + Claude fallback), confirm flow | ⬜ TODO |
-| **Phase 5** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM cron | ⬜ TODO |
+| **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | ⬜ TODO |
+| **Phase 5** | SMS Auto-capture: listener, parser (rules + Edge Function fallback), confirm flow | ⬜ TODO |
 | **Phase 6** | AI Assistants: Card T&C RAG chat, portfolio recommendation (goal-aware) | ⬜ TODO |
 | **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | ⬜ TODO |
 | **Phase 8** | Fitness Widget: Health Connect integration, steps widget | ⬜ TODO |
@@ -96,38 +91,32 @@ Always work within the current phase. Do NOT skip ahead.
 ## 4. Mandatory Conventions
 
 ### 4.1 General Rules
-- **TypeScript only** in the mobile layer — no plain JS files
-- **Pydantic v2** for all FastAPI request/response schemas
-- **Zod** for client-side schema validation on the mobile side
-- All dates stored as **UTC ISO-8601** strings in DB; display in IST (Asia/Kolkata)
-- All monetary amounts stored as **integers (paise/cents)** — never floats. Display layer handles formatting
+- **TypeScript only** — no plain JS files in mobile; all Edge Functions in Deno/TS
+- All dates stored as **UTC timestamps** in DB; display in IST (Asia/Kolkata)
+- All monetary amounts stored as **integers (paise/cents)** — never floats
 - **Never** commit `.env` files. Use `.env.example` with placeholder values
 
 ### 4.2 Naming Conventions
 | Layer | Convention | Example |
 |---|---|---|
 | DB tables | snake_case, plural | `transactions`, `credit_cards` |
-| SQLAlchemy models | PascalCase | `CreditCard`, `FuelFill` |
-| Pydantic schemas | PascalCase + suffix | `CreditCardCreate`, `CreditCardResponse` |
-| FastAPI routers | snake_case files | `routers/credit_cards.py` |
+| Supabase migrations | numbered, descriptive | `0001_init.sql`, `0004_add_vehicles.sql` |
+| Edge Functions | kebab-case directory | `ai-tnc-query/`, `kite-holdings-sync/` |
 | React Native screens | PascalCase + `Screen` | `FinanceDashboardScreen` |
 | React Native components | PascalCase | `TransactionCard`, `DonutChart` |
 | Zustand stores | camelCase + `Store` | `financeStore`, `portfolioStore` |
-| API endpoints | REST, kebab-case | `/api/v1/credit-cards/{id}` |
 
 ### 4.3 Module Boundaries
 Each module owns its own:
-- Router file (`backend/app/routers/<module>.py`)
-- Service file (`backend/app/services/<module>_service.py`)
-- ORM models (in `backend/app/models/`)
 - Screen files (`mobile/src/modules/<module>/screens/`)
-- Zustand slice or store (`mobile/src/modules/<module>/store.ts`)
+- Zustand store slice (`mobile/src/modules/<module>/store.ts`)
+- Supabase table(s) + RLS policies (in `supabase/migrations/`)
 
 Modules **share** only:
-- `transactions` table (via `linked_*_id` foreign keys)
+- `transactions` table (via `linked_*_id` columns)
 - `shared/` UI components
-- `services/api.ts` (base API client)
-- Auth context
+- `services/supabaseClient.ts` (central Supabase client)
+- `services/syncQueue.ts` (central sync queue)
 - Notification service
 
 ### 4.4 The Unified Transactions Spine
@@ -149,19 +138,12 @@ npm run test           # Run Jest tests
 npm run lint           # ESLint check
 npm run typecheck      # TypeScript check
 
-# --- BACKEND ---
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload     # Dev server (port 8000)
-alembic upgrade head              # Run DB migrations
-alembic revision --autogenerate -m "description"  # Create migration
-pytest                            # Run all tests
-pytest tests/<module>/            # Run module-specific tests
-
-# --- DATABASE ---
-# Supabase CLI (local dev)
-supabase start        # Start local Supabase stack
-supabase db reset     # Reset + re-seed local DB
+# --- SUPABASE ---
+supabase login         # Authenticate CLI (once)
+supabase link --project-ref rkmouoglorsnijmemmcd   # Link to project
+supabase db push       # Push migrations to Supabase Postgres
+supabase functions deploy <fn>    # Deploy an Edge Function
+supabase secrets set KEY=VALUE    # Set Edge Function secrets
 ```
 
 ---
@@ -170,10 +152,10 @@ supabase db reset     # Reset + re-seed local DB
 
 1. **Read phase first**: Check which phase is active in this file before writing code
 2. **Schema before screens**: Always define/migrate DB schema before building UI
-3. **API contract before implementation**: Write Pydantic schemas before writing business logic
-4. **Test the happy path**: Write at minimum one integration test per new endpoint
-5. **Do not modify `transactions` table structure** without updating `ARCHITECTURE.md` and creating an Alembic migration
-6. **All AI calls** must follow the rules in `SAFETY.md` — read it before touching `backend/app/ai/`
+3. **Write RLS policy before using table**: Every table read/written from mobile must have a RLS policy
+4. **Test the happy path**: Write at minimum one integration test per new feature
+5. **Do not modify `transactions` table structure** without updating `ARCHITECTURE.md` and creating a Supabase migration
+6. **All AI calls** must follow the rules in `SAFETY.md` — read it before touching `supabase/functions/`
 7. **Notification scheduling** must use `WorkManager`/`AlarmManager` (not JS timers) — see `docs/notification-flows.md`
 
 ---
@@ -199,8 +181,8 @@ supabase db reset     # Reset + re-seed local DB
 | Hard constraints | `BOUNDARIES.md` |
 | AI safety rules | `SAFETY.md` |
 | UI design system + screens | `DESIGN.md` ← **dark mode first; 16 canonical dark screens + 30 light legacy** |
-| API contracts | `docs/api-contracts.md` |
 | DB schema | `docs/db-schema.md` |
 | SMS parser spec | `docs/sms-parser-spec.md` |
 | Notification flows | `docs/notification-flows.md` |
 | Screen screenshots index | `docs/screens.md` |
+| Architecture decision (BaaS-first) | `ADR/ADR-008-baas-first.md` |

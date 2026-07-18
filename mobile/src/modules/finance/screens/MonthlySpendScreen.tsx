@@ -17,7 +17,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Transaction } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryIcon, getCategoryColor } from './AddExpenseScreen';
+import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'MonthlySpend'>;
 
@@ -30,7 +30,11 @@ export default function MonthlySpendScreen() {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const monthlyTxs = transactions.filter((tx) => new Date(tx.date) >= startOfMonth);
+  const EXCLUDED_CATEGORIES = ['Rent', 'SIP', 'Investments', 'Housing'];
+  const monthlyTxs = transactions
+    .filter((tx) => new Date(tx.date) >= startOfMonth)
+    .filter((tx) => tx.type !== 'fixed_expense')
+    .filter((tx) => !EXCLUDED_CATEGORIES.includes(tx.category));
   const totalSpend = monthlyTxs
     .filter((tx) => tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service')
     .reduce((sum, tx) => sum + tx.amount, 0);

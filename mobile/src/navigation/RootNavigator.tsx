@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
 import { useFinanceStore } from '../modules/finance/store';
@@ -26,10 +27,15 @@ import FixedExpensesScreen from '../modules/finance/screens/FixedExpensesScreen'
 import FinanceReportsScreen from '../modules/finance/screens/FinanceReportsScreen';
 import AllTransactionsScreen from '../modules/finance/screens/AllTransactionsScreen';
 import CreditCardsScreen from '../modules/finance/screens/CreditCardsScreen';
+import BalanceSummaryScreen from '../modules/finance/screens/BalanceSummaryScreen';
+import SmsConfirmationScreen from '../modules/finance/screens/SmsConfirmationScreen';
 
 import GarageDashboardScreen from '../modules/garage/screens/GarageDashboardScreen';
 import AddFuelFillScreen from '../modules/garage/screens/AddFuelFillScreen';
 import EditFuelFillScreen from '../modules/garage/screens/EditFuelFillScreen';
+import AllFuelFillsScreen from '../modules/garage/screens/AllFuelFillsScreen';
+import VehicleSpendScreen from '../modules/garage/screens/VehicleSpendScreen';
+import VehicleReportsScreen from '../modules/garage/screens/VehicleReportsScreen';
 
 import TasksDashboardScreen from '../modules/tasks/screens/TasksDashboardScreen';
 import TaskDetailScreen from '../modules/tasks/screens/TaskDetailScreen';
@@ -59,12 +65,30 @@ export type FinanceStackParamList = {
   FinanceReports: undefined;
   AllTransactions: undefined;
   CreditCards: undefined;
+  BalanceSummary: undefined;
+  SmsConfirmation: {
+    smsData: {
+      smsId?: string;
+      smsBody: string;
+      senderId: string;
+      parsedAmount: number | null;
+      parsedMerchant: string | null;
+      parsedCard: string | null;
+      parsedAccount: string | null;
+      parsedType: string | null;
+      confidence: number;
+      onDone?: () => void;
+    };
+  };
 };
 
 export type GarageStackParamList = {
   GarageDashboard: undefined;
   AddFuelFill: undefined;
   EditFuelFill: { fillId: string };
+  AllFuelFills: undefined;
+  VehicleSpend: undefined;
+  VehicleReports: undefined;
 };
 
 export type TasksStackParamList = {
@@ -112,38 +136,56 @@ const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
+const stackScreenOptions = {
+  headerShown: false,
+  animation: 'slide_from_right' as const,
+  contentStyle: { backgroundColor: colors.background },
+};
+
+const modalScreenOptions = {
+  headerShown: false,
+  animation: 'slide_from_bottom' as const,
+  presentation: 'modal' as const,
+  contentStyle: { backgroundColor: colors.background },
+};
+
 function FinanceStackNavigator() {
   return (
-    <FinanceStack.Navigator screenOptions={{ headerShown: false }}>
+    <FinanceStack.Navigator screenOptions={stackScreenOptions}>
       <FinanceStack.Screen name="FinanceHome" component={FinanceHomeScreen} />
-      <FinanceStack.Screen name="AddExpense" component={AddExpenseScreen} />
+      <FinanceStack.Screen name="AddExpense" component={AddExpenseScreen} options={modalScreenOptions} />
       <FinanceStack.Screen name="EditTransaction" component={EditTransactionScreen} />
       <FinanceStack.Screen name="BankAccounts" component={BankAccountsScreen} />
       <FinanceStack.Screen name="RecurringExpenses" component={RecurringExpensesScreen} />
       <FinanceStack.Screen name="LentBorrowed" component={LentBorrowedScreen} />
-      <FinanceStack.Screen name="ExpenseConfirmation" component={ExpenseConfirmationScreen} />
+      <FinanceStack.Screen name="ExpenseConfirmation" component={ExpenseConfirmationScreen} options={modalScreenOptions} />
       <FinanceStack.Screen name="MonthlySpend" component={MonthlySpendScreen} />
       <FinanceStack.Screen name="FixedExpenses" component={FixedExpensesScreen} />
       <FinanceStack.Screen name="FinanceReports" component={FinanceReportsScreen} />
       <FinanceStack.Screen name="AllTransactions" component={AllTransactionsScreen} />
       <FinanceStack.Screen name="CreditCards" component={CreditCardsScreen} />
+      <FinanceStack.Screen name="BalanceSummary" component={BalanceSummaryScreen} />
+      <FinanceStack.Screen name="SmsConfirmation" component={SmsConfirmationScreen} options={modalScreenOptions} />
     </FinanceStack.Navigator>
   );
 }
 
 function GarageStackNavigator() {
   return (
-    <GarageStack.Navigator screenOptions={{ headerShown: false }}>
+    <GarageStack.Navigator screenOptions={stackScreenOptions}>
       <GarageStack.Screen name="GarageDashboard" component={GarageDashboardScreen} />
       <GarageStack.Screen name="AddFuelFill" component={AddFuelFillScreen} />
       <GarageStack.Screen name="EditFuelFill" component={EditFuelFillScreen} />
+      <GarageStack.Screen name="AllFuelFills" component={AllFuelFillsScreen} />
+      <GarageStack.Screen name="VehicleSpend" component={VehicleSpendScreen} />
+      <GarageStack.Screen name="VehicleReports" component={VehicleReportsScreen} />
     </GarageStack.Navigator>
   );
 }
 
 function TasksStackNavigator() {
   return (
-    <TasksStack.Navigator screenOptions={{ headerShown: false }}>
+    <TasksStack.Navigator screenOptions={stackScreenOptions}>
       <TasksStack.Screen name="TasksDashboard" component={TasksDashboardScreen} />
       <TasksStack.Screen name="TaskDetail" component={TaskDetailScreen} />
       <TasksStack.Screen name="AddEditTask" component={AddEditTaskScreen} />
@@ -153,7 +195,7 @@ function TasksStackNavigator() {
 
 function InvestmentsStackNavigator() {
   return (
-    <InvestmentsStack.Navigator screenOptions={{ headerShown: false }}>
+    <InvestmentsStack.Navigator screenOptions={stackScreenOptions}>
       <InvestmentsStack.Screen name="InvestmentsDashboard" component={InvestmentsDashboardScreen} />
       <InvestmentsStack.Screen name="PortfolioHistory" component={PortfolioHistoryScreen} />
       <InvestmentsStack.Screen name="AIRecommendations" component={AIRecommendationsScreen} />
@@ -163,7 +205,7 @@ function InvestmentsStackNavigator() {
 
 function MoreStackNavigator() {
   return (
-    <MoreStack.Navigator screenOptions={{ headerShown: false }}>
+    <MoreStack.Navigator screenOptions={stackScreenOptions}>
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} />
       <MoreStack.Screen name="PersonalNotes" component={PersonalNotesScreen} />
       <MoreStack.Screen name="GoalsTracker" component={GoalsTrackerScreen} />
@@ -208,6 +250,7 @@ function TabNavigator() {
           fontWeight: '600',
         },
         headerShown: false,
+        animation: 'shift' as const,
       })}
     >
       <Tab.Screen
@@ -243,18 +286,24 @@ export default function RootNavigator() {
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+    <RootStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade' as const,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       {!isOnboarded ? (
         <>
           <RootStack.Screen name="WelcomeSplash" component={WelcomeSplashScreen} />
-          <RootStack.Screen name="NameEntry" component={NameEntryScreen} />
+          <RootStack.Screen name="NameEntry" component={NameEntryScreen} options={{ animation: 'slide_from_right' }} />
           <RootStack.Screen name="GoalSelection" component={GoalSelectionScreen} />
           <RootStack.Screen name="IdentityDetails" component={IdentityDetailsScreen} />
         </>
       ) : (
         <>
           <RootStack.Screen name="MainTabs" component={TabNavigator} />
-          <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+          <RootStack.Screen name="Notifications" component={NotificationsScreen} options={modalScreenOptions} />
         </>
       )}
     </RootStack.Navigator>

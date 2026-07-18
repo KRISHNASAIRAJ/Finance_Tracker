@@ -15,38 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
-
-const CATEGORY_COLOR_MAP: Record<string, string> = {
-  'food': '#fbbf24',
-  'food & dining': '#fbbf24',
-  'shopping': '#a855f7',
-  'lifestyle': '#a855f7',
-  'housing': '#3b82f6',
-  'rent': '#3b82f6',
-  'fuel': '#ef4444',
-  'vehicle': '#ef4444',
-  'salary': '#22c55e',
-  'freelance': '#22c55e',
-  'income': '#22c55e',
-};
-
-function getCategoryColor(cat: string): string {
-  const key = cat.toLowerCase();
-  for (const [k, v] of Object.entries(CATEGORY_COLOR_MAP)) {
-    if (key.includes(k)) return v;
-  }
-  return '#f97316';
-}
-
-function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap {
-  const cat = category.toLowerCase();
-  if (cat.includes('food')) return 'restaurant-outline';
-  if (cat.includes('shop') || cat.includes('life')) return 'shirt-outline';
-  if (cat.includes('house') || cat.includes('rent')) return 'home-outline';
-  if (cat.includes('fuel') || cat.includes('car') || cat.includes('vehicle')) return 'car-outline';
-  if (cat.includes('salary') || cat.includes('income') || cat.includes('freelance')) return 'cash-outline';
-  return 'receipt-outline';
-}
+import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 
 export default function FinanceReportsScreen() {
   const navigation = useNavigation();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,10 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +20,38 @@ import { usePersonalStore } from '../store';
 
 export default function RecipesLibraryScreen() {
   const navigation = useNavigation();
-  const { recipes } = usePersonalStore();
+  const { recipes, addRecipe } = usePersonalStore();
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [title, setTitle] = useState('');
+  const [prepTime, setPrepTime] = useState('');
+  const [calories, setCalories] = useState('');
+  const [ingredientsText, setIngredientsText] = useState('');
+  const [stepsText, setStepsText] = useState('');
+
+  const resetForm = () => {
+    setTitle('');
+    setPrepTime('');
+    setCalories('');
+    setIngredientsText('');
+    setStepsText('');
+  };
+
+  const handleSave = () => {
+    if (!title.trim()) {
+      alert('Please enter a recipe title');
+      return;
+    }
+    addRecipe({
+      title: title.trim(),
+      prepTime: prepTime.trim() || '—',
+      calories: calories.trim() || '—',
+      ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
+      steps: stepsText.split('\n').map((s) => s.trim()).filter(Boolean),
+    });
+    resetForm();
+    setModalVisible(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -26,10 +61,19 @@ export default function RecipesLibraryScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.logoText}>Recipes Library</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.fabSmall} onPress={() => setModalVisible(true)}>
+          <Ionicons name="add" size={22} color={colors.onPrimary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {recipes.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="restaurant-outline" size={48} color={colors.outline} />
+            <Text style={styles.emptyText}>No recipes yet</Text>
+            <Text style={styles.emptySubtext}>Tap + to add your first recipe</Text>
+          </View>
+        )}
         {recipes.map((recipe) => (
           <View key={recipe.id} style={styles.recipeCard}>
             <Text style={styles.recipeTitle}>{recipe.title}</Text>
@@ -73,6 +117,90 @@ export default function RecipesLibraryScreen() {
           </View>
         ))}
       </ScrollView>
+
+      {/* Add Recipe Modal */}
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Recipe</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>TITLE</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="e.g. High Protein Oats"
+                placeholderTextColor={colors.outline}
+                value={title}
+                onChangeText={setTitle}
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>PREP TIME</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. 10 mins"
+                  placeholderTextColor={colors.outline}
+                  value={prepTime}
+                  onChangeText={setPrepTime}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>CALORIES</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. 450 kcal"
+                  placeholderTextColor={colors.outline}
+                  value={calories}
+                  onChangeText={setCalories}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>INGREDIENTS (one per line)</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                placeholder="Oats (50g)&#10;Whey protein (30g)&#10;Almond milk (150ml)"
+                placeholderTextColor={colors.outline}
+                value={ingredientsText}
+                onChangeText={setIngredientsText}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>STEPS (one per line)</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                placeholder="Cook oats in almond milk.&#10;Stir in whey protein.&#10;Top with berries."
+                placeholderTextColor={colors.outline}
+                value={stepsText}
+                onChangeText={setStepsText}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel]}
+                onPress={() => { resetForm(); setModalVisible(false); }}
+              >
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleSave}>
+                <Text style={styles.modalBtnTextSave}>Save Recipe</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -81,6 +209,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',
@@ -95,10 +224,34 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.onSurface,
+    flex: 1,
+    textAlign: 'center',
   },
   iconButton: {
     padding: 8,
     borderRadius: rounded.full,
+  },
+  fabSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: colors.outline,
   },
   scrollContent: {
     padding: spacing.containerPadding,
@@ -177,5 +330,80 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.onSurface,
     lineHeight: 18,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    gap: 16,
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  textInput: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 44,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+  },
+  modalBtnCancel: {
+    backgroundColor: 'transparent',
+  },
+  modalBtnSave: {
+    backgroundColor: colors.primaryContainer,
+  },
+  modalBtnTextCancel: {
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+  },
+  modalBtnTextSave: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '700',
   },
 });

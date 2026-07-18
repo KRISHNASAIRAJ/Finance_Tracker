@@ -9,6 +9,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,12 +17,18 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useTasksStore } from '../store';
+import { useTasksStore, RecurrenceType } from '../store';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'AddEditTask'>;
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
+const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
+  { value: 'none', label: 'None', icon: 'close-circle-outline' },
+  { value: 'daily', label: 'Daily', icon: 'sunny-outline' },
+  { value: 'weekly', label: 'Weekly', icon: 'calendar-outline' },
+  { value: 'monthly', label: 'Monthly', icon: 'calendar-number-outline' },
+];
 
 export default function AddEditTaskScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -30,9 +37,10 @@ export default function AddEditTaskScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<typeof PRIORITIES[number]>('medium');
+  const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
   const [subtaskInput, setSubtaskInput] = useState('');
   const [localSubtasks, setLocalSubtasks] = useState<string[]>([]);
-  const [daysOffset, setDaysOffset] = useState('1'); // Days from today default
+  const [daysOffset, setDaysOffset] = useState('1');
 
   const handleAddSubtask = () => {
     if (!subtaskInput.trim()) return;
@@ -60,6 +68,7 @@ export default function AddEditTaskScreen() {
       priority,
       dueDate: dueDate.toISOString(),
       subtasks: localSubtasks,
+      recurrence,
     });
 
     navigation.goBack();
@@ -88,10 +97,10 @@ export default function AddEditTaskScreen() {
           {/* Header */}
           <View style={styles.formHeader}>
             <Text style={styles.headerTitle}>Create Task</Text>
-            <Text style={styles.headerSubtitle}>Set priorities and milestones</Text>
+            <Text style={styles.headerSubtitle}>Set priorities, milestones, and recurrence</Text>
           </View>
 
-          {/* Name & Desc */}
+          {/* Name */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>TASK NAME</Text>
             <TextInput
@@ -103,6 +112,7 @@ export default function AddEditTaskScreen() {
             />
           </View>
 
+          {/* Description */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>DESCRIPTION</Text>
             <TextInput
@@ -119,7 +129,7 @@ export default function AddEditTaskScreen() {
           {/* Priority Select */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>PRIORITY LEVEL</Text>
-            <View style={styles.priorityRow}>
+            <View style={styles.chipRow}>
               {PRIORITIES.map((p) => {
                 const isSelected = priority === p;
                 const dotColor = getPriorityColor(p);
@@ -127,13 +137,13 @@ export default function AddEditTaskScreen() {
                   <TouchableOpacity
                     key={p}
                     style={[
-                      styles.priorityChip,
+                      styles.chip,
                       isSelected && { backgroundColor: `${dotColor}25`, borderColor: dotColor },
                     ]}
                     onPress={() => setPriority(p)}
                   >
                     <View style={[styles.priorityDot, { backgroundColor: dotColor }]} />
-                    <Text style={[styles.priorityText, isSelected && { color: '#ffffff', fontWeight: 'bold' }]}>
+                    <Text style={[styles.chipText, isSelected && { color: '#ffffff', fontWeight: 'bold' }]}>
                       {p.toUpperCase()}
                     </Text>
                   </TouchableOpacity>
@@ -142,7 +152,33 @@ export default function AddEditTaskScreen() {
             </View>
           </View>
 
-          {/* Due date relative offset */}
+          {/* Recurrence Picker */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>RECURRENCE</Text>
+            <View style={styles.chipRow}>
+              {RECURRENCES.map((r) => {
+                const isSelected = recurrence === r.value;
+                return (
+                  <TouchableOpacity
+                    key={r.value}
+                    style={[styles.chip, isSelected && styles.chipActive]}
+                    onPress={() => setRecurrence(r.value)}
+                  >
+                    <Ionicons
+                      name={r.icon as any}
+                      size={14}
+                      color={isSelected ? colors.primary : colors.onSurfaceVariant}
+                    />
+                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                      {r.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Due date */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>DUE DATE (DAYS FROM TODAY)</Text>
             <TextInput
@@ -172,7 +208,7 @@ export default function AddEditTaskScreen() {
               </TouchableOpacity>
             </View>
 
-            {localSubtasks.length > 0 ? (
+            {localSubtasks.length > 0 && (
               <View style={styles.subtaskList}>
                 {localSubtasks.map((st, index) => (
                   <View key={index} style={styles.subtaskRow}>
@@ -186,7 +222,7 @@ export default function AddEditTaskScreen() {
                   </View>
                 ))}
               </View>
-            ) : null}
+            )}
           </View>
 
           {/* Buttons */}
@@ -216,6 +252,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   keyboardView: {
     flex: 1,
@@ -260,12 +297,12 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
-  priorityRow: {
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  priorityChip: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -276,15 +313,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: rounded.full,
   },
+  chipActive: {
+    backgroundColor: `${colors.primary}25`,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  chipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
   priorityDot: {
     width: 6,
     height: 6,
     borderRadius: rounded.full,
-  },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
   },
   subtaskBuilderRow: {
     flexDirection: 'row',

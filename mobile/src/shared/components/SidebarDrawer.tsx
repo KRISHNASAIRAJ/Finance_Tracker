@@ -9,11 +9,13 @@ import {
   TouchableWithoutFeedback,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { spacing, rounded } from '../theme/spacing';
-import { useFinanceStore } from '../../modules/finance/store';
+import { useFinanceStore, getMinBalanceForAccount } from '../../modules/finance/store';
+import { triggerBackupNow } from '../../services/backupScheduler';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = width * 0.78;
@@ -30,13 +32,14 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
 
   const {
     onboardingName,
+    updateOnboardingName,
     accounts,
     fixedExpenses,
     cards,
     receivables,
   } = useFinanceStore();
 
-  // Calculations
+  // Calculations — match FinanceHomeScreen formula exactly
   const displayName = onboardingName || 'Meridian User';
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
@@ -48,8 +51,39 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
     .filter((f) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum, f) => sum + f.amount, 0);
   const totalCardBills = cards.reduce((sum, c) => sum + c.balance, 0);
+  const deficitsSum = accounts.reduce((sum, acc) => {
+    const min = getMinBalanceForAccount(acc.title);
+    return sum + (acc.amount < min ? min - acc.amount : 0);
+  }, 0);
   
-  const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - totalCardBills;
+  const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - totalCardBills - deficitsSum;
+
+  // Name edit state
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [nameInput, setNameInput] = useState(onboardingName);
+
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed.length > 0) {
+      updateOnboardingName(trimmed);
+    }
+    setNameModalOpen(false);
+  };
+
+  // Backup state
+  const [backupStatus, setBackupStatus] = useState<'idle' | 'backing_up' | 'done' | 'error'>('idle');
+
+  const handleBackup = async () => {
+    setBackupStatus('backing_up');
+    try {
+      await triggerBackupNow();
+      setBackupStatus('done');
+      setTimeout(() => setBackupStatus('idle'), 3000);
+    } catch {
+      setBackupStatus('error');
+      setTimeout(() => setBackupStatus('idle'), 3000);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -101,7 +135,7 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
         {/* Sidebar Left Sliding Panel */}
         <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
           {/* User Profile Header */}
-          <View style={styles.profileSection}>
+          <TouchableOpacity style={styles.profileSection} onPress={() => { setNameInput(onboardingName); setNameModalOpen(true); }} activeOpacity={0.7}>
             <View style={styles.avatar}>
               <Ionicons name="person" size={24} color="#ffffff" />
             </View>
@@ -109,7 +143,8 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
               <Text style={styles.greeting}>Hello,</Text>
               <Text style={styles.username} numberOfLines={1}>{displayName}</Text>
             </View>
-          </View>
+            <Ionicons name="pencil" size={14} color="#9a8fb5" />
+          </TouchableOpacity>
 
           {/* Net Worth Overview Widget */}
           <View style={styles.netWorthWidget}>
@@ -149,11 +184,59 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
             </TouchableOpacity>
           </View>
 
+          {/* Backup Section */}
+          <View style={styles.backupSection}>
+            <TouchableOpacity
+              style={[styles.backupBtn, backupStatus === 'backing_up' && { opacity: 0.6 }]}
+              onPress={handleBackup}
+              disabled={backupStatus === 'backing_up'}
+              activeOpacity={0.8}
+            >
+              {backupStatus === 'backing_up' ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : backupStatus === 'done' ? (
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+              ) : backupStatus === 'error' ? (
+                <Ionicons name="alert-circle" size={18} color="#ef4444" />
+              ) : (
+                <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+              )}
+              <Text style={styles.backupBtnText}>
+                {backupStatus === 'backing_up' ? 'Backing up...' : backupStatus === 'done' ? 'Backup saved' : backupStatus === 'error' ? 'Backup failed' : 'Backup Now'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.drawerFooter}>
             <Text style={styles.versionText}>Meridian Tracker v1.0.0</Text>
           </View>
         </Animated.View>
       </View>
+
+      {/* Name Edit Modal */}
+      <Modal transparent visible={nameModalOpen} animationType="fade" onRequestClose={() => setNameModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Name</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="Your name"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setNameModalOpen(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnAdd]} onPress={handleSaveName}>
+                <Text style={styles.modalBtnAddText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -321,6 +404,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#ccc3d8',
     opacity: 0.4,
+  },
+  backupSection: {
+    paddingBottom: 8,
+  },
+  backupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(124, 58, 237, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.25)',
+  },
+  backupBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#e8dfee',
   },
   modalOverlay: {
     flex: 1,

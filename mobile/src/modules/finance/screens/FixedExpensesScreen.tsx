@@ -15,10 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 
 export default function FixedExpensesScreen() {
   const navigation = useNavigation();
-  const { fixedExpenses, markFixedExpensePaid } = useFinanceStore();
+  const { user } = useAuth();
+  const { fixedExpenses, markFixedExpensePaid, unmarkFixedExpensePaid } = useFinanceStore();
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -87,14 +89,18 @@ export default function FixedExpensesScreen() {
                   <View style={styles.itemRight}>
                     <Text style={styles.itemAmount}>{formatCurrency(item.amount)}</Text>
                     {isPaid ? (
-                      <View style={styles.paidBadge}>
+                      <TouchableOpacity
+                        style={styles.paidBadge}
+                        onPress={() => unmarkFixedExpensePaid(item.id, user?.id)}
+                        activeOpacity={0.8}
+                      >
                         <Ionicons name="checkmark-circle" size={12} color="#ffffff" />
                         <Text style={styles.paidBadgeText}>Paid</Text>
-                      </View>
+                      </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
                         style={styles.payButton}
-                        onPress={() => markFixedExpensePaid(item.id)}
+                        onPress={() => markFixedExpensePaid(item.id, user?.id)}
                         activeOpacity={0.8}
                       >
                         <Text style={styles.payButtonText}>Pay</Text>
@@ -224,6 +230,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
+  },
+  unpayButton: {
+    backgroundColor: `${colors.error}14`,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: `${colors.error}28`,
+  },
+  unpayButtonText: {
+    color: colors.error,
+    fontSize: 11,
+    fontWeight: '600',
   },
   paidBadge: {
     flexDirection: 'row',

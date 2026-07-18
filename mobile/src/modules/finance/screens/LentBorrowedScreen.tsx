@@ -17,10 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Receivable } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
   const { receivables, addReceivable, editReceivable, deleteReceivable } = useFinanceStore();
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'lent' | 'borrowed'>('lent');
   const [modalVisible, setModalVisible] = useState(false);
@@ -97,7 +99,7 @@ export default function LentBorrowedScreen() {
         note: notes.trim(),
         dueDate: selectedDate.toISOString(),
         type: entryType,
-      });
+      }, user?.id);
     } else {
       addReceivable({
         personName: personName.trim(),
@@ -105,7 +107,7 @@ export default function LentBorrowedScreen() {
         note: notes.trim(),
         dueDate: selectedDate.toISOString(),
         type: entryType,
-      });
+      }, user?.id);
     }
 
     setModalVisible(false);
@@ -113,7 +115,7 @@ export default function LentBorrowedScreen() {
 
   const handleDelete = () => {
     if (selectedItem) {
-      deleteReceivable(selectedItem.id);
+      deleteReceivable(selectedItem.id, user?.id);
       setModalVisible(false);
     }
   };

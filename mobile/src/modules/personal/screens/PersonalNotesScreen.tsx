@@ -7,21 +7,24 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { usePersonalStore } from '../store';
+import { usePersonalStore, Note } from '../store';
 
 export default function PersonalNotesScreen() {
   const navigation = useNavigation();
-  const { notes, addNote, deleteNote } = usePersonalStore();
+  const { notes, addNote, deleteNote, updateNote } = usePersonalStore();
 
   const [titleInput, setTitleInput] = useState('');
   const [contentInput, setContentInput] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
 
   const handleAddNote = () => {
     if (!titleInput.trim() || !contentInput.trim()) {
@@ -31,26 +34,52 @@ export default function PersonalNotesScreen() {
     addNote(titleInput.trim(), contentInput.trim());
     setTitleInput('');
     setContentInput('');
-    setIsEditing(false);
+    setIsCreating(false);
+  };
+
+  const handleEditNote = () => {
+    if (!editingNote) return;
+    if (!titleInput.trim() || !contentInput.trim()) {
+      alert('Please fill out both title and content');
+      return;
+    }
+    updateNote(editingNote.id, titleInput.trim(), contentInput.trim());
+    setTitleInput('');
+    setContentInput('');
+    setEditingNote(null);
+  };
+
+  const startEdit = (note: Note) => {
+    setTitleInput(note.title);
+    setContentInput(note.content);
+    setEditingNote(note);
+    setIsCreating(false);
+  };
+
+  const cancelAll = () => {
+    setTitleInput('');
+    setContentInput('');
+    setIsCreating(false);
+    setEditingNote(null);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* AppBar */}
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.logoText}>Personal Notes</Text>
-        <TouchableOpacity style={styles.iconButton} onPress={() => setIsEditing(!isEditing)}>
-          <Ionicons name={isEditing ? "close-outline" : "create-outline"} size={22} color={colors.primary} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => { cancelAll(); setIsCreating(!isCreating); }}>
+          <Ionicons name={editingNote || isCreating ? "close-outline" : "create-outline"} size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Note Creator Form */}
-        {isEditing ? (
+        {/* Create / Edit Form */}
+        {(isCreating || editingNote) && (
           <View style={styles.creatorCard}>
+            <Text style={styles.formTitle}>{editingNote ? 'Edit Note' : 'New Note'}</Text>
             <TextInput
               style={styles.titleInput}
               placeholder="Note Title"
@@ -67,23 +96,38 @@ export default function PersonalNotesScreen() {
               value={contentInput}
               onChangeText={setContentInput}
             />
-            <TouchableOpacity style={styles.saveButton} onPress={handleAddNote}>
-              <Text style={styles.saveText}>Save Note</Text>
-            </TouchableOpacity>
+            <View style={styles.formActions}>
+              <TouchableOpacity style={styles.saveButton} onPress={editingNote ? handleEditNote : handleAddNote}>
+                <Text style={styles.saveText}>{editingNote ? 'Update' : 'Save Note'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={cancelAll}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : null}
+        )}
 
         {/* Notes Grid */}
         <View style={styles.notesList}>
           {notes.map((n) => (
-            <View key={n.id} style={styles.noteCard}>
+            <TouchableOpacity
+              key={n.id}
+              style={styles.noteCard}
+              onPress={() => startEdit(n)}
+              activeOpacity={0.8}
+            >
               <View style={styles.noteHeader}>
                 <Text style={styles.noteTitle}>{n.title}</Text>
-                <TouchableOpacity onPress={() => deleteNote(n.id)}>
-                  <Ionicons name="trash-outline" size={16} color={colors.error} />
-                </TouchableOpacity>
+                <View style={styles.noteActions}>
+                  <TouchableOpacity onPress={() => startEdit(n)} style={styles.noteActionBtn}>
+                    <Ionicons name="create-outline" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteNote(n.id)} style={styles.noteActionBtn}>
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.noteContent}>{n.content}</Text>
+              <Text style={styles.noteContent} numberOfLines={3}>{n.content}</Text>
               <Text style={styles.noteDate}>
                 {new Date(n.date).toLocaleDateString('en-IN', {
                   day: 'numeric',
@@ -92,7 +136,7 @@ export default function PersonalNotesScreen() {
                   minute: '2-digit',
                 })}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -104,6 +148,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',
@@ -136,6 +181,11 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  formTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
   titleInput: {
     fontSize: 16,
     fontWeight: '700',
@@ -150,7 +200,12 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     height: 80,
   },
+  formActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   saveButton: {
+    flex: 1,
     backgroundColor: colors.primaryContainer,
     paddingVertical: 12,
     borderRadius: rounded.DEFAULT,
@@ -159,6 +214,18 @@ const styles = StyleSheet.create({
   saveText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  cancelText: {
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
   },
   notesList: {
     gap: 16,
@@ -180,6 +247,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.onSurface,
+    flex: 1,
+  },
+  noteActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  noteActionBtn: {
+    padding: 6,
   },
   noteContent: {
     fontSize: 13,

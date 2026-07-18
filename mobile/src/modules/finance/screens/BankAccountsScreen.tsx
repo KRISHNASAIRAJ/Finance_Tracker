@@ -17,10 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, BankAccount, getMinBalanceForAccount } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 
 export default function BankAccountsScreen() {
   const navigation = useNavigation();
   const { accounts, getTotalBalance, editAccountBalance } = useFinanceStore();
+  const { user } = useAuth();
 
   const [selectedAcc, setSelectedAcc] = useState<BankAccount | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -48,7 +50,7 @@ export default function BankAccountsScreen() {
       alert('Please enter a valid balance');
       return;
     }
-    editAccountBalance(selectedAcc.id, Math.round(rawVal * 100));
+    editAccountBalance(selectedAcc.id, Math.round(rawVal * 100), user?.id);
     setModalVisible(false);
     setSelectedAcc(null);
   };

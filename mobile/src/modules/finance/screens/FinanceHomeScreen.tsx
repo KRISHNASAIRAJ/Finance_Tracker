@@ -19,8 +19,9 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Transaction, getMinBalanceForAccount, CreditCard } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryIcon, getCategoryColor } from './AddExpenseScreen';
-import SidebarDrawer from '../../../shared/components/SidebarDrawer';
+import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { useFinanceSync, queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
+import { useAuth } from '../../../services/AuthProvider';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -98,6 +99,7 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: CalendarPicker
 
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { user } = useAuth();
   const {
     transactions,
     cards,
@@ -107,14 +109,9 @@ export default function FinanceHomeScreen() {
     getTotalBalance,
     getMonthlyExpenses,
     editCard,
-    notifications,
-    payzappLoads,
-    addPayzappLoad,
   } = useFinanceStore();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [payzappModalOpen, setPayzappModalOpen] = useState(false);
-  const [payzappInputAmount, setPayzappInputAmount] = useState('');
+  const { loading: syncing } = useFinanceSync();
 
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
@@ -124,8 +121,8 @@ export default function FinanceHomeScreen() {
 
   const openEdit = (card: CreditCard) => {
     setEditingCard(card);
-    setBalanceInput((card.balance / 100).toString());
-    setDueDate(new Date(card.dueDate));
+    setBalanceInput(((card.balance || 0) / 100).toString());
+    setDueDate(card.dueDate ? new Date(card.dueDate) : new Date());
   };
 
   const handleSave = () => {
@@ -133,21 +130,14 @@ export default function FinanceHomeScreen() {
     const balance = Math.round(parseFloat(balanceInput) * 100);
     if (isNaN(balance)) { alert('Enter a valid amount'); return; }
 
+    const updated = { balance, dueDate: dueDate.toISOString() };
     if (typeof editCard === 'function') {
-      editCard(editingCard.id, { balance, dueDate: dueDate.toISOString() });
+      editCard(editingCard.id, updated);
+    }
+    if (user) {
+      queueCardSync(user.id, 'update', { id: editingCard.id, ...updated });
     }
     setEditingCard(null);
-  };
-
-  const handleAddPayzapp = () => {
-    const rawVal = parseFloat(payzappInputAmount);
-    if (isNaN(rawVal) || rawVal <= 0) {
-      alert('Please enter a valid amount');
-      return;
-    }
-    addPayzappLoad(Math.round(rawVal * 100));
-    setPayzappInputAmount('');
-    setPayzappModalOpen(false);
   };
 
   const totalBalance = getTotalBalance();
@@ -209,51 +199,17 @@ export default function FinanceHomeScreen() {
 
 
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* Shared slide-out left Drawer */}
-      <SidebarDrawer
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        navigation={navigation}
-      />
-
-      {/* Top Header */}
-      <View style={styles.appBar}>
-        <View style={styles.appBarLeft}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setSidebarOpen(true)}>
-            <Ionicons name="menu-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.logoText}>Meridian</Text>
-        </View>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications' as any)}>
-          <View style={styles.notificationWrapper}>
-            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-            {unreadCount > 0 && <View style={styles.notificationDot} />}
-          </View>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Total Net Worth Section (Links to Bank Accounts) */}
+        {/* Balance Summary Section */}
         <TouchableOpacity
           style={styles.netWorthContainer}
-          onPress={() => navigation.navigate('BankAccounts')}
+          onPress={() => navigation.navigate('BalanceSummary')}
           activeOpacity={0.9}
         >
-          <View style={styles.rowBetween}>
-            <View>
-              <Text style={styles.netWorthLabel}>Total Net Worth</Text>
-              <Text style={styles.netWorthValue}>{formatCurrency(totalNetWorth)}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={colors.onSurfaceVariant} />
-          </View>
-          <View style={styles.trendBadge}>
-            <Ionicons name="trending-up" size={14} color={colors.success} />
-            <Text style={styles.trendText}>+12.4% (30d)</Text>
-          </View>
+          <Text style={styles.netWorthLabel}>Balance Summary</Text>
+          <Text style={styles.netWorthValue}>{formatCurrency(totalNetWorth)}</Text>
         </TouchableOpacity>
 
         {/* Bento Grid Summaries */}
@@ -329,89 +285,27 @@ export default function FinanceHomeScreen() {
             </View>
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.bentoLabel}>Fixed Expenses</Text>
-                <Text style={styles.bentoValue}>{formatCurrency(fixedExpensesTotal)}</Text>
+                <View style={styles.fixedHeaderRow}>
+                  <Text style={styles.bentoLabel}>Fixed Expenses</Text>
+                  {unpaidFixedExpensesTotal > 0 ? (
+                    <View style={styles.statusPill}>
+                      <Text style={styles.statusPillText}>
+                        {fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} paid
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.statusPill, { backgroundColor: `${colors.success}18`, borderColor: `${colors.success}30` }]}>
+                      <Text style={[styles.statusPillText, { color: colors.success }]}>All paid</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.bentoValue}>{formatCurrency(unpaidFixedExpensesTotal)}</Text>
+                <Text style={styles.bentoValueSecondary}>of {formatCurrency(fixedExpensesTotal)} total</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
             </View>
           </TouchableOpacity>
         </View>
-
-        {/* Payzapp Wallet Load Tracker Card */}
-        <View style={styles.payzappCard}>
-          <View style={styles.rowBetween}>
-            <View style={styles.payzappRowItem}>
-              <Ionicons name="card" size={20} color="#facc15" style={{ marginRight: 8 }} />
-              <Text style={styles.payzappCardTitle}>Payzapp Wallet Load</Text>
-            </View>
-            <TouchableOpacity style={styles.payzappAddBtn} onPress={() => setPayzappModalOpen(true)}>
-              <Ionicons name="add" size={18} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-
-          {(() => {
-            const payzappTotal = payzappLoads.reduce((sum, item) => sum + item.amount, 0);
-            const payzappTarget = 4000000; // ₹40,000 in paise
-            const payzappPercent = Math.min(payzappTotal / payzappTarget, 1);
-            return (
-              <View style={styles.payzappContent}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.payzappValue}>
-                    {formatCurrency(payzappTotal)}
-                    <Text style={styles.payzappMax}> / ₹40,000</Text>
-                  </Text>
-                  <Text style={styles.payzappPercentText}>
-                    {Math.round(payzappPercent * 100)}%
-                  </Text>
-                </View>
-                {/* Progress bar */}
-                <View style={styles.payzappProgressBarBg}>
-                  <View style={[styles.payzappProgressBarFill, { width: `${payzappPercent * 100}%` }]} />
-                </View>
-                <Text style={styles.payzappNote}>
-                  Load ₹40,000 to earn ₹400 cashback. Remaining: {formatCurrency(Math.max(0, payzappTarget - payzappTotal))}
-                </Text>
-              </View>
-            );
-          })()}
-        </View>
-
-        {/* Payzapp Load Modal */}
-        <Modal
-          visible={payzappModalOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPayzappModalOpen(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add Payzapp Wallet Load</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Amount loaded (e.g. 5000)"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                keyboardType="numeric"
-                value={payzappInputAmount}
-                onChangeText={setPayzappInputAmount}
-                autoFocus
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalBtnCancel]}
-                  onPress={() => setPayzappModalOpen(false)}
-                >
-                  <Text style={styles.modalBtnTextCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalBtnSave]}
-                  onPress={handleAddPayzapp}
-                >
-                  <Text style={styles.modalBtnTextSave}>Add Load</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* Expense Distribution Card (Clickable) */}
         <TouchableOpacity
@@ -516,7 +410,7 @@ export default function FinanceHomeScreen() {
                       <Text style={styles.cardBalanceValue}>{formatCurrency(card.balance)}</Text>
                     </View>
                     <Text style={styles.cardDueDate}>
-                      Due {new Date(card.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      Due {(card.dueDate ? new Date(card.dueDate) : new Date()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -541,7 +435,9 @@ export default function FinanceHomeScreen() {
             )}
           </View>
           <View style={styles.activityList}>
-            {(isExpanded ? transactions : transactions.slice(0, 5)).map((tx: any) => {
+            {(isExpanded ? transactions : transactions.slice(0, 5))
+              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .map((tx: any) => {
               const isIncome = tx.type === 'income';
               const catColor = getCategoryColor(tx.category, isIncome);
               return (
@@ -769,6 +665,31 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: colors.onSurface,
+  },
+  bentoValueSecondary: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginTop: 1,
+    fontWeight: '400',
+  },
+  fixedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: rounded.full,
+    backgroundColor: `${colors.error}14`,
+    borderWidth: 1,
+    borderColor: `${colors.error}28`,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.error,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -1066,66 +987,6 @@ const styles = StyleSheet.create({
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
-  // Payzapp Load styles
-  payzappCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  payzappCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  payzappRowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  payzappAddBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payzappContent: {
-    marginTop: 12,
-  },
-  payzappValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  payzappMax: {
-    fontSize: 14,
-    color: colors.onSurfaceVariant,
-    fontWeight: '400',
-  },
-  payzappPercentText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  payzappProgressBarBg: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 3,
-    marginVertical: 8,
-    overflow: 'hidden',
-  },
-  payzappProgressBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
-  payzappNote: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    opacity: 0.8,
-  },
   // Calendar styles integrated into styles
   calOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
   calCard: {

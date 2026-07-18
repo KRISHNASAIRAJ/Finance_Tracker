@@ -6,6 +6,8 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -14,19 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
-import { useFinanceStore } from '../../finance/store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
-import SidebarDrawer from '../../../shared/components/SidebarDrawer';
 
 type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'InvestmentsDashboard'>;
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { holdings, goals, getPortfolioValue } = useInvestmentsStore();
-  const notifications = useFinanceStore((state) => state.notifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const portfolioValue = getPortfolioValue();
 
   const formatCurrency = (paise: number) => {
@@ -45,37 +41,6 @@ export default function InvestmentsDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Shared slide-out left Drawer */}
-      <SidebarDrawer
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        navigation={navigation}
-      />
-
-      {/* Top Header */}
-      <View style={styles.appBar}>
-        <View style={styles.appBarLeft}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setSidebarOpen(true)}>
-            <Ionicons name="menu-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.logoText}>Investments</Text>
-        </View>
-        <View style={styles.appBarRight}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => navigation.navigate('PortfolioHistory')}
-          >
-            <Ionicons name="time-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications' as any)}>
-            <View style={styles.notificationWrapper}>
-              <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-              {unreadCount > 0 && <View style={styles.notificationDot} />}
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Portfolio Value Hero */}
         <View style={styles.heroCard}>
@@ -179,46 +144,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  appBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  appBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  notificationWrapper: {
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.error,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   scrollContent: {
     padding: spacing.containerPadding,

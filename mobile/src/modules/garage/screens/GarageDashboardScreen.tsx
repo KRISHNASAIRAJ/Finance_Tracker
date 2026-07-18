@@ -17,21 +17,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore, FuelFill } from '../store';
-import { useFinanceStore } from '../../finance/store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import Svg, { Path, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
-import SidebarDrawer from '../../../shared/components/SidebarDrawer';
+
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'GarageDashboard'>;
+
+function getStationIcon(station?: string) {
+  if (!station) return { type: 'generic' as const, bg: `${colors.primary}15`, color: colors.primary, label: '⛽' };
+  const up = station.toUpperCase();
+  if (up.includes('HPCL') || up.includes('HP ')) {
+    return { type: 'brand' as const, bg: '#e74c3c18', color: '#e74c3c', label: 'HP' };
+  }
+  if (up.includes('BPCL') || up.includes('BP ')) {
+    return { type: 'brand' as const, bg: '#2ecc7118', color: '#2ecc71', label: 'BP' };
+  }
+  if (up.includes('IOCL') || up.includes('IO ')) {
+    return { type: 'brand' as const, bg: '#3498db18', color: '#3498db', label: 'IO' };
+  }
+  return { type: 'generic' as const, bg: `${colors.primary}15`, color: colors.primary, label: '⛽' };
+}
 
 export default function GarageDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, fills, maintenance, getVehicleSpendTotal } = useGarageStore();
-  const notifications = useFinanceStore((state) => state.notifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chartView, setChartView] = useState<'latest' | 'overall'>('latest');
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
 
@@ -45,59 +56,74 @@ export default function GarageDashboardScreen() {
   const totalFuelSpend = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
 
-  const getAvgMileageText = () => {
-    if (vehicleFills.length < 2) return 'N/A';
-    const sortedFills = [...vehicleFills].sort((a, b) => a.odometer - b.odometer);
-    const dist = sortedFills[sortedFills.length - 1].odometer - sortedFills[0].odometer;
-    const fuel = sortedFills.slice(1).reduce((sum, f) => sum + f.liters, 0);
-    if (fuel === 0) return 'N/A';
-    return (dist / fuel).toFixed(1);
-  };
-
-  // Per-fill mileage for chart (sorted oldest → newest)
   const sortedForChart = [...vehicleFills].sort((a, b) => a.odometer - b.odometer);
-  const perFillMileage: number[] = [];
+
+  // Per-fill mileage (distance since last fill / fuel at that fill)
+  const perFillMileage: { value: number; fill: FuelFill }[] = [];
   for (let i = 1; i < sortedForChart.length; i++) {
-    const dist = sortedForChart[i].odometer - sortedForChart[i - 1].odometer;
+    const prevOdo = sortedForChart[i - 1].odometer;
+    const currOdo = sortedForChart[i].odometer;
+    if (typeof prevOdo !== 'number' || typeof currOdo !== 'number') continue;
+    const dist = currOdo - prevOdo;
+    if (dist <= 0) continue;
     const fuel = sortedForChart[i].liters;
-    if (fuel > 0) perFillMileage.push(parseFloat((dist / fuel).toFixed(1)));
+    if (fuel > 0) {
+      perFillMileage.push({ value: parseFloat((dist / fuel).toFixed(1)), fill: sortedForChart[i] });
+    }
   }
 
-  const avgMileageNum = getAvgMileageText();
-  const overallAvgVal = avgMileageNum !== 'N/A' ? parseFloat(avgMileageNum) : 0;
+  // Latest Fill Mileage: average of last 3 per-fill mileage values
+  const latestFillMileage = (() => {
+    if (perFillMileage.length === 0) return 'N/A';
+    const last3 = perFillMileage.slice(-3);
+    const avg = last3.reduce((sum, p) => sum + p.value, 0) / last3.length;
+    return avg.toFixed(1);
+  })();
 
-  const latestData = perFillMileage.length >= 2 ? perFillMileage.slice(-6) : [];
-  const chartData = chartView === 'latest'
-    ? latestData
-    : overallAvgVal > 0
-      ? [overallAvgVal, overallAvgVal, overallAvgVal, overallAvgVal, overallAvgVal, overallAvgVal]
-      : latestData;
+  // Overall Mileage: total distance / total fuel across all fills
+  const overallMileage = (() => {
+    if (sortedForChart.length < 2) return 'N/A';
+    const totalDist = sortedForChart[sortedForChart.length - 1].odometer - sortedForChart[0].odometer;
+    const totalFuel = sortedForChart.slice(1).reduce((sum, f) => sum + f.liters, 0);
+    if (totalFuel === 0) return 'N/A';
+    return (totalDist / totalFuel).toFixed(1);
+  })();
 
+  // Chart data: latest shows last 6 per-fill, overall shows ALL per-fill
+  const latestData = perFillMileage.length >= 2 ? perFillMileage.slice(-6).map((p) => p.value) : [];
+  const overallData = perFillMileage.length >= 2 ? perFillMileage.map((p) => p.value) : [];
+
+  const chartData = chartView === 'latest' ? latestData : overallData;
   const activeIndex = selectedPointIndex !== null ? selectedPointIndex : (chartData.length - 1);
-  const latestMileage = chartData[activeIndex]?.toFixed(1) ?? 'N/A';
-  const displayMileage = chartView === 'overall' ? avgMileageNum : latestMileage;
-  const displayLabel = chartView === 'overall' ? 'OVERALL AVG MILEAGE' : 'LATEST FILL MILEAGE';
+  const latestMileageVal = chartData[activeIndex]?.toFixed(1) ?? 'N/A';
+  const displayMileage = chartView === 'overall' ? overallMileage : latestFillMileage;
+  const sampleCount = perFillMileage.slice(-3).length;
+  const displayLabel = chartView === 'overall'
+    ? 'OVERALL AVG MILEAGE'
+    : sampleCount <= 1
+      ? 'LATEST FILL MILEAGE'
+      : `LATEST ${sampleCount} FILLS AVG`;
 
-  // Build smooth area chart wave path as Svg coordinates
+  // Build smooth area chart wave path
   const CHART_W = 320;
   const CHART_H = 120;
   const padX = 30;
   const padY = 25;
 
-  const chartMax = Math.max(...chartData);
-  const chartMin = Math.min(...chartData);
+  const chartMax = chartData.length > 0 ? Math.max(...chartData) : 0;
+  const chartMin = chartData.length > 0 ? Math.min(...chartData) : 0;
   const chartRange = chartMax === chartMin ? 1 : chartMax - chartMin;
   const norm = (v: number) => (v - chartMin) / chartRange;
 
   const points = chartData.map((val, i) => {
-    const x = padX + (i / (chartData.length - 1)) * (CHART_W - 2 * padX);
+    const x = padX + (i / Math.max(chartData.length - 1, 1)) * (CHART_W - 2 * padX);
     const y = CHART_H - padY - norm(val) * (CHART_H - 2 * padY - 10);
     return { x, y };
   });
 
   let pathD = '';
   let fillD = '';
-  if (points.length > 0) {
+  if (points.length > 1) {
     pathD = `M ${points[0].x} ${points[0].y}`;
     for (let i = 0; i < points.length - 1; i++) {
       const curr = points[i];
@@ -111,10 +137,6 @@ export default function GarageDashboardScreen() {
     fillD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - padY + 10} L ${points[0].x} ${CHART_H - padY + 10} Z`;
   }
 
-  const xAxisLabels = chartView === 'latest' && sortedForChart.length >= 2
-    ? sortedForChart.slice(-chartData.length).map(f => new Date(f.date).toLocaleDateString('en-US', { month: 'short' }).toUpperCase())
-    : [];
-
   const lastFillDate = vehicleFills.length > 0
     ? new Date(sortedForChart[sortedForChart.length - 1]?.date ?? vehicleFills[0].date)
         .toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
@@ -124,19 +146,30 @@ export default function GarageDashboardScreen() {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   };
 
+  // Recent fills: latest 3 only
+  const recentFills = sortedForChart.slice(-3).reverse();
+
   const renderFillItem = ({ item }: { item: FuelFill }) => {
+    const si = getStationIcon(item.station);
     return (
       <TouchableOpacity
         style={styles.logRow}
         onPress={() => navigation.navigate('EditFuelFill', { fillId: item.id })}
       >
         <View style={styles.logLeft}>
-          <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
-            <Ionicons name="funnel-outline" size={16} color={colors.primary} />
+          <View style={[styles.iconContainer, { backgroundColor: si.bg }]}>
+            {si.type === 'brand' ? (
+              <Text style={[styles.brandIconText, { color: si.color }]}>{si.label}</Text>
+            ) : (
+              <Text style={styles.fuelEmoji}>{si.label}</Text>
+            )}
           </View>
           <View>
             <Text style={styles.logTitle}>{item.liters} Liters Fuel</Text>
-            <Text style={styles.logSub}>{item.odometer} km · {formatCurrency(item.pricePerLiter)}/L</Text>
+            <Text style={styles.logSub}>
+              {item.odometer} km · {formatCurrency(item.pricePerLiter)}/L
+              {item.station ? ` · ${item.station}` : ''}
+            </Text>
           </View>
         </View>
         <View style={styles.logRight}>
@@ -151,29 +184,6 @@ export default function GarageDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Shared slide-out left Drawer */}
-      <SidebarDrawer
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        navigation={navigation}
-      />
-
-      {/* Top Header */}
-      <View style={styles.appBar}>
-        <View style={styles.appBarLeft}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setSidebarOpen(true)}>
-            <Ionicons name="menu-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.logoText}>Meridian</Text>
-        </View>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications' as any)}>
-          <View style={styles.notificationWrapper}>
-            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-            {unreadCount > 0 && <View style={styles.notificationDot} />}
-          </View>
-        </TouchableOpacity>
-      </View>
-
       {/* Vehicle Selector Tabs */}
       <View style={styles.tabContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
@@ -185,11 +195,7 @@ export default function GarageDashboardScreen() {
                 style={[styles.tabButton, isSelected && styles.tabButtonActive]}
                 onPress={() => setSelectedVehicle(v)}
               >
-                <Ionicons
-                  name="car-outline"
-                  size={16}
-                  color={isSelected ? colors.onSurface : colors.onSurfaceVariant}
-                />
+                <Text style={styles.vehicleEmoji}>🛵</Text>
                 <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
               </TouchableOpacity>
             );
@@ -198,17 +204,17 @@ export default function GarageDashboardScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Mileage Hero — styled after reference image */}
+        {/* Mileage Hero */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>CURRENT EFFICIENCY</Text>
           <View style={styles.heroValueRow}>
-            <Text style={styles.heroValue}>{avgMileageNum === 'N/A' ? 'N/A' : avgMileageNum}</Text>
-            {avgMileageNum !== 'N/A' && <Text style={styles.heroUnit}>km/l</Text>}
+            <Text style={styles.heroValue}>{displayMileage}</Text>
+            {displayMileage !== 'N/A' && <Text style={styles.heroUnit}>km/l</Text>}
           </View>
           <View style={styles.heroSubRow}>
             <View style={styles.trendBadge}>
               <Ionicons name="arrow-up" size={12} color={colors.success} />
-              <Text style={styles.trendText}>from prev fill</Text>
+              <Text style={styles.trendText}>avg of last 3 fills</Text>
             </View>
             <Text style={styles.heroSubText}>Last fill: {lastFillDate}</Text>
           </View>
@@ -216,30 +222,39 @@ export default function GarageDashboardScreen() {
 
         {/* Bento Spend Grid */}
         <View style={styles.gridSection}>
-          <View style={styles.gridCard}>
+          <TouchableOpacity
+            style={styles.gridCard}
+            onPress={() => navigation.navigate('VehicleSpend')}
+            activeOpacity={0.7}
+          >
             <View style={styles.gridHeader}>
               <View style={[styles.gridIcon, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="funnel-outline" size={16} color={colors.primary} />
+                <Ionicons name="water-outline" size={16} color={colors.primary} />
               </View>
               <Text style={styles.gridLabel}>Fuel Spend</Text>
             </View>
             <Text style={styles.gridValue}>{formatCurrency(totalFuelSpend)}</Text>
-          </View>
+            <Text style={styles.gridLink}>View All →</Text>
+          </TouchableOpacity>
 
-          <View style={styles.gridCard}>
+          <TouchableOpacity
+            style={styles.gridCard}
+            onPress={() => navigation.navigate('VehicleReports')}
+            activeOpacity={0.7}
+          >
             <View style={styles.gridHeader}>
               <View style={[styles.gridIcon, { backgroundColor: '#f59e0b20' }]}>
                 <Ionicons name="construct-outline" size={16} color="#f59e0b" />
               </View>
-              <Text style={styles.gridLabel}>Service Cost</Text>
+              <Text style={styles.gridLabel}>Reports</Text>
             </View>
-            <Text style={styles.gridValue}>{formatCurrency(totalMaintSpend)}</Text>
-          </View>
+            <Text style={styles.gridValue}>{vehicleMaint.length} services</Text>
+            <Text style={styles.gridLink}>View All →</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Mileage Trend Card — Cred-style clean area chart */}
+        {/* Mileage Trend Chart */}
         <View style={styles.chartCard}>
-          {/* Header row: label + toggle buttons */}
           <View style={styles.chartHeaderRow}>
             <View>
               <Text style={styles.chartSubLabel}>{displayLabel}</Text>
@@ -264,7 +279,6 @@ export default function GarageDashboardScreen() {
             </View>
           </View>
 
-          {/* Smooth SVG Area Wave Chart */}
           <View style={styles.areaChartContainer}>
             {points.length > 1 ? (
               <>
@@ -282,31 +296,35 @@ export default function GarageDashboardScreen() {
                   <Path d={fillD} fill="url(#grad)" />
                   <Path d={pathD} stroke="#c084fc" strokeWidth="2.5" fill="none" />
 
-                  <Line
-                    x1={points[activeIndex].x}
-                    y1={points[activeIndex].y}
-                    x2={points[activeIndex].x}
-                    y2={CHART_H - padY + 10}
-                    stroke="#c084fc"
-                    strokeWidth="1.5"
-                    strokeDasharray="3,3"
-                  />
+                  {activeIndex >= 0 && activeIndex < points.length && (
+                    <Line
+                      x1={points[activeIndex].x}
+                      y1={points[activeIndex].y}
+                      x2={points[activeIndex].x}
+                      y2={CHART_H - padY + 10}
+                      stroke="#c084fc"
+                      strokeWidth="1.5"
+                      strokeDasharray="3,3"
+                    />
+                  )}
                 </Svg>
 
-                <View
-                  style={[
-                    styles.floatValueBadge,
-                    {
-                      left: points[activeIndex].x - 45,
-                      top: points[activeIndex].y - 32,
-                    },
-                  ]}
-                >
-                  <Text style={styles.floatValueText}>{latestMileage} km/l</Text>
-                </View>
+                {activeIndex >= 0 && activeIndex < points.length && (
+                  <View
+                    style={[
+                      styles.floatValueBadge,
+                      {
+                        left: points[activeIndex].x - 45,
+                        top: points[activeIndex].y - 32,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.floatValueText}>{latestMileageVal} km/l</Text>
+                  </View>
+                )}
 
                 <View style={styles.touchOverlay}>
-                  {points.map((p, idx) => (
+                  {points.map((_, idx) => (
                     <TouchableOpacity
                       key={idx}
                       style={styles.touchSlice}
@@ -324,22 +342,55 @@ export default function GarageDashboardScreen() {
           </View>
         </View>
 
-        {/* Recent logs */}
+        {/* Recent Fuel Logs */}
         <View style={styles.logsSection}>
-          <Text style={styles.sectionTitle}>RECENT FUEL LOGS</Text>
+          <View style={styles.logsHeaderRow}>
+            <Text style={styles.sectionTitle}>RECENT FUEL LOGS</Text>
+            {vehicleFills.length > 3 && (
+              <TouchableOpacity onPress={() => navigation.navigate('AllFuelFills')}>
+                <Text style={styles.viewMoreText}>View More</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.logsContainer}>
-            {vehicleFills.length === 0 ? (
+            {recentFills.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="funnel-outline" size={40} color={colors.outline} />
+                <Text style={styles.fuelEmojiLarge}>⛽</Text>
                 <Text style={styles.emptyText}>No fuel fills logged yet</Text>
               </View>
             ) : (
-              <FlatList
-                data={vehicleFills}
-                renderItem={renderFillItem}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-              />
+              recentFills.map((fill) => (
+                <TouchableOpacity
+                  key={fill.id}
+                  style={styles.logRow}
+                  onPress={() => navigation.navigate('EditFuelFill', { fillId: fill.id })}
+                >
+                  <View style={styles.logLeft}>
+                    <View style={[styles.iconContainer, { backgroundColor: getStationIcon(fill.station).bg }]}>
+                      {getStationIcon(fill.station).type === 'brand' ? (
+                        <Text style={[styles.brandIconText, { color: getStationIcon(fill.station).color }]}>
+                          {getStationIcon(fill.station).label}
+                        </Text>
+                      ) : (
+                        <Text style={styles.fuelEmoji}>{getStationIcon(fill.station).label}</Text>
+                      )}
+                    </View>
+                    <View>
+                      <Text style={styles.logTitle}>{fill.liters} Liters Fuel</Text>
+                      <Text style={styles.logSub}>
+                        {fill.odometer} km · {formatCurrency(fill.pricePerLiter)}/L
+                        {fill.station ? ` · ${fill.station}` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.logRight}>
+                    <Text style={styles.logAmount}>{formatCurrency(fill.amount)}</Text>
+                    <Text style={styles.logDate}>
+                      {new Date(fill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
             )}
           </View>
         </View>
@@ -362,42 +413,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-
-  notificationWrapper: {
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.error,
-  },
-  appBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
   },
   tabContainer: {
     backgroundColor: colors.surface,
@@ -423,6 +438,9 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: colors.primaryContainer,
     borderColor: colors.primary,
+  },
+  vehicleEmoji: {
+    fontSize: 14,
   },
   tabText: {
     color: colors.onSurfaceVariant,
@@ -464,7 +482,7 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 40,
     fontWeight: '800',
-    color: '#c084fc', // Purple-ish like reference
+    color: '#c084fc',
     letterSpacing: -1,
   },
   heroUnit: {
@@ -530,6 +548,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.onSurface,
+  },
+  gridLink: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 2,
   },
   chartCard: {
     backgroundColor: '#0f0f1a',
@@ -598,37 +622,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 8,
   },
-  gridLine: {
-    position: 'absolute',
-    height: 1,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  barRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: '100%',
-    gap: 3,
-    paddingHorizontal: 2,
-  },
-  areaBar: {
-    flex: 1,
-    backgroundColor: '#7c3aed',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    // subtle gradient-like effect via linear solid
-  },
-  chartFooter: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    textAlign: 'right',
-    marginTop: 4,
-  },
   floatValueBadge: {
     position: 'absolute',
     backgroundColor: '#a855f7',
@@ -648,24 +641,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
-  // Legacy — kept to avoid unused style warnings
-  xAxisRow: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 8, marginTop: 4 },
-  xAxisLabel: { fontSize: 10, color: colors.onSurfaceVariant, fontWeight: '600' },
-  chartPoint: { position: 'absolute', alignItems: 'center', width: 24, height: 24 },
-  pointPulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#a855f7' },
-  pointLabel: { fontSize: 9, color: '#fff', fontWeight: '700', marginTop: 4 },
-  trendLinePath: { position: 'absolute', left: '10%', right: '10%', bottom: 50, height: 2 },
-  chartTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface, marginBottom: 16 },
-  chartContainer: { position: 'relative', justifyContent: 'space-between', paddingVertical: 10, marginBottom: 8 },
-  areaFill: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(168,85,247,0.08)' },
   logsSection: {
     gap: 8,
+  },
+  logsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.6,
+  },
+  viewMoreText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   logsContainer: {
     backgroundColor: colors.surfaceContainer,
@@ -685,6 +678,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   iconContainer: {
     width: 36,
@@ -692,6 +686,16 @@ const styles = StyleSheet.create({
     borderRadius: rounded.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  brandIconText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fuelEmoji: {
+    fontSize: 16,
+  },
+  fuelEmojiLarge: {
+    fontSize: 40,
   },
   logTitle: {
     fontSize: 14,

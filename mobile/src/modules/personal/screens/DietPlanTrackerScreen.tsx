@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,10 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,15 +17,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { usePersonalStore } from '../store';
+import { requestNotificationPermissions, scheduleDietNotifications } from '../../../services/dietNotifications';
+
+type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+const SLOT_META: Record<MealSlot, { label: string; icon: string; color: string; bg: string }> = {
+  breakfast: { label: 'Breakfast', icon: 'sunny-outline', color: colors.primary, bg: `${colors.primary}15` },
+  lunch:     { label: 'Lunch',     icon: 'restaurant-outline', color: '#f59e0b', bg: '#f59e0b20' },
+  dinner:    { label: 'Dinner',    icon: 'moon-outline', color: '#3b82f6', bg: '#3b82f620' },
+  snack:     { label: 'Snack',     icon: 'nutrition-outline', color: colors.success, bg: `${colors.success}15` },
+};
 
 export default function DietPlanTrackerScreen() {
   const navigation = useNavigation();
-  const { meals } = usePersonalStore();
+  const { meals, updateMealSlot } = usePersonalStore();
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
-
   const activePlan = meals.find((m) => m.day === selectedDay) || meals[0];
+
+  useEffect(() => {
+    (async () => {
+      const granted = await requestNotificationPermissions();
+      if (granted) {
+        const mealMap: Record<string, typeof meals[0]> = {};
+        meals.forEach((m) => { mealMap[m.day] = m; });
+        await scheduleDietNotifications(mealMap);
+      }
+    })();
+  }, []);
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<MealSlot>('breakfast');
+  const [editValue, setEditValue] = useState('');
+
+  const openEdit = (slot: MealSlot) => {
+    setEditingSlot(slot);
+    setEditValue(activePlan[slot]);
+    setEditVisible(true);
+  };
+
+  const handleSave = () => {
+    updateMealSlot(selectedDay, editingSlot, editValue.trim());
+    setEditVisible(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,53 +96,63 @@ export default function DietPlanTrackerScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionHeader}>{selectedDay}'s Nutrition Plan</Text>
 
-        {/* Meal Slots Grids */}
         <View style={styles.slotsContainer}>
-          {/* Breakfast */}
-          <View style={styles.mealSlotCard}>
-            <View style={styles.slotHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="sunny-outline" size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.slotTitle}>Breakfast</Text>
-            </View>
-            <Text style={styles.mealName}>{activePlan.breakfast}</Text>
-          </View>
-
-          {/* Lunch */}
-          <View style={styles.mealSlotCard}>
-            <View style={styles.slotHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: '#f59e0b20' }]}>
-                <Ionicons name="restaurant-outline" size={18} color="#f59e0b" />
-              </View>
-              <Text style={styles.slotTitle}>Lunch</Text>
-            </View>
-            <Text style={styles.mealName}>{activePlan.lunch}</Text>
-          </View>
-
-          {/* Dinner */}
-          <View style={styles.mealSlotCard}>
-            <View style={styles.slotHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: '#3b82f620' }]}>
-                <Ionicons name="moon-outline" size={18} color="#3b82f6" />
-              </View>
-              <Text style={styles.slotTitle}>Dinner</Text>
-            </View>
-            <Text style={styles.mealName}>{activePlan.dinner}</Text>
-          </View>
-
-          {/* Snack */}
-          <View style={styles.mealSlotCard}>
-            <View style={styles.slotHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: `${colors.success}15` }]}>
-                <Ionicons name="nutrition-outline" size={18} color={colors.success} />
-              </View>
-              <Text style={styles.slotTitle}>Snack</Text>
-            </View>
-            <Text style={styles.mealName}>{activePlan.snack}</Text>
-          </View>
+          {(Object.keys(SLOT_META) as MealSlot[]).map((slot) => {
+            const meta = SLOT_META[slot];
+            const value = activePlan[slot];
+            return (
+              <TouchableOpacity
+                key={slot}
+                style={styles.mealSlotCard}
+                activeOpacity={0.7}
+                onPress={() => openEdit(slot)}
+              >
+                <View style={styles.slotHeader}>
+                  <View style={[styles.iconWrapper, { backgroundColor: meta.bg }]}>
+                    <Ionicons name={meta.icon as any} size={18} color={meta.color} />
+                  </View>
+                  <Text style={styles.slotTitle}>{meta.label}</Text>
+                  <Ionicons name="create-outline" size={14} color={colors.outline} style={styles.editIcon} />
+                </View>
+                <Text style={styles.mealName}>{value || 'Tap to add'}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
+
+      {/* Edit Meal Modal */}
+      <Modal visible={editVisible} transparent animationType="slide" onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Edit {SLOT_META[editingSlot].label}
+            </Text>
+            <Text style={styles.modalSub}>{selectedDay}</Text>
+
+            <TextInput
+              style={styles.textInput}
+              placeholder={`e.g. ${SLOT_META[editingSlot].label} meal`}
+              placeholderTextColor={colors.outline}
+              value={editValue}
+              onChangeText={setEditValue}
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel]}
+                onPress={() => setEditVisible(false)}
+              >
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleSave}>
+                <Text style={styles.modalBtnTextSave}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -112,6 +161,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',
@@ -126,6 +176,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.onSurface,
+    flex: 1,
+    textAlign: 'center',
   },
   iconButton: {
     padding: 8,
@@ -203,11 +255,78 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     textTransform: 'uppercase',
+    flex: 1,
+  },
+  editIcon: {
+    marginLeft: 'auto',
   },
   mealName: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.onSurface,
     paddingLeft: 42,
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: -8,
+  },
+  textInput: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 48,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+  },
+  modalBtnCancel: {
+    backgroundColor: 'transparent',
+  },
+  modalBtnSave: {
+    backgroundColor: colors.primaryContainer,
+  },
+  modalBtnTextCancel: {
+    fontSize: 14,
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+  },
+  modalBtnTextSave: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '700',
   },
 });

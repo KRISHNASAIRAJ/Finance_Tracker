@@ -43,7 +43,7 @@ export default function NameEntryScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#ccc3d8" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Meridian</Text>
+            <Text style={styles.headerTitle}>Your Name</Text>
             <View style={{ width: 40 }} />
           </View>
 

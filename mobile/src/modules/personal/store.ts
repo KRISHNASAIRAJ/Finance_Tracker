@@ -39,6 +39,7 @@ interface PersonalState {
   meals: MealPlan[];
   toggleGoal: (id: string) => void;
   addGoal: (name: string) => void;
+  deleteGoal: (id: string) => void;
   addNote: (title: string, content: string) => void;
   deleteNote: (id: string) => void;
   updateNote: (id: string, title: string, content: string) => void;
@@ -103,6 +104,11 @@ export const usePersonalStore = create<PersonalState>()(
       addGoal: (name) => {
         set((state) => ({
           goals: [...state.goals, { id: Math.random().toString(36).substring(2, 9), name, completed: false }],
+        }));
+      },
+      deleteGoal: (id) => {
+        set((state) => ({
+          goals: state.goals.filter((g) => g.id !== id),
         }));
       },
       addNote: (title, content) => {

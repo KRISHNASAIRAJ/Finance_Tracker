@@ -47,9 +47,11 @@ __pycache__/
 .Python
 *.so
 
-# Backend database
-backend/*.db
-backend/*.sqlite3
+# Backend (archived — see backend-fastapi-archived branch, ADR-008)
+backend/
+
+# Test scripts
+verifyAuth.js
 
 # Mobile AI agent configs (per-submodule)
 mobile/.claude/

@@ -12,11 +12,22 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#15121b",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "monochromeImage": "./assets/icon.png"
       },
-      "package": "com.krishnasairaj.meridian"
+      "package": "com.krishnasairaj.meridian",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "VIBRATE",
+        "READ_SMS",
+        "RECEIVE_SMS"
+      ]
+    },
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#15121b"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,6 +37,14 @@
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
       }
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ],
+      "./plugins/withSmsReader"
+    ]
   }
 }

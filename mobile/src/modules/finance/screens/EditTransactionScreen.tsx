@@ -20,8 +20,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './AddExpenseScreen';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../../shared/categoryMap';
 
 type EditTransactionRouteProp = RouteProp<FinanceStackParamList, 'EditTransaction'>;
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'EditTransaction'>;
@@ -105,6 +106,7 @@ export default function EditTransactionScreen() {
   const { transactionId } = route.params;
 
   const { transactions, editTransaction, deleteTransaction } = useFinanceStore();
+  const { user } = useAuth();
   const tx = transactions.find((t) => t.id === transactionId);
 
   if (!tx) {
@@ -139,7 +141,7 @@ export default function EditTransactionScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          deleteTransaction(tx.id);
+          deleteTransaction(tx.id, user?.id);
           navigation.goBack();
         },
       },
@@ -157,7 +159,7 @@ export default function EditTransactionScreen() {
       category: selectedCategory,
       notes: description.trim(),
       date: txDate.toISOString(),
-    });
+    }, user?.id);
     navigation.goBack();
   };
 

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, CreditCard } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 
 // Card brand-specific colors
 function getCardAccent(name: string): string {
@@ -107,6 +108,7 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: CalendarPicker
 export default function CreditCardsScreen() {
   const navigation = useNavigation();
   const { cards, editCard } = useFinanceStore() as any;
+  const { user } = useAuth();
 
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
   const [balanceInput, setBalanceInput] = useState('');
@@ -130,7 +132,7 @@ export default function CreditCardsScreen() {
     if (isNaN(balance)) { alert('Enter a valid amount'); return; }
 
     if (typeof editCard === 'function') {
-      editCard(editingCard.id, { balance, dueDate: dueDate.toISOString() });
+      editCard(editingCard.id, { balance, dueDate: dueDate.toISOString() }, user?.id);
     }
     setEditingCard(null);
   };

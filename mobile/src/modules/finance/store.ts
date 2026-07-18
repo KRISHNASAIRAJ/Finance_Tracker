@@ -54,34 +54,35 @@ interface FinanceState {
   receivables: Receivable[];
   accounts: BankAccount[];
   fixedExpenses: FixedExpense[];
+  lastSyncedAt: string | null;
   isOnboarded: boolean;
   onboardingName: string;
   onboardingGoals: string[];
   onboardingDob: string;
   onboardingGender: string;
   completeOnboarding: (data: { name: string; goals: string[]; dob: string; gender: string }) => void;
+  updateOnboardingName: (name: string) => void;
   notifications: Array<{ id: string; title: string; body: string; date: string; read: boolean }>;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   payzappLoads: Array<{ id: string; amount: number; date: string }>;
   addPayzappLoad: (amount: number) => void;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => string;
-  editTransaction: (id: string, updated: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
-  // Account management
-  editAccountBalance: (id: string, amount: number) => void;
-  // Lent & Borrow management
-  addReceivable: (item: Omit<Receivable, 'id'>) => void;
-  editReceivable: (id: string, updated: Partial<Receivable>) => void;
-  deleteReceivable: (id: string) => void;
-  // Credit card management
-  editCard: (id: string, updated: Partial<CreditCard>) => void;
-  // Fixed expenses paid rollover
-  markFixedExpensePaid: (id: string) => void;
-  // Summary calculations
+  editPayzappLoad: (id: string, amount: number) => void;
+  resetPayzappLoadsIfNewMonth: () => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>, userId?: string) => string;
+  editTransaction: (id: string, updated: Partial<Transaction>, userId?: string) => void;
+  deleteTransaction: (id: string, userId?: string) => void;
+  editAccountBalance: (id: string, amount: number, userId?: string) => void;
+  addReceivable: (item: Omit<Receivable, 'id'>, userId?: string) => void;
+  editReceivable: (id: string, updated: Partial<Receivable>, userId?: string) => void;
+  deleteReceivable: (id: string, userId?: string) => void;
+  editCard: (id: string, updated: Partial<CreditCard>, userId?: string) => void;
+  markFixedExpensePaid: (id: string, userId?: string) => void;
+  unmarkFixedExpensePaid: (id: string, userId?: string) => void;
   getTotalBalance: () => number;
   getMonthlyExpenses: () => number;
   getMonthlyIncome: () => number;
+  setLastSyncedAt: (ts: string) => void;
 }
 
 // Helper to convert Rupees from JSON to Paise integers
@@ -101,6 +102,7 @@ export const getMinBalanceForAccount = (title: string): number => {
 export const useFinanceStore = create<FinanceState>()(
   persist(
     (set, get) => ({
+      lastSyncedAt: null,
       isOnboarded: false,
       onboardingName: '',
       onboardingGoals: [],
@@ -533,16 +535,16 @@ export const useFinanceStore = create<FinanceState>()(
         },
         {
           id: 'fix-2',
-          name: 'SIP Mutual Fund (Parag Parikh)',
+          name: 'SIP Parag Parikh Flexicap',
           amount: rupeeToPaise(2000),
-          billingDay: 27,
+          billingDay: 28,
           category: 'Investments',
           lastPaidMonth: '',
-          dueDate: new Date(1785263400000).toISOString(), // 27 Jul 2026 approx
+          dueDate: new Date(1785522600000).toISOString(), // 28 Jul 2026 approx
         },
         {
           id: 'fix-3',
-          name: 'SIP Quant Active Fund',
+          name: 'SIP HDFC Small Cap',
           amount: rupeeToPaise(250),
           billingDay: 7,
           category: 'Investments',
@@ -551,7 +553,7 @@ export const useFinanceStore = create<FinanceState>()(
         },
         {
           id: 'fix-4',
-          name: 'SIP Nippon Small Cap',
+          name: 'SIP HDFC Mid Cap',
           amount: rupeeToPaise(250),
           billingDay: 15,
           category: 'Investments',
@@ -559,7 +561,7 @@ export const useFinanceStore = create<FinanceState>()(
           dueDate: new Date(1784226600000).toISOString(), // 15 Jul 2026 approx
         },
       ],
-      addTransaction: (tx) => {
+      addTransaction: (tx, userId) => {
         const generatedId = Math.random().toString(36).substring(2, 9);
         const newTransaction: Transaction = {
           ...tx,
@@ -569,28 +571,52 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           transactions: [newTransaction, ...state.transactions],
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("transactions", "create", { ...newTransaction, user_id: userId });
+          } catch {}
+        }
         return generatedId;
       },
-      editTransaction: (id, updated) => {
+      editTransaction: (id, updated, userId) => {
         set((state) => ({
           transactions: state.transactions.map((tx) =>
             tx.id === id ? { ...tx, ...updated } : tx
           ),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("transactions", "update", { id, ...updated, user_id: userId });
+          } catch {}
+        }
       },
-      deleteTransaction: (id) => {
+      deleteTransaction: (id, userId) => {
         set((state) => ({
           transactions: state.transactions.filter((tx) => tx.id !== id),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("transactions", "delete", { id, user_id: userId });
+          } catch {}
+        }
       },
-      editAccountBalance: (id, amount) => {
+      editAccountBalance: (id, amount, userId) => {
         set((state) => ({
           accounts: state.accounts.map((acc) =>
             acc.id === id ? { ...acc, amount } : acc
           ),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("bank_accounts", "update", { id, amount, user_id: userId });
+          } catch {}
+        }
       },
-      addReceivable: (item) => {
+      addReceivable: (item, userId) => {
         const newItem: Receivable = {
           ...item,
           id: Math.random().toString(36).substring(2, 9),
@@ -598,20 +624,48 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           receivables: [newItem, ...state.receivables],
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("receivables", "create", {
+              id: newItem.id, person_name: newItem.personName,
+              amount: newItem.amount, due_date: newItem.dueDate,
+              note: newItem.note ?? null, type: newItem.type, user_id: userId,
+            });
+          } catch {}
+        }
       },
-      editReceivable: (id, updated) => {
+      editReceivable: (id, updated, userId) => {
         set((state) => ({
           receivables: state.receivables.map((rec) =>
             rec.id === id ? { ...rec, ...updated } : rec
           ),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const payload: Record<string, unknown> = { id, user_id: userId };
+            if (updated.personName !== undefined) payload.person_name = updated.personName;
+            if (updated.amount !== undefined) payload.amount = updated.amount;
+            if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
+            if (updated.note !== undefined) payload.note = updated.note;
+            if (updated.type !== undefined) payload.type = updated.type;
+            syncEnqueue("receivables", "update", payload);
+          } catch {}
+        }
       },
-      deleteReceivable: (id) => {
+      deleteReceivable: (id, userId) => {
         set((state) => ({
           receivables: state.receivables.filter((rec) => rec.id !== id),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("receivables", "delete", { id, user_id: userId });
+          } catch {}
+        }
       },
-      markFixedExpensePaid: (id) => {
+      markFixedExpensePaid: (id, userId) => {
         const currentExp = get().fixedExpenses.find((f) => f.id === id);
         if (!currentExp) return;
 
@@ -648,6 +702,18 @@ export const useFinanceStore = create<FinanceState>()(
               : f
           ),
         }));
+
+        // Queue cloud sync
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require('../../../services/syncQueue');
+            syncEnqueue('transactions', 'create', { ...newTransaction, user_id: userId });
+            syncEnqueue('fixed_expenses', 'update', {
+              id, user_id: userId, last_paid_month: currentMonthStr,
+              due_date: nextDueDate.toISOString(),
+            });
+          } catch {}
+        }
       },
       completeOnboarding: (data) => {
         set({
@@ -657,6 +723,9 @@ export const useFinanceStore = create<FinanceState>()(
           onboardingDob: data.dob,
           onboardingGender: data.gender,
         });
+      },
+      updateOnboardingName: (name) => {
+        set({ onboardingName: name });
       },
       markNotificationRead: (id) => {
         set((state) => ({
@@ -705,10 +774,42 @@ export const useFinanceStore = create<FinanceState>()(
           ]
         }));
       },
-      editCard: (id, updated) => {
+      editPayzappLoad: (id, amount) => {
+        set((state) => ({
+          payzappLoads: state.payzappLoads.map((load) =>
+            load.id === id ? { ...load, amount } : load
+          ),
+        }));
+      },
+      resetPayzappLoadsIfNewMonth: () => {
+        const state = get();
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const lastLoad = state.payzappLoads[0];
+        if (lastLoad) {
+          const lastLoadDate = new Date(lastLoad.date);
+          const lastLoadMonth = `${lastLoadDate.getFullYear()}-${String(lastLoadDate.getMonth() + 1).padStart(2, '0')}`;
+          if (lastLoadMonth !== currentMonth) {
+            set({ payzappLoads: [] });
+          }
+        }
+      },
+      editCard: (id, updated, userId) => {
         set((state) => ({
           cards: state.cards.map((c) => (c.id === id ? { ...c, ...updated } : c)),
         }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const payload: Record<string, unknown> = { id, user_id: userId };
+            if (updated.balance !== undefined) payload.balance = updated.balance;
+            if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
+            if (updated.name !== undefined) payload.name = updated.name;
+            if (updated.endingWith !== undefined) payload.ending_with = updated.endingWith;
+            if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
+            syncEnqueue("credit_cards", "update", payload);
+          } catch {}
+        }
       },
       getTotalBalance: () => {
         return get().accounts.reduce((acc, account) => acc + account.amount, 0);
@@ -737,9 +838,35 @@ export const useFinanceStore = create<FinanceState>()(
           .filter((tx) => new Date(tx.date) >= startOfMonth && tx.type === 'income')
           .reduce((acc, tx) => acc + tx.amount, 0);
       },
+      unmarkFixedExpensePaid: (id, userId) => {
+        set((state) => ({
+          fixedExpenses: state.fixedExpenses.map((f) => {
+            if (f.id !== id) return f;
+            const currentDueDate = new Date(f.dueDate);
+            return {
+              ...f,
+              lastPaidMonth: '',
+              dueDate: new Date(
+                currentDueDate.getFullYear(),
+                currentDueDate.getMonth() - 1,
+                currentDueDate.getDate()
+              ).toISOString(),
+            };
+          }),
+        }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("fixed_expenses", "update", {
+              id, user_id: userId, last_paid_month: "", due_date: get().fixedExpenses.find((f: FixedExpense) => f.id === id)?.dueDate ?? "",
+            });
+          } catch {}
+        }
+      },
+      setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
     }),
     {
-      name: 'meridian-finance-storage-v11', // v11: added onboarding, notifications, payzapp
+      name: 'meridian-finance-storage-v12', // v12: corrected SIP names + marketExpirePaid sync
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

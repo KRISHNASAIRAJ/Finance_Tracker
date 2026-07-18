@@ -6,6 +6,8 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -115,6 +117,18 @@ export default function TaskDetailScreen() {
               </Text>
             </Text>
           </View>
+
+          {task.recurrence && task.recurrence !== 'none' && (
+            <View style={styles.infoRow}>
+              <Ionicons name="repeat-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text style={styles.infoText}>
+                Recurrence:{' '}
+                <Text style={styles.infoHighlight}>
+                  {task.recurrence.charAt(0).toUpperCase() + task.recurrence.slice(1)}
+                </Text>
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Subtask Section */}
@@ -153,6 +167,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',

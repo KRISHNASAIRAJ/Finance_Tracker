@@ -7,6 +7,8 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +19,7 @@ import { usePersonalStore } from '../store';
 
 export default function GoalsTrackerScreen() {
   const navigation = useNavigation();
-  const { goals, toggleGoal, addGoal } = usePersonalStore();
+  const { goals, toggleGoal, addGoal, deleteGoal } = usePersonalStore();
   const [goalInput, setGoalInput] = useState('');
 
   const handleAddGoal = () => {
@@ -31,7 +33,6 @@ export default function GoalsTrackerScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* AppBar */}
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
@@ -73,19 +74,39 @@ export default function GoalsTrackerScreen() {
         {/* Goals List */}
         <View style={styles.listCard}>
           {goals.map((g) => (
-            <TouchableOpacity
-              key={g.id}
-              style={styles.goalRow}
-              onPress={() => toggleGoal(g.id)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.checkbox, g.completed && styles.checkboxCompleted]}>
-                {g.completed && <Ionicons name="checkmark" size={12} color="#ffffff" />}
-              </View>
-              <Text style={[styles.goalName, g.completed && styles.goalNameCompleted]}>
-                {g.name}
-              </Text>
-            </TouchableOpacity>
+            <View key={g.id} style={styles.goalRow}>
+              <TouchableOpacity
+                style={styles.goalLeft}
+                onPress={() => toggleGoal(g.id)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, g.completed && styles.checkboxCompleted]}>
+                  {g.completed && <Ionicons name="checkmark" size={12} color="#ffffff" />}
+                </View>
+                <Text style={[styles.goalName, g.completed && styles.goalNameCompleted]}>
+                  {g.name}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => {
+                  if (Platform.OS === 'ios') {
+                    // Simple confirmation for iOS
+                    deleteGoal(g.id);
+                  } else {
+                    // Android uses alert
+                    import('react-native').then(({ Alert }) => {
+                      Alert.alert('Delete Goal', `Remove "${g.name}"?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(g.id) },
+                      ]);
+                    });
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       </ScrollView>
@@ -97,6 +118,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',
@@ -186,10 +208,19 @@ const styles = StyleSheet.create({
   goalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.03)',
+  },
+  goalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  deleteButton: {
+    padding: 8,
   },
   checkbox: {
     width: 18,

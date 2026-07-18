@@ -16,29 +16,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
+import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AllTransactions'>;
-
-function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap {
-  const cat = category.toLowerCase();
-  if (cat.includes('food')) return 'restaurant-outline';
-  if (cat.includes('shop') || cat.includes('life')) return 'shirt-outline';
-  if (cat.includes('house') || cat.includes('rent')) return 'home-outline';
-  if (cat.includes('fuel') || cat.includes('car') || cat.includes('vehicle')) return 'car-outline';
-  if (cat.includes('salary') || cat.includes('income') || cat.includes('freelance')) return 'cash-outline';
-  return 'receipt-outline';
-}
-
-function getCategoryColor(category: string, isIncome: boolean): string {
-  if (isIncome) return colors.success;
-  const cat = category.toLowerCase();
-  if (cat.includes('food')) return '#fbbf24';
-  if (cat.includes('shop') || cat.includes('life')) return '#a855f7';
-  if (cat.includes('house') || cat.includes('rent')) return '#3b82f6';
-  if (cat.includes('fuel') || cat.includes('garage') || cat.includes('car')) return '#ef4444';
-  return '#f97316';
-}
 
 export default function AllTransactionsScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -51,11 +32,14 @@ export default function AllTransactionsScreen() {
     })}`;
   };
 
-  // Group transactions by date
+  // Sort transactions by date descending, then group by date
+  const sorted = [...transactions].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
   const grouped: { date: string; items: typeof transactions }[] = [];
   const dateMap: Record<string, typeof transactions> = {};
 
-  transactions.forEach((tx) => {
+  sorted.forEach((tx) => {
     const dateKey = new Date(tx.date).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
