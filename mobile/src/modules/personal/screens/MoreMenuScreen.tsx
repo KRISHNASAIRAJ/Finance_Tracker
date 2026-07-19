@@ -175,7 +175,7 @@ export default function MoreMenuScreen() {
   ];
 
   const handleConnectKite = () => {
-    const apiKey = process.env.EXPO_PUBLIC_KITE_API_KEY || 'pea3y7q1b3q934x6';
+    const apiKey = process.env.EXPO_PUBLIC_KITE_API_KEY;
     console.log('[KiteConnect] apiKey:', apiKey ? apiKey.substring(0, 5) + '...' : 'EMPTY');
     if (!apiKey || apiKey === 'YOUR_KITE_API_KEY_HERE') {
       setKiteSyncResult('Set KITE_API_KEY in .env first');

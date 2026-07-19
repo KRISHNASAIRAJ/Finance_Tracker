@@ -4,8 +4,7 @@
  * Phase 4: Handles Kite Connect OAuth redirect.
  * Receives request_token, exchanges for access_token, stores in kite_tokens table.
  *
- * URL: https://kite.zerodha.com/connect/login?v=3&api_key=pea3y7q1b3q934x6
- * Callback: https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-callback
+ * Secrets: KITE_API_KEY, KITE_API_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
