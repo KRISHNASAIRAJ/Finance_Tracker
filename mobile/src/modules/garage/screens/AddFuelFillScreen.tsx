@@ -22,6 +22,8 @@ import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'AddFuelFill'>;
 
+const STATION_OPTIONS = ['HPCL Kondapur', 'HPCL Moinabad', 'Other'];
+
 export default function AddFuelFillScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, addFuelFill } = useGarageStore();
@@ -30,6 +32,9 @@ export default function AddFuelFillScreen() {
   const [liters, setLiters] = useState('');
   const [pricePerLiter, setPricePerLiter] = useState('');
   const [odometer, setOdometer] = useState('');
+  const [station, setStation] = useState('');
+  const [showStationDropdown, setShowStationDropdown] = useState(false);
+  const [customStation, setCustomStation] = useState('');
 
   const handleSubmit = () => {
     const rawLiters = parseFloat(liters);
@@ -52,12 +57,15 @@ export default function AddFuelFillScreen() {
     const priceInPaise = Math.round(rawPrice * 100);
     const totalAmountInPaise = Math.round(rawLiters * priceInPaise);
 
+    const finalStation = station === 'Other' ? customStation.trim() : station;
+
     addFuelFill({
       vehicle: selectedVehicle,
       amount: totalAmountInPaise,
       liters: rawLiters,
       pricePerLiter: priceInPaise,
       odometer: rawOdo,
+      station: finalStation || undefined,
     });
 
     navigation.goBack();
@@ -101,6 +109,52 @@ export default function AddFuelFillScreen() {
                 );
               })}
             </View>
+          </View>
+
+          {/* Fuel Station Dropdown */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>FUEL STATION</Text>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setShowStationDropdown(!showStationDropdown)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, !station && styles.dropdownPlaceholder]}>
+                {station || 'Select fuel station'}
+              </Text>
+              <Ionicons
+                name={showStationDropdown ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
+            {showStationDropdown && (
+              <View style={styles.dropdownMenu}>
+                {STATION_OPTIONS.map((opt) => {
+                  const isSelected = station === opt;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                      onPress={() => { setStation(opt); setShowStationDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                        {opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            {station === 'Other' && (
+              <TextInput
+                style={[styles.textInput, { marginTop: 8 }]}
+                placeholder="Enter petrol bunk name"
+                placeholderTextColor={colors.onSurfaceVariant}
+                value={customStation}
+                onChangeText={setCustomStation}
+              />
+            )}
           </View>
 
           {/* Input Fields */}
@@ -284,6 +338,52 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     color: colors.onSurfaceVariant,
+    fontWeight: '600',
+  },
+  dropdownButton: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: colors.onSurface,
+    fontWeight: '500',
+  },
+  dropdownPlaceholder: {
+    color: colors.onSurfaceVariant,
+    fontWeight: '400',
+  },
+  dropdownMenu: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  dropdownItemActive: {
+    backgroundColor: `${colors.primary}20`,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: colors.primary,
     fontWeight: '600',
   },
 });

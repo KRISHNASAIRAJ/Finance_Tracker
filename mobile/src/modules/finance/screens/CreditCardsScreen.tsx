@@ -12,12 +12,19 @@ import {
   TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, CreditCard } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
+import { FinanceStackParamList } from '../../../navigation/RootNavigator';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
+
+type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'CreditCards'>;
+
+const NETWORKS = ['VISA', 'Mastercard', 'RuPay', 'Amex'] as const;
 
 // Card brand-specific colors
 function getCardAccent(name: string): string {
@@ -32,88 +39,29 @@ function getCardAccent(name: string): string {
   return colors.primary;
 }
 
-// Calendar Picker
-interface CalendarPickerProps {
-  visible: boolean;
-  selected: Date;
-  onSelect: (d: Date) => void;
-  onClose: () => void;
-}
-
-function CalendarPicker({ visible, selected, onSelect, onClose }: CalendarPickerProps) {
-  const [month, setMonth] = useState(new Date(selected));
-
-  const changeMonth = (offset: number) => {
-    setMonth(new Date(month.getFullYear(), month.getMonth() + offset, 1));
-  };
-
-  const getDays = () => {
-    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-    const totalDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const days: (Date | null)[] = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= totalDays; i++) days.push(new Date(month.getFullYear(), month.getMonth(), i));
-    return days;
-  };
-
-  const isSelected = (d: Date) =>
-    d.getDate() === selected.getDate() &&
-    d.getMonth() === selected.getMonth() &&
-    d.getFullYear() === selected.getFullYear();
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={cal.overlay}>
-        <View style={cal.card}>
-          <View style={cal.header}>
-            <TouchableOpacity onPress={() => changeMonth(-1)}>
-              <Ionicons name="chevron-back" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={cal.monthLabel}>
-              {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </Text>
-            <TouchableOpacity onPress={() => changeMonth(1)}>
-              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <View style={cal.weekRow}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <Text key={i} style={cal.weekLabel}>{d}</Text>
-            ))}
-          </View>
-          <View style={cal.daysGrid}>
-            {getDays().map((day, i) =>
-              day ? (
-                <TouchableOpacity
-                  key={i}
-                  style={[cal.dayBtn, isSelected(day) && cal.dayBtnSelected]}
-                  onPress={() => { onSelect(day); onClose(); }}
-                >
-                  <Text style={[cal.dayText, isSelected(day) && cal.dayTextSel]}>{day.getDate()}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View key={i} style={cal.dayBtn} />
-              )
-            )}
-          </View>
-          <TouchableOpacity style={cal.closeBtn} onPress={onClose}>
-            <Text style={cal.closeText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 export default function CreditCardsScreen() {
-  const navigation = useNavigation();
-  const { cards, editCard } = useFinanceStore() as any;
+  const navigation = useNavigation<NavigationProp>();
+  const cards = useFinanceStore((s) => s.cards);
+  const editCard = useFinanceStore((s) => s.editCard);
+  const addCard = useFinanceStore((s) => s.addCard);
+  const deleteCard = useFinanceStore((s) => s.deleteCard);
   const { user } = useAuth();
 
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
   const [balanceInput, setBalanceInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addNetwork, setAddNetwork] = useState<CreditCard['network']>('VISA');
+  const [addEndingWith, setAddEndingWith] = useState('');
+  const [addBillingDay, setAddBillingDay] = useState('');
+  const [addBank, setAddBank] = useState('');
+  const [addLimit, setAddLimit] = useState('');
+  const [addBalance, setAddBalance] = useState('');
+  const [addDueDate, setAddDueDate] = useState(new Date());
+  const [addCalendarVisible, setAddCalendarVisible] = useState(false);
 
   const totalOutstanding = cards.reduce((sum: number, c: CreditCard) => sum + c.balance, 0);
 
@@ -130,11 +78,31 @@ export default function CreditCardsScreen() {
     if (!editingCard) return;
     const balance = Math.round(parseFloat(balanceInput) * 100);
     if (isNaN(balance)) { alert('Enter a valid amount'); return; }
-
-    if (typeof editCard === 'function') {
-      editCard(editingCard.id, { balance, dueDate: dueDate.toISOString() }, user?.id);
-    }
+    editCard(editingCard.id, { balance, dueDate: dueDate.toISOString() }, user?.id);
     setEditingCard(null);
+  };
+
+  const handleAddCard = () => {
+    const name = addName.trim();
+    const endingWith = addEndingWith.trim();
+    const billingDay = parseInt(addBillingDay, 10);
+    if (!name || !endingWith || isNaN(billingDay) || billingDay < 1 || billingDay > 31) {
+      alert('Fill name, last 4 digits, and a valid billing day (1-31)');
+      return;
+    }
+    const limit = parseFloat(addLimit) * 100;
+    const balance = parseFloat(addBalance) * 100;
+    addCard({
+      name,
+      network: addNetwork,
+      endingWith,
+      billingDay,
+      balance: isNaN(balance) ? 0 : balance,
+      dueDate: addDueDate.toISOString(),
+      bank: addBank.trim() || undefined,
+      cardLimit: isNaN(limit) ? undefined : limit,
+    }, user?.id);
+    setShowAddModal(false);
   };
 
   return (
@@ -148,7 +116,14 @@ export default function CreditCardsScreen() {
           <Text style={styles.logoText}>Credit Cards</Text>
           <Text style={styles.logoSub}>Total: {formatCurrency(totalOutstanding)}</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.iconButton} onPress={() => {
+          setAddName(''); setAddNetwork('VISA'); setAddEndingWith('');
+          setAddBillingDay(''); setAddBank(''); setAddLimit(''); setAddBalance('');
+          setAddDueDate(new Date());
+          setShowAddModal(true);
+        }}>
+          <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -163,7 +138,7 @@ export default function CreditCardsScreen() {
             <TouchableOpacity
               key={card.id}
               style={[styles.cardItem, { borderColor: `${accent}30` }]}
-              onPress={() => openEdit(card)}
+              onPress={() => navigation.navigate('CreditCardDetail', { cardId: card.id })}
               activeOpacity={0.8}
             >
               <View style={[styles.cardAccentBar, { backgroundColor: accent }]} />
@@ -173,10 +148,14 @@ export default function CreditCardsScreen() {
                     <Text style={styles.cardName}>{card.name}</Text>
                     <Text style={styles.cardNumber}>•••• {card.endingWith} · {card.network}</Text>
                   </View>
-                  <View style={styles.cardEditBadge}>
+                  <TouchableOpacity
+                    style={styles.cardEditBadge}
+                    onPress={(e) => { e.stopPropagation(); openEdit(card); }}
+                    activeOpacity={0.6}
+                  >
                     <Ionicons name="create-outline" size={14} color={accent} />
                     <Text style={[styles.cardEditText, { color: accent }]}>Edit</Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.cardBottomRow}>
@@ -270,16 +249,102 @@ export default function CreditCardsScreen() {
                   <Text style={styles.modalBtnTextSave}>Save</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                style={styles.deleteCardBtn}
+                onPress={() => {
+                  deleteCard(editingCard.id, user?.id);
+                  setEditingCard(null);
+                }}
+              >
+                <Ionicons name="trash-outline" size={14} color={colors.error} />
+                <Text style={styles.deleteCardText}>Delete this card</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
       )}
+
+      {/* Add Card Modal */}
+      <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Credit Card</Text>
+            <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ gap: 12 }}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>CARD NAME</Text>
+                <TextInput style={styles.textInput} value={addName} onChangeText={setAddName} placeholder="e.g. HDFC Millennia" placeholderTextColor={colors.outline} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>NETWORK</Text>
+                <View style={styles.chipRow}>
+                  {NETWORKS.map((n) => (
+                    <TouchableOpacity key={n} style={[styles.chip, addNetwork === n && styles.chipActive]} onPress={() => setAddNetwork(n)}>
+                      <Text style={[styles.chipText, addNetwork === n && styles.chipTextActive]}>{n}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.rowFields}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>LAST 4 DIGITS</Text>
+                  <TextInput style={styles.textInput} value={addEndingWith} onChangeText={setAddEndingWith} keyboardType="number-pad" maxLength={4} placeholder="1234" placeholderTextColor={colors.outline} />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>BILLING DAY</Text>
+                  <TextInput style={styles.textInput} value={addBillingDay} onChangeText={setAddBillingDay} keyboardType="number-pad" maxLength={2} placeholder="15" placeholderTextColor={colors.outline} />
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>BANK (OPTIONAL)</Text>
+                <TextInput style={styles.textInput} value={addBank} onChangeText={setAddBank} placeholder="e.g. HDFC" placeholderTextColor={colors.outline} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>FIRST DUE DATE</Text>
+                <TouchableOpacity
+                  style={styles.datePickerTrigger}
+                  onPress={() => setAddCalendarVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                  <Text style={styles.datePickerText}>
+                    {addDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.rowFields}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>CREDIT LIMIT (₹)</Text>
+                  <TextInput style={styles.textInput} value={addLimit} onChangeText={setAddLimit} keyboardType="decimal-pad" placeholder="50000" placeholderTextColor={colors.outline} />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>OUTSTANDING (₹)</Text>
+                  <TextInput style={styles.textInput} value={addBalance} onChangeText={setAddBalance} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} />
+                </View>
+              </View>
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setShowAddModal(false)}>
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleAddCard}>
+                <Text style={styles.modalBtnTextSave}>Add Card</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        </Modal>
 
       <CalendarPicker
         visible={calendarVisible}
         selected={dueDate}
         onSelect={setDueDate}
         onClose={() => setCalendarVisible(false)}
+      />
+      <CalendarPicker
+        visible={addCalendarVisible}
+        selected={addDueDate}
+        onSelect={setAddDueDate}
+        onClose={() => setAddCalendarVisible(false)}
       />
     </SafeAreaView>
   );
@@ -383,28 +448,25 @@ const styles = StyleSheet.create({
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
-});
-
-// Calendar sub-styles
-const cal = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 20,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+  deleteCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  monthLabel: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  weekLabel: { width: 32, textAlign: 'center', fontSize: 11, color: colors.onSurfaceVariant, fontWeight: '600' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  dayBtn: { width: 36, height: 36, borderRadius: rounded.full, alignItems: 'center', justifyContent: 'center' },
-  dayBtnSelected: { backgroundColor: colors.primary },
-  dayText: { fontSize: 13, color: colors.onSurface, fontWeight: '500' },
-  dayTextSel: { color: '#fff', fontWeight: '700' },
-  closeBtn: { alignItems: 'center', paddingVertical: 10 },
-  closeText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  deleteCardText: { fontSize: 12, color: colors.error, fontWeight: '600' },
+  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: rounded.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surfaceContainer,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
+  chipTextActive: { color: '#fff' },
+  rowFields: { flexDirection: 'row', gap: 10 },
 });

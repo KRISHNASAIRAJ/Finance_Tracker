@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +22,7 @@ import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { useFinanceSync, queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
 import { useAuth } from '../../../services/AuthProvider';
+import { scheduleAllReminders } from '../../../services/notificationService';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -106,31 +107,42 @@ export default function FinanceHomeScreen() {
     receivables,
     accounts,
     fixedExpenses,
+    notifications,
     getTotalBalance,
     getMonthlyExpenses,
     editCard,
   } = useFinanceStore();
 
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
   const { loading: syncing } = useFinanceSync();
 
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
-  const [balanceInput, setBalanceInput] = useState('');
+  const [billAmountInput, setBillAmountInput] = useState('');
+  const [paidAmountInput, setPaidAmountInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
 
+  useEffect(() => {
+    scheduleAllReminders();
+  }, []);
+
   const openEdit = (card: CreditCard) => {
     setEditingCard(card);
-    setBalanceInput(((card.balance || 0) / 100).toString());
+    setBillAmountInput(card.billAmount ? (card.billAmount / 100).toString() : ((card.balance || 0) / 100).toString());
+    setPaidAmountInput(card.paidAmount ? (card.paidAmount / 100).toString() : '0');
     setDueDate(card.dueDate ? new Date(card.dueDate) : new Date());
   };
 
   const handleSave = () => {
     if (!editingCard) return;
-    const balance = Math.round(parseFloat(balanceInput) * 100);
-    if (isNaN(balance)) { alert('Enter a valid amount'); return; }
+    const billAmount = Math.round(parseFloat(billAmountInput) * 100);
+    const paidAmount = Math.round(parseFloat(paidAmountInput) * 100);
+    if (isNaN(billAmount)) { alert('Enter a valid bill amount'); return; }
+    if (isNaN(paidAmount)) { alert('Enter a valid paid amount'); return; }
 
-    const updated = { balance, dueDate: dueDate.toISOString() };
+    const updated: Partial<CreditCard> = { dueDate: dueDate.toISOString(), billAmount, paidAmount };
     if (typeof editCard === 'function') {
       editCard(editingCard.id, updated);
     }
@@ -138,7 +150,19 @@ export default function FinanceHomeScreen() {
       queueCardSync(user.id, 'update', { id: editingCard.id, ...updated });
     }
     setEditingCard(null);
+    scheduleAllReminders();
   };
+
+  const handleMarkFullyPaid = () => {
+    if (!editingCard) return;
+    const billAmount = Math.round(parseFloat(billAmountInput) * 100);
+    if (isNaN(billAmount)) { alert('Enter a valid bill amount'); return; }
+    setPaidAmountInput((billAmount / 100).toString());
+  };
+
+  const billLeft = editingCard
+    ? Math.max(0, (Math.round(parseFloat(billAmountInput || '0') * 100) || 0) - (Math.round(parseFloat(paidAmountInput || '0') * 100) || 0))
+    : 0;
 
   const totalBalance = getTotalBalance();
   const monthlyExpenses = getMonthlyExpenses();
@@ -165,8 +189,12 @@ export default function FinanceHomeScreen() {
   const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal - deficitsSum;
 
   // Dynamic category calculations for Expense Distribution
+  const EXCLUDED_CHART_CATEGORIES = ['Rent', 'SIP', 'Investments', 'Housing'];
   const expenseTxs = transactions.filter(
-    (tx: any) => tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service'
+    (tx: any) =>
+      (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+      tx.type !== 'fixed_expense' &&
+      !EXCLUDED_CHART_CATEGORIES.includes(tx.category)
   );
   const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0);
 
@@ -202,6 +230,22 @@ export default function FinanceHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header Row */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Meridian</Text>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => (navigation as any).navigate('Notifications')}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Balance Summary Section */}
         <TouchableOpacity
           style={styles.netWorthContainer}
@@ -317,7 +361,7 @@ export default function FinanceHomeScreen() {
           <View style={styles.distributionContent}>
             {/* Custom Visual Donut Ring Representation */}
             <View style={styles.donutContainer}>
-              <View style={styles.donutOuterRing}>
+              <View style={[styles.donutOuterRing, { borderColor: categoriesSorted[0] ? getCategoryColor(categoriesSorted[0].name) : colors.primary, borderTopColor: 'transparent', borderRightColor: 'transparent' }]}>
                 <View style={styles.donutInnerRing}>
                   <Text style={styles.donutSub}>Total</Text>
                   <Text style={styles.donutVal}>
@@ -330,10 +374,7 @@ export default function FinanceHomeScreen() {
             {/* Dynamic Legend List */}
             <View style={styles.legendContainer}>
               {categoriesSorted.slice(0, 3).map((cat) => {
-                let dotColor: string = colors.outline;
-                if (cat.name.toLowerCase().includes('food')) dotColor = colors.primary;
-                else if (cat.name.toLowerCase().includes('house') || cat.name.toLowerCase().includes('rent')) dotColor = '#f59e0b';
-                else if (cat.name.toLowerCase().includes('life') || cat.name.toLowerCase().includes('shop')) dotColor = '#3b82f6';
+                const dotColor = getCategoryColor(cat.name);
                 
                 return (
                   <View key={cat.name} style={styles.legendItem}>
@@ -368,7 +409,9 @@ export default function FinanceHomeScreen() {
             snapToInterval={296}
             decelerationRate="fast"
           >
-            {cards.map((card: any) => {
+            {[...cards]
+              .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+              .map((card: any) => {
               // Set border accent color based on network/bank name
               let borderColor = 'rgba(255, 255, 255, 0.05)';
               let decorColor = 'rgba(255, 255, 255, 0.02)';
@@ -406,8 +449,14 @@ export default function FinanceHomeScreen() {
                   </View>
                   <View style={styles.cardBottom}>
                     <View>
-                      <Text style={styles.cardBalanceLabel}>Current Balance</Text>
-                      <Text style={styles.cardBalanceValue}>{formatCurrency(card.balance)}</Text>
+                      <Text style={styles.cardBalanceLabel}>
+                        {card.billAmount ? 'Bill Left' : 'Current Balance'}
+                      </Text>
+                      <Text style={styles.cardBalanceValue}>
+                        {card.billAmount
+                          ? formatCurrency(Math.max(0, card.billAmount - (card.paidAmount || 0)))
+                          : formatCurrency(card.balance)}
+                      </Text>
                     </View>
                     <Text style={styles.cardDueDate}>
                       Due {(card.dueDate ? new Date(card.dueDate) : new Date()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -435,8 +484,9 @@ export default function FinanceHomeScreen() {
             )}
           </View>
           <View style={styles.activityList}>
-            {(isExpanded ? transactions : transactions.slice(0, 5))
+            {[...transactions]
               .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              .slice(0, isExpanded ? undefined : 5)
               .map((tx: any) => {
               const isIncome = tx.type === 'income';
               const catColor = getCategoryColor(tx.category, isIncome);
@@ -470,25 +520,55 @@ export default function FinanceHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Edit Modal */}
+      {/* Bill Payment Modal */}
       {editingCard && (
         <Modal visible={!!editingCard} transparent animationType="fade" onRequestClose={() => setEditingCard(null)}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{editingCard.name}</Text>
-              <Text style={styles.modalSub}>•••• {editingCard.endingWith}</Text>
+              <Text style={styles.modalSub}>
+                •••• {editingCard.endingWith}  ·  {editingCard.network}
+              </Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>OUTSTANDING BALANCE (₹)</Text>
+                <Text style={styles.inputLabel}>BILL AMOUNT (₹)</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={balanceInput}
-                  onChangeText={setBalanceInput}
+                  value={billAmountInput}
+                  onChangeText={setBillAmountInput}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
                   placeholderTextColor={colors.outline}
                 />
               </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>PAID (₹)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={paidAmountInput}
+                  onChangeText={setPaidAmountInput}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.outline}
+                />
+              </View>
+
+              <View style={styles.billLeftRow}>
+                <Text style={styles.billLeftLabel}>BILL LEFT</Text>
+                <Text style={[styles.billLeftValue, billLeft > 0 && styles.billLeftDue]}>
+                  {formatCurrency(billLeft)}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.markPaidBtn}
+                onPress={handleMarkFullyPaid}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                <Text style={styles.markPaidBtnText}>Mark as Fully Paid</Text>
+              </TouchableOpacity>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>DUE DATE</Text>
@@ -562,6 +642,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.onSurface,
+    letterSpacing: -0.5,
+  },
+  notifBtn: {
+    padding: 8,
+    borderRadius: rounded.full,
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.error,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  notifBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   appBarLeft: {
     flexDirection: 'row',
@@ -731,9 +845,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 12,
-    borderColor: '#3b82f6',
-    borderTopColor: 'transparent',
-    borderRightColor: 'transparent',
     transform: [{ rotate: '45deg' }],
   },
   donutInnerRing: {
@@ -1008,4 +1119,30 @@ const styles = StyleSheet.create({
   calDayTextSelected: { color: '#fff', fontWeight: '700' },
   calCloseBtn: { alignItems: 'center', paddingVertical: 10 },
   calCloseBtnText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  billLeftRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  billLeftLabel: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  billLeftValue: { fontSize: 20, fontWeight: '800', color: colors.success },
+  billLeftDue: { color: colors.error },
+  markPaidBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: `${colors.success}25`,
+    borderWidth: 1,
+    borderColor: `${colors.success}40`,
+  },
+  markPaidBtnText: { fontSize: 14, fontWeight: '700', color: colors.success },
 });

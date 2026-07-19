@@ -1,7 +1,8 @@
 import { Platform, Alert } from 'react-native';
 import { readExistingSms, processSmsBatch, startSmsListener, requestSmsPermissions, isSmsModuleAvailable } from './smsReader';
 import { notifySmsExpense, setupNotificationTapHandler } from './smsNotificationHandler';
-import type { SmsNotificationPayload } from './smsReader';
+import { callAiSmsParse } from './smsAiFallback';
+import type { SmsNotificationPayload, SmsMessage } from './smsReader';
 
 let listenerCleanup: (() => void) | null = null;
 let notificationTapCleanup: (() => void) | null = null;
@@ -34,8 +35,38 @@ async function startListening() {
 
   listenerCleanup?.();
   listenerCleanup = startSmsListener(async (payload) => {
-    await notifySmsExpense(payload.message, payload.parsed);
+    await handleSmsMatch(payload);
   });
+}
+
+async function handleSmsMatch(payload: SmsNotificationPayload) {
+  const { message, parsed } = payload;
+
+  if (parsed.confidence >= 0.7) {
+    await notifySmsExpense(message, parsed);
+    return;
+  }
+
+  // Confidence < 0.7 — try AI fallback
+  try {
+    const aiResult = await callAiSmsParse(message.body, message.address);
+    if (aiResult.parsed && aiResult.confidence >= 0.7) {
+      const enhanced = {
+        ...parsed,
+        amount: aiResult.amount ?? parsed.amount,
+        merchant: aiResult.merchant ?? parsed.merchant,
+        cardLast4: aiResult.card_last4 ?? parsed.cardLast4,
+        accountLast4: aiResult.account_last4 ?? parsed.accountLast4,
+        transactionType: aiResult.transaction_type ?? parsed.transactionType,
+        confidence: aiResult.confidence,
+      };
+      await notifySmsExpense(message, enhanced);
+      return;
+    }
+  } catch {}
+
+  // AI failed or returned low confidence — still notify with original (low-confidence) result
+  await notifySmsExpense(message, parsed);
 }
 
 export async function scanExistingSms(quiet: boolean = false): Promise<number> {
@@ -70,7 +101,7 @@ export async function scanExistingSms(quiet: boolean = false): Promise<number> {
   let count = 0;
 
   processSmsBatch(messages, async (payload: SmsNotificationPayload) => {
-    await notifySmsExpense(payload.message, payload.parsed);
+    await handleSmsMatch(payload);
     count++;
   });
 

@@ -29,6 +29,7 @@ import AllTransactionsScreen from '../modules/finance/screens/AllTransactionsScr
 import CreditCardsScreen from '../modules/finance/screens/CreditCardsScreen';
 import BalanceSummaryScreen from '../modules/finance/screens/BalanceSummaryScreen';
 import SmsConfirmationScreen from '../modules/finance/screens/SmsConfirmationScreen';
+import CreditCardDetailScreen from '../modules/finance/screens/CreditCardDetailScreen';
 
 import GarageDashboardScreen from '../modules/garage/screens/GarageDashboardScreen';
 import AddFuelFillScreen from '../modules/garage/screens/AddFuelFillScreen';
@@ -36,6 +37,7 @@ import EditFuelFillScreen from '../modules/garage/screens/EditFuelFillScreen';
 import AllFuelFillsScreen from '../modules/garage/screens/AllFuelFillsScreen';
 import VehicleSpendScreen from '../modules/garage/screens/VehicleSpendScreen';
 import VehicleReportsScreen from '../modules/garage/screens/VehicleReportsScreen';
+import AddMaintenanceScreen from '../modules/garage/screens/AddMaintenanceScreen';
 
 import TasksDashboardScreen from '../modules/tasks/screens/TasksDashboardScreen';
 import TaskDetailScreen from '../modules/tasks/screens/TaskDetailScreen';
@@ -44,9 +46,13 @@ import AddEditTaskScreen from '../modules/tasks/screens/AddEditTaskScreen';
 import InvestmentsDashboardScreen from '../modules/equity/screens/InvestmentsDashboardScreen';
 import PortfolioHistoryScreen from '../modules/equity/screens/PortfolioHistoryScreen';
 import AIRecommendationsScreen from '../modules/equity/screens/AIRecommendationsScreen';
+import AddEditHoldingScreen from '../modules/equity/screens/AddEditHoldingScreen';
+import AddEditGoalScreen from '../modules/equity/screens/AddEditGoalScreen';
+import HoldingsListScreen from '../modules/equity/screens/HoldingsListScreen';
 
 import MoreMenuScreen from '../modules/personal/screens/MoreMenuScreen';
 import PersonalNotesScreen from '../modules/personal/screens/PersonalNotesScreen';
+import CombinedReportScreen from '../modules/personal/screens/CombinedReportScreen';
 import GoalsTrackerScreen from '../modules/personal/screens/GoalsTrackerScreen';
 import RecipesLibraryScreen from '../modules/personal/screens/RecipesLibraryScreen';
 import DietPlanTrackerScreen from '../modules/personal/screens/DietPlanTrackerScreen';
@@ -80,6 +86,7 @@ export type FinanceStackParamList = {
       onDone?: () => void;
     };
   };
+  CreditCardDetail: { cardId: string };
 };
 
 export type GarageStackParamList = {
@@ -89,6 +96,7 @@ export type GarageStackParamList = {
   AllFuelFills: undefined;
   VehicleSpend: undefined;
   VehicleReports: undefined;
+  AddMaintenance: { maintenanceId?: string } | undefined;
 };
 
 export type TasksStackParamList = {
@@ -101,10 +109,14 @@ export type InvestmentsStackParamList = {
   InvestmentsDashboard: undefined;
   PortfolioHistory: undefined;
   AIRecommendations: undefined;
+  HoldingsList: { tab?: 'equity' | 'mf' } | undefined;
+  AddEditHolding: { holdingId?: string } | undefined;
+  AddEditGoal: { goalId?: string } | undefined;
 };
 
 export type MoreStackParamList = {
   MoreMenu: undefined;
+  CombinedReport: undefined;
   PersonalNotes: undefined;
   GoalsTracker: undefined;
   RecipesLibrary: undefined;
@@ -166,6 +178,7 @@ function FinanceStackNavigator() {
       <FinanceStack.Screen name="CreditCards" component={CreditCardsScreen} />
       <FinanceStack.Screen name="BalanceSummary" component={BalanceSummaryScreen} />
       <FinanceStack.Screen name="SmsConfirmation" component={SmsConfirmationScreen} options={modalScreenOptions} />
+      <FinanceStack.Screen name="CreditCardDetail" component={CreditCardDetailScreen} />
     </FinanceStack.Navigator>
   );
 }
@@ -179,6 +192,7 @@ function GarageStackNavigator() {
       <GarageStack.Screen name="AllFuelFills" component={AllFuelFillsScreen} />
       <GarageStack.Screen name="VehicleSpend" component={VehicleSpendScreen} />
       <GarageStack.Screen name="VehicleReports" component={VehicleReportsScreen} />
+      <GarageStack.Screen name="AddMaintenance" component={AddMaintenanceScreen} />
     </GarageStack.Navigator>
   );
 }
@@ -199,6 +213,9 @@ function InvestmentsStackNavigator() {
       <InvestmentsStack.Screen name="InvestmentsDashboard" component={InvestmentsDashboardScreen} />
       <InvestmentsStack.Screen name="PortfolioHistory" component={PortfolioHistoryScreen} />
       <InvestmentsStack.Screen name="AIRecommendations" component={AIRecommendationsScreen} />
+      <InvestmentsStack.Screen name="AddEditHolding" component={AddEditHoldingScreen} />
+      <InvestmentsStack.Screen name="AddEditGoal" component={AddEditGoalScreen} />
+      <InvestmentsStack.Screen name="HoldingsList" component={HoldingsListScreen} />
     </InvestmentsStack.Navigator>
   );
 }
@@ -207,6 +224,7 @@ function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={stackScreenOptions}>
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} />
+      <MoreStack.Screen name="CombinedReport" component={CombinedReportScreen} />
       <MoreStack.Screen name="PersonalNotes" component={PersonalNotesScreen} />
       <MoreStack.Screen name="GoalsTracker" component={GoalsTrackerScreen} />
       <MoreStack.Screen name="RecipesLibrary" component={RecipesLibraryScreen} />
@@ -225,7 +243,7 @@ function TabNavigator() {
           if (route.name === 'FinanceTab') {
             iconName = 'wallet-outline';
           } else if (route.name === 'GarageTab') {
-            iconName = 'car-outline';
+            iconName = 'speedometer-outline';
           } else if (route.name === 'TasksTab') {
             iconName = 'checkbox-outline';
           } else if (route.name === 'InvestmentsTab') {
@@ -276,7 +294,7 @@ function TabNavigator() {
       <Tab.Screen
         name="MoreTab"
         component={MoreStackNavigator}
-        options={{ tabBarLabel: 'Notes' }}
+        options={{ tabBarLabel: 'More' }}
       />
     </Tab.Navigator>
   );

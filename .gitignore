@@ -58,3 +58,6 @@ mobile/.claude/
 mobile/AGENTS.md
 mobile/CLAUDE.md
 mobile/old_data/
+
+# SMS native module build cache (paths too long for Git on Windows)
+mobile/modules/sms-native/android/build/

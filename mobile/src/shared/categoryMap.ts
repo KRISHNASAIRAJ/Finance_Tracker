@@ -9,7 +9,7 @@ export interface Category {
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: "Food & Dining", icon: "restaurant-outline", color: "#fbbf24" },
   { name: "Grocery", icon: "basket-outline", color: "#84cc16" },
-  { name: "Fuel", icon: "car-outline", color: "#ef4444" },
+  { name: "Fuel", icon: "speedometer-outline", color: "#ef4444" },
   { name: "Travel", icon: "airplane-outline", color: "#38bdf8" },
   { name: "Shopping", icon: "bag-outline", color: "#a855f7" },
   { name: "Bills & Recharge", icon: "receipt-outline", color: "#f97316" },

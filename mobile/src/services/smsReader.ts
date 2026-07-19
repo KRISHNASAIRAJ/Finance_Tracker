@@ -1,5 +1,11 @@
 import { Platform, NativeModules, NativeEventEmitter, PermissionsAndroid, Alert } from 'react-native';
 import { parseSms, isBankSender, isFinancialSms, shouldNotify, SmsParseResult } from './smsParser';
+import { useFinanceStore } from '../modules/finance/store';
+
+function isSuppressedSender(senderId: string): boolean {
+  const suppressed = (useFinanceStore.getState() as any).suppressedSenders || [];
+  return suppressed.includes(senderId.toUpperCase());
+}
 
 export interface SmsMessage {
   id: string;
@@ -87,9 +93,11 @@ export function processSmsBatch(
 ): void {
   for (const msg of messages) {
     if (!isBankSender(msg.address)) continue;
+    if (isSuppressedSender(msg.address)) continue;
     if (!isFinancialSms(msg.body)) continue;
 
     const parsed = parseSms(msg.body);
+    if (!parsed) continue;
     if (!shouldNotify(parsed)) continue;
 
     onMatch({ message: msg, parsed });
@@ -106,9 +114,11 @@ export function startSmsListener(onSmsReceived: (payload: SmsNotificationPayload
     mod.startListening();
     sub = emitter.addListener('onSmsReceived', (msg: SmsMessage) => {
       if (!isBankSender(msg.address)) return;
+      if (isSuppressedSender(msg.address)) return;
       if (!isFinancialSms(msg.body)) return;
 
       const parsed = parseSms(msg.body);
+      if (!parsed) return;
       if (!shouldNotify(parsed)) return;
 
       onSmsReceived({ message: msg, parsed });

@@ -16,16 +16,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { usePersonalStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { queueGoalSync } from '../hooks/usePersonalSync';
 
 export default function GoalsTrackerScreen() {
   const navigation = useNavigation();
   const { goals, toggleGoal, addGoal, deleteGoal } = usePersonalStore();
+  const { user } = useAuth();
   const [goalInput, setGoalInput] = useState('');
 
   const handleAddGoal = () => {
     if (!goalInput.trim()) return;
-    addGoal(goalInput.trim());
+    const goal = addGoal(goalInput.trim());
     setGoalInput('');
+    if (user) queueGoalSync(user.id, 'create', goal);
   };
 
   const completedCount = goals.filter((g) => g.completed).length;
@@ -77,7 +81,11 @@ export default function GoalsTrackerScreen() {
             <View key={g.id} style={styles.goalRow}>
               <TouchableOpacity
                 style={styles.goalLeft}
-                onPress={() => toggleGoal(g.id)}
+                onPress={() => {
+                  toggleGoal(g.id);
+                  const updated = goals.find((x) => x.id === g.id);
+                  if (user && updated) queueGoalSync(user.id, 'update', { ...updated, completed: !updated.completed });
+                }}
                 activeOpacity={0.8}
               >
                 <View style={[styles.checkbox, g.completed && styles.checkboxCompleted]}>
@@ -90,15 +98,14 @@ export default function GoalsTrackerScreen() {
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => {
+                  const doDelete = () => { deleteGoal(g.id); if (user) queueGoalSync(user.id, 'delete', g); };
                   if (Platform.OS === 'ios') {
-                    // Simple confirmation for iOS
-                    deleteGoal(g.id);
+                    doDelete();
                   } else {
-                    // Android uses alert
                     import('react-native').then(({ Alert }) => {
                       Alert.alert('Delete Goal', `Remove "${g.name}"?`, [
                         { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(g.id) },
+                        { text: 'Delete', style: 'destructive', onPress: doDelete },
                       ]);
                     });
                   }

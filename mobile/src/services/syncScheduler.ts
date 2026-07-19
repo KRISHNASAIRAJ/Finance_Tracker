@@ -1,29 +1,45 @@
-import * as BackgroundFetch from "expo-background-fetch";
-import * as TaskManager from "expo-task-manager";
 import { processSyncQueue } from "./syncQueue";
 
 const SYNC_TASK = "meridian-sync-task";
 
-TaskManager.defineTask(SYNC_TASK, async () => {
+let BackgroundFetch: any = null;
+let TaskManager: any = null;
+
+function ensure() {
+  if (BackgroundFetch) return true;
   try {
-    const result = await processSyncQueue();
-    const status =
-      result.failed === 0
-        ? BackgroundFetch.BackgroundFetchResult.NewData
-        : BackgroundFetch.BackgroundFetchResult.Failed;
-    return status;
+    BackgroundFetch = require("expo-background-fetch");
+    TaskManager = require("expo-task-manager");
+    return true;
   } catch {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    return false;
   }
-});
+}
+
+function initTask() {
+  if (!ensure()) return;
+  try {
+    TaskManager.defineTask(SYNC_TASK, async () => {
+      try {
+        const result = await processSyncQueue();
+        return result.failed === 0
+          ? BackgroundFetch.BackgroundFetchResult.NewData
+          : BackgroundFetch.BackgroundFetchResult.Failed;
+      } catch {
+        return BackgroundFetch.BackgroundFetchResult.Failed;
+      }
+    });
+  } catch {}
+}
 
 export async function registerSyncTask(): Promise<boolean> {
-  const isRegistered = await TaskManager.isTaskRegisteredAsync(SYNC_TASK);
-  if (isRegistered) return true;
-
+  if (!ensure()) return false;
+  initTask();
   try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(SYNC_TASK);
+    if (isRegistered) return true;
     await BackgroundFetch.registerTaskAsync(SYNC_TASK, {
-      minimumInterval: 240, // 4 hours — background fallback only
+      minimumInterval: 240,
       stopOnTerminate: false,
       startOnBoot: true,
     });
@@ -34,18 +50,12 @@ export async function registerSyncTask(): Promise<boolean> {
 }
 
 export async function unregisterSyncTask(): Promise<void> {
+  if (!ensure()) return;
   try {
     await BackgroundFetch.unregisterTaskAsync(SYNC_TASK);
-  } catch {
-    // already unregistered
-  }
+  } catch {}
 }
 
 export async function triggerSyncNow(): Promise<void> {
-  try {
-    await BackgroundFetch.getStatusAsync();
-    processSyncQueue();
-  } catch {
-    processSyncQueue();
-  }
+  processSyncQueue();
 }

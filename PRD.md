@@ -20,7 +20,6 @@
 3. **Task Manager** — Notion-style tasks with reminders and notifications
 4. **Equity/MF Tracker** — holdings, Kite sync, AI rebalancing suggestions, daily 8:30 PM portfolio report
 5. **Personal Notes & Goals** — 2026 life goals, notes, recipes, diet plan
-6. **Fitness widget** — daily step count via Health Connect
 
 **Design principle:** Dark mode first. One shared backend, one shared auth/session, one shared notification pipeline, modules sharing a common `transactions`-style data spine (finance, fuel, vehicle spend, portfolio all produce "money events").
 
@@ -38,7 +37,7 @@
 - Not a multi-user/family finance app — single user only for v1
 - Not a public app store release — sideload/personal use, so sensitive permissions (SMS read) are acceptable
 - Not a substitute for licensed financial advice — AI recommendations are informational only, with disclaimers
-- No iOS build in phase 1 (Health Connect and SMS-reading are Android-only anyway; iOS deferred)
+- No iOS build in phase 1 (SMS-reading is Android-only anyway; iOS deferred)
 
 ---
 
@@ -54,7 +53,6 @@
 | Push notifications | Firebase Cloud Messaging (FCM) | Server-triggered (portfolio report) + local notifications (task reminders) |
 | Charts | Victory Native / React Native Chart Kit | Line, pie/donut, bar |
 | AI | Claude API (Anthropic) | Card T&C Q&A (RAG), SMS parsing fallback, portfolio recommendations |
-| Fitness data | Android Health Connect | Google Fit APIs are deprecated end of 2026 — do not use them |
 | Brokerage data | Kite Connect / Kite MCP (Zerodha) | **Verify current pricing/free-tier before building** — Kite Connect has historically been a paid API |
 | Hosting | Supabase (DB+auth) + small VPS or serverless functions for cron/AI calls | Keep cost low for personal use |
 
@@ -265,25 +263,7 @@ A catch-all personal module for two related but distinct things: (1) tracking yo
 
 ---
 
-## 10. Module 6 — Fitness Widget
-
-### Entity
-- **DailySteps**: date, step_count, source (health_connect)
-
-### Screen
-- Simple card/widget on home dashboard: today's steps + 7-day trend sparkline
-
-### Integration
-- Android Health Connect API (NOT Google Fit API — deprecated end of 2026)
-- Request read permission for Steps record type
-- Sync on app open + background periodic sync if feasible
-
-### Acceptance criteria
-- Step count matches what's shown in the user's connected fitness source (Google Fit app / wearable) within Health Connect's aggregation window
-
----
-
-## 11. Non-Functional Requirements
+## 10. Non-Functional Requirements
 
 - **Offline-first**: manual entries (expenses, fuel, tasks) must work offline and sync when connectivity returns
 - **Data privacy**: SMS content and financial data stored encrypted at rest; card T&C documents and portfolio data never leave the backend except for scoped AI calls
@@ -292,7 +272,7 @@ A catch-all personal module for two related but distinct things: (1) tracking yo
 
 ---
 
-## 12. Suggested Build Roadmap (for Claude Code, phased)
+## 11. Suggested Build Roadmap (for Claude Code, phased)
 
 **Phase 0 — Foundation**
 - Project scaffold (React Native + backend), auth, DB schema for all modules, shared `transactions` table
@@ -320,24 +300,21 @@ A catch-all personal module for two related but distinct things: (1) tracking yo
 **Phase 7 — Personal Notes & Goals**
 - 2026 goals list + status workflow, general notes, recipes, diet plan grid
 
-**Phase 8 — Fitness widget**
-- Health Connect integration, steps widget
-
 **Phase 9 — Polish**
 - Cross-module reports (net worth, combined dashboards), offline sync hardening, notification reliability testing
 
 ---
 
-## 13. Open Questions / Risks
+## 12. Open Questions / Risks
 
 - **Kite Connect access/pricing**: needs to be confirmed on Zerodha's developer console before Phase 5 — Kite Connect API has historically required a paid subscription; the "free MCP" option should be verified for current terms and rate limits.
 - **SMS parsing coverage**: bank SMS formats vary widely; budget time for handling edge cases (multiple banks, partial info) beyond initial testing set.
-- **iOS support**: Health Connect and Android SMS reading have no direct iOS equivalent (HealthKit ≠ Health Connect API); iOS parity is a separate effort, deferred.
+- **iOS support**: Android SMS reading has no direct iOS equivalent; iOS parity is a separate effort, deferred.
 - **AI cost**: Claude API calls for SMS fallback parsing, T&C Q&A, and portfolio recommendations will have ongoing token costs — worth estimating monthly volume before Phase 4–6.
 - **Notification reliability on Android**: OEM battery optimization (especially on Xiaomi/Oppo/Vivo devices) can kill background schedulers — may need to prompt users to whitelist the app.
 
 ---
 
-## 14. How to use this PRD with Claude Code
+## 13. How to use this PRD with Claude Code
 
 Suggested approach: work through the roadmap phases in order, one Claude Code session per phase. For each phase, point Claude Code at this PRD section plus the relevant data model, and ask it to scaffold the module (screens, API endpoints, DB migrations) before wiring in AI/notification features. Keep Phase 0 (shared foundation) genuinely shared — resist building each module as an island, since the value of this app over standalone trackers is the unified data spine (section 4.1) and single dashboard.

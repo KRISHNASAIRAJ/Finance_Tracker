@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -18,24 +19,37 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../../finance/store';
+import { usePersonalStore } from '../store';
+import { useInvestmentsStore } from '../../equity/store';
 import { triggerBackupNow } from '../../../services/backupScheduler';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
 import { useAuth } from '../../../services/AuthProvider';
 import { syncNow } from '../../finance/hooks/useFinanceSync';
+import { usePersonalSync, syncPersonalNow } from '../hooks/usePersonalSync';
+import { useEquitySync, syncEquityNow } from '../../equity/hooks/useEquitySync';
 import { scanExistingSms } from '../../../services/smsHandler';
+import { supabase } from '../../../services/supabaseClient';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
 export default function MoreMenuScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user, signIn, signOut } = useAuth();
+  usePersonalSync();
+  useEquitySync();
   const notifications = useFinanceStore((state) => state.notifications);
   const lastSyncedAt = useFinanceStore((state) => state.lastSyncedAt);
+  const lastPersonalSync = usePersonalStore((state) => state.lastPersonalSyncedAt);
+  const lastEquitySync = useInvestmentsStore((state) => state.lastEquitySyncedAt);
   const unreadCount = notifications.filter((n) => !n.read).length;
   const [backupState, setBackupState] = useState<'idle' | 'backing' | 'done' | 'error'>('idle');
   const [showAuth, setShowAuth] = useState(false);
   const [scanningSms, setScanningSms] = useState(false);
   const [smsScanResult, setSmsScanResult] = useState<string | null>(null);
+  const [kiteSyncing, setKiteSyncing] = useState(false);
+  const [kiteSyncResult, setKiteSyncResult] = useState<string | null>(null);
+  const [kiteConnected, setKiteConnected] = useState(false);
+  const [kiteLastSynced, setKiteLastSynced] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -44,6 +58,8 @@ export default function MoreMenuScreen() {
     if (!user || syncing) return;
     setSyncing(true);
     await syncNow(user.id);
+    await syncPersonalNow(user.id);
+    await syncEquityNow(user.id);
     setSyncing(false);
   };
 
@@ -84,7 +100,7 @@ export default function MoreMenuScreen() {
       id: 'garage',
       title: 'Garage',
       subtitle: 'Fuel logs & vehicle spend',
-      icon: 'car-outline',
+      icon: 'speedometer-outline',
       color: '#10b981',
       onPress: () => navigation.getParent()?.navigate('GarageTab'),
     },
@@ -116,6 +132,14 @@ export default function MoreMenuScreen() {
   ];
 
   const MENU_ITEMS = [
+    {
+      id: 'reports',
+      title: 'Combined Report',
+      subtitle: 'Net worth, allocation & spend overview',
+      icon: 'bar-chart-outline',
+      color: '#8b5cf6',
+      route: 'CombinedReport' as const,
+    },
     {
       id: 'notes',
       title: 'Personal Notes',
@@ -149,6 +173,53 @@ export default function MoreMenuScreen() {
       route: 'DietPlanTracker' as const,
     },
   ];
+
+  const handleConnectKite = () => {
+    const apiKey = process.env.EXPO_PUBLIC_KITE_API_KEY || 'pea3y7q1b3q934x6';
+    console.log('[KiteConnect] apiKey:', apiKey ? apiKey.substring(0, 5) + '...' : 'EMPTY');
+    if (!apiKey || apiKey === 'YOUR_KITE_API_KEY_HERE') {
+      setKiteSyncResult('Set KITE_API_KEY in .env first');
+      setTimeout(() => setKiteSyncResult(null), 3000);
+      return;
+    }
+    const loginUrl = `https://kite.zerodha.com/connect/login?v=3&api_key=${apiKey}`;
+    Linking.openURL(loginUrl);
+  };
+
+  const handleKiteSync = async () => {
+    if (!user || kiteSyncing) return;
+    setKiteSyncing(true);
+    setKiteSyncResult(null);
+    try {
+      const res = await fetch(
+        'https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-holdings-sync',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${(supabase as any).supabaseKey}`,
+          },
+          body: JSON.stringify({ user_id: user.id }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) {
+        setKiteSyncResult(data.error);
+      } else if (!res.ok) {
+        setKiteSyncResult('Server error');
+      } else {
+        setKiteSyncResult(`${data.synced} equity + ${data.mfSynced} MF synced`);
+        setKiteConnected(true);
+        setKiteLastSynced(new Date().toISOString());
+        await syncEquityNow(user.id);
+      }
+    } catch (e: any) {
+      setKiteSyncResult(e.message || 'Sync failed');
+    } finally {
+      setKiteSyncing(false);
+      setTimeout(() => setKiteSyncResult(null), 3000);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -247,6 +318,57 @@ export default function MoreMenuScreen() {
           </View>
         </TouchableOpacity>
 
+        {user && (
+          <>
+            <TouchableOpacity
+              style={styles.menuCard}
+              onPress={handleConnectKite}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
+                <Ionicons name={kiteConnected ? 'checkmark-circle-outline' : 'link-outline'} size={24} color={kiteConnected ? '#10b981' : '#ef4444'} />
+              </View>
+              <View style={styles.cardDetails}>
+                <Text style={styles.cardTitle}>
+                  {kiteConnected ? 'Kite Connected' : 'Connect Kite'}
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  {kiteConnected ? 'Zerodha account linked' : 'Re-authenticate with Zerodha Kite'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuCard}
+              onPress={handleKiteSync}
+              activeOpacity={0.8}
+              disabled={kiteSyncing}
+            >
+              <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)' }]}>
+                {kiteSyncing ? (
+                  <ActivityIndicator color="#3b82f6" size="small" />
+                ) : (
+                  <Ionicons
+                    name={kiteSyncResult && !kiteSyncResult.includes('failed') ? 'checkmark-circle' : 'sync-outline'}
+                    size={24}
+                    color={kiteSyncResult && !kiteSyncResult.includes('failed') ? '#10b981' : '#3b82f6'}
+                  />
+                )}
+              </View>
+              <View style={styles.cardDetails}>
+                <Text style={styles.cardTitle}>
+                  {kiteSyncing ? 'Syncing...' : kiteSyncResult || 'Sync Zerodha Kite'}
+                </Text>
+                <Text style={styles.cardSubtitle}>
+                  {kiteLastSynced ? `Last synced ${timeAgo(kiteLastSynced)}` : 'Pull equity & mutual fund holdings from Kite'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
+            </TouchableOpacity>
+          </>
+        )}
+
         {/* Cloud Sync */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CLOUD SYNC</Text>
         <TouchableOpacity
@@ -265,7 +387,7 @@ export default function MoreMenuScreen() {
             <Text style={styles.cardTitle}>{user ? 'Cloud Synced' : 'Sign In to Sync'}</Text>
             <Text style={styles.cardSubtitle}>
               {user
-                ? `Signed in as ${user.email} · Last synced: ${timeAgo(lastSyncedAt)}`
+                ? `Signed in as ${user.email} · Fin: ${timeAgo(lastSyncedAt)} · Eq: ${timeAgo(lastEquitySync)} · Notes: ${timeAgo(lastPersonalSync)}`
                 : 'Sync expenses, cards, and data across devices'}
             </Text>
           </View>

@@ -34,8 +34,7 @@
 │  │   PostgreSQL   │          │   - Claude API      │        │
 │  │   + Auth       │          │   - Kite Connect    │        │
 │  │   + Storage    │          │   - FCM             │        │
-│  └────────────────┘          │   - Health Connect  │        │
-│                              └────────────────────┘        │
+│  └────────────────┘          └────────────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,7 +62,6 @@
 | AI | Anthropic Claude API (claude-3-5-sonnet) | See SAFETY.md for usage rules |
 | Vector store | pgvector (PostgreSQL extension) | Card T&C document embeddings |
 | Brokerage | Kite Connect API (Zerodha) | Verify pricing before Phase 5 |
-| Fitness | Android Health Connect API | Steps — NOT Google Fit |
 | Hosting | Supabase + small VPS or Railway | Backend FastAPI instance |
 
 ---
@@ -349,18 +347,6 @@ CREATE TABLE diet_plan_entries (
 );
 ```
 
-### 3.8 Fitness Table
-
-```sql
-CREATE TABLE daily_steps (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    date        DATE NOT NULL UNIQUE,
-    step_count  INT NOT NULL,
-    source      TEXT NOT NULL DEFAULT 'health_connect',
-    synced_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
-
 ---
 
 ## 4. Backend Architecture (FastAPI)
@@ -563,4 +549,3 @@ FIREBASE_APP_ID=<android_app_id>
 | [ADR-004](ADR/ADR-004-offline-first.md) | SQLite queue + WorkManager for offline-first CRUD |
 | [ADR-005](ADR/ADR-005-notification-workmanager.md) | WorkManager/AlarmManager over JS timers |
 | [ADR-006](ADR/ADR-006-ai-scoping.md) | Claude API calls strictly scoped (two use cases only in v1) |
-| [ADR-007](ADR/ADR-007-health-connect.md) | Health Connect over Google Fit (deprecated end of 2026) |

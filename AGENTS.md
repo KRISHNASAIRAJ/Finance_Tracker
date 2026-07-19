@@ -17,7 +17,7 @@
 | **Database** | PostgreSQL (Supabase-hosted) + SQLite local cache |
 | **Auth** | Supabase Auth / JWT |
 | **AI Layer** | Claude API (Anthropic) — scoped assistants only |
-| **Notifications** | Firebase Cloud Messaging (FCM) + local AlarmManager/WorkManager |
+| **Notifications** | Expo Push Notifications + local AlarmManager/WorkManager |
 | **Design** | Dark mode first — all screens implemented in dark. See `DESIGN.md` |
 | **Stitch Project** | https://stitch.withgoogle.com/projects/4997376971246377666 |
 | **PRD Reference** | `PRD.md` — read it before implementing any feature |
@@ -45,7 +45,7 @@ krishnas-tracker/
 │   └── sms-parser-spec.md     ← SMS parsing rules
 ├── mobile/                    ← React Native app
 │   ├── src/
-│   │   ├── modules/           ← Feature modules (finance, garage, tasks, equity, personal, fitness)
+│   │   ├── modules/           ← Feature modules (finance, garage, tasks, equity, personal)
 │   │   ├── shared/            ← Shared components, hooks, utils
 │   │   ├── navigation/        ← React Navigation setup
 │   │   ├── store/             ← Zustand global state
@@ -59,11 +59,12 @@ krishnas-tracker/
 │   │   └── ...                ← Per-phase add/drop migrations
 │   └── functions/             ← Deno Edge Functions (hold secrets)
 │       ├── _shared/claude.ts   ← Shared Claude API client
-│       ├── ai-tnc-query/       ← Card T&C RAG chat (Phase 6)
-│       ├── ai-portfolio-recommend/  ← Portfolio recommendations (Phase 6)
-│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5)
-│       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4, gated)
-│       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4)
+│       ├── ai-tnc-query/       ← Card T&C RAG chat (Phase 6 — scaffold)
+│       ├── ai-portfolio-recommend/  ← Portfolio recommendations (Phase 6 — scaffold)
+│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5 — scaffold)
+│       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4 — deployed)
+│       ├── kite-callback/      ← Kite OAuth callback (Phase 4 — deployed)
+│       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4 — deployed)
 └── .env.example               ← Required environment variables
 ```
 
@@ -75,16 +76,15 @@ Always work within the current phase. Do NOT skip ahead.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟡 IN PROGRESS |
-| **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | ⬜ TODO |
-| **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | ⬜ TODO |
-| **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | ⬜ TODO |
-| **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | ⬜ TODO |
-| **Phase 5** | SMS Auto-capture: listener, parser (rules + Edge Function fallback), confirm flow | ⬜ TODO |
-| **Phase 6** | AI Assistants: Card T&C RAG chat, portfolio recommendation (goal-aware) | ⬜ TODO |
-| **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | ⬜ TODO |
-| **Phase 8** | Fitness Widget: Health Connect integration, steps widget | ⬜ TODO |
-| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | ⬜ TODO |
+| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟢 100% — 13 migrations (17 tables), RLS fixed, config.toml polished, all services done |
+| **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | 🟢 100% — 15 screens, add-card/delete-card, bank/limit fields, typed store, dynamic donut, bidirectional sync |
+| **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | 🟢 100% — 7 screens, vehicles table + sync, multi-vehicle UI (add/edit/delete), FAB menu, maintenance screen, sync queue |
+| **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD |
+| **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | 🟢 100% — 6 screens, Kite OAuth + equity+MF sync, allocation donut (Gold/Realty/Equity/MF), pg_cron portfolio snapshots, Expo push notifications, goal auto-progress |
+| **Phase 5** | SMS Auto-capture: listener, parser (regex rules + AI fallback), confirm flow, suppressed senders, persistent dedup | 🟢 100% — 5 services, native module, confirmation screen, regex engine, AI Claude fallback edge function, rate limiting, ignore-sender UI |
+| **Phase 6** | AI Assistants: Card T&C RAG chat, portfolio recommendation (goal-aware) | 🔴 20% — shared Claude client done; both edge functions scaffolds, no RAG |
+| **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
+| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, key tests (smsParser, finance store) |
 
 ---
 
@@ -168,7 +168,6 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 | SMS parsing coverage | Budget for edge cases across HDFC, ICICI, SBI, Axis, Kotak SMS formats |
 | Android OEM battery optimization | Prompt user to whitelist app; use `WorkManager` with `KEEP` policy |
 | Claude API costs | Gate AI calls behind usage caps; cache responses where appropriate |
-| Google Fit API deprecation | Use **Health Connect ONLY** — do not import or reference Google Fit APIs |
 
 ---
 

@@ -13,7 +13,7 @@ Needed a cross-platform mobile app (Android-first, iOS later) with a backend cap
 |---|---|---|---|
 | React Native | Large ecosystem, TypeScript, familiar JS patterns, good Android support | Bridge overhead in old arch | ✅ Chosen |
 | Flutter | Native performance, single codebase | Dart learning curve, smaller ecosystem for financial integrations | ❌ Rejected |
-| Next.js PWA | Web skills | No SMS read, no Health Connect, no native push | ❌ Rejected |
+| Next.js PWA | Web skills | No SMS read, no native push | ❌ Rejected |
 | FastAPI | Async Python, auto OpenAPI docs, Pydantic, great AI library support | Requires separate hosting | ✅ Chosen |
 | NestJS | TypeScript end-to-end | JS not ideal for AI/ML ecosystem | ❌ Rejected |
 | Supabase (PostgreSQL) | Managed DB + auth + storage, free tier, pgvector support | Vendor dependency | ✅ Chosen |

@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { usePersonalStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { queueDietSync } from '../hooks/usePersonalSync';
 import { requestNotificationPermissions, scheduleDietNotifications } from '../../../services/dietNotifications';
 
 type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -31,6 +33,7 @@ const SLOT_META: Record<MealSlot, { label: string; icon: string; color: string; 
 export default function DietPlanTrackerScreen() {
   const navigation = useNavigation();
   const { meals, updateMealSlot } = usePersonalStore();
+  const { user } = useAuth();
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
@@ -59,6 +62,7 @@ export default function DietPlanTrackerScreen() {
 
   const handleSave = () => {
     updateMealSlot(selectedDay, editingSlot, editValue.trim());
+    if (user) queueDietSync(user.id, selectedDay, editingSlot, editValue.trim());
     setEditVisible(false);
   };
 

@@ -94,15 +94,6 @@
 | 7.6 | Mobile: Wire DietPlanTracker to backend API | Mobile | 🔴 | |
 | 7.7 | Mobile: Add Diet Plan "Today's view" default | Mobile | 🔴 | Screen exists, behavior check |
 
-## Phase 8 — Fitness Widget
-
-| # | Feature | Area | Status | Notes |
-|---|---------|------|--------|-------|
-| 8.1 | Backend: Create `daily_steps` table + CRUD | Backend | 🔴 | |
-| 8.2 | Mobile: Android Health Connect native module (Steps read) | Mobile | 🔴 | |
-| 8.3 | Mobile: Steps widget card on FinanceHome dashboard | Mobile | 🔴 | |
-| 8.4 | Mobile: 7-day step trend sparkline | Mobile | 🔴 | |
-
 ## Phase 9 — Cross-Cutting Polish
 
 | # | Feature | Area | Status | Notes |
@@ -131,9 +122,8 @@
 | 5 - SMS Capture | 7 | 1 | 14% |
 | 6 - AI Assistants | 7 | 0 | 0% |
 | 7 - Personal Notes | 7 | 3 | 43% |
-| 8 - Fitness | 4 | 0 | 0% |
 | 9 - Polish | 10 | 0 | 0% |
-| **Total** | **67** | **5** | **7%** |
+| **Total** | **63** | **5** | **8%** |
 
 ---
 

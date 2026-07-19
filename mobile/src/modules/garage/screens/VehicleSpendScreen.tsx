@@ -175,9 +175,9 @@ export default function VehicleSpendScreen() {
                   <View style={[styles.iconContainer, { backgroundColor: '#f59e0b18' }]}>
                     <Ionicons name="construct-outline" size={16} color="#f59e0b" />
                   </View>
-                  <View>
+                  <View style={{ flex: 1, flexShrink: 1 }}>
                     <Text style={styles.logTitle}>{log.serviceType}</Text>
-                    <Text style={styles.logSub}>
+                    <Text style={styles.logSub} numberOfLines={1}>
                       {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       {log.notes ? ` · ${log.notes}` : ''}
                     </Text>

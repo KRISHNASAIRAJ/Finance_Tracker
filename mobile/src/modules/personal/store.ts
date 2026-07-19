@@ -32,24 +32,33 @@ export interface MealPlan {
   snack: string;
 }
 
-interface PersonalState {
+export interface PersonalSyncMeta {
+  lastPersonalSyncedAt: string | null;
+  setLastPersonalSyncedAt: (iso: string) => void;
+}
+
+interface PersonalState extends PersonalSyncMeta {
   goals: PersonalGoal[];
   notes: Note[];
   recipes: Recipe[];
   meals: MealPlan[];
   toggleGoal: (id: string) => void;
-  addGoal: (name: string) => void;
+  addGoal: (name: string) => PersonalGoal;
   deleteGoal: (id: string) => void;
-  addNote: (title: string, content: string) => void;
+  addNote: (title: string, content: string) => string;
   deleteNote: (id: string) => void;
   updateNote: (id: string, title: string, content: string) => void;
-  addRecipe: (recipe: Omit<Recipe, 'id'>) => void;
+  addRecipe: (recipe: Omit<Recipe, 'id'>) => string;
+  deleteRecipe: (id: string) => void;
+  updateRecipe: (id: string, recipe: Partial<Recipe>) => void;
   updateMealSlot: (day: string, slot: 'breakfast' | 'lunch' | 'dinner' | 'snack', name: string) => void;
 }
 
 export const usePersonalStore = create<PersonalState>()(
   persist(
     (set) => ({
+      lastPersonalSyncedAt: null,
+      setLastPersonalSyncedAt: (iso) => set({ lastPersonalSyncedAt: iso }),
       goals: [
         { id: '1', name: 'Read 24 books this year', completed: false },
         { id: '2', name: 'Complete React Native certification', completed: true },
@@ -102,9 +111,9 @@ export const usePersonalStore = create<PersonalState>()(
         }));
       },
       addGoal: (name) => {
-        set((state) => ({
-          goals: [...state.goals, { id: Math.random().toString(36).substring(2, 9), name, completed: false }],
-        }));
+        const goal: PersonalGoal = { id: Math.random().toString(36).substring(2, 9), name, completed: false };
+        set((state) => ({ goals: [...state.goals, goal] }));
+        return goal;
       },
       deleteGoal: (id) => {
         set((state) => ({
@@ -112,15 +121,10 @@ export const usePersonalStore = create<PersonalState>()(
         }));
       },
       addNote: (title, content) => {
-        const newNote: Note = {
-          id: Math.random().toString(36).substring(2, 9),
-          title,
-          content,
-          date: new Date().toISOString(),
-        };
-        set((state) => ({
-          notes: [newNote, ...state.notes],
-        }));
+        const id = Math.random().toString(36).substring(2, 9);
+        const newNote: Note = { id, title, content, date: new Date().toISOString() };
+        set((state) => ({ notes: [newNote, ...state.notes] }));
+        return id;
       },
       deleteNote: (id) => {
         set((state) => ({
@@ -139,6 +143,17 @@ export const usePersonalStore = create<PersonalState>()(
         };
         set((state) => ({
           recipes: [...state.recipes, newRecipe],
+        }));
+        return newRecipe.id;
+      },
+      deleteRecipe: (id) => {
+        set((state) => ({
+          recipes: state.recipes.filter((r) => r.id !== id),
+        }));
+      },
+      updateRecipe: (id, recipe) => {
+        set((state) => ({
+          recipes: state.recipes.map((r) => (r.id === id ? { ...r, ...recipe } : r)),
         }));
       },
       updateMealSlot: (day, slot, name) => {

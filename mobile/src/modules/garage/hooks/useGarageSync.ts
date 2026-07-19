@@ -108,6 +108,24 @@ async function doPull(
     await seedMaintenanceLogs(userId);
   }
 
+  // vehicles
+  const { data: vehicleData, error: vehicleError } = await supabase
+    .from("vehicles")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!vehicleError && vehicleData && vehicleData.length > 0) {
+    const store = getStore();
+    const state = store.getState();
+    const cloudNames = (vehicleData as Array<Record<string, unknown>>).map((r) => r.name as string);
+    const merged = [...new Set([...state.vehicles, ...cloudNames])];
+    if (merged.length !== state.vehicles.length) {
+      store.setState({ vehicles: merged });
+    }
+  } else if (!_hasSeeded) {
+    await seedVehicles(userId);
+  }
+
   _hasSeeded = true;
   setState({ loading: false, error: null, lastSyncAt: new Date() });
 }
@@ -147,4 +165,17 @@ async function seedMaintenanceLogs(userId: string) {
     notes: m.notes ?? null,
   }));
   supabase.from("maintenance_logs").upsert(rows, { onConflict: "id" }).then(() => {});
+}
+
+async function seedVehicles(userId: string) {
+  const store = getStore();
+  const state = store.getState();
+  const items = state.vehicles as string[];
+  if (items.length === 0) return;
+  const rows = items.map((v) => ({
+    id: Math.random().toString(36).substring(2, 9),
+    user_id: userId,
+    name: v,
+  }));
+  supabase.from("vehicles").upsert(rows).then(() => {});
 }

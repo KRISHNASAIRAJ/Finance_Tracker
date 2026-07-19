@@ -117,7 +117,7 @@ export default function AllTransactionsScreen() {
       <FlatList
         data={flatData}
         keyExtractor={(item, index) =>
-          item.type === 'header' ? `h-${item.date}` : `tx-${item.tx.id}-${index}`
+          item.type === 'header' ? `h-${item.date}` : `tx-${item.tx.id}`
         }
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
