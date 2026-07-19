@@ -138,7 +138,7 @@ export function autoDetectCategory(text: string, type: "expense" | "income"): st
   if (n.includes("atm") || n.includes("withdraw") || n.includes("cash"))
     return "Cash Withdrawal";
 
-  if (n.includes("paytm") || n.includes("phonepe") || n.includes("gpay") || n.includes("wallet"))
+  if (n.includes("paytm") || n.includes("phonepe") || n.includes("gpay") || n.includes("wallet") || n.includes("payzapp") || n.includes("pazapp"))
     return "Wallet Loads";
 
   return "Others";
