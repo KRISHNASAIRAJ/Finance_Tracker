@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, Platform } from 'react-native';
+import { AppState, AppStateStatus, LogBox, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -27,6 +27,10 @@ TaskManager.defineTask(TASK_NAME, async () => {
     return BackgroundFetch.BackgroundFetchResult.Failed;
   }
 });
+
+LogBox.ignoreLogs([
+  /expo-notifications.*removed from Expo Go/,
+]);
 
 export const navigationRef = createNavigationContainerRef();
 

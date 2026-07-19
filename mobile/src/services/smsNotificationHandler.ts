@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SmsParseResult } from './smsParser';
 import type { SmsMessage } from './smsReader';
+import { isExpoGo } from '../shared/isExpoGo';
 
 const SMS_CHANNEL = 'sms_expense';
 let channelCreated = false;
@@ -8,6 +9,7 @@ let Notifications: any = null;
 
 function getNotifications() {
   if (Notifications) return Notifications;
+  if (isExpoGo()) return null;
   try {
     Notifications = require('expo-notifications');
     return Notifications;

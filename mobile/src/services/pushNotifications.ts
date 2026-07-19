@@ -1,3 +1,5 @@
+import { isExpoGo } from '../shared/isExpoGo';
+
 let Notifications: any = null;
 let _pushToken: string | null = null;
 
@@ -20,6 +22,8 @@ async function getNotifications() {
 
 export async function registerPushToken(userId: string, supabase: any) {
   try {
+    if (isExpoGo()) return null;
+
     const N = await getNotifications();
     if (!N) return null;
 
@@ -53,6 +57,8 @@ export function getPushToken(): string | null {
 }
 
 export function setupNotificationHandler(onTap?: () => void) {
+  if (isExpoGo()) return;
+
   getNotifications().then((N) => {
     if (!N) return;
     N.addNotificationResponseReceivedListener((response: any) => {
