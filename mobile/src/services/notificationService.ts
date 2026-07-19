@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
+import { isExpoGo } from '../shared/isExpoGo';
 
 let isScheduling = false;
 let Notifications: any = null;
@@ -9,6 +10,10 @@ let channelsCreated = false;
 
 function ensureInit() {
   if (_initialized) return Notifications !== null;
+  if (isExpoGo()) {
+    _initialized = true;
+    return false;
+  }
   _initialized = true;
   try {
     Notifications = require('expo-notifications');

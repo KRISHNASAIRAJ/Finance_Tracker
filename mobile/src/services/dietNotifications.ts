@@ -1,6 +1,8 @@
 import { Platform } from 'react-native';
+import { isExpoGo } from '../shared/isExpoGo';
 
 export async function requestNotificationPermissions(): Promise<boolean> {
+  if (isExpoGo()) return false;
   try {
     const Notifications = require('expo-notifications');
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -32,6 +34,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 export async function scheduleDietNotifications(
   _meals: Record<string, { breakfast: string; lunch: string; dinner: string; snack: string }>
 ): Promise<void> {
+  if (isExpoGo()) return;
   try {
     const Notifications = require('expo-notifications');
     Notifications.setNotificationHandler({
