@@ -38,6 +38,9 @@ export default function MonthlySpendScreen() {
   startOfMonth.setHours(0, 0, 0, 0);
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonthName = monthNames[now.getMonth()];
+
   const EXCLUDED_CATEGORIES = [
     'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
     ...fixedExpenses.map((f: any) => f.name),
@@ -45,16 +48,15 @@ export default function MonthlySpendScreen() {
   const expenseTxs = transactions
     .filter((tx) => new Date(tx.date) >= startOfMonth)
     .filter((tx) => tx.type !== 'fixed_expense')
+    .filter((tx) => tx.type !== 'fuel_purchase')
     .filter((tx) => !EXCLUDED_CATEGORIES.some(cat =>
       cat.toLowerCase() === (tx.category || '').toLowerCase()
     ))
-    .filter((tx) => tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service');
+    .filter((tx) => tx.type === 'expense' || tx.type === 'vehicle_service');
 
-  const hasFuelTxs = expenseTxs.some((tx) => tx.type === 'fuel_purchase');
-  const monthGarageFills = hasFuelTxs ? [] : garageFills.filter((f) => new Date(f.date) >= startOfMonth);
-
-  const totalSpend = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0)
-    + monthGarageFills.reduce((sum, f) => sum + f.amount, 0);
+  const monthGarageFills = garageFills.filter((f) => new Date(f.date) >= startOfMonth);
+  const fuelFillAmount = monthGarageFills.reduce((sum, f) => sum + f.amount, 0);
+  const totalSpend = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0) + fuelFillAmount;
 
   const budgetPaise = (monthlyBudget || 0) * 100;
   const budgetExceeded = budgetPaise > 0 && totalSpend > budgetPaise;
@@ -80,17 +82,18 @@ export default function MonthlySpendScreen() {
   const monthlyTxs = transactions
     .filter((tx) => new Date(tx.date) >= startOfMonth)
     .filter((tx) => tx.type !== 'fixed_expense')
+    .filter((tx) => tx.type !== 'fuel_purchase')
     .filter((tx) => !EXCLUDED_CATEGORIES.some(cat =>
       cat.toLowerCase() === (tx.category || '').toLowerCase()
     ));
 
-  const monthFuelPseudoTxs: any[] = hasFuelTxs ? [] : monthGarageFills.map((f) => ({
+  const monthFuelPseudoTxs: any[] = monthGarageFills.map((f) => ({
     id: `fill-${f.id}`,
     type: 'expense',
     amount: f.amount,
     currency: 'INR',
     category: 'Fuel',
-    notes: `${f.liters}L in ${f.vehicle}`,
+    notes: `${Number(f.liters).toFixed(2)}L Fuel`,
     date: f.date,
     source: 'manual',
   }));
@@ -112,14 +115,15 @@ export default function MonthlySpendScreen() {
   const padX = 10;
   const padY = 35;
 
-  const dailySums: number[] = Array(lastDay).fill(0);
+  const todayDate = now.getDate();
+  const dailySums: number[] = Array(todayDate).fill(0);
   expenseTxs.forEach((tx) => {
     const day = new Date(tx.date).getDate() - 1;
-    if (day >= 0 && day < lastDay) dailySums[day] += tx.amount;
+    if (day >= 0 && day < todayDate) dailySums[day] += tx.amount;
   });
   monthGarageFills.forEach((f) => {
     const day = new Date(f.date).getDate() - 1;
-    if (day >= 0 && day < lastDay) dailySums[day] += f.amount;
+    if (day >= 0 && day < todayDate) dailySums[day] += f.amount;
   });
 
   const chartMax = dailySums.length > 0 ? Math.max(...dailySums, 1) : 1;
@@ -229,7 +233,7 @@ export default function MonthlySpendScreen() {
                   top: Math.max(0, points[selectedDay].y - 28),
                 }]}>
                   <Text style={styles.tooltipText}>
-                    Day {selectedDay + 1}: {formatCurrency(dailySums[selectedDay])}
+                      {currentMonthName} {selectedDay + 1}: {formatCurrency(dailySums[selectedDay])}
                   </Text>
                 </View>
               )}
@@ -284,10 +288,13 @@ export default function MonthlySpendScreen() {
                     key={tx.id}
                     style={styles.rowItem}
                     onPress={() => {
-                      if (isFuelFill) return;
-                      navigation.navigate('EditTransaction', { transactionId: tx.id });
+                      if (isFuelFill) {
+                        navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: (tx.id as string).replace('fill-', '') } });
+                      } else {
+                        navigation.navigate('EditTransaction', { transactionId: tx.id });
+                      }
                     }}
-                    activeOpacity={isFuelFill ? 1 : 0.8}
+                    activeOpacity={0.8}
                   >
                     <View style={styles.itemLeft}>
                       <View style={[styles.iconWrapper, { backgroundColor: `${catColor}15` }]}>

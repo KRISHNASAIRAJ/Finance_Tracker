@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
 import { useFinanceStore } from '../modules/finance/store';
+import { GarageSyncInitializer } from '../modules/garage/hooks/useGarageSync';
 
 // Onboarding Screens
 import WelcomeSplashScreen from '../modules/personal/screens/WelcomeSplashScreen';
@@ -316,7 +317,9 @@ export default function RootNavigator() {
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);
 
   return (
-    <RootStack.Navigator
+    <>
+      {isOnboarded && <GarageSyncInitializer />}
+      <RootStack.Navigator
       screenOptions={{
         headerShown: false,
         animation: 'fade' as const,
@@ -337,5 +340,6 @@ export default function RootNavigator() {
         </>
       )}
     </RootStack.Navigator>
+    </>
   );
 }

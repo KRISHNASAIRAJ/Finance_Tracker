@@ -20,6 +20,7 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import { useAuth } from '../../../services/AuthProvider';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'AddFuelFill'>;
 
@@ -37,8 +38,14 @@ export default function AddFuelFillScreen() {
   const [station, setStation] = useState('');
   const [showStationDropdown, setShowStationDropdown] = useState(false);
   const [customStation, setCustomStation] = useState('');
+  const [fillDate, setFillDate] = useState(new Date());
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   const handleSubmit = () => {
+    if (!selectedVehicle) {
+      alert('Please add a vehicle first before logging a fuel fill.');
+      return;
+    }
     const rawLiters = parseFloat(liters);
     const rawPrice = parseFloat(pricePerLiter);
     const rawOdo = parseInt(odometer, 10);
@@ -68,6 +75,7 @@ export default function AddFuelFillScreen() {
       pricePerLiter: priceInPaise,
       odometer: rawOdo,
       station: finalStation || undefined,
+      date: fillDate.toISOString(),
     }, user?.id);
 
     navigation.goBack();
@@ -198,6 +206,20 @@ export default function AddFuelFillScreen() {
             />
           </View>
 
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>FILL DATE</Text>
+            <TouchableOpacity
+              style={styles.datePickerTrigger}
+              onPress={() => setCalendarVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.datePickerText}>
+                {fillDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Dynamic Summary Card */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Estimated Total Amount</Text>
@@ -223,6 +245,12 @@ export default function AddFuelFillScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CalendarPicker
+        visible={calendarVisible}
+        selected={fillDate}
+        onSelect={setFillDate}
+        onClose={() => setCalendarVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -341,6 +369,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.onSurfaceVariant,
     fontWeight: '600',
+  },
+  datePickerTrigger: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  datePickerText: {
+    fontSize: 15,
+    color: colors.onSurface,
+    fontWeight: '500',
   },
   dropdownButton: {
     backgroundColor: colors.surfaceContainer,

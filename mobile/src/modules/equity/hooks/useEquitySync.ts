@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -24,13 +24,22 @@ export function useEquitySync() {
   useEffect(() => {
     if (!user || synced.current) return;
     synced.current = true;
-    doPull(setState, user.id);
+    doFullSync(user.id);
   }, [user]);
 
-  return state;
+  const pullFromCloud = useCallback(async () => {
+    if (!user) return;
+    _hasEquitySeeded = true;
+    setState({ loading: true, error: null, lastSyncAt: null });
+    await doPull(user.id);
+    setState({ loading: false, error: null, lastSyncAt: new Date() });
+  }, [user]);
+
+  return { ...state, pullFromCloud };
 }
 
 export async function syncEquityNow(userId: string): Promise<SyncState> {
+  _hasEquitySeeded = true;
   let state: SyncState = { loading: true, error: null, lastSyncAt: null };
   const setter: Dispatch<SetStateAction<SyncState>> = ((s: SetStateAction<SyncState>) => {
     if (typeof s === 'function') {
@@ -39,14 +48,18 @@ export async function syncEquityNow(userId: string): Promise<SyncState> {
       Object.assign(state, s);
     }
   }) as Dispatch<SetStateAction<SyncState>>;
-  await doPull(setter, userId);
+  await doPull(userId);
+  state.loading = false;
+  state.lastSyncAt = new Date();
   return state;
 }
 
-async function doPull(
-  setState: Dispatch<SetStateAction<SyncState>>,
-  userId: string
-) {
+async function doFullSync(userId: string) {
+  _hasEquitySeeded = true;
+  await doPull(userId);
+}
+
+async function doPull(userId: string) {
   const store = useInvestmentsStore;
 
   // --- HOLDINGS ---
@@ -55,48 +68,26 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (holdingsErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `holdings: ${holdingsErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (holdingsData && holdingsData.length > 0) {
-    const localHoldings = store.getState().holdings;
-    const cloudMap = new Map<string, Holding>();
-    for (const r of holdingsData as Array<Record<string, unknown>>) {
-      cloudMap.set(r.symbol as string, {
-        id: r.id as string,
-        symbol: r.symbol as string,
-        name: (r.fund_name as string) ?? (r.symbol as string),
-        type: (r.type as Holding["type"]) ?? "equity",
-        quantity: Number(r.quantity) || 0,
-        avgPrice: (r.avg_buy_price as number) ?? 0,
-        currentPrice: (r.current_price as number) ?? 0,
-        source: (r.source as Holding["source"]) ?? "manual",
-        folio: (r.folio_number as string) ?? undefined,
-        amc: (r.amc as string) ?? undefined,
-        schemeCode: (r.scheme_code as string) ?? undefined,
-        isin: (r.isin as string) ?? undefined,
-        sipAmount: (r.sip_amount as number) ?? undefined,
-        sipDay: (r.sip_day as number) ?? undefined,
-        allocation: (r.allocation_category as string) ?? undefined,
-      });
-    }
-    const merged: Holding[] = [];
-    const seen = new Set<string>();
-    // Cloud holdings take priority
-    for (const h of cloudMap.values()) {
-      merged.push(h);
-      seen.add(h.symbol);
-    }
-    // Keep local holdings not present in cloud
-    for (const h of localHoldings) {
-      if (!seen.has(h.symbol)) {
-        merged.push(h);
-      }
-    }
+  if (!holdingsErr && holdingsData && holdingsData.length > 0) {
+    const merged: Holding[] = (holdingsData as Array<Record<string, unknown>>).map((r) => ({
+      id: r.id as string,
+      symbol: r.symbol as string,
+      name: (r.fund_name as string) ?? (r.symbol as string),
+      type: (r.type as Holding["type"]) ?? "equity",
+      quantity: Number(r.quantity) || 0,
+      avgPrice: (r.avg_buy_price as number) ?? 0,
+      currentPrice: (r.current_price as number) ?? 0,
+      source: (r.source as Holding["source"]) ?? "manual",
+      folio: (r.folio_number as string) ?? undefined,
+      amc: (r.amc as string) ?? undefined,
+      schemeCode: (r.scheme_code as string) ?? undefined,
+      isin: (r.isin as string) ?? undefined,
+      sipAmount: (r.sip_amount as number) ?? undefined,
+      sipDay: (r.sip_day as number) ?? undefined,
+      allocation: (r.allocation_category as string) ?? undefined,
+    }));
     store.setState({ holdings: merged });
-  } else if (!_hasEquitySeeded) {
+  } else if (holdingsData && holdingsData.length === 0) {
     await seedHoldings(userId);
   }
 
@@ -106,15 +97,8 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (goalsErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `goals: ${goalsErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (goalsData && goalsData.length > 0) {
-    const existingIds = new Set(store.getState().goals.map((g: InvestmentGoal) => g.id));
-    const newGoals: InvestmentGoal[] = (goalsData as Array<Record<string, unknown>>)
-      .filter((r) => !existingIds.has(r.id as string))
+  if (!goalsErr && goalsData && goalsData.length > 0) {
+    const goals: InvestmentGoal[] = (goalsData as Array<Record<string, unknown>>)
       .map((r) => ({
         id: r.id as string,
         name: r.goal_name as string,
@@ -123,15 +107,10 @@ async function doPull(
         dueDate: (r.target_date as string) ?? "",
         priority: (r.priority as InvestmentGoal["priority"]) ?? "medium",
       }));
-    if (newGoals.length > 0) {
-      store.setState({ goals: [...newGoals, ...store.getState().goals] });
-    }
-  } else if (!_hasEquitySeeded) {
-    await seedGoals(userId);
+    store.setState({ goals });
+  } else if (_hasEquitySeeded && goalsData && goalsData.length === 0) {
+    store.setState({ goals: [] });
   }
-
-  _hasEquitySeeded = true;
-  store.getState().setLastEquitySyncedAt(new Date().toISOString());
 
   // --- PORTFOLIO SNAPSHOTS ---
   const { data: snapData, error: snapErr } = await supabase
@@ -151,7 +130,7 @@ async function doPull(
     store.setState({ snapshots: mapped });
   }
 
-  setState((prev) => ({ ...prev, loading: false, error: null, lastSyncAt: new Date() }));
+  store.getState().setLastEquitySyncedAt(new Date().toISOString());
 }
 
 async function seedHoldings(userId: string) {
@@ -171,7 +150,9 @@ async function seedHoldings(userId: string) {
     sip_day: h.sipDay || null,
     allocation_category: h.allocation || null,
   }));
-  await supabase.from("holdings").upsert(rows, { onConflict: "user_id,symbol" }).then(() => {});
+  supabase.from("holdings").upsert(rows, { onConflict: "user_id,symbol" }).then(({ error }) => {
+    if (error) console.warn('[EquitySync] seed holdings:', error.message);
+  });
 }
 
 async function seedGoals(userId: string) {
@@ -183,10 +164,11 @@ async function seedGoals(userId: string) {
     target_date: g.dueDate, priority: g.priority,
     updated_at: new Date().toISOString(),
   }));
-  await supabase.from("investment_goals").upsert(rows, { onConflict: "id" }).then(() => {});
+  supabase.from("investment_goals").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+    if (error) console.warn('[EquitySync] seed goals:', error.message);
+  });
 }
 
-// Queue helpers for offline sync
 export function queueHoldingSync(
   userId: string,
   action: "create" | "update" | "delete",
@@ -211,7 +193,9 @@ export function queueHoldingSync(
   if (holding.sipDay !== undefined) data.sip_day = holding.sipDay || null;
   if (holding.allocation !== undefined) data.allocation_category = holding.allocation || null;
   data.updated_at = new Date().toISOString();
-  enqueue("holdings", action, data);
+  enqueue("holdings", action, data).catch((e: Error) =>
+    console.warn('[EquitySync] queueHoldingSync failed:', e)
+  );
 }
 
 export function queueGoalSync(
@@ -226,5 +210,7 @@ export function queueGoalSync(
   if (goal.dueDate !== undefined) data.target_date = goal.dueDate;
   if (goal.priority !== undefined) data.priority = goal.priority;
   data.updated_at = new Date().toISOString();
-  enqueue("investment_goals", action, data);
+  enqueue("investment_goals", action, data).catch((e: Error) =>
+    console.warn('[EquitySync] queueGoalSync failed:', e)
+  );
 }

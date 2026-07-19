@@ -1,21 +1,26 @@
 # Meridian — Personal Life Tracker
 
-Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across five modules, built with React Native (Expo) and Supabase.
+Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across five modules. Built with React Native (Expo) and Supabase, featuring offline-first sync and AI-powered insights.
 
 ## Modules
 
 | Module | Description |
 |---|---|
-| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, SMS auto-capture, AI T&C assistant |
+| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, SMS auto-capture, AI T&C assistant, Payzapp wallet |
 | **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend |
 | **Task Manager** | Notion-style tasks with subtasks, recurrence, and local notifications |
 | **Equity/MF Tracker** | Holdings, Kite Connect sync, AI rebalancing, daily 8:30 PM IST portfolio snapshots |
-| **Personal** | 2026 goals, notes, recipes, diet plan with onboarding flow |
+| **Personal** | Goals, notes, recipes, diet plans with onboarding flow |
+
+## Cross-Module Integration
+
+- **Fuel → Finance:** Fuel fill expenses flow from Garage into Finance dashboards (donut charts, monthly spends, reports). Expense totals in Finance are sourced directly from Garage fill data, keeping a single source of truth. Editing a fuel entry from any Finance screen opens the Garage EditFuelFill screen.
+- **Garage sync:** Fills sync from Supabase on app startup via `GarageSyncInitializer` in RootNavigator, ensuring correct data before any screen renders. Deletions sync to Supabase immediately to prevent stale re-fetches.
 
 ## Tech Stack
 
 - **Mobile:** React Native (Expo) + TypeScript
-- **State:** Zustand + AsyncStorage
+- **State:** Zustand + AsyncStorage (persistent)
 - **Navigation:** React Navigation (Native Stack + Bottom Tabs)
 - **Backend:** Supabase (PostgreSQL + Edge Functions in Deno/TypeScript)
 - **Auth:** Supabase Auth (JWT)
@@ -35,7 +40,7 @@ meridian/
 ├── BOUNDARIES.md          ← Hard constraints
 ├── ADR/                   ← Architecture Decision Records
 ├── docs/                  ← API contracts, DB schema, notification flows
-├── mobile/                ← React Native app (Expo)
+├── mobile/                ← React Native app
 │   └── src/
 │       ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal)
 │       ├── shared/        ← Shared components, hooks, utilities
@@ -105,6 +110,17 @@ Copy `.env.example` to `mobile/.env` and configure:
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (publishable) key |
 | `EXPO_PUBLIC_KITE_API_KEY` | Kite Connect API key (for equity sync) |
 
+## Data Sync Architecture
+
+Meridian uses an offline-first bidirectional sync pattern:
+
+- **App → Cloud:** Every mutation (create/edit/delete) writes to local Zustand store, then enqueues a sync operation. The queue is flushed immediately after each task change and on app foreground/background transitions.
+- **Cloud → App:** On every screen focus, the latest data is pulled from Supabase and merged into the local store. New items from cloud are added; existing items are updated with cloud state.
+- **Initial sync:** On first launch, if cloud is empty, local data is seeded to Supabase. If cloud has data, it's pulled and merged locally.
+- **Background sync:** Expo BackgroundFetch runs periodically to flush any pending offline changes.
+
+All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) with retry and exponential backoff (max 5 retries).
+
 ## Conventions
 
 - **TypeScript only** — no plain JS
@@ -113,6 +129,7 @@ Copy `.env.example` to `mobile/.env` and configure:
 - DB tables: `snake_case`, migrations: numbered, edge functions: `kebab-case`
 - Screens: `PascalCaseScreen`, components: `PascalCase`, stores: `camelCaseStore`
 - All financial events route through the unified `transactions` table
+- No dummy/seed data in stores — all data is user-generated
 
 ## Documentation
 

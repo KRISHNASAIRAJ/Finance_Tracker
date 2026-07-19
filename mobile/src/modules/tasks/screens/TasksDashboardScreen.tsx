@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -21,6 +21,7 @@ import { useAuth } from '../../../services/AuthProvider';
 import { useTasksSync } from '../hooks/useTasksSync';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
 import { scheduleAllReminders } from '../../../services/notificationService';
+import { processSyncQueue } from '../../../services/syncQueue';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TasksDashboard'>;
 
@@ -28,12 +29,19 @@ export default function TasksDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { tasks, toggleTaskCompleted, purgeOldCompletedTasks } = useTasksStore();
   const { user } = useAuth();
-  useTasksSync();
+  const { pullFromCloud } = useTasksSync();
 
   React.useEffect(() => {
     purgeOldCompletedTasks();
     scheduleAllReminders();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      pullFromCloud();
+      processSyncQueue();
+    }, [pullFromCloud])
+  );
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'upcoming' | 'done'>('all');
 
