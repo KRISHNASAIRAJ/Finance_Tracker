@@ -62,5 +62,8 @@ mobile/old_data/
 # SMS native module build cache (paths too long for Git on Windows)
 mobile/modules/sms-native/android/build/
 
+# Supabase local CLI metadata (contains org/project refs)
+supabase/.temp/
+
 # Reference T&C docs (banks' PDFs — don't commit)
 docs/TnC\ Docs/

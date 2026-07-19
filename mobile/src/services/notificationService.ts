@@ -3,6 +3,35 @@ import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { isExpoGo } from '../shared/isExpoGo';
 
+const WALLET_TARGET = 4000000; // ₹40,000 in paise
+
+function getCurrentMonthWalletLoad(): number {
+  const { transactions } = useFinanceStore.getState();
+  const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  return transactions
+    .filter((tx: any) =>
+      (tx.category === 'Wallet Loads' || tx.category === 'Wallet Load' ||
+       tx.notes?.toLowerCase().includes('wallet load') ||
+       tx.notes?.toLowerCase().includes('payzapp')) &&
+      new Date(tx.date) >= start
+    )
+    .reduce((s: number, t: any) => s + t.amount, 0);
+}
+
+function getNextThursday(): Date {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 4=Thu
+  const daysUntilThu = (4 - day + 7) % 7;
+  const nextThu = new Date(now);
+  nextThu.setDate(now.getDate() + (daysUntilThu === 0 ? 7 : daysUntilThu));
+  nextThu.setHours(9, 0, 0, 0);
+  return nextThu;
+}
+
+function formatCurrencyAmount(paise: number): string {
+  return `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
+
 let isScheduling = false;
 let Notifications: any = null;
 let _initialized = false;
@@ -181,6 +210,22 @@ export async function scheduleAllReminders() {
           isLent ? `\u{1F4B0} Collect from ${rec.personName}` : `\u{1F4B8} Pay ${rec.personName}`,
           `\u20B9${(rec.amount / 100).toLocaleString('en-IN')} ${isLent ? 'to be collected' : 'to pay back'} on ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
           remindDate
+        );
+      }
+    }
+
+    // Payzapp wallet Thursday reminder — only if load < 40K
+    const currentLoad = getCurrentMonthWalletLoad();
+    if (currentLoad < WALLET_TARGET) {
+      const nextThu = getNextThursday();
+      const completed = formatCurrencyAmount(currentLoad);
+      const left = formatCurrencyAmount(WALLET_TARGET - currentLoad);
+      if (nextThu > new Date()) {
+        await scheduleLocal(
+          '\u{1F4B0} Payzapp Wallet Incomplete',
+          `${completed} loaded. ${left} left to reach \u20B940K target this month. Load via HDFC Millennia debit for 1% cashback.`,
+          nextThu,
+          'bills_due'
         );
       }
     }

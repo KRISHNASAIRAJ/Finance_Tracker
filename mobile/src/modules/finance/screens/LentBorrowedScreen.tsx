@@ -16,12 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useFinanceStore, Receivable } from '../store';
+import { useFinanceStore, Receivable, ExpectedIncome } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
-  const { receivables, addReceivable, editReceivable, deleteReceivable } = useFinanceStore();
+  const { receivables, addReceivable, editReceivable, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome } = useFinanceStore();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'lent' | 'borrowed'>('lent');
@@ -38,6 +38,16 @@ export default function LentBorrowedScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+
+  // Optional Income state
+  const [incomeModalVisible, setIncomeModalVisible] = useState(false);
+  const [incomeEditItem, setIncomeEditItem] = useState<ExpectedIncome | null>(null);
+  const [incomeName, setIncomeName] = useState('');
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeNotes, setIncomeNotes] = useState('');
+  const [incomeDate, setIncomeDate] = useState(new Date());
+  const [incomeCalMonth, setIncomeCalMonth] = useState(new Date());
+  const [incomeDatePickerVisible, setIncomeDatePickerVisible] = useState(false);
 
   const filteredItems = receivables.filter((r) => r.type === activeTab);
   const totalLent = receivables
@@ -120,6 +130,59 @@ export default function LentBorrowedScreen() {
     }
   };
 
+  const expectedTotal = expectedIncomes.reduce((sum, ei) => sum + ei.amount, 0);
+
+  const openAddIncome = () => {
+    setIncomeEditItem(null);
+    setIncomeName('');
+    setIncomeAmount('');
+    setIncomeNotes('');
+    setIncomeDate(new Date());
+    setIncomeCalMonth(new Date());
+    setIncomeModalVisible(true);
+  };
+
+  const openEditIncome = (item: ExpectedIncome) => {
+    setIncomeEditItem(item);
+    setIncomeName(item.name);
+    setIncomeAmount((item.amount / 100).toString());
+    setIncomeNotes(item.notes || '');
+    setIncomeDate(new Date(item.date));
+    setIncomeCalMonth(new Date(item.date));
+    setIncomeModalVisible(true);
+  };
+
+  const handleIncomeSave = () => {
+    const rawAmount = parseFloat(incomeAmount);
+    if (!incomeName.trim()) { alert('Enter a name'); return; }
+    if (isNaN(rawAmount) || rawAmount <= 0) { alert('Enter valid amount'); return; }
+    const paiseAmount = Math.round(rawAmount * 100);
+
+    if (incomeEditItem) {
+      editExpectedIncome(incomeEditItem.id, {
+        name: incomeName.trim(),
+        amount: paiseAmount,
+        notes: incomeNotes.trim(),
+        date: incomeDate.toISOString(),
+      }, user?.id);
+    } else {
+      addExpectedIncome({
+        name: incomeName.trim(),
+        amount: paiseAmount,
+        notes: incomeNotes.trim(),
+        date: incomeDate.toISOString(),
+      }, user?.id);
+    }
+    setIncomeModalVisible(false);
+  };
+
+  const handleIncomeDelete = () => {
+    if (incomeEditItem) {
+      deleteExpectedIncome(incomeEditItem.id, user?.id);
+      setIncomeModalVisible(false);
+    }
+  };
+
   // Custom Calendar generation logic
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -136,6 +199,8 @@ export default function LentBorrowedScreen() {
     }
     return days;
   };
+
+  const incomeDaysGrid = getDaysInMonth(incomeCalMonth);
 
   const changeMonth = (offset: number) => {
     const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
@@ -224,6 +289,51 @@ export default function LentBorrowedScreen() {
                   </View>
                   <Text style={[styles.itemAmount, { color: item.type === 'lent' ? colors.success : colors.error }]}>
                     {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* Optional Income Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>OPTIONAL INCOME ({formatCurrency(expectedTotal)})</Text>
+            <TouchableOpacity onPress={openAddIncome}>
+              <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.listContainer}>
+            {expectedIncomes.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="cash-outline" size={36} color={colors.outline} />
+                <Text style={styles.emptyText}>No expected income entries</Text>
+                <Text style={[styles.emptyText, { fontSize: 10, color: colors.outline }]}>
+                  Add uncertain cashbacks, refunds, etc.
+                </Text>
+              </View>
+            ) : (
+              expectedIncomes.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.rowItem}
+                  onPress={() => openEditIncome(item)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.itemLeft}>
+                    <View style={[styles.iconWrapper, { backgroundColor: 'rgba(132,204,22,0.12)' }]}>
+                      <Ionicons name="cash-outline" size={20} color="#84CC16" />
+                    </View>
+                    <View>
+                      <Text style={styles.itemTitle}>{item.name}</Text>
+                      <Text style={styles.itemSubtitle}>
+                        {item.notes || new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.itemAmount, { color: '#84CC16' }]}>
+                    +{formatCurrency(item.amount)}
                   </Text>
                 </TouchableOpacity>
               ))
@@ -398,6 +508,94 @@ export default function LentBorrowedScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Expected Income Modal */}
+      <Modal visible={incomeModalVisible} transparent animationType="fade" onRequestClose={() => setIncomeModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{incomeEditItem ? 'Edit Expected Income' : 'Add Expected Income'}</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>NAME</Text>
+              <TextInput style={styles.textInput} placeholder="Cashback, refund, etc." placeholderTextColor={colors.outline} value={incomeName} onChangeText={setIncomeName} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>AMOUNT (₹)</Text>
+              <TextInput style={styles.textInput} placeholder="0.00" placeholderTextColor={colors.outline} keyboardType="numeric" value={incomeAmount} onChangeText={setIncomeAmount} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>EXPECTED DATE</Text>
+              <TouchableOpacity style={styles.datePickerTrigger} onPress={() => setIncomeDatePickerVisible(true)} activeOpacity={0.8}>
+                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {incomeDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>NOTES (OPTIONAL)</Text>
+              <TextInput style={styles.textInput} placeholder="Optional notes" placeholderTextColor={colors.outline} value={incomeNotes} onChangeText={setIncomeNotes} />
+            </View>
+
+            <View style={styles.modalButtons}>
+              {incomeEditItem && (
+                <TouchableOpacity style={[styles.modalBtn, styles.modalBtnDelete]} onPress={handleIncomeDelete}>
+                  <Text style={styles.modalBtnTextDelete}>Delete</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setIncomeModalVisible(false)}>
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleIncomeSave}>
+                <Text style={styles.modalBtnTextSave}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Income Date Picker */}
+      <Modal visible={incomeDatePickerVisible} transparent animationType="fade" onRequestClose={() => setIncomeDatePickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarCard}>
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity onPress={() => { const next = new Date(incomeCalMonth.getFullYear(), incomeCalMonth.getMonth() - 1, 1); setIncomeCalMonth(next); }}>
+                <Ionicons name="chevron-back" size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.calendarMonthLabel}>
+                {incomeCalMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </Text>
+              <TouchableOpacity onPress={() => { const next = new Date(incomeCalMonth.getFullYear(), incomeCalMonth.getMonth() + 1, 1); setIncomeCalMonth(next); }}>
+                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.weekLabelsRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                <Text key={i} style={styles.weekLabel}>{day}</Text>
+              ))}
+            </View>
+            <View style={styles.daysGridContainer}>
+              {incomeDaysGrid.map((day, index) => {
+                if (!day) return <View key={index} style={styles.emptyDay} />;
+                const isSelected = incomeDate.getDate() === day.getDate() &&
+                  incomeDate.getMonth() === day.getMonth() &&
+                  incomeDate.getFullYear() === day.getFullYear();
+                return (
+                  <TouchableOpacity key={index} style={[styles.dayButton, isSelected && styles.dayButtonSelected]} onPress={() => { setIncomeDate(day); setIncomeDatePickerVisible(false); }}>
+                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>{day.getDate()}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity style={styles.calendarCloseBtn} onPress={() => setIncomeDatePickerVisible(false)}>
+              <Text style={styles.calendarCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -466,6 +664,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.6,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   listContainer: {
     backgroundColor: colors.surfaceContainer,

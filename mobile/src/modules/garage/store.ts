@@ -66,7 +66,7 @@ function addFuelTransaction(
   if (!userId) return;
   const txId = addTx(
     {
-      type: 'expense',
+      type: 'fuel_purchase',
       amount: fill.amount,
       currency: 'INR',
       category: 'Fuel',
@@ -268,6 +268,10 @@ export const useGarageStore = create<GarageState>()(
             station: newFill.station ?? null,
             note: newFill.note ?? null,
           });
+          try {
+            const { useFinanceStore } = require('../finance/store');
+            addFuelTransaction(userId, newFill, useFinanceStore.getState().addTransaction);
+          } catch {}
         }
         return newFill.id;
       },

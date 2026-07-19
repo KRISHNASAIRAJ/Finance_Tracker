@@ -8,6 +8,7 @@ import type {
   Receivable,
   BankAccount,
   FixedExpense,
+  ExpectedIncome,
 } from "../store";
 
 interface SyncState {
@@ -262,6 +263,55 @@ const TABLE_MAP = [
       supabase.from("payzapp_loads").upsert(rows, { onConflict: "id" }).then(() => {});
     },
   },
+  {
+    supabaseTable: "expected_incomes",
+    mergeIntoStore(rows: Record<string, unknown>[]) {
+      const store = getStore();
+      const state = store.getState();
+      const existingIds = new Set(state.expectedIncomes.map((e: ExpectedIncome) => e.id));
+      const newItems: ExpectedIncome[] = (rows as Array<Record<string, unknown>>)
+        .filter((r) => !existingIds.has(r.id as string))
+        .map((r) => ({
+          id: r.id as string,
+          name: r.name as string ?? "",
+          amount: r.amount as number ?? 0,
+          notes: (r.notes as string) || undefined,
+          date: r.date as string ?? "",
+        }));
+      if (newItems.length > 0) {
+        store.setState({ expectedIncomes: [...newItems, ...state.expectedIncomes] });
+      }
+    },
+    seedSupabase(userId: string) {
+      const store = getStore();
+      const state = store.getState();
+      const items = state.expectedIncomes as ExpectedIncome[];
+      if (items.length === 0) return;
+      const rows = items.map((e) => ({
+        id: e.id, user_id: userId, name: e.name, amount: e.amount,
+        notes: e.notes ?? null, date: e.date,
+      }));
+      supabase.from("expected_incomes").upsert(rows, { onConflict: "id" }).then(() => {});
+    },
+  },
+  {
+    supabaseTable: "user_settings",
+    mergeIntoStore(rows: Record<string, unknown>[]) {
+      const store = getStore();
+      const row = rows[0] as Record<string, unknown> | undefined;
+      if (row && typeof row.monthly_budget === 'number') {
+        store.getState().setMonthlyBudget(row.monthly_budget as number);
+      }
+    },
+    seedSupabase(userId: string) {
+      const store = getStore();
+      const state = store.getState();
+      const budget = state.monthlyBudget;
+      supabase.from("user_settings").upsert({
+        user_id: userId, monthly_budget: budget ?? 0,
+      }, { onConflict: "user_id" }).then(() => {});
+    },
+  },
 ];
 
 export { TABLE_MAP as _internal };
@@ -296,4 +346,19 @@ export function queueFixedExpenseSync(
   data: Record<string, unknown>
 ) {
   enqueue("fixed_expenses", action, { ...data, user_id: userId });
+}
+
+export function queueExpectedIncomeSync(
+  userId: string,
+  action: "create" | "update" | "delete",
+  data: Record<string, unknown>
+) {
+  enqueue("expected_incomes", action, { ...data, user_id: userId });
+}
+
+export function queueUserSettingsSync(
+  userId: string,
+  data: Record<string, unknown>
+) {
+  enqueue("user_settings", "update", { ...data, user_id: userId });
 }

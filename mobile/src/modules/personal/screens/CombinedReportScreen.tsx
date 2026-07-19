@@ -21,7 +21,7 @@ import { useInvestmentsStore } from '../../equity/store';
 export default function CombinedReportScreen() {
   const navigation = useNavigation();
 
-  const { transactions, cards, receivables, accounts, fixedExpenses } = useFinanceStore();
+  const { transactions, cards, receivables, accounts, fixedExpenses, expectedIncomes } = useFinanceStore();
   const { fills } = useGarageStore();
   const portfolioValue = useInvestmentsStore.getState().getPortfolioValue?.() ?? 0;
 
@@ -32,6 +32,9 @@ export default function CombinedReportScreen() {
   const totalBankBalance = accounts.reduce((sum, a) => sum + a.amount, 0);
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + r.amount, 0);
+
+  // ---- Expected incomes ----
+  const totalExpectedIncome = expectedIncomes.reduce((sum, ei) => sum + ei.amount, 0);
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -45,15 +48,17 @@ export default function CombinedReportScreen() {
   }, 0);
 
   const netWorth =
-    totalBankBalance + portfolioValue + totalLent - totalBorrowed - unpaidFixed - cardOutstanding - deficitsSum;
+    totalBankBalance + portfolioValue + totalLent + totalExpectedIncome - totalBorrowed - unpaidFixed - cardOutstanding - deficitsSum;
 
   // ---- Monthly spend ----
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const WL_EXCLUDE = ['Wallet Loads', 'Wallet Load'];
   const monthlyExpenses = transactions
     .filter(
       (tx) =>
         new Date(tx.date) >= startOfMonth &&
-        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service')
+        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+        !WL_EXCLUDE.includes(tx.category)
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
 
@@ -68,7 +73,8 @@ export default function CombinedReportScreen() {
     .filter(
       (tx) =>
         new Date(tx.date) >= startOfMonth &&
-        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service')
+        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+        !WL_EXCLUDE.includes(tx.category)
     )
     .forEach((tx) => {
       catMap[tx.category] = (catMap[tx.category] || 0) + tx.amount;
@@ -98,37 +104,12 @@ export default function CombinedReportScreen() {
           <Text style={styles.heroValue}>{formatCurrency(netWorth)}</Text>
           <View style={styles.heroRow}>
             <View style={styles.heroStat}>
-              <Text style={styles.heroStatLabel}>Bank</Text>
-              <Text style={styles.heroStatValue}>{formatCurrency(totalBankBalance)}</Text>
-            </View>
-            <View style={styles.heroStat}>
               <Text style={styles.heroStatLabel}>Portfolio</Text>
               <Text style={styles.heroStatValue}>{formatCurrency(portfolioValue)}</Text>
             </View>
             <View style={styles.heroStat}>
               <Text style={styles.heroStatLabel}>Card Bills</Text>
               <Text style={styles.heroStatValue}>{formatCurrency(cardOutstanding)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Asset Allocation */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>ASSET ALLOCATION</Text>
-          <View style={styles.allocationRow}>
-            <View style={styles.allocBar}>
-              <View style={[styles.allocFill, { flex: bankPct / 100 || 0, backgroundColor: '#10b981' }]} />
-              <View style={[styles.allocFill, { flex: equityPct / 100 || 0, backgroundColor: '#3b82f6' }]} />
-            </View>
-          </View>
-          <View style={styles.allocLegends}>
-            <View style={styles.allocLegend}>
-              <View style={[styles.allocDot, { backgroundColor: '#10b981' }]} />
-              <Text style={styles.allocText}>Bank ({Math.round(bankPct)}%)</Text>
-            </View>
-            <View style={styles.allocLegend}>
-              <View style={[styles.allocDot, { backgroundColor: '#3b82f6' }]} />
-              <Text style={styles.allocText}>Equity/MF ({Math.round(equityPct)}%)</Text>
             </View>
           </View>
         </View>
@@ -178,12 +159,12 @@ export default function CombinedReportScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>POSITION</Text>
           <View style={styles.posRow}>
-            <Text style={styles.posLabel}>Bank Balance</Text>
-            <Text style={[styles.posValue, { color: '#10b981' }]}>{formatCurrency(totalBankBalance)}</Text>
-          </View>
-          <View style={styles.posRow}>
             <Text style={styles.posLabel}>Lent</Text>
             <Text style={[styles.posValue, { color: '#3b82f6' }]}>{formatCurrency(totalLent)}</Text>
+          </View>
+          <View style={styles.posRow}>
+            <Text style={styles.posLabel}>Expected Income</Text>
+            <Text style={[styles.posValue, { color: '#84CC16' }]}>{formatCurrency(totalExpectedIncome)}</Text>
           </View>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Borrowed</Text>

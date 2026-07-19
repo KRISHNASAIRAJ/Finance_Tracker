@@ -137,8 +137,15 @@ export default function InvestmentsDashboardScreen() {
           let offset = 0;
 
           return (
-            <View style={styles.donutCard}>
-              <Text style={styles.donutTitle}>ASSET ALLOCATION</Text>
+            <TouchableOpacity
+              style={styles.donutCard}
+              onPress={() => navigation.navigate('AllocationDetail')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.donutHeaderRow}>
+                <Text style={styles.donutTitle}>ASSET ALLOCATION</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+              </View>
               <View style={styles.donutRow}>
                 <Svg width={180} height={180} viewBox="0 0 180 180">
                   {entries.map(([cat, val]) => {
@@ -195,7 +202,7 @@ export default function InvestmentsDashboardScreen() {
                   })}
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })()}
 
@@ -482,6 +489,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.6,
+  },
+  donutHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   donutRow: {
     flexDirection: 'row',

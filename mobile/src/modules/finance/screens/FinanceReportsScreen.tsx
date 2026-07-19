@@ -16,22 +16,45 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { useGarageStore } from '../../garage/store';
 
 export default function FinanceReportsScreen() {
   const navigation = useNavigation();
-  const { transactions } = useFinanceStore();
+  const { transactions, fixedExpenses } = useFinanceStore();
+  const garageFills = useGarageStore((s) => s.fills);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const EXCLUDED_CATEGORIES = [
+    'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
+    ...fixedExpenses.map((f: any) => f.name),
+  ];
+
   const expenseTxs = transactions.filter(
-    (tx) => tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service'
+    (tx: any) =>
+      (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+      !EXCLUDED_CATEGORIES.some(cat =>
+        cat.toLowerCase() === (tx.category || '').toLowerCase()
+      )
   );
-  const totalExpense = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0);
+  const hasFuelTxs = expenseTxs.some((tx: any) => tx.type === 'fuel_purchase');
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthGarageFills = garageFills.filter((f: any) => new Date(f.date) >= monthStart);
+  const totalExpense = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0)
+    + (!hasFuelTxs ? monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0) : 0);
 
   // Group by category
   const categoryTotals: { [key: string]: number } = {};
   expenseTxs.forEach((tx) => {
     categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
   });
+
+  if (!hasFuelTxs) {
+    const fuelTotal = monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0);
+    if (fuelTotal > 0) {
+      categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelTotal;
+    }
+  }
 
   const categories = Object.keys(categoryTotals).map((cat) => ({
     name: cat,

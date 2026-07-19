@@ -59,7 +59,7 @@
 | Push notifications | Firebase Cloud Messaging | Server-triggered |
 | Local notifications | `@notifee/react-native` | Task reminders, SMS confirms |
 | Background scheduler | Android WorkManager (via native module) | 8:30 PM cron on device |
-| AI | Anthropic Claude API (claude-3-5-sonnet) | See SAFETY.md for usage rules |
+| AI | Groq API (Llama 3.3 70B + Llama 3.1 8B) — free-tier friendly |
 | Vector store | pgvector (PostgreSQL extension) | Card T&C document embeddings |
 | Brokerage | Kite Connect API (Zerodha) | Verify pricing before Phase 5 |
 | Hosting | Supabase + small VPS or Railway | Backend FastAPI instance |
@@ -524,7 +524,7 @@ DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/krishnas_tracker
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SERVICE_KEY=<service_role_key>
 SUPABASE_ANON_KEY=<anon_key>
-ANTHROPIC_API_KEY=sk-ant-...
+GROQ_API_KEY=gsk_...
 FIREBASE_SERVICE_ACCOUNT_JSON=<base64 encoded JSON>
 KITE_API_KEY=<key>              # Phase 5 only — verify pricing first
 KITE_API_SECRET=<secret>        # Phase 5 only

@@ -7,31 +7,31 @@ export interface Category {
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
-  { name: "Food & Dining", icon: "restaurant-outline", color: "#fbbf24" },
-  { name: "Grocery", icon: "basket-outline", color: "#84cc16" },
-  { name: "Fuel", icon: "speedometer-outline", color: "#ef4444" },
-  { name: "Travel", icon: "airplane-outline", color: "#38bdf8" },
-  { name: "Shopping", icon: "bag-outline", color: "#a855f7" },
-  { name: "Bills & Recharge", icon: "receipt-outline", color: "#f97316" },
-  { name: "Rent", icon: "home-outline", color: "#3b82f6" },
-  { name: "EMI", icon: "repeat-outline", color: "#6366f1" },
-  { name: "Entertainment", icon: "film-outline", color: "#ec4899" },
-  { name: "OTT", icon: "tv-outline", color: "#8b5cf6" },
-  { name: "Youtube Premium", icon: "logo-youtube", color: "#dc2626" },
-  { name: "Education", icon: "school-outline", color: "#0ea5e9" },
-  { name: "Medical", icon: "medkit-outline", color: "#22c55e" },
-  { name: "Health & Wellness", icon: "fitness-outline", color: "#10b981" },
-  { name: "Insurance", icon: "shield-checkmark-outline", color: "#059669" },
-  { name: "SIP", icon: "trending-up-outline", color: "#06b6d4" },
-  { name: "Equity Investment", icon: "bar-chart-outline", color: "#0284c7" },
-  { name: "Card Annual Charges", icon: "card-outline", color: "#7c3aed" },
-  { name: "Interest", icon: "calculator-outline", color: "#b45309" },
-  { name: "Family", icon: "heart-outline", color: "#f43f5e" },
-  { name: "Friends", icon: "people-outline", color: "#14b8a6" },
-  { name: "Cash Withdrawal", icon: "cash-outline", color: "#d97706" },
-  { name: "Wallet Loads", icon: "wallet-outline", color: "#7c3aed" },
-  { name: "Professional Service", icon: "briefcase-outline", color: "#475569" },
-  { name: "Others", icon: "ellipsis-horizontal-outline", color: "#64748b" },
+  { name: "Food & Dining",       icon: "restaurant-outline",          color: "#f87171" },
+  { name: "Grocery",             icon: "basket-outline",              color: "#4ade80" },
+  { name: "Fuel",                icon: "speedometer-outline",         color: "#fb923c" },
+  { name: "Travel",              icon: "airplane-outline",            color: "#60a5fa" },
+  { name: "Shopping",            icon: "bag-outline",                 color: "#c084fc" },
+  { name: "Bills & Recharge",    icon: "receipt-outline",             color: "#fbbf24" },
+  { name: "Rent",                icon: "home-outline",                color: "#38bdf8" },
+  { name: "EMI",                 icon: "repeat-outline",              color: "#a78bfa" },
+  { name: "Entertainment",       icon: "film-outline",                color: "#f472b6" },
+  { name: "OTT",                 icon: "tv-outline",                  color: "#e879f9" },
+  { name: "Youtube Premium",     icon: "logo-youtube",                color: "#ef4444" },
+  { name: "Education",           icon: "school-outline",              color: "#22d3ee" },
+  { name: "Medical",             icon: "medkit-outline",              color: "#34d399" },
+  { name: "Health & Wellness",   icon: "fitness-outline",             color: "#2dd4bf" },
+  { name: "Insurance",           icon: "shield-checkmark-outline",    color: "#818cf8" },
+  { name: "SIP",                 icon: "trending-up-outline",         color: "#06b6d4" },
+  { name: "Equity Investment",   icon: "bar-chart-outline",           color: "#0ea5e9" },
+  { name: "Card Annual Charges", icon: "card-outline",                color: "#8b5cf6" },
+  { name: "Interest",            icon: "calculator-outline",          color: "#facc15" },
+  { name: "Family",              icon: "heart-outline",               color: "#fb7185" },
+  { name: "Friends",             icon: "people-outline",              color: "#14b8a6" },
+  { name: "Cash Withdrawal",     icon: "cash-outline",                color: "#d97706" },
+  { name: "Wallet Loads",        icon: "wallet-outline",              color: "#7c3aed" },
+  { name: "Professional Service",icon: "briefcase-outline",           color: "#f97316" },
+  { name: "Others",              icon: "ellipsis-horizontal-outline", color: "#d946ef" },
 ];
 
 export const INCOME_CATEGORIES: Category[] = [
@@ -49,11 +49,35 @@ export function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMa
   return found ? found.icon : "receipt-outline";
 }
 
+const PALETTE = [
+  '#f87171', '#fb923c', '#fbbf24', '#facc15', '#a3e635',
+  '#4ade80', '#34d399', '#2dd4bf', '#22d3ee', '#38bdf8',
+  '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9',
+  '#f472b6', '#fb7185', '#ef4444', '#d97706', '#f97316',
+  '#0ea5e9', '#06b6d4', '#14b8a6', '#8b5cf6', '#d946ef',
+];
+
+function hashString(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
 export function getCategoryColor(category: string, isIncome?: boolean): string {
   const name = category.toLowerCase().trim();
   const list = isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const found = list.find((c) => c.name.toLowerCase() === name);
-  return found ? found.color : "#64748b";
+  if (found) return found.color;
+  // Handle "Other" → "Others" alias
+  if (!isIncome && name === 'other') {
+    const others = list.find((c) => c.name.toLowerCase() === 'others');
+    if (others) return others.color;
+  }
+  // Hash-based fallback for unknown categories
+  return PALETTE[hashString(name) % PALETTE.length];
 }
 
 export function autoDetectCategory(text: string, type: "expense" | "income"): string {

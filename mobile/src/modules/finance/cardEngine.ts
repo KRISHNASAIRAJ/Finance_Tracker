@@ -28,13 +28,9 @@ export interface SuggestionInput {
   mcc?: string;
   storeName?: string;
   isOnline?: boolean;
+  isUpi?: boolean;
   haveAmazonPrime?: boolean;
 }
-
-/**
- * Recommend the best credit card for a given spend scenario.
- * Pure offline engine. Returns cards sorted by estimated cashback descending.
- */
 
 const KNOWN_ONLINE_MERCHANTS = [
   'amazon', 'flipkart', 'myntra', 'ajio', 'meesho', 'nykaa',
@@ -53,11 +49,18 @@ function isKnownOnlineMerchant(store: string): boolean {
 }
 
 export function recommendCards(input: SuggestionInput): CardRecommendation[] {
-  const { amount, mcc, storeName, isOnline, haveAmazonPrime } = input;
+  const { amount, mcc, storeName, isOnline, isUpi, haveAmazonPrime } = input;
   const store = (storeName || '').toLowerCase();
   const effectiveOnline = isOnline ?? isKnownOnlineMerchant(store);
+
+  // UPI: only RuPay cards are eligible
+  let eligibleCards = CARD_DEFINITIONS;
+  if (isUpi) {
+    eligibleCards = CARD_DEFINITIONS.filter(c => c.network === 'RuPay');
+  }
+
   const results: CardRecommendation[] = [];
-  for (const card of CARD_DEFINITIONS) {
+  for (const card of eligibleCards) {
     // Check exclusions first
     if (isExcluded(card, mcc, store)) {
       results.push({
@@ -75,7 +78,6 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
     let matchedCategory = 'Other';
     let reason = '';
 
-    // Check each category rule on the card
     for (const cat of card.categories) {
       let matches = cat.mccCodes?.includes(mcc || '') || false;
 
@@ -87,7 +89,6 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
         matches = cat.keywords.some(k => store.includes(k.toLowerCase()));
       }
 
-      // Fallback: use known MCC categories
       if (!matches && mcc) {
         if (cat.name.toLowerCase().includes('fuel') && isFuelMCC(mcc)) matches = true;
         if (cat.name.toLowerCase().includes('grocery') && isGroceryMCC(mcc)) matches = true;
@@ -99,19 +100,15 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
 
       // Amazon-specific logic
       if (!matches && cat.name.toLowerCase().includes('amazon') && store.includes('amazon')) {
-        const rate = cat.rate;
         if (haveAmazonPrime && cat.name.includes('Prime')) {
-          bestRate = rate;
-          matchedCategory = cat.name;
-          reason = `5% Amazon Pay cashback (Prime member)`;
+          bestRate = cat.rate; matchedCategory = cat.name;
+          reason = '5% Amazon Pay cashback (Prime member)';
         } else if (!haveAmazonPrime && cat.name.includes('Non-Prime')) {
-          bestRate = rate;
-          matchedCategory = cat.name;
-          reason = `3% Amazon Pay cashback`;
+          bestRate = cat.rate; matchedCategory = cat.name;
+          reason = '3% Amazon Pay cashback';
         } else {
-          bestRate = rate;
-          matchedCategory = cat.name;
-          reason = `${rate}% at Amazon`;
+          bestRate = cat.rate; matchedCategory = cat.name;
+          reason = `${cat.rate}% at Amazon`;
         }
         matches = true;
       }
@@ -119,16 +116,21 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
       // Online/Offline for SBI Cashback
       if (!matches && card.id === 'sbi-cashback') {
         if (effectiveOnline && cat.name.includes('Online')) {
-          bestRate = cat.rate;
-          matchedCategory = cat.name;
+          bestRate = cat.rate; matchedCategory = cat.name;
           reason = '5% cashback on online spends';
           matches = true;
         } else if (!effectiveOnline && cat.name.includes('Offline')) {
-          bestRate = cat.rate;
-          matchedCategory = cat.name;
+          bestRate = cat.rate; matchedCategory = cat.name;
           reason = '1% cashback on offline spends';
           matches = true;
         }
+      }
+
+      // UPI-specific matching
+      if (!matches && isUpi && cat.name.toLowerCase().includes('upi')) {
+        bestRate = cat.rate; matchedCategory = cat.name;
+        reason = cat.comment || `${cat.rate}% on UPI spends`;
+        matches = true;
       }
 
       if (matches && cat.rate > bestRate) {
@@ -138,7 +140,7 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
       }
     }
 
-    // Default to general catch-all rule
+    // Default catch-all
     if (bestRate === 0 && card.categories.length > 0) {
       const general = card.categories[card.categories.length - 1];
       if (general.name.includes('Other') || general.name.includes('All') || general.name.includes('Retail') || general.name.includes('UPI')) {
@@ -148,46 +150,34 @@ export function recommendCards(input: SuggestionInput): CardRecommendation[] {
       }
     }
 
-    // Check caps
     let capWarning: string | undefined;
     const cap = card.caps.find(c =>
       c.category.toLowerCase().includes(matchedCategory.toLowerCase()) ||
       matchedCategory.toLowerCase().includes(c.category.toLowerCase())
     );
     if (cap && amount > cap.maxAmount * 100) {
-      capWarning = `Spend cap: ₹${cap.maxAmount}/cycle. Over the cap gets base rate.`;
+      capWarning = `Cap: ₹${cap.maxAmount}/cycle`;
     }
 
     const estimatedCashback = Math.round(amount * bestRate / 100);
-    results.push({
-      card,
-      effectiveRate: bestRate,
-      estimatedCashback,
-      capWarning,
-      matchedCategory,
-      reason,
-    });
+    results.push({ card, effectiveRate: bestRate, estimatedCashback, capWarning, matchedCategory, reason });
   }
 
-  // Sort: highest cashback first
   results.sort((a, b) => b.estimatedCashback - a.estimatedCashback || b.effectiveRate - a.effectiveRate);
   return results;
 }
 
 function isExcluded(card: CardDefinition, mcc?: string, store?: string): boolean {
   if (!mcc && !store) return false;
-
   const mccStr = mcc || '';
   const storeStr = (store || '').toLowerCase();
 
-  // Check explicit exclusions list
   for (const excl of card.exclusions) {
     const el = excl.toLowerCase();
     if (mccStr && mccStr === excl) return true;
     if (storeStr && el.includes(storeStr)) return true;
   }
 
-  // Known exclusion categories
   if (mccStr) {
     const exclusions = card.exclusions.map(e => e.toLowerCase()).join(' ');
     if (isFuelMCC(mccStr) && exclusions.includes('fuel')) return true;
@@ -199,27 +189,4 @@ function isExcluded(card: CardDefinition, mcc?: string, store?: string): boolean
   }
 
   return false;
-}
-
-/**
- * Find best card for specific use cases
- */
-export function bestCardForFuel(amount: number): CardRecommendation {
-  return recommendCards({ amount, mcc: '5541', storeName: 'HPCL' })[0];
-}
-
-export function bestCardForGrocery(amount: number): CardRecommendation {
-  return recommendCards({ amount, mcc: '5411', storeName: 'DMart' })[0];
-}
-
-export function bestCardForDining(amount: number): CardRecommendation {
-  return recommendCards({ amount, mcc: '5812', storeName: 'Restaurant' })[0];
-}
-
-export function bestCardForOnlineShopping(amount: number): CardRecommendation {
-  return recommendCards({ amount, isOnline: true })[0];
-}
-
-export function bestCardForAmazon(amount: number, havePrime: boolean): CardRecommendation {
-  return recommendCards({ amount, storeName: 'Amazon', haveAmazonPrime: havePrime })[0];
 }

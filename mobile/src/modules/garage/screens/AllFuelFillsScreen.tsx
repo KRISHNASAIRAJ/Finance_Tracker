@@ -48,14 +48,40 @@ export default function AllFuelFillsScreen() {
     .filter((f) => f.vehicle === selectedVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  const sortedByOdo = [...fills.filter(f => f.vehicle === selectedVehicle)]
+    .sort((a, b) => a.odometer - b.odometer);
+
+  // Mileage calculations
+  const perFillMileage: number[] = [];
+  for (let i = 1; i < sortedByOdo.length; i++) {
+    const dist = sortedByOdo[i].odometer - sortedByOdo[i - 1].odometer;
+    const fuel = sortedByOdo[i].liters;
+    if (fuel > 0) perFillMileage.push(parseFloat((dist / fuel).toFixed(1)));
+  }
+
+  const overallMileage = (() => {
+    if (sortedByOdo.length < 2) return 'N/A';
+    const totalDist = sortedByOdo[sortedByOdo.length - 1].odometer - sortedByOdo[0].odometer;
+    const totalFuel = sortedByOdo.slice(1).reduce((sum: number, f: any) => sum + f.liters, 0);
+    if (totalFuel === 0) return 'N/A';
+    return (totalDist / totalFuel).toFixed(1);
+  })();
+
+  const bestMileage = perFillMileage.length > 0 ? Math.max(...perFillMileage).toFixed(1) : 'N/A';
+  const worstMileage = perFillMileage.length > 0 ? Math.min(...perFillMileage).toFixed(1) : 'N/A';
+
+  const totalFuelSpend = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.logoText}>All Fuel Fills</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.logoText}>Fuel Fills</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddFuelFill')} activeOpacity={0.7}>
+          <Ionicons name="add-circle" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Vehicle tabs */}
@@ -78,10 +104,57 @@ export default function AllFuelFillsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Mileage Summary */}
+        {vehicleFills.length > 0 && (
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>OVERALL</Text>
+              <Text style={styles.summaryValue}>{overallMileage}</Text>
+              <Text style={styles.summaryUnit}>km/l</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>BEST</Text>
+              <Text style={[styles.summaryValue, { color: colors.success }]}>{bestMileage}</Text>
+              <Text style={styles.summaryUnit}>km/l</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>WORST</Text>
+              <Text style={[styles.summaryValue, { color: colors.error }]}>{worstMileage}</Text>
+              <Text style={styles.summaryUnit}>km/l</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Total Spend + Add */}
+        <View style={styles.spendRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.spendLabel}>TOTAL FUEL SPEND</Text>
+            <Text style={styles.spendValue}>{formatCurrency(totalFuelSpend)}</Text>
+            <Text style={styles.spendSub}>{vehicleFills.length} fill{vehicleFills.length !== 1 ? 's' : ''}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addFillBtn}
+            onPress={() => navigation.navigate('AddFuelFill')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="water-outline" size={18} color="#fff" />
+            <Text style={styles.addFillBtnText}>Add Fill</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Fuel Fill List */}
         {vehicleFills.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.fuelEmojiLarge}>⛽</Text>
             <Text style={styles.emptyText}>No fuel fills logged yet</Text>
+            <TouchableOpacity
+              style={styles.emptyAddBtn}
+              onPress={() => navigation.navigate('AddFuelFill')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add-circle" size={18} color="#000" />
+              <Text style={styles.emptyAddBtnText}>Add First Fuel Fill</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           vehicleFills.map((fill) => {
@@ -146,6 +219,10 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: rounded.full,
   },
+  addBtn: {
+    padding: 4,
+    borderRadius: rounded.full,
+  },
   tabContainer: {
     backgroundColor: colors.surface,
     paddingVertical: 8,
@@ -171,85 +248,56 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer,
     borderColor: colors.primary,
   },
-  vehicleEmoji: {
-    fontSize: 14,
+  vehicleEmoji: { fontSize: 14 },
+  tabText: { color: colors.onSurfaceVariant, fontSize: 13, fontWeight: '500' },
+  tabTextActive: { color: colors.onSurface, fontWeight: '600' },
+  scrollContent: { padding: spacing.containerPadding, gap: 14, paddingBottom: 60 },
+  summaryRow: { flexDirection: 'row', gap: 10 },
+  summaryCard: {
+    flex: 1, backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1,
+    borderRadius: rounded.lg, padding: 14, alignItems: 'center', gap: 2,
   },
-  tabText: {
-    color: colors.onSurfaceVariant,
-    fontSize: 13,
-    fontWeight: '500',
+  summaryLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  summaryValue: { fontSize: 22, fontWeight: '800', color: '#c084fc' },
+  summaryUnit: { fontSize: 11, color: colors.onSurfaceVariant },
+  spendRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    padding: 16, gap: 12,
   },
-  tabTextActive: {
-    color: colors.onSurface,
-    fontWeight: '600',
+  spendLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  spendValue: { fontSize: 22, fontWeight: '800', color: colors.onSurface },
+  spendSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  addFillBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: rounded.full, backgroundColor: colors.primaryContainer,
   },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: 2,
-  },
+  addFillBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
   logRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    marginBottom: 8,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: spacing.cardPadding, backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
   },
-  logLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
+  logLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  iconContainer: { width: 36, height: 36, borderRadius: rounded.full, alignItems: 'center', justifyContent: 'center' },
+  brandIconText: { fontSize: 12, fontWeight: '800' },
+  fuelEmoji: { fontSize: 16 },
+  fuelEmojiLarge: { fontSize: 40 },
+  logTitle: { fontSize: 14, fontWeight: '600', color: colors.onSurface },
+  logSub: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
+  logRight: { alignItems: 'flex-end' },
+  logAmount: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  logDate: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  emptyState: { padding: 48, alignItems: 'center', gap: 10 },
+  emptyText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
+  emptyAddBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 18, paddingVertical: 10,
+    borderRadius: rounded.full, backgroundColor: colors.primary,
+    marginTop: 4,
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: rounded.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandIconText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  fuelEmoji: {
-    fontSize: 16,
-  },
-  fuelEmojiLarge: {
-    fontSize: 40,
-  },
-  logTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  logSub: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  logRight: {
-    alignItems: 'flex-end',
-  },
-  logAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  logDate: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  emptyState: {
-    padding: 48,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
-  },
+  emptyAddBtnText: { fontSize: 13, fontWeight: '700', color: '#000' },
 });

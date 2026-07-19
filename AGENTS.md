@@ -16,7 +16,7 @@
 | **Backend** | Supabase Edge Functions (Deno/TypeScript) — no FastAPI (see ADR-008) |
 | **Database** | PostgreSQL (Supabase-hosted) + SQLite local cache |
 | **Auth** | Supabase Auth / JWT |
-| **AI Layer** | Claude API (Anthropic) — scoped assistants only |
+| **AI Layer** | Groq API (Llama 3.3 70B + Llama 3.1 8B) — free-tier friendly |
 | **Notifications** | Expo Push Notifications + local AlarmManager/WorkManager |
 | **Design** | Dark mode first — all screens implemented in dark. See `DESIGN.md` |
 | **Stitch Project** | https://stitch.withgoogle.com/projects/4997376971246377666 |
@@ -58,10 +58,10 @@ krishnas-tracker/
 │   │   ├── 0002_rls.sql       ← Row-Level Security policies
 │   │   └── ...                ← Per-phase add/drop migrations
 │   └── functions/             ← Deno Edge Functions (hold secrets)
-│       ├── _shared/claude.ts   ← Shared Claude API client
-│       ├── ai-tnc-query/       ← Card T&C RAG chat (Phase 6 — scaffold)
-│       ├── ai-portfolio-recommend/  ← Portfolio recommendations (Phase 6 — scaffold)
-│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5 — scaffold)
+│       ├── _shared/groq.ts     ← Shared Groq API client
+│       ├── ai-tnc-query/       ← Card T&C chat (Phase 6 — deployed, uses Groq)
+│       ├── ai-portfolio-recommend/  ← Portfolio recs (Phase 6 — deployed, uses Groq)
+│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5 — deployed, uses Groq)
 │       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4 — deployed)
 │       ├── kite-callback/      ← Kite OAuth callback (Phase 4 — deployed)
 │       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4 — deployed)
@@ -82,7 +82,7 @@ Always work within the current phase. Do NOT skip ahead.
 | **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD |
 | **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | 🟢 100% — 6 screens, Kite OAuth + equity+MF sync, allocation donut (Gold/Realty/Equity/MF), pg_cron portfolio snapshots, Expo push notifications, goal auto-progress |
 | **Phase 5** | SMS Auto-capture: listener, parser (regex rules + AI fallback), confirm flow, suppressed senders, persistent dedup | 🟢 100% — 5 services, native module, confirmation screen, regex engine, AI Claude fallback edge function, rate limiting, ignore-sender UI |
-| **Phase 6** | AI Assistants: Card T&C RAG chat, portfolio recommendation (goal-aware) | 🔴 20% — shared Claude client done; both edge functions scaffolds, no RAG |
+| **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation (goal-aware) | 🟢 100% — shared Groq client, both edge functions fully implemented (T&C Q&A + portfolio recs), CardChat + AIRecommendations screens, document upload + RAG via text retrieval, rate-limited Groq calls |
 | **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
 | **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, key tests (smsParser, finance store) |
 

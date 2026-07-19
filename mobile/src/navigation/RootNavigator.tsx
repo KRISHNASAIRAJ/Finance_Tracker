@@ -30,6 +30,9 @@ import CreditCardsScreen from '../modules/finance/screens/CreditCardsScreen';
 import BalanceSummaryScreen from '../modules/finance/screens/BalanceSummaryScreen';
 import SmsConfirmationScreen from '../modules/finance/screens/SmsConfirmationScreen';
 import CreditCardDetailScreen from '../modules/finance/screens/CreditCardDetailScreen';
+import CardAssistantScreen from '../modules/finance/screens/CardAssistantScreen';
+import PayzappWalletScreen from '../modules/finance/screens/PayzappWalletScreen';
+import CardChatScreen from '../modules/finance/screens/CardChatScreen';
 
 import GarageDashboardScreen from '../modules/garage/screens/GarageDashboardScreen';
 import AddFuelFillScreen from '../modules/garage/screens/AddFuelFillScreen';
@@ -49,6 +52,7 @@ import AIRecommendationsScreen from '../modules/equity/screens/AIRecommendations
 import AddEditHoldingScreen from '../modules/equity/screens/AddEditHoldingScreen';
 import AddEditGoalScreen from '../modules/equity/screens/AddEditGoalScreen';
 import HoldingsListScreen from '../modules/equity/screens/HoldingsListScreen';
+import AllocationDetailScreen from '../modules/equity/screens/AllocationDetailScreen';
 
 import MoreMenuScreen from '../modules/personal/screens/MoreMenuScreen';
 import PersonalNotesScreen from '../modules/personal/screens/PersonalNotesScreen';
@@ -87,6 +91,9 @@ export type FinanceStackParamList = {
     };
   };
   CreditCardDetail: { cardId: string };
+  CardAssistant: undefined;
+  PayzappWallet: undefined;
+  CardChat: { documentId?: string; documentName?: string } | undefined;
 };
 
 export type GarageStackParamList = {
@@ -112,6 +119,7 @@ export type InvestmentsStackParamList = {
   HoldingsList: { tab?: 'equity' | 'mf' } | undefined;
   AddEditHolding: { holdingId?: string } | undefined;
   AddEditGoal: { goalId?: string } | undefined;
+  AllocationDetail: undefined;
 };
 
 export type MoreStackParamList = {
@@ -179,6 +187,9 @@ function FinanceStackNavigator() {
       <FinanceStack.Screen name="BalanceSummary" component={BalanceSummaryScreen} />
       <FinanceStack.Screen name="SmsConfirmation" component={SmsConfirmationScreen} options={modalScreenOptions} />
       <FinanceStack.Screen name="CreditCardDetail" component={CreditCardDetailScreen} />
+      <FinanceStack.Screen name="CardAssistant" component={CardAssistantScreen} />
+      <FinanceStack.Screen name="PayzappWallet" component={PayzappWalletScreen} />
+      <FinanceStack.Screen name="CardChat" component={CardChatScreen} />
     </FinanceStack.Navigator>
   );
 }
@@ -216,6 +227,7 @@ function InvestmentsStackNavigator() {
       <InvestmentsStack.Screen name="AddEditHolding" component={AddEditHoldingScreen} />
       <InvestmentsStack.Screen name="AddEditGoal" component={AddEditGoalScreen} />
       <InvestmentsStack.Screen name="HoldingsList" component={HoldingsListScreen} />
+      <InvestmentsStack.Screen name="AllocationDetail" component={AllocationDetailScreen} />
     </InvestmentsStack.Navigator>
   );
 }

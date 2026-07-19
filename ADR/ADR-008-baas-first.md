@@ -68,7 +68,7 @@ The `backend/` folder (FastAPI, SQLAlchemy, Alembic, Pydantic) is archived to a 
 - **Vendor lock-in increased** — moving from Supabase would require rewriting all CRUD + auth + RLS + edge functions
 - **RLS learning curve** — the team needs to write PostgreSQL RLS policies instead of Python middleware
 - **Edge Function cold start** — Deno Edge Functions have ~100-500ms cold start vs always-warm FastAPI
-- **No Python AI ecosystem** — Edge Functions use Deno/TypeScript for Claude calls (js-anthropic SDK instead of python-anthropic)
+- **No Python AI ecosystem** — Edge Functions use Deno/TypeScript for Groq API calls
 - **SMS parsing regex engine** — moves from Python to TypeScript (or Edge Function)
 
 ## Revises

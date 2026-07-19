@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -53,6 +54,12 @@ export default function MoreMenuScreen() {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [syncing, setSyncing] = useState(false);
+
+  const monthlyBudget = useFinanceStore((s) => s.monthlyBudget);
+  const setMonthlyBudget = useFinanceStore((s) => s.setMonthlyBudget);
+  const monthlyExpenses = useFinanceStore((s) => s.getMonthlyExpenses());
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
 
   const handleSyncNow = async () => {
     if (!user || syncing) return;
@@ -369,6 +376,47 @@ export default function MoreMenuScreen() {
           </>
         )}
 
+        {/* Monthly Budget */}
+        <TouchableOpacity
+          style={styles.menuCard}
+          onPress={() => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(132,204,22,0.12)' }]}>
+            <Ionicons name="wallet-outline" size={24} color="#84CC16" />
+          </View>
+          <View style={styles.cardDetails}>
+            <Text style={styles.cardTitle}>Monthly Budget</Text>
+            <Text style={styles.cardSubtitle}>
+              {monthlyBudget > 0
+                ? `₹${monthlyBudget.toLocaleString('en-IN')} · Spent ₹${Math.round(monthlyExpenses / 100).toLocaleString('en-IN')}`
+                : 'Set a monthly spending limit'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
+        </TouchableOpacity>
+
+        {/* Budget Modal */}
+        <Modal visible={budgetModalVisible} transparent animationType="fade" onRequestClose={() => setBudgetModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Monthly Budget</Text>
+              <View style={styles.inpGrp}>
+                <Text style={styles.inpLabel}>BUDGET (₹)</Text>
+                <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} autoFocus />
+              </View>
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalCancel} onPress={() => setBudgetModalVisible(false)}>
+                  <Text style={styles.modalCancelTxt}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalSave} onPress={() => { const v = parseFloat(budgetInput); setMonthlyBudget(isNaN(v) ? 0 : Math.max(0, Math.round(v)), user?.id); setBudgetModalVisible(false); }}>
+                  <Text style={styles.modalSaveTxt}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Cloud Sync */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CLOUD SYNC</Text>
         <TouchableOpacity
@@ -670,4 +718,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
+  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
+  inpGrp: { gap: 6 },
+  inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  inp: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
+  modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
+  modalSaveTxt: { fontSize: 14, color: '#fff', fontWeight: '700' },
 });

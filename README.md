@@ -1,91 +1,132 @@
 # Meridian — Personal Life Tracker
 
-Meridian is a personal-use React Native mobile application designed for Android (with future iOS support), powered by a FastAPI Python backend and PostgreSQL/Supabase database. The app features a dark-first user interface with offline cache support, transaction logs, garage maintenance logging, and equity investment tracking.
+Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across five modules, built with React Native (Expo) and Supabase.
 
----
+## Modules
 
-## Technical Architecture
+| Module | Description |
+|---|---|
+| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, SMS auto-capture, AI T&C assistant |
+| **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend |
+| **Task Manager** | Notion-style tasks with subtasks, recurrence, and local notifications |
+| **Equity/MF Tracker** | Holdings, Kite Connect sync, AI rebalancing, daily 8:30 PM IST portfolio snapshots |
+| **Personal** | 2026 goals, notes, recipes, diet plan with onboarding flow |
 
-* **Mobile App:** React Native (Expo) using TypeScript.
-  - **State Management:** Zustand with AsyncStorage persistent caching.
-  - **Navigation:** React Navigation (Native Stack & Bottom Tabs).
-  - **Styling:** Premium customized dark-theme layout with Glassmorphism, smooth CSS gradients, and custom SVG path-based visualization.
-* **Backend:** FastAPI (Python 3.10+) with SQLAlchemy ORM and Alembic migrations.
-* **Database:** PostgreSQL (Supabase) + SQLite local caching layer for offline-first CRUD operations.
+## Tech Stack
 
----
+- **Mobile:** React Native (Expo) + TypeScript
+- **State:** Zustand + AsyncStorage
+- **Navigation:** React Navigation (Native Stack + Bottom Tabs)
+- **Backend:** Supabase (PostgreSQL + Edge Functions in Deno/TypeScript)
+- **Auth:** Supabase Auth (JWT)
+- **AI:** Groq API (Llama 3.3 70B + Llama 3.1 8B)
+- **Notifications:** Expo Push Notifications + local scheduling
+- **Design:** Dark mode first, Glassmorphism UI
 
-## Directory Structure
+## Project Structure
 
 ```
-krishnas-tracker/
-├── AGENTS.md                  ← AI Agent Governance & boundaries
-├── PRD.md                     ← Product Requirements Document
-├── ARCHITECTURE.md            ← Data structures and module boundaries
-├── DESIGN.md                  ← Styling system and dark theme specifications
-├── README.md                  ← This file
-├── scripts/
-│   └── install-dev.ps1        ← Dev build and ADB installation script
-├── mobile/                    ← React Native app
-│   ├── src/
-│   │   ├── modules/           ← Feature modules (finance, garage, personal, tasks)
-│   │   ├── shared/            ← Shared components, theme constants
-│   │   └── navigation/        ← Navigator configuration
-│   └── package.json           ← Node dependencies
-└── backend/                   ← Python FastAPI backend service
+meridian/
+├── AGENTS.md              ← AI agent governance (read first)
+├── PRD.md                 ← Product requirements
+├── ARCHITECTURE.md        ← System design & data models
+├── DESIGN.md              ← UI design system & screen specs
+├── SAFETY.md              ← AI safety & data privacy
+├── BOUNDARIES.md          ← Hard constraints
+├── ADR/                   ← Architecture Decision Records
+├── docs/                  ← API contracts, DB schema, notification flows
+├── mobile/                ← React Native app (Expo)
+│   └── src/
+│       ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal)
+│       ├── shared/        ← Shared components, hooks, utilities
+│       ├── navigation/    ← Navigator setup
+│       ├── store/         ← Zustand global state
+│       └── services/      ← API clients, local DB, sync queue, notifications
+└── supabase/
+    ├── config.toml         ← Supabase project config
+    ├── migrations/        ← SQL migration files
+    └── functions/         ← Deno Edge Functions
 ```
 
----
+## Setup
 
-## Setup & Running Locally
+### Prerequisites
 
-### 1. Run with Expo Go (Fast & Wireless)
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- Supabase CLI (optional, for edge function development)
 
-To view the app instantly on your Android/iOS phone over Wi-Fi:
+### Install & Run
 
-1. Navigate to the mobile directory:
-   ```bash
-   cd mobile
-   ```
-2. Install the node modules:
-   ```bash
-   npm install
-   ```
-3. Start the dev server:
-   ```bash
-   npm start
-   ```
-4. Install **Expo Go** from the Google Play Store or iOS App Store.
-5. Connect your phone and PC to the same Wi-Fi network and scan the QR code printed in the terminal.
+```bash
+# Clone and install
+cd mobile
+npm install
 
-### 2. Run on Connected Device via USB (ADB)
+# Copy environment template (fill in your Supabase URL + anon key)
+cp ../.env.example .env
 
-If you have ADB installed and USB debugging enabled on your phone:
+# Start Expo dev server
+npx expo start
+
+# Run on Android
+npx expo run:android
+```
+
+Alternatively, use the install script:
+
 ```powershell
 .\scripts\install-dev.ps1
 ```
 
----
+## Available Commands
 
-## Git Deployment Guide
-
-Follow these steps to link your local workspace to your remote GitHub repository and push your code:
-
-### 1. Configure the Remote Origin URL
-Open your terminal in the root directory (`d:\Krishna's Trackrer`) and add the remote URL:
 ```bash
-git remote add origin https://github.com/KRISHNASAIRAJ/Finance_Tracker.git
+cd mobile
+npm run android        # Run on connected device/emulator
+npm run ios            # Run on iOS simulator
+npm test               # Jest test suite
+npm run lint           # ESLint check
+npm run typecheck      # TypeScript type check
+
+# Supabase
+supabase link --project-ref rkmouoglorsnijmemmcd
+supabase db push       # Push migrations
+supabase functions deploy <fn>  # Deploy edge function
 ```
 
-### 2. Rename the Default Branch to `main`
-Ensure your primary branch is called `main`:
-```bash
-git branch -M main
-```
+## Environment Variables
 
-### 3. Push Your Commits to GitHub
-Push your local git history to the remote master:
-```bash
-git push -u origin main
-```
-*(If your local branch is named `master`, use `git push -u origin master` or rename it first as shown above).*
+Copy `.env.example` to `mobile/.env` and configure:
+
+| Variable | Description |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (publishable) key |
+| `EXPO_PUBLIC_KITE_API_KEY` | Kite Connect API key (for equity sync) |
+
+## Conventions
+
+- **TypeScript only** — no plain JS
+- Dates stored as UTC, displayed in IST (Asia/Kolkata)
+- Monetary values in paise (integers) — never floats in DB
+- DB tables: `snake_case`, migrations: numbered, edge functions: `kebab-case`
+- Screens: `PascalCaseScreen`, components: `PascalCase`, stores: `camelCaseStore`
+- All financial events route through the unified `transactions` table
+
+## Documentation
+
+| Area | Document |
+|---|---|
+| Full product spec | `PRD.md` |
+| System design | `ARCHITECTURE.md` |
+| DB schema | `docs/db-schema.md` |
+| UI design system | `DESIGN.md` |
+| API contracts | `docs/api-contracts.md` |
+| SMS parser spec | `docs/sms-parser-spec.md` |
+| Notification flows | `docs/notification-flows.md` |
+| AI safety rules | `SAFETY.md` |
+
+## License
+
+Private — personal use only.
