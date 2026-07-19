@@ -1,11 +1,14 @@
 const SYNC_QUEUE_KEY = "meridian_sync_queue";
 
+const MAX_RETRIES = 5;
+
 interface SyncQueueItem {
   id: string;
   entity: string;
   action: "create" | "update" | "delete";
   data: Record<string, unknown>;
   queuedAt: string;
+  retryCount: number;
 }
 
 let AsyncStorage: {
@@ -33,6 +36,7 @@ export async function enqueue(entity: string, action: SyncQueueItem["action"], d
     action,
     data,
     queuedAt: new Date().toISOString(),
+    retryCount: 0,
   };
   const raw = await storage.getItem(SYNC_QUEUE_KEY);
   const queue: SyncQueueItem[] = raw ? JSON.parse(raw) : [];
@@ -63,17 +67,22 @@ export async function clearQueue(): Promise<void> {
   }
 }
 
-export async function processSyncQueue(): Promise<{ succeeded: number; failed: number }> {
+export async function processSyncQueue(): Promise<{ succeeded: number; failed: number; dropped: number }> {
   const items = await dequeueAll();
-  if (items.length === 0) return { succeeded: 0, failed: 0 };
+  if (items.length === 0) return { succeeded: 0, failed: 0, dropped: 0 };
 
-  // Dynamic import avoids circular dependency
   const { supabase } = require("./supabaseClient");
 
   let succeeded = 0;
   let failed = 0;
+  let dropped = 0;
 
   for (const item of items) {
+    if (item.retryCount >= MAX_RETRIES) {
+      dropped++;
+      continue;
+    }
+
     try {
       if (item.action === "delete") {
         const { error } = await supabase
@@ -89,11 +98,34 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
       }
       succeeded++;
     } catch {
-      // Re-queue failed items
-      await enqueue(item.entity, item.action, item.data);
+      const backoffSeconds = Math.min(60, Math.pow(2, item.retryCount) * 5);
+      await new Promise((resolve) => setTimeout(resolve, backoffSeconds * 1000));
+      await enqueueWithRetry(item.entity, item.action, item.data, item.retryCount + 1);
       failed++;
     }
   }
 
-  return { succeeded, failed };
+  return { succeeded, failed, dropped };
+}
+
+async function enqueueWithRetry(
+  entity: string,
+  action: SyncQueueItem["action"],
+  data: Record<string, unknown>,
+  retryCount: number
+): Promise<void> {
+  const storage = getStorage();
+  if (!storage) return;
+  const item: SyncQueueItem = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    entity,
+    action,
+    data,
+    queuedAt: new Date().toISOString(),
+    retryCount,
+  };
+  const raw = await storage.getItem(SYNC_QUEUE_KEY);
+  const queue: SyncQueueItem[] = raw ? JSON.parse(raw) : [];
+  queue.push(item);
+  await storage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
 }

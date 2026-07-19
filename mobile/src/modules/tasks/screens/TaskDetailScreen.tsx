@@ -16,7 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useTasksStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
+import { scheduleAllReminders } from '../../../services/notificationService';
 
 type TaskDetailRouteProp = RouteProp<TasksStackParamList, 'TaskDetail'>;
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TaskDetail'>;
@@ -25,6 +27,7 @@ export default function TaskDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<TaskDetailRouteProp>();
   const { taskId } = route.params;
+  const { user } = useAuth();
 
   const { tasks, toggleSubtaskCompleted, toggleTaskCompleted, deleteTask } = useTasksStore();
   const task = tasks.find((t) => t.id === taskId);
@@ -43,7 +46,8 @@ export default function TaskDetailScreen() {
   }
 
   const handleDelete = () => {
-    deleteTask(task.id);
+    deleteTask(task.id, user?.id);
+    scheduleAllReminders();
     navigation.goBack();
   };
 
@@ -68,9 +72,17 @@ export default function TaskDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.logoText}>Task Details</Text>
-        <TouchableOpacity style={styles.iconButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={22} color={colors.error} />
-        </TouchableOpacity>
+        <View style={styles.appBarActions}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('AddEditTask', { taskId: task.id })}
+          >
+            <Ionicons name="create-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -85,7 +97,7 @@ export default function TaskDetailScreen() {
 
           <TouchableOpacity
             style={[styles.statusBadge, task.completed && styles.statusBadgeCompleted]}
-            onPress={() => toggleTaskCompleted(task.id)}
+            onPress={() => toggleTaskCompleted(task.id, user?.id)}
           >
             <Text style={[styles.statusText, task.completed && styles.statusTextCompleted]}>
               {task.completed ? 'COMPLETED' : 'MARK COMPLETE'}
@@ -107,13 +119,11 @@ export default function TaskDetailScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
             <Text style={styles.infoText}>
-              Due Date:{' '}
+              Due:{' '}
               <Text style={styles.infoHighlight}>
-                {new Date(task.dueDate).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {' · '}
+                {new Date(task.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
               </Text>
             </Text>
           </View>
@@ -141,12 +151,12 @@ export default function TaskDetailScreen() {
               </View>
             ) : (
               task.subtasks.map((st) => (
-                <TouchableOpacity
-                  key={st.id}
-                  style={styles.subtaskRow}
-                  onPress={() => toggleSubtaskCompleted(task.id, st.id)}
-                  activeOpacity={0.8}
-                >
+                  <TouchableOpacity
+                    key={st.id}
+                    style={styles.subtaskRow}
+                    onPress={() => toggleSubtaskCompleted(task.id, st.id, user?.id)}
+                    activeOpacity={0.8}
+                  >
                   <View style={[styles.subtaskCheckbox, st.completed && styles.subtaskCheckboxCompleted]}>
                     {st.completed && <Ionicons name="checkmark" size={12} color="#ffffff" />}
                   </View>
@@ -186,6 +196,10 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
     borderRadius: rounded.full,
+  },
+  appBarActions: {
+    flexDirection: 'row',
+    gap: 4,
   },
   errorState: {
     flex: 1,

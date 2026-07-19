@@ -17,13 +17,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useTasksStore, Task } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { useTasksSync } from '../hooks/useTasksSync';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
+import { scheduleAllReminders } from '../../../services/notificationService';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TasksDashboard'>;
 
 export default function TasksDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { tasks, toggleTaskCompleted } = useTasksStore();
+  const { tasks, toggleTaskCompleted, purgeOldCompletedTasks } = useTasksStore();
+  const { user } = useAuth();
+  useTasksSync();
+
+  React.useEffect(() => {
+    purgeOldCompletedTasks();
+    scheduleAllReminders();
+  }, []);
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'upcoming' | 'done'>('all');
 
@@ -84,7 +94,7 @@ export default function TasksDashboardScreen() {
         <View style={styles.taskCardRow}>
           <TouchableOpacity
             style={[styles.checkbox, item.completed && styles.checkboxCompleted]}
-            onPress={() => toggleTaskCompleted(item.id)}
+            onPress={() => toggleTaskCompleted(item.id, user?.id)}
           >
             {item.completed && <Ionicons name="checkmark" size={14} color="#ffffff" />}
           </TouchableOpacity>
@@ -98,14 +108,31 @@ export default function TasksDashboardScreen() {
               </Text>
             ) : null}
             <View style={styles.metaRow}>
-              <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(item.priority) }]} />
-              <Text style={styles.metaText}>{item.priority.toUpperCase()}</Text>
+              {item.completed && item.completedAt ? (
+                <>
+                  <Ionicons name="trash-outline" size={12} color={colors.onSurfaceVariant} />
+                  <Text style={styles.trashDays}>
+                    {(() => {
+                      const daysLeft = Math.ceil(7 - (Date.now() - new Date(item.completedAt).getTime()) / 86400000);
+                      if (daysLeft <= 0) return 'Deleting soon';
+                      return `${daysLeft}d till delete`;
+                    })()}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(item.priority) }]} />
+                  <Text style={styles.metaText}>{item.priority.toUpperCase()}</Text>
+                </>
+              )}
               <Text style={styles.metaDivider}>·</Text>
               <Text style={styles.metaText}>
                 {new Date(item.dueDate).toLocaleDateString('en-IN', {
                   day: 'numeric',
                   month: 'short',
                 })}
+                {' '}
+                {new Date(item.dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
               </Text>
               {totalSubtasks > 0 ? (
                 <>
@@ -284,6 +311,11 @@ const styles = StyleSheet.create({
   metaDivider: {
     fontSize: 10,
     color: colors.outline,
+  },
+  trashDays: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
   },
   emptyState: {
     padding: 64,

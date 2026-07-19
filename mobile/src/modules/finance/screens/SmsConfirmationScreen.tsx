@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,9 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
-import { useAuth } from '../../../services/AuthProvider';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, autoDetectCategory } from '../../../shared/categoryMap';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
+import { callAiSmsParse } from '../../../services/smsAiFallback';
 
 type RouteProps = RouteProp<FinanceStackParamList, 'SmsConfirmation'>;
 
@@ -35,11 +36,11 @@ export default function SmsConfirmationScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { smsData } = route.params;
-  const { addTransaction, addReceivable } = useFinanceStore() as any;
-  const { user } = useAuth();
+  const { addTransaction, addReceivable, addSuppressedSender } = useFinanceStore() as any;
 
   const parsedAmount = smsData.parsedAmount ? smsData.parsedAmount / 100 : 0;
   const defaultType = smsData.parsedType === 'credit' ? 'income' : 'expense';
+  const initialConfidence = smsData.confidence || 0;
 
   const [entryType, setEntryType] = useState<string>(defaultType);
   const [amount, setAmount] = useState(parsedAmount > 0 ? String(parsedAmount) : '');
@@ -50,6 +51,33 @@ export default function SmsConfirmationScreen() {
   const [personName, setPersonName] = useState('');
   const [notes, setNotes] = useState('');
   const [isManualCategory, setIsManualCategory] = useState(false);
+  const [confidence, setConfidence] = useState(initialConfidence);
+  const [aiLoading, setAiLoading] = useState(initialConfidence < 0.7);
+  const [aiFailed, setAiFailed] = useState(false);
+
+  useEffect(() => {
+    if (initialConfidence >= 0.7 || !smsData.smsBody) {
+      setAiLoading(false);
+      return;
+    }
+
+    callAiSmsParse(smsData.smsBody, smsData.senderId).then((result) => {
+      if (result.parsed && result.confidence >= 0.7) {
+        if (result.amount) setAmount((result.amount / 100).toString());
+        if (result.merchant) setMerchant(result.merchant);
+        if (result.transaction_type) {
+          setEntryType(result.transaction_type === 'credit' ? 'income' : 'expense');
+        }
+        setConfidence(result.confidence);
+      } else {
+        setAiFailed(true);
+      }
+      setAiLoading(false);
+    }).catch(() => {
+      setAiFailed(true);
+      setAiLoading(false);
+    });
+  }, []);
 
   useEffect(() => {
     if (!isManualCategory && merchant) {
@@ -80,7 +108,7 @@ export default function SmsConfirmationScreen() {
         note: notes.trim() || merchant,
         dueDate: new Date().toISOString(),
         type: entryType === 'lent' ? 'lent' : 'borrowed',
-      }, user?.id);
+      }, undefined);
     } else {
       addTransaction({
         type: entryType === 'expense' ? 'expense' :
@@ -91,7 +119,7 @@ export default function SmsConfirmationScreen() {
         category: selectedCategory,
         notes: `${merchant}${notes.trim() ? ` — ${notes.trim()}` : ''}`,
         source: 'sms_auto',
-      }, user?.id);
+      }, undefined);
     }
 
     navigation.goBack();
@@ -104,7 +132,27 @@ export default function SmsConfirmationScreen() {
     navigation.goBack();
   };
 
-  const confidencePercent = Math.round((smsData.confidence || 0) * 100);
+  const handleSuppressSender = () => {
+    Alert.alert(
+      'Suppress Sender',
+      `Stop showing notifications for messages from "${smsData.senderId}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Suppress',
+          style: 'destructive',
+          onPress: () => {
+            if (typeof addSuppressedSender === 'function') {
+              addSuppressedSender(smsData.senderId);
+            }
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
+  const confidencePercent = Math.round(confidence * 100);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -134,19 +182,35 @@ export default function SmsConfirmationScreen() {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.confidenceText,
-                  { color: confidencePercent >= 70 ? colors.success : '#f59e0b' },
-                ]}
-              >
-                {confidencePercent}% match
-              </Text>
+              {aiLoading ? (
+                <ActivityIndicator size={10} color={confidencePercent >= 70 ? colors.success : '#f59e0b'} />
+              ) : (
+                <Text
+                  style={[
+                    styles.confidenceText,
+                    { color: confidencePercent >= 70 ? colors.success : '#f59e0b' },
+                  ]}
+                >
+                  {confidencePercent}% match
+                </Text>
+              )}
             </View>
           </View>
           <Text style={styles.smsBody} numberOfLines={4}>
             {smsData.smsBody}
           </Text>
+          {aiLoading && (
+            <View style={styles.aiLoadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.aiLoadingText}>Analyzing with AI...</Text>
+            </View>
+          )}
+          {aiFailed && (
+            <View style={styles.aiFailedRow}>
+              <Ionicons name="warning-outline" size={14} color="#f59e0b" />
+              <Text style={styles.aiFailedText}>Could not auto-read SMS. Please fill manually.</Text>
+            </View>
+          )}
         </View>
 
         {/* Entry Type */}
@@ -286,6 +350,12 @@ export default function SmsConfirmationScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.ignoreButton} onPress={handleIgnore}>
             <Text style={styles.ignoreButtonText}>Ignore</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.suppressButton} onPress={handleSuppressSender}>
+            <Ionicons name="eye-off-outline" size={14} color={colors.onSurfaceVariant} />
+            <Text style={styles.suppressButtonText}>
+              Don't ask for {smsData.senderId}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -439,6 +509,40 @@ const styles = StyleSheet.create({
   ignoreButtonText: {
     fontSize: 14,
     color: colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  suppressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  suppressButtonText: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  aiLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 4,
+  },
+  aiLoadingText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  aiFailedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 4,
+  },
+  aiFailedText: {
+    fontSize: 12,
+    color: '#f59e0b',
     fontWeight: '500',
   },
 });

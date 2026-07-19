@@ -164,7 +164,7 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.navItem} onPress={() => handleNavigate('GarageTab')}>
-              <Ionicons name="car-outline" size={20} color={colors.primary} />
+              <Ionicons name="speedometer-outline" size={20} color={colors.primary} />
               <Text style={styles.navText}>Garage (Jupiter 125)</Text>
             </TouchableOpacity>
 

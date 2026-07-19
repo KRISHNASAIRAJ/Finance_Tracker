@@ -254,15 +254,6 @@ DELETE /api/v1/diet-plan/{date}/{slot}   → Clear a meal slot
 
 ---
 
-## Module 6: Fitness
-
-```
-GET    /api/v1/fitness/steps             → Get steps history (7-day default)
-POST   /api/v1/fitness/steps/sync        → Push Health Connect data to backend
-```
-
----
-
 ## Cross-Cutting
 
 ```

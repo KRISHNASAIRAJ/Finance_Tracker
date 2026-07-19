@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,16 +11,21 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useTasksStore, RecurrenceType } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
+import { scheduleAllReminders } from '../../../services/notificationService';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
+import TimePicker from '../../../shared/components/TimePicker';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'AddEditTask'>;
+type RouteProps = RouteProp<TasksStackParamList, 'AddEditTask'>;
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
@@ -32,7 +37,13 @@ const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
 
 export default function AddEditTaskScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { addTask } = useTasksStore();
+  const route = useRoute<RouteProps>();
+  const { user } = useAuth();
+  const { tasks, addTask, editTask } = useTasksStore();
+  const taskId = route.params?.taskId;
+  const isEditing = !!taskId;
+
+  const existingTask = isEditing ? tasks.find((t) => t.id === taskId) : null;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -40,7 +51,20 @@ export default function AddEditTaskScreen() {
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
   const [subtaskInput, setSubtaskInput] = useState('');
   const [localSubtasks, setLocalSubtasks] = useState<string[]>([]);
-  const [daysOffset, setDaysOffset] = useState('1');
+  const [dueDate, setDueDate] = useState(new Date(Date.now() + 86400000));
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [timeVisible, setTimeVisible] = useState(false);
+
+  useEffect(() => {
+    if (existingTask) {
+      setName(existingTask.name);
+      setDescription(existingTask.description || '');
+      setPriority(existingTask.priority);
+      setRecurrence(existingTask.recurrence);
+      setLocalSubtasks(existingTask.subtasks.map((s) => s.name));
+      setDueDate(new Date(existingTask.dueDate));
+    }
+  }, [existingTask]);
 
   const handleAddSubtask = () => {
     if (!subtaskInput.trim()) return;
@@ -58,19 +82,27 @@ export default function AddEditTaskScreen() {
       return;
     }
 
-    const offset = parseInt(daysOffset, 10);
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + (isNaN(offset) ? 1 : offset));
+    if (isEditing && taskId) {
+      editTask(taskId, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        priority,
+        dueDate: dueDate.toISOString(),
+        subtasks: localSubtasks,
+        recurrence,
+      }, user?.id);
+    } else {
+      addTask({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        priority,
+        dueDate: dueDate.toISOString(),
+        subtasks: localSubtasks,
+        recurrence,
+      }, user?.id);
+    }
 
-    addTask({
-      name: name.trim(),
-      description: description.trim() || undefined,
-      priority,
-      dueDate: dueDate.toISOString(),
-      subtasks: localSubtasks,
-      recurrence,
-    });
-
+    scheduleAllReminders();
     navigation.goBack();
   };
 
@@ -96,7 +128,7 @@ export default function AddEditTaskScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.formHeader}>
-            <Text style={styles.headerTitle}>Create Task</Text>
+            <Text style={styles.headerTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
             <Text style={styles.headerSubtitle}>Set priorities, milestones, and recurrence</Text>
           </View>
 
@@ -178,18 +210,47 @@ export default function AddEditTaskScreen() {
             </View>
           </View>
 
-          {/* Due date */}
+          {/* Due date + time */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>DUE DATE (DAYS FROM TODAY)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. 1 (tomorrow), 7 (next week)"
-              placeholderTextColor={colors.onSurfaceVariant}
-              keyboardType="number-pad"
-              value={daysOffset}
-              onChangeText={setDaysOffset}
-            />
+            <Text style={styles.inputLabel}>DUE DATE & TIME</Text>
+            <View style={styles.dateTimeRow}>
+              <TouchableOpacity
+                style={[styles.datePickerTrigger, { flex: 1 }]}
+                onPress={() => setCalendarVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.datePickerTrigger, { width: 130 }]}
+                onPress={() => setTimeVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {dueDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {/* Calendar Picker */}
+          <CalendarPicker
+            visible={calendarVisible}
+            selected={dueDate}
+            onSelect={setDueDate}
+            onClose={() => setCalendarVisible(false)}
+          />
+          {/* Time Picker */}
+          <TimePicker
+            visible={timeVisible}
+            selected={dueDate}
+            onSelect={setDueDate}
+            onClose={() => setTimeVisible(false)}
+          />
 
           {/* Subtasks Builder */}
           <View style={styles.formSection}>
@@ -232,7 +293,7 @@ export default function AddEditTaskScreen() {
               onPress={handleSubmit}
               activeOpacity={0.8}
             >
-              <Text style={styles.submitButtonText}>Create Task</Text>
+              <Text style={styles.submitButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -392,4 +453,17 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     fontWeight: '600',
   },
+  datePickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 48,
+    paddingHorizontal: 14,
+  },
+  datePickerText: { fontSize: 16, color: colors.onSurface, fontWeight: '600' },
+  dateTimeRow: { flexDirection: 'row', gap: 10 },
 });

@@ -23,24 +23,66 @@ export interface MaintenanceLog {
   notes?: string;
 }
 
+export interface VehicleRecord {
+  id: string;
+  name: string;
+  make?: string;
+  model?: string;
+  year?: number;
+}
+
 interface GarageState {
   vehicles: string[];
   fills: FuelFill[];
   maintenance: MaintenanceLog[];
-  addVehicle: (name: string) => void;
-  addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'>) => void;
-  editFuelFill: (id: string, updated: Partial<FuelFill>) => void;
-  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'>) => void;
+  addVehicle: (name: string, userId?: string) => void;
+  editVehicle: (oldName: string, newName: string, userId?: string) => void;
+  deleteVehicle: (name: string, userId?: string) => void;
+  addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'>, userId?: string) => string;
+  editFuelFill: (id: string, updated: Partial<FuelFill>, userId?: string) => void;
+  deleteFuelFill: (id: string, userId?: string) => void;
+  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'>, userId?: string) => string;
+  editMaintenanceLog: (id: string, updated: Partial<MaintenanceLog>, userId?: string) => void;
+  deleteMaintenanceLog: (id: string, userId?: string) => void;
   getVehicleFills: (vehicle: string) => FuelFill[];
   getVehicleSpendTotal: (vehicle: string) => number;
 }
 
 const rupeeToPaise = (val: number) => Math.round(val * 100);
 
+function queueGarageSync(entity: string, operation: string, payload: Record<string, unknown>) {
+  try {
+    const { enqueue } = require('../../services/syncQueue');
+    const action = operation === 'delete' ? 'delete' as const : 'create' as const;
+    enqueue(entity, action, payload);
+  } catch { }
+}
+
+function addFuelTransaction(
+  userId: string | undefined,
+  fill: FuelFill,
+  addTx: (tx: { type: string; amount: number; currency: string; category: string; notes: string; source: string }, uid?: string) => string
+) {
+  if (!userId) return;
+  const txId = addTx(
+    {
+      type: 'expense',
+      amount: fill.amount,
+      currency: 'INR',
+      category: 'Fuel',
+      notes: `${fill.liters}L in ${fill.vehicle} @ ${fill.station || 'Unknown'}`,
+      source: 'manual',
+    },
+    userId
+  );
+  // Don't try to set linked_vehicle_id on the transaction from here
+  // The transaction store manages its own IDs
+}
+
 export const useGarageStore = create<GarageState>()(
   persist(
     (set, get) => ({
-      vehicles: ['Jupiter 125'], // Single vehicle renamed to Jupiter 125 as requested
+      vehicles: ['Jupiter 125'],
       fills: [
         {
           id: 'fill-16',
@@ -176,12 +218,35 @@ export const useGarageStore = create<GarageState>()(
         },
       ],
       maintenance: [],
-      addVehicle: (name) => {
+      addVehicle: (name, userId) => {
         set((state) => ({
           vehicles: [...state.vehicles, name],
         }));
+        if (userId) {
+          queueGarageSync('vehicles', 'upsert', { name, user_id: userId });
+        }
       },
-      addFuelFill: (fill) => {
+      editVehicle: (oldName, newName, userId) => {
+        set((state) => ({
+          vehicles: state.vehicles.map((v) => (v === oldName ? newName : v)),
+          fills: state.fills.map((f) => (f.vehicle === oldName ? { ...f, vehicle: newName } : f)),
+          maintenance: state.maintenance.map((m) => (m.vehicle === oldName ? { ...m, vehicle: newName } : m)),
+        }));
+        if (userId) {
+          queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId, old_name: oldName });
+        }
+      },
+      deleteVehicle: (name, userId) => {
+        set((state) => ({
+          vehicles: state.vehicles.filter((v) => v !== name),
+          fills: state.fills.filter((f) => f.vehicle !== name),
+          maintenance: state.maintenance.filter((m) => m.vehicle !== name),
+        }));
+        if (userId) {
+          queueGarageSync('vehicles', 'delete', { name, user_id: userId });
+        }
+      },
+      addFuelFill: (fill, userId) => {
         const newFill: FuelFill = {
           ...fill,
           id: Math.random().toString(36).substring(2, 9),
@@ -190,13 +255,53 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           fills: [newFill, ...state.fills],
         }));
+        if (userId) {
+          queueGarageSync('fuel_fills', 'upsert', {
+            id: newFill.id,
+            user_id: userId,
+            vehicle: newFill.vehicle,
+            date: newFill.date,
+            amount: newFill.amount,
+            liters: newFill.liters,
+            price_per_liter: newFill.pricePerLiter,
+            odometer: newFill.odometer,
+            station: newFill.station ?? null,
+            note: newFill.note ?? null,
+          });
+        }
+        return newFill.id;
       },
-      editFuelFill: (id, updated) => {
+      editFuelFill: (id, updated, userId) => {
         set((state) => ({
           fills: state.fills.map((f) => (f.id === id ? { ...f, ...updated } : f)),
         }));
+        if (userId) {
+          const fill = get().fills.find((f) => f.id === id);
+          if (fill) {
+            queueGarageSync('fuel_fills', 'upsert', {
+              id: fill.id,
+              user_id: userId,
+              vehicle: fill.vehicle,
+              date: fill.date,
+              amount: fill.amount,
+              liters: fill.liters,
+              price_per_liter: fill.pricePerLiter,
+              odometer: fill.odometer,
+              station: fill.station ?? null,
+              note: fill.note ?? null,
+            });
+          }
+        }
       },
-      addMaintenanceLog: (log) => {
+      deleteFuelFill: (id, userId) => {
+        set((state) => ({
+          fills: state.fills.filter((f) => f.id !== id),
+        }));
+        if (userId) {
+          queueGarageSync('fuel_fills', 'delete', { id, user_id: userId });
+        }
+      },
+      addMaintenanceLog: (log, userId) => {
         const newLog: MaintenanceLog = {
           ...log,
           id: Math.random().toString(36).substring(2, 9),
@@ -205,6 +310,45 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           maintenance: [newLog, ...state.maintenance],
         }));
+        if (userId) {
+          queueGarageSync('maintenance_logs', 'upsert', {
+            id: newLog.id,
+            user_id: userId,
+            vehicle: newLog.vehicle,
+            date: newLog.date,
+            amount: newLog.amount,
+            service_type: newLog.serviceType,
+            notes: newLog.notes ?? null,
+          });
+        }
+        return newLog.id;
+      },
+      editMaintenanceLog: (id, updated, userId) => {
+        set((state) => ({
+          maintenance: state.maintenance.map((m) => (m.id === id ? { ...m, ...updated } : m)),
+        }));
+        if (userId) {
+          const log = get().maintenance.find((m) => m.id === id);
+          if (log) {
+            queueGarageSync('maintenance_logs', 'upsert', {
+              id: log.id,
+              user_id: userId,
+              vehicle: log.vehicle,
+              date: log.date,
+              amount: log.amount,
+              service_type: log.serviceType,
+              notes: log.notes ?? null,
+            });
+          }
+        }
+      },
+      deleteMaintenanceLog: (id, userId) => {
+        set((state) => ({
+          maintenance: state.maintenance.filter((m) => m.id !== id),
+        }));
+        if (userId) {
+          queueGarageSync('maintenance_logs', 'delete', { id, user_id: userId });
+        }
       },
       getVehicleFills: (vehicle) => {
         return get().fills.filter((f) => f.vehicle === vehicle);
@@ -218,7 +362,7 @@ export const useGarageStore = create<GarageState>()(
       },
     }),
     {
-      name: 'meridian-garage-storage-v8', // v8: renamed vehicle to Jupiter 125
+      name: 'meridian-garage-storage-v8', // Do NOT bump — preserves data across updates
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

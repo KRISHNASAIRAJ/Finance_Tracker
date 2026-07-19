@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { SmsParseResult } from '../../services/smsParser';
 
 export interface Transaction {
   id: string;
@@ -21,6 +22,11 @@ export interface CreditCard {
   billingDay: number;
   balance: number; // in paise
   dueDate: string; // ISO date string
+  bank?: string;
+  cardLimit?: number; // in paise
+  currentOutstanding?: number; // in paise
+  billAmount?: number; // current bill statement amount (paise)
+  paidAmount?: number; // amount paid toward this bill (paise)
 }
 
 export interface Receivable {
@@ -77,12 +83,20 @@ interface FinanceState {
   editReceivable: (id: string, updated: Partial<Receivable>, userId?: string) => void;
   deleteReceivable: (id: string, userId?: string) => void;
   editCard: (id: string, updated: Partial<CreditCard>, userId?: string) => void;
+  addCard: (card: Omit<CreditCard, 'id'>, userId?: string) => void;
+  deleteCard: (id: string, userId?: string) => void;
   markFixedExpensePaid: (id: string, userId?: string) => void;
   unmarkFixedExpensePaid: (id: string, userId?: string) => void;
   getTotalBalance: () => number;
   getMonthlyExpenses: () => number;
   getMonthlyIncome: () => number;
   setLastSyncedAt: (ts: string) => void;
+  pendingSmsItems: SmsParseResult[];
+  suppressedSenders: string[];
+  addPendingSms: (item: SmsParseResult) => void;
+  removePendingSms: (id: string) => void;
+  clearPendingSms: () => void;
+  addSuppressedSender: (sender: string) => void;
 }
 
 // Helper to convert Rupees from JSON to Paise integers
@@ -103,6 +117,8 @@ export const useFinanceStore = create<FinanceState>()(
   persist(
     (set, get) => ({
       lastSyncedAt: null,
+      pendingSmsItems: [],
+      suppressedSenders: [],
       isOnboarded: false,
       onboardingName: '',
       onboardingGoals: [],
@@ -807,7 +823,45 @@ export const useFinanceStore = create<FinanceState>()(
             if (updated.name !== undefined) payload.name = updated.name;
             if (updated.endingWith !== undefined) payload.ending_with = updated.endingWith;
             if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
+            if (updated.billAmount !== undefined) payload.bill_amount = updated.billAmount;
+            if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
             syncEnqueue("credit_cards", "update", payload);
+          } catch {}
+        }
+      },
+      addCard: (cardData, userId) => {
+        const newCard: CreditCard = {
+          ...cardData,
+          id: Math.random().toString(36).substring(2, 9),
+        };
+        set((state) => ({ cards: [...state.cards, newCard] }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("credit_cards", "create", {
+              id: newCard.id,
+              user_id: userId,
+              name: newCard.name,
+              network: newCard.network,
+              ending_with: newCard.endingWith,
+              billing_day: newCard.billingDay,
+              balance: newCard.balance,
+              due_date: newCard.dueDate,
+              bank: newCard.bank ?? null,
+              card_limit: newCard.cardLimit ?? null,
+              current_outstanding: newCard.currentOutstanding ?? null,
+              bill_amount: newCard.billAmount ?? 0,
+              paid_amount: newCard.paidAmount ?? 0,
+            });
+          } catch {}
+        }
+      },
+      deleteCard: (id, userId) => {
+        set((state) => ({ cards: state.cards.filter((c) => c.id !== id) }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            syncEnqueue("credit_cards", "delete", { id, user_id: userId });
           } catch {}
         }
       },
@@ -820,11 +874,14 @@ export const useFinanceStore = create<FinanceState>()(
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
+        const EXCLUDED_CATEGORIES = ['Rent', 'SIP', 'Investments', 'Housing'];
         return txs
           .filter(
             (tx) =>
               new Date(tx.date) >= startOfMonth &&
-              (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service')
+              (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+              tx.type !== 'fixed_expense' &&
+              !EXCLUDED_CATEGORIES.includes(tx.category)
           )
           .reduce((acc, tx) => acc + tx.amount, 0);
       },
@@ -864,6 +921,22 @@ export const useFinanceStore = create<FinanceState>()(
         }
       },
       setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
+      addPendingSms: (item) => {
+        set((state) => ({
+          pendingSmsItems: [item, ...state.pendingSmsItems],
+        }));
+      },
+      removePendingSms: (id) => {
+        set((state) => ({
+          pendingSmsItems: state.pendingSmsItems.filter((s) => s.id !== id),
+        }));
+      },
+      clearPendingSms: () => set({ pendingSmsItems: [] }),
+      addSuppressedSender: (sender) => {
+        set((state) => ({
+          suppressedSenders: [...new Set([...state.suppressedSenders, sender.toUpperCase()])],
+        }));
+      },
     }),
     {
       name: 'meridian-finance-storage-v12', // v12: corrected SIP names + marketExpirePaid sync

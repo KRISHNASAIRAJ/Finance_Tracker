@@ -3,19 +3,31 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Holding {
+  id: string;
   symbol: string;
   name: string;
+  type: 'equity' | 'mf' | 'etf' | 'other';
   quantity: number;
-  avgPrice: number; // paise
-  currentPrice: number; // paise
+  avgPrice: number;
+  currentPrice: number;
+  source: 'manual' | 'kite_sync';
+  folio?: string;
+  amc?: string;
+  schemeCode?: string;
+  isin?: string;
+  sipAmount?: number;
+  ip?: string;
+  sipDay?: number;
+  allocation?: string;
 }
 
 export interface InvestmentGoal {
   id: string;
   name: string;
-  target: number; // paise
-  current: number; // paise
+  target: number;
+  current: number;
   dueDate: string;
+  priority: 'low' | 'medium' | 'high';
 }
 
 export interface ChatMessage {
@@ -25,61 +37,97 @@ export interface ChatMessage {
   date: string;
 }
 
+export interface PortfolioSnapshot {
+  date: string;
+  totalValue: number;
+  dayChange: number;
+  dayChangePct: number;
+  allocation: Record<string, number>;
+}
+
 interface InvestmentsState {
+  lastEquitySyncedAt: string | null;
+  setLastEquitySyncedAt: (iso: string) => void;
   holdings: Holding[];
   goals: InvestmentGoal[];
+  snapshots: PortfolioSnapshot[];
   chatHistory: ChatMessage[];
-  addHolding: (holding: Holding) => void;
-  updateHoldingPrice: (symbol: string, newPriceInPaise: number) => void;
-  addGoal: (goal: Omit<InvestmentGoal, 'id'>) => void;
-  updateGoalProgress: (id: string, currentInPaise: number) => void;
+  addHolding: (holding: Omit<Holding, 'id'>) => string;
+  updateHolding: (id: string, updates: Partial<Holding>) => void;
+  deleteHolding: (id: string) => void;
+  addGoal: (goal: Omit<InvestmentGoal, 'id'>) => string;
+  updateGoal: (id: string, updates: Partial<InvestmentGoal>) => void;
+  deleteGoal: (id: string) => void;
+  setSnapshots: (snapshots: PortfolioSnapshot[]) => void;
   addChatMessage: (sender: 'user' | 'assistant', text: string) => void;
   clearChatHistory: () => void;
   getPortfolioValue: () => number;
 }
 
+function uid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export const useInvestmentsStore = create<InvestmentsState>()(
   persist(
     (set, get) => ({
+      lastEquitySyncedAt: null,
+      setLastEquitySyncedAt: (iso) => set({ lastEquitySyncedAt: iso }),
       holdings: [
         {
+          id: uid(),
           symbol: 'RELIANCE',
           name: 'Reliance Industries Ltd.',
+          type: 'equity' as const,
           quantity: 25,
-          avgPrice: 245000, // ₹2,450.00
-          currentPrice: 268000, // ₹2,680.00
+          avgPrice: 245000,
+          currentPrice: 268000,
+          source: 'manual' as const,
         },
         {
+          id: uid(),
           symbol: 'TCS',
           name: 'Tata Consultancy Services',
+          type: 'equity' as const,
           quantity: 12,
-          avgPrice: 335000, // ₹3,350.00
-          currentPrice: 382000, // ₹3,820.00
+          avgPrice: 335000,
+          currentPrice: 382000,
+          source: 'manual' as const,
         },
         {
+          id: uid(),
           symbol: 'HDFCBANK',
           name: 'HDFC Bank Limited',
+          type: 'equity' as const,
           quantity: 50,
-          avgPrice: 151000, // ₹1,510.00
-          currentPrice: 164000, // ₹1,640.00
+          avgPrice: 151000,
+          currentPrice: 164000,
+          source: 'manual' as const,
         },
       ],
       goals: [
         {
-          id: '1',
+          id: uid(),
           name: 'Retirement Fund 2045',
-          target: 500000000, // ₹50L
-          current: 124500000, // ₹12.45L
+          target: 500000000,
+          current: 124500000,
           dueDate: new Date('2045-12-31').toISOString(),
+          priority: 'medium' as const,
         },
         {
-          id: '2',
+          id: uid(),
           name: 'New Car Down Payment',
-          target: 100000000, // ₹10L
-          current: 45000000, // ₹4.5L
+          target: 100000000,
+          current: 45000000,
           dueDate: new Date('2027-06-30').toISOString(),
+          priority: 'high' as const,
         },
       ],
+      snapshots: [],
       chatHistory: [
         {
           id: '1',
@@ -89,29 +137,40 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         },
       ],
       addHolding: (holding) => {
+        const id = uid();
         set((state) => ({
-          holdings: [...state.holdings, holding],
+          holdings: [...state.holdings, { ...holding, id } as Holding],
+        }));
+        return id;
+      },
+      updateHolding: (id, updates) => {
+        set((state) => ({
+          holdings: state.holdings.map((h) => (h.id === id ? { ...h, ...updates } : h)),
         }));
       },
-      updateHoldingPrice: (symbol, newPrice) => {
+      deleteHolding: (id) => {
         set((state) => ({
-          holdings: state.holdings.map((h) => (h.symbol === symbol ? { ...h, currentPrice: newPrice } : h)),
+          holdings: state.holdings.filter((h) => h.id !== id),
         }));
       },
       addGoal: (goal) => {
-        const newGoal: InvestmentGoal = {
-          ...goal,
-          id: Math.random().toString(36).substring(2, 9),
-        };
+        const id = uid();
         set((state) => ({
-          goals: [...state.goals, newGoal],
+          goals: [...state.goals, { ...goal, id } as InvestmentGoal],
+        }));
+        return id;
+      },
+      updateGoal: (id, updates) => {
+        set((state) => ({
+          goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
         }));
       },
-      updateGoalProgress: (id, currentVal) => {
+      deleteGoal: (id) => {
         set((state) => ({
-          goals: state.goals.map((g) => (g.id === id ? { ...g, current: currentVal } : g)),
+          goals: state.goals.filter((g) => g.id !== id),
         }));
       },
+      setSnapshots: (snapshots) => set({ snapshots }),
       addChatMessage: (sender, text) => {
         const newMessage: ChatMessage = {
           id: Math.random().toString(36).substring(2, 9),

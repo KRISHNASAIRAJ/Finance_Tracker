@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -23,12 +24,14 @@ import { GarageStackParamList } from '../../../navigation/RootNavigator';
 type EditFuelFillRouteProp = RouteProp<GarageStackParamList, 'EditFuelFill'>;
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'EditFuelFill'>;
 
+const STATION_OPTIONS = ['HPCL Kondapur', 'HPCL Moinabad', 'Other'];
+
 export default function EditFuelFillScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<EditFuelFillRouteProp>();
   const { fillId } = route.params;
 
-  const { fills, vehicles, editFuelFill } = useGarageStore();
+  const { fills, vehicles, editFuelFill, deleteFuelFill } = useGarageStore();
   const fill = fills.find((f) => f.id === fillId);
 
   if (!fill) {
@@ -49,6 +52,10 @@ export default function EditFuelFillScreen() {
   const [pricePerLiter, setPricePerLiter] = useState((fill.pricePerLiter / 100).toString());
   const [odometer, setOdometer] = useState(fill.odometer.toString());
   const [station, setStation] = useState(fill.station || '');
+  const [showStationDropdown, setShowStationDropdown] = useState(false);
+  const [customStation, setCustomStation] = useState(
+    STATION_OPTIONS.includes(fill.station || '') ? '' : (fill.station || '')
+  );
   const [note, setNote] = useState(fill.note || '');
 
   const handleSubmit = () => {
@@ -72,13 +79,15 @@ export default function EditFuelFillScreen() {
     const priceInPaise = Math.round(rawPrice * 100);
     const totalAmountInPaise = Math.round(rawLiters * priceInPaise);
 
+    const finalStation = station === 'Other' ? customStation.trim() : station;
+
     editFuelFill(fill.id, {
       vehicle: selectedVehicle,
       amount: totalAmountInPaise,
       liters: rawLiters,
       pricePerLiter: priceInPaise,
       odometer: rawOdo,
-      station: station.trim() || undefined,
+      station: finalStation || undefined,
       note: note.trim() || undefined,
     });
 
@@ -166,13 +175,47 @@ export default function EditFuelFillScreen() {
 
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>FUEL STATION / BRAND</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. HPCL Kondapur"
-              placeholderTextColor={colors.onSurfaceVariant}
-              value={station}
-              onChangeText={setStation}
-            />
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setShowStationDropdown(!showStationDropdown)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dropdownText, !station && styles.dropdownPlaceholder]}>
+                {station || 'Select fuel station'}
+              </Text>
+              <Ionicons
+                name={showStationDropdown ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.onSurfaceVariant}
+              />
+            </TouchableOpacity>
+            {showStationDropdown && (
+              <View style={styles.dropdownMenu}>
+                {STATION_OPTIONS.map((opt) => {
+                  const isSelected = station === opt;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                      onPress={() => { setStation(opt); setShowStationDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                        {opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            {station === 'Other' && (
+              <TextInput
+                style={[styles.textInput, { marginTop: 8 }]}
+                placeholder="Enter petrol bunk name"
+                placeholderTextColor={colors.onSurfaceVariant}
+                value={customStation}
+                onChangeText={setCustomStation}
+              />
+            )}
           </View>
 
           <View style={styles.formSection}>
@@ -207,6 +250,31 @@ export default function EditFuelFillScreen() {
               onPress={() => navigation.goBack()}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => {
+                Alert.alert(
+                  'Delete Fuel Fill',
+                  'Are you sure you want to delete this fuel log? This action cannot be undone.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => {
+                        deleteFuelFill(fill.id);
+                        navigation.goBack();
+                      },
+                    },
+                  ],
+                );
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.error} style={{ marginRight: 8 }} />
+              <Text style={styles.deleteButtonText}>Delete Fuel Fill</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -349,6 +417,67 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     color: colors.onSurfaceVariant,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: `${colors.error}40`,
+    borderRadius: rounded.DEFAULT,
+    marginTop: 20,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    color: colors.error,
+    fontWeight: '600',
+  },
+  dropdownButton: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: colors.onSurface,
+    fontWeight: '500',
+  },
+  dropdownPlaceholder: {
+    color: colors.onSurfaceVariant,
+    fontWeight: '400',
+  },
+  dropdownMenu: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  dropdownItemActive: {
+    backgroundColor: `${colors.primary}20`,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: colors.primary,
     fontWeight: '600',
   },
 });

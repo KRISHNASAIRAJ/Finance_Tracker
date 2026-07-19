@@ -16,6 +16,7 @@ import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask, triggerSyncNow } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { initSmsHandler, scanExistingSms } from './src/services/smsHandler';
+import { promptBatteryOptimization } from './src/services/batteryOptimization';
 
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
@@ -36,12 +37,15 @@ export default function App() {
     registerBackupTask();
     scheduleNextBackup();
     registerSyncTask();
-    requestNotificationPermission().then(() => scheduleAllReminders());
+    requestNotificationPermission().then(() => {
+      scheduleAllReminders();
+      setTimeout(() => promptBatteryOptimization(), 3000);
+    });
 
     if (Platform.OS === 'android') {
       initSmsHandler((smsData) => {
         if (navigationRef.isReady()) {
-          (navigationRef as any).navigate('Finance', {
+          (navigationRef as any).navigate('FinanceTab', {
             screen: 'SmsConfirmation',
             params: { smsData },
           });

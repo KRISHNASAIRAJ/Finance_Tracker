@@ -16,10 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { usePersonalStore, Note } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { queueNoteSync } from '../hooks/usePersonalSync';
 
 export default function PersonalNotesScreen() {
   const navigation = useNavigation();
   const { notes, addNote, deleteNote, updateNote } = usePersonalStore();
+  const { user } = useAuth();
 
   const [titleInput, setTitleInput] = useState('');
   const [contentInput, setContentInput] = useState('');
@@ -31,10 +34,11 @@ export default function PersonalNotesScreen() {
       alert('Please fill out both title and content');
       return;
     }
-    addNote(titleInput.trim(), contentInput.trim());
+    const id = addNote(titleInput.trim(), contentInput.trim());
     setTitleInput('');
     setContentInput('');
     setIsCreating(false);
+    if (user) queueNoteSync(user.id, 'create', { id, title: titleInput.trim(), content: contentInput.trim(), date: new Date().toISOString() });
   };
 
   const handleEditNote = () => {
@@ -47,6 +51,7 @@ export default function PersonalNotesScreen() {
     setTitleInput('');
     setContentInput('');
     setEditingNote(null);
+    if (user) queueNoteSync(user.id, 'update', { id: editingNote.id, title: titleInput.trim(), content: contentInput.trim() });
   };
 
   const startEdit = (note: Note) => {
@@ -122,7 +127,7 @@ export default function PersonalNotesScreen() {
                   <TouchableOpacity onPress={() => startEdit(n)} style={styles.noteActionBtn}>
                     <Ionicons name="create-outline" size={16} color={colors.primary} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteNote(n.id)} style={styles.noteActionBtn}>
+                  <TouchableOpacity onPress={() => { deleteNote(n.id); if (user) queueNoteSync(user.id, 'delete', { id: n.id }); }} style={styles.noteActionBtn}>
                     <Ionicons name="trash-outline" size={16} color={colors.error} />
                   </TouchableOpacity>
                 </View>

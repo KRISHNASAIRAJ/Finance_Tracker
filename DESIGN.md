@@ -260,6 +260,8 @@ focus:border-primary (#7b8eff) focus:border-2
 ```
 Label: persistent above field, `label-md secondary`
 
+**Date inputs MUST use a native date-picker or calendar picker component — never a free-text field.** Every date-related input (due dates, billing dates, reminder dates, etc.) must display a calendar picker on tap. This ensures valid date entries and consistent UX across all modules.
+
 ### Status Chip (dark)
 ```
 rounded-full px-3 py-1 font-label-sm
@@ -352,7 +354,6 @@ These exist in Stitch but are pre-rename light screens. Use for layout/component
 | 43 | Recipes Library | `b02a14d2` | Personal | 7 |
 | 44 | 2026 Goals Tracker | `3e504c8e` | Personal | 7 |
 | 45 | Diet Plan Tracker | `8ce17a82` | Personal | 7 |
-| 46 | Steps Widget Dashboard Card | `e6677528` | Fitness | 8 |
 
 ---
 

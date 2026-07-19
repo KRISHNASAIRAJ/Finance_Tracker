@@ -80,4 +80,3 @@ The `backend/` folder (FastAPI, SQLAlchemy, Alembic, Pydantic) is archived to a 
 - ADR-004: Offline-first with SQLite + WorkManager — adapted to sync directly to Supabase
 - ADR-005: Notification via WorkManager/AlarmManager — unchanged
 - ADR-006: AI scoping — Claude calls now in Edge Functions (honors BOUNDARIES §3.2)
-- ADR-007: Health Connect — unchanged

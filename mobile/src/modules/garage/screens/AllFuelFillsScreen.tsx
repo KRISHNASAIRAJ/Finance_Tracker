@@ -102,9 +102,8 @@ export default function AllFuelFillsScreen() {
                   </View>
                   <View>
                     <Text style={styles.logTitle}>{fill.liters} Liters Fuel</Text>
-                    <Text style={styles.logSub}>
+                    <Text style={styles.logSub} numberOfLines={1}>
                       {fill.odometer} km · {formatCurrency(fill.pricePerLiter)}/L
-                      {fill.station ? ` · ${fill.station}` : ''}
                     </Text>
                   </View>
                 </View>

@@ -15,7 +15,7 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 
 const GOAL_OPTIONS = [
   { id: 'Finance', label: 'Finance', icon: 'wallet-outline' },
-  { id: 'Garage', label: 'Garage', icon: 'car-outline' },
+  { id: 'Garage', label: 'Garage', icon: 'speedometer-outline' },
   { id: 'Health', label: 'Health', icon: 'heart-outline' },
   { id: 'Tasks', label: 'Tasks', icon: 'checkbox-outline' },
 ];

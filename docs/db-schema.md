@@ -30,7 +30,6 @@
 | `notes` | Personal | Freeform personal notes |
 | `recipes` | Personal | Recipe book |
 | `diet_plan_entries` | Personal | Weekly meal plan |
-| `daily_steps` | Fitness | Health Connect step count by date |
 
 ---
 
@@ -104,7 +103,6 @@ Examples:
 20260717_090300_create_task_tables.py
 20260717_090400_create_equity_tables.py
 20260717_090500_create_personal_notes_tables.py
-20260717_090600_create_fitness_table.py
 20260717_090700_create_tnc_embeddings_pgvector.py
 ```
 

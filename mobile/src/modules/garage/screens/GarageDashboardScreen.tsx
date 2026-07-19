@@ -9,6 +9,8 @@ import {
   FlatList,
   Platform,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -40,11 +42,15 @@ function getStationIcon(station?: string) {
 
 export default function GarageDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { vehicles, fills, maintenance, getVehicleSpendTotal } = useGarageStore();
+  const { vehicles, fills, maintenance, getVehicleSpendTotal, addVehicle, editVehicle, deleteVehicle } = useGarageStore();
 
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [chartView, setChartView] = useState<'latest' | 'overall'>('latest');
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+  const [fabOpen, setFabOpen] = useState(false);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [vehicleNameInput, setVehicleNameInput] = useState('');
+  const [editingVehicleName, setEditingVehicleName] = useState<string | null>(null);
 
   React.useEffect(() => {
     setSelectedPointIndex(null);
@@ -54,6 +60,12 @@ export default function GarageDashboardScreen() {
   const vehicleMaint = maintenance.filter((m) => m.vehicle === selectedVehicle);
 
   const totalFuelSpend = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthlyFuelSpend = vehicleFills.reduce(
+    (sum, f) => sum + (new Date(f.date) >= startOfMonth ? f.amount : 0),
+    0
+  );
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
 
   const sortedForChart = [...vehicleFills].sort((a, b) => a.odometer - b.odometer);
@@ -164,11 +176,10 @@ export default function GarageDashboardScreen() {
               <Text style={styles.fuelEmoji}>{si.label}</Text>
             )}
           </View>
-          <View>
+            <View>
             <Text style={styles.logTitle}>{item.liters} Liters Fuel</Text>
-            <Text style={styles.logSub}>
+            <Text style={styles.logSub} numberOfLines={1}>
               {item.odometer} km · {formatCurrency(item.pricePerLiter)}/L
-              {item.station ? ` · ${item.station}` : ''}
             </Text>
           </View>
         </View>
@@ -194,12 +205,28 @@ export default function GarageDashboardScreen() {
                 key={v}
                 style={[styles.tabButton, isSelected && styles.tabButtonActive]}
                 onPress={() => setSelectedVehicle(v)}
+                onLongPress={() => {
+                  if (vehicles.length <= 1) return;
+                  setEditingVehicleName(v);
+                  setVehicleNameInput(v);
+                  setShowVehicleModal(true);
+                }}
               >
                 <Text style={styles.vehicleEmoji}>🛵</Text>
                 <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
               </TouchableOpacity>
             );
           })}
+          <TouchableOpacity
+            style={styles.addVehicleBtn}
+            onPress={() => {
+              setEditingVehicleName(null);
+              setVehicleNameInput('');
+              setShowVehicleModal(true);
+            }}
+          >
+            <Ionicons name="add" size={18} color={colors.primary} />
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -231,10 +258,10 @@ export default function GarageDashboardScreen() {
               <View style={[styles.gridIcon, { backgroundColor: `${colors.primary}15` }]}>
                 <Ionicons name="water-outline" size={16} color={colors.primary} />
               </View>
-              <Text style={styles.gridLabel}>Fuel Spend</Text>
+              <Text style={styles.gridLabel} numberOfLines={1}>Fuel Spend</Text>
             </View>
-            <Text style={styles.gridValue}>{formatCurrency(totalFuelSpend)}</Text>
-            <Text style={styles.gridLink}>View All →</Text>
+            <Text style={[styles.gridValue, { fontWeight: '700' }]}>{formatCurrency(monthlyFuelSpend)}</Text>
+            <Text style={styles.gridSubValue}>{formatCurrency(totalFuelSpend)} total</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -246,10 +273,10 @@ export default function GarageDashboardScreen() {
               <View style={[styles.gridIcon, { backgroundColor: '#f59e0b20' }]}>
                 <Ionicons name="construct-outline" size={16} color="#f59e0b" />
               </View>
-              <Text style={styles.gridLabel}>Reports</Text>
+              <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
             </View>
-            <Text style={styles.gridValue}>{vehicleMaint.length} services</Text>
-            <Text style={styles.gridLink}>View All →</Text>
+            <Text style={styles.gridValue}>{formatCurrency(totalMaintSpend)}</Text>
+            <Text style={styles.gridLink}>{vehicleMaint.length} logs →</Text>
           </TouchableOpacity>
         </View>
 
@@ -377,9 +404,8 @@ export default function GarageDashboardScreen() {
                     </View>
                     <View>
                       <Text style={styles.logTitle}>{fill.liters} Liters Fuel</Text>
-                      <Text style={styles.logSub}>
+                      <Text style={styles.logSub} numberOfLines={1}>
                         {fill.odometer} km · {formatCurrency(fill.pricePerLiter)}/L
-                        {fill.station ? ` · ${fill.station}` : ''}
                       </Text>
                     </View>
                   </View>
@@ -396,14 +422,107 @@ export default function GarageDashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* FAB */}
+      {/* FAB Menu */}
+      {fabOpen && (
+        <TouchableOpacity
+          style={styles.fabOverlay}
+          activeOpacity={1}
+          onPress={() => setFabOpen(false)}
+        >
+          <View style={styles.fabMenuContainer}>
+            <TouchableOpacity
+              style={styles.fabMenuItem}
+              onPress={() => { setFabOpen(false); navigation.navigate('AddFuelFill'); }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.fabMenuIcon, { backgroundColor: `${colors.primary}20` }]}>
+                <Ionicons name="water-outline" size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.fabMenuLabel}>Fuel Fill</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.fabMenuItem}
+              onPress={() => { setFabOpen(false); navigation.navigate('AddMaintenance'); }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.fabMenuIcon, { backgroundColor: '#f59e0b20' }]}>
+                <Ionicons name="construct-outline" size={18} color="#f59e0b" />
+              </View>
+              <Text style={styles.fabMenuLabel}>Service Log</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('AddFuelFill')}
+        style={[styles.fab, fabOpen && { transform: [{ rotate: '45deg' }] }]}
+        onPress={() => setFabOpen(!fabOpen)}
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
+
+      {/* Vehicle Add/Edit/Delete Modal */}
+      <Modal visible={showVehicleModal} transparent animationType="fade" onRequestClose={() => setShowVehicleModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingVehicleName ? 'Edit Vehicle' : 'Add Vehicle'}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={vehicleNameInput}
+              onChangeText={setVehicleNameInput}
+              placeholder="Vehicle name"
+              placeholderTextColor={colors.outline}
+            />
+            {editingVehicleName && vehicles.length > 1 && (
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => {
+                  deleteVehicle(editingVehicleName);
+                  if (selectedVehicle === editingVehicleName) {
+                    setSelectedVehicle(vehicles.find((v: string) => v !== editingVehicleName) || '');
+                  }
+                  setShowVehicleModal(false);
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
+                <Text style={styles.deleteBtnText}>Delete "{editingVehicleName}"</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel]}
+                onPress={() => setShowVehicleModal(false)}
+              >
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnSave]}
+                onPress={() => {
+                  const name = vehicleNameInput.trim();
+                  if (!name) { alert('Enter a vehicle name'); return; }
+                  if (editingVehicleName && name !== editingVehicleName) {
+                    editVehicle(editingVehicleName, name);
+                    if (selectedVehicle === editingVehicleName) {
+                      setSelectedVehicle(name);
+                    }
+                  } else if (!editingVehicleName) {
+                    if (vehicles.includes(name)) { alert('Vehicle already exists'); return; }
+                    addVehicle(name);
+                    setSelectedVehicle(name);
+                  }
+                  setShowVehicleModal(false);
+                }}
+              >
+                <Text style={styles.modalBtnTextSave}>
+                  {editingVehicleName ? 'Update' : 'Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -543,11 +662,17 @@ const styles = StyleSheet.create({
   gridLabel: {
     fontSize: 12,
     color: colors.onSurfaceVariant,
+    flexShrink: 1,
   },
   gridValue: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.onSurface,
+  },
+  gridSubValue: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
   },
   gridLink: {
     fontSize: 11,
@@ -758,4 +883,109 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: 'transparent',
   },
+  addVehicleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: rounded.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 100,
+    justifyContent: 'flex-end',
+  },
+  fabMenuContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 160,
+    gap: 12,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  fabMenuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabMenuLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    padding: 24,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  modalInput: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 44,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '600',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+  },
+  modalBtnCancel: { backgroundColor: 'transparent' },
+  modalBtnSave: { backgroundColor: colors.primaryContainer },
+  modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
 });

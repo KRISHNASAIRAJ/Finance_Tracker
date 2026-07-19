@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -52,7 +52,7 @@ export async function syncNow(userId: string): Promise<SyncState> {
 }
 
 async function doPull(
-  setState: (s: Partial<SyncState>) => void,
+  setState: Dispatch<SetStateAction<SyncState>>,
   userId: string
 ) {
   for (const table of TABLE_MAP) {
@@ -62,7 +62,7 @@ async function doPull(
       .eq("user_id", userId);
 
     if (error) {
-      setState({ loading: false, error: `${table.supabaseTable}: ${error.message}`, lastSyncAt: null });
+      setState((prev) => ({ ...prev, loading: false, error: `${table.supabaseTable}: ${error.message}`, lastSyncAt: null }));
       return;
     }
 
@@ -77,7 +77,7 @@ async function doPull(
   const now = new Date().toISOString();
   const storeModule = require("../store");
   storeModule.useFinanceStore.getState().setLastSyncedAt(now);
-  setState({ loading: false, error: null, lastSyncAt: new Date() });
+  setState((prev) => ({ ...prev, loading: false, error: null, lastSyncAt: new Date() }));
 }
 
 function getStore() {
@@ -126,6 +126,11 @@ const TABLE_MAP = [
           billingDay: r.billing_day as number ?? 1,
           balance: r.balance as number ?? 0,
           dueDate: r.due_date as string ?? "",
+          bank: r.bank as string,
+          cardLimit: r.card_limit as number,
+          currentOutstanding: r.current_outstanding as number,
+          billAmount: r.bill_amount as number ?? 0,
+          paidAmount: r.paid_amount as number ?? 0,
         }));
       if (newCards.length > 0) {
         store.setState({ cards: [...newCards, ...state.cards] });
@@ -140,6 +145,9 @@ const TABLE_MAP = [
         id: c.id, user_id: userId, name: c.name, network: c.network,
         ending_with: c.endingWith, billing_day: c.billingDay,
         balance: c.balance, due_date: c.dueDate,
+        bank: c.bank, card_limit: c.cardLimit,
+        current_outstanding: c.currentOutstanding,
+        bill_amount: c.billAmount ?? 0, paid_amount: c.paidAmount ?? 0,
       }));
       supabase.from("credit_cards").upsert(rows, { onConflict: "id" }).then(() => {});
     },

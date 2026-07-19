@@ -17,10 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { usePersonalStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { queueRecipeSync } from '../hooks/usePersonalSync';
 
 export default function RecipesLibraryScreen() {
   const navigation = useNavigation();
-  const { recipes, addRecipe } = usePersonalStore();
+  const { recipes, addRecipe, deleteRecipe } = usePersonalStore();
+  const { user } = useAuth();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
@@ -42,13 +45,14 @@ export default function RecipesLibraryScreen() {
       alert('Please enter a recipe title');
       return;
     }
-    addRecipe({
+    const id = addRecipe({
       title: title.trim(),
       prepTime: prepTime.trim() || '—',
       calories: calories.trim() || '—',
       ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
       steps: stepsText.split('\n').map((s) => s.trim()).filter(Boolean),
     });
+    if (user) queueRecipeSync(user.id, 'create', { id, title: title.trim(), prepTime, calories, ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean), steps: stepsText.split('\n').map((s) => s.trim()).filter(Boolean) });
     resetForm();
     setModalVisible(false);
   };
@@ -76,7 +80,14 @@ export default function RecipesLibraryScreen() {
         )}
         {recipes.map((recipe) => (
           <View key={recipe.id} style={styles.recipeCard}>
-            <Text style={styles.recipeTitle}>{recipe.title}</Text>
+            <View style={styles.recipeHeader}>
+              <Text style={styles.recipeTitle}>{recipe.title}</Text>
+              <TouchableOpacity
+                onPress={() => { deleteRecipe(recipe.id); if (user) queueRecipeSync(user.id, 'delete', { id: recipe.id }); }}
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.error} />
+              </TouchableOpacity>
+            </View>
 
             {/* Metas */}
             <View style={styles.metaRow}>
@@ -265,6 +276,11 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: 20,
     gap: 12,
+  },
+  recipeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   recipeTitle: {
     fontSize: 18,

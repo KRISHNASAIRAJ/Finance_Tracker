@@ -92,12 +92,7 @@ Every AI response displayed to the user MUST include one of:
 - **NEVER** store Kite API credentials in the mobile app — backend only
 - **NEVER** auto-execute trades via Kite API — read-only access for holdings sync
 
-### 4.2 Health Connect (Android)
-- **NEVER** import or reference Google Fit API — it is deprecated and will stop working end of 2026
-- **NEVER** request Health Connect permissions beyond `StepsRecord` read access in v1
-- **NEVER** sync Health Connect data in the background more frequently than every 4 hours (battery impact)
-
-### 4.3 Firebase Cloud Messaging
+### 4.2 Firebase Cloud Messaging
 - **NEVER** include financial data (balances, amounts) in FCM notification payloads — include only a summary string and a data trigger ID
 - **NEVER** use FCM for task reminders — use local notifications (task reminders must be private, not routed through Google's servers)
 
@@ -122,7 +117,7 @@ Every AI response displayed to the user MUST include one of:
 
 - **NEVER** merge code that breaks TypeScript strict mode checks
 - **NEVER** merge code that drops test coverage below 60% on the backend service layer
-- **NEVER** introduce a new direct dependency on Google Fit, Crashlytics with financial data, or any analytics SDK that sends user financial data offsite
+- **NEVER** introduce a new direct dependency on Crashlytics with financial data, or any analytics SDK that sends user financial data offsite
 - **NEVER** disable ESLint rules globally — fix the code, don't suppress the rule
 - **NEVER** use `any` type in TypeScript except in explicitly marked legacy adapter files
 

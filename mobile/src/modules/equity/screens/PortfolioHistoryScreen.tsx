@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,61 +11,175 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
+import { useInvestmentsStore } from '../store';
+
+const formatCurrency = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export default function PortfolioHistoryScreen() {
   const navigation = useNavigation();
+  const { snapshots } = useInvestmentsStore();
 
-  const MOCK_HISTORY = [
-    { id: '1', type: 'Buy', asset: 'RELIANCE', date: '2026-07-10', amount: '₹13,400', quantity: '5 shares' },
-    { id: '2', type: 'Buy', asset: 'HDFCBANK', date: '2026-07-01', amount: '₹15,100', quantity: '10 shares' },
-    { id: '3', type: 'SIP', asset: 'Parag Parikh Flexi Cap', date: '2026-06-25', amount: '₹5,000', quantity: 'MF Units' },
-    { id: '4', type: 'Sell', asset: 'TCS', date: '2026-06-12', amount: '₹11,460', quantity: '3 shares' },
-    { id: '5', type: 'SIP', asset: 'Parag Parikh Flexi Cap', date: '2026-05-25', amount: '₹5,000', quantity: 'MF Units' },
-  ];
+  if (snapshots.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.appBar}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.logoText}>Portfolio History</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <Ionicons name="analytics-outline" size={48} color={colors.outline} />
+          <Text style={styles.emptyText}>No snapshots yet</Text>
+          <Text style={styles.emptySub}>Daily snapshots are saved at 8:30 PM IST</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const sorted = [...snapshots].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+  const latest = sorted[0];
+  const prev = sorted.length > 1 ? sorted[1] : null;
+  const dayChange = prev ? latest.totalValue - prev.totalValue : 0;
+  const dayChangePct = prev ? ((dayChange / prev.totalValue) * 100).toFixed(1) : '0.0';
+  const chartData = [...snapshots].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+
+  const CHART_W = 320;
+  const CHART_H = 140;
+  const padX = 20;
+  const padY = 25;
+
+  const maxVal = Math.max(...chartData.map((s) => s.totalValue));
+  const minVal = Math.min(...chartData.map((s) => s.totalValue));
+  const range = maxVal === minVal ? 1 : maxVal - minVal;
+  const norm = (v: number) => (v - minVal) / range;
+
+  const points = chartData.map((s, i) => {
+    const x = padX + (i / Math.max(chartData.length - 1, 1)) * (CHART_W - 2 * padX);
+    const y = CHART_H - padY - norm(s.totalValue) * (CHART_H - 2 * padY);
+    return { x, y, label: s.date };
+  });
+
+  let pathD = '';
+  let fillD = '';
+  if (points.length > 1) {
+    pathD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const cpX1 = points[i].x + (points[i + 1].x - points[i].x) / 2;
+      const cpX2 = points[i].x + (points[i + 1].x - points[i].x) / 2;
+      pathD += ` C ${cpX1} ${points[i].y}, ${cpX2} ${points[i + 1].y}, ${points[i + 1].x} ${points[i + 1].y}`;
+    }
+    fillD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - padY} L ${points[0].x} ${CHART_H - padY} Z`;
+  }
+
+  const [selectedIndex, setSelectedIndex] = useState(points.length - 1);
+
+  const ALLOC_COLORS: Record<string, string> = {
+    Equity: '#60a5fa',
+    'Mutual Funds': '#a78bfa',
+    Gold: '#fbbf24',
+    Realty: '#34d399',
+    ETF: '#f472b6',
+    Other: '#94a3b8',
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* AppBar */}
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.logoText}>Transaction History</Text>
+        <Text style={styles.logoText}>Portfolio History</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.historyCard}>
-          {MOCK_HISTORY.map((h) => {
-            const isBuy = h.type === 'Buy' || h.type === 'SIP';
-            return (
-              <View key={h.id} style={styles.historyRow}>
-                <View style={styles.historyLeft}>
-                  <View style={[styles.badge, { backgroundColor: isBuy ? 'rgba(74,222,128,0.1)' : 'rgba(255,107,107,0.1)' }]}>
-                    <Text style={[styles.badgeText, { color: isBuy ? colors.success : colors.error }]}>
-                      {h.type}
-                    </Text>
-                  </View>
-                  <View>
-                    <Text style={styles.historyAsset}>{h.asset}</Text>
-                    <Text style={styles.historyQty}>{h.quantity}</Text>
-                  </View>
-                </View>
-                <View style={styles.historyRight}>
-                  <Text style={[styles.historyAmount, { color: isBuy ? colors.onSurface : colors.error }]}>
-                    {isBuy ? '-' : '+'}{h.amount}
-                  </Text>
-                  <Text style={styles.historyDate}>
-                    {new Date(h.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
+        {/* Value Hero */}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroLabel}>TODAY'S VALUE</Text>
+          <Text style={styles.heroValue}>{formatCurrency(latest.totalValue)}</Text>
+          <View style={styles.changeRow}>
+            <Ionicons
+              name={dayChange >= 0 ? 'trending-up' : 'trending-down'}
+              size={14}
+              color={dayChange >= 0 ? colors.success : colors.error}
+            />
+            <Text style={[styles.changeText, { color: dayChange >= 0 ? colors.success : colors.error }]}>
+              {dayChange >= 0 ? '+' : ''}{formatCurrency(dayChange)} ({dayChangePct}%)
+            </Text>
+            <Text style={styles.changeLabel}>vs yesterday</Text>
+          </View>
         </View>
+
+        {/* Value Chart */}
+        {points.length > 1 && (
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>VALUE OVER TIME</Text>
+            <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
+              <Defs>
+                <LinearGradient id="hGrad" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
+                  <Stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                </LinearGradient>
+              </Defs>
+              <Line x1="0" y1={CHART_H * 0.5} x2={CHART_W} y2={CHART_H * 0.5} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+              <Path d={fillD} fill="url(#hGrad)" />
+              <Path d={pathD} stroke="#10b981" strokeWidth="2" fill="none" />
+              {selectedIndex >= 0 && selectedIndex < points.length && (
+                <Circle cx={points[selectedIndex].x} cy={points[selectedIndex].y} r="4" fill="#10b981" />
+              )}
+            </Svg>
+          </View>
+        )}
+
+        {/* Date Points */}
+        <View style={styles.chartCard}>
+          <Text style={styles.chartTitle}>SNAPSHOT DATES</Text>
+          {points.map((p, idx) => (
+            <TouchableOpacity
+              key={p.label}
+              style={[styles.pointRow, selectedIndex === idx && styles.pointRowActive]}
+              onPress={() => setSelectedIndex(idx)}
+            >
+              <Text style={styles.pointDate}>
+                {new Date(p.label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+              <Text style={styles.pointValue}>{formatCurrency(chartData[idx].totalValue)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Allocation */}
+        {latest.allocation && Object.keys(latest.allocation).length > 0 && (
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>LATEST ALLOCATION</Text>
+            {Object.entries(latest.allocation)
+              .sort((a, b) => b[1] - a[1])
+              .map(([label, val]) => {
+                const pct = latest.totalValue > 0 ? ((val / latest.totalValue) * 100).toFixed(1) : '0.0';
+                const catColor = ALLOC_COLORS[label] ?? ALLOC_COLORS.Other;
+                return (
+                  <View key={label} style={styles.allocRow}>
+                    <Text style={styles.allocLabel} numberOfLines={1}>{label}</Text>
+                    <View style={styles.allocBarTrack}>
+                      <View style={[styles.allocBar, { width: `${Math.min(Number(pct), 100)}%`, backgroundColor: catColor }]} />
+                    </View>
+                    <Text style={styles.allocPct}>{pct}%</Text>
+                  </View>
+                );
+              })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -97,56 +211,123 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.containerPadding,
+    gap: spacing.stackGapLg,
     paddingBottom: 40,
   },
-  historyCard: {
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    gap: 8,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    marginTop: 8,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: colors.outline,
+  },
+  heroCard: {
+    backgroundColor: '#0f0f1a',
+    borderColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderRadius: rounded.lg,
+    padding: spacing.cardPadding,
+    gap: 4,
+  },
+  heroLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  heroValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  changeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  changeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  changeLabel: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+  },
+  chartCard: {
     backgroundColor: colors.surfaceContainer,
     borderColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderRadius: rounded.lg,
+    padding: spacing.cardPadding,
+    gap: 12,
   },
-  historyRow: {
+  chartTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  pointRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.cardPadding,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.03)',
   },
-  historyLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  pointRowActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderRadius: rounded.DEFAULT,
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  historyAsset: {
-    fontSize: 14,
-    fontWeight: '600',
+  pointDate: {
+    fontSize: 13,
     color: colors.onSurface,
   },
-  historyQty: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  historyRight: {
-    alignItems: 'flex-end',
-  },
-  historyAmount: {
-    fontSize: 14,
+  pointValue: {
+    fontSize: 13,
     fontWeight: '700',
+    color: colors.onSurface,
   },
-  historyDate: {
-    fontSize: 11,
+  allocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  allocLabel: {
+    fontSize: 12,
+    color: colors.onSurface,
+    width: 60,
+    flexShrink: 1,
+  },
+  allocBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  allocBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+  },
+  allocPct: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
-    marginTop: 2,
+    width: 42,
+    textAlign: 'right',
   },
 });
