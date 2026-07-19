@@ -61,3 +61,6 @@ mobile/old_data/
 
 # SMS native module build cache (paths too long for Git on Windows)
 mobile/modules/sms-native/android/build/
+
+# Reference T&C docs (banks' PDFs — don't commit)
+docs/TnC\ Docs/

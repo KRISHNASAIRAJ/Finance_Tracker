@@ -23,6 +23,8 @@ import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { useFinanceSync, queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
 import { useAuth } from '../../../services/AuthProvider';
 import { scheduleAllReminders } from '../../../services/notificationService';
+import CardAssistant from '../../../shared/components/CardAssistant';
+import PayzappWalletScreen from '../../../shared/components/PayzappWallet';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -123,6 +125,8 @@ export default function FinanceHomeScreen() {
   const [paidAmountInput, setPaidAmountInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
+  const [showCardAssistant, setShowCardAssistant] = useState(false);
+  const [showPayzappWallet, setShowPayzappWallet] = useState(false);
 
   useEffect(() => {
     scheduleAllReminders();
@@ -518,7 +522,71 @@ export default function FinanceHomeScreen() {
             })}
           </View>
         </View>
+
+        {/* Quick Tools — Two-column bento */}
+        <View style={styles.toolsGrid}>
+          <TouchableOpacity
+            style={styles.toolBentoCard}
+            onPress={() => setShowCardAssistant(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.toolIconWrap, { backgroundColor: `${colors.primary}15` }]}>
+              <Ionicons name="sparkles" size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.toolCardTitle}>Card Assistant</Text>
+            <Text style={styles.toolCardDesc}>Best card for every spend{'\n'}T&C-based offline engine</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.toolBentoCard}
+            onPress={() => setShowPayzappWallet(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(132, 204, 22, 0.12)' }]}>
+              <Ionicons name="wallet" size={22} color="#84CC16" />
+            </View>
+            <Text style={styles.toolCardTitle}>Payzapp Wallet</Text>
+            <Text style={styles.toolCardDesc}>Track ₹40K loads{'\n'}₹400 cashback via HDFC Millennia</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      {/* Card Assistant Modal */}
+      <Modal visible={showCardAssistant} transparent animationType="slide" onRequestClose={() => setShowCardAssistant(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.modalAppBar}>
+              <TouchableOpacity onPress={() => setShowCardAssistant(false)}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <Text style={styles.modalAppBarTitle}>Card Assistant</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <CardAssistant showFuelCalc />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payzapp Wallet Modal */}
+      <Modal visible={showPayzappWallet} transparent animationType="slide" onRequestClose={() => setShowPayzappWallet(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.fullModalContent}>
+            <View style={styles.modalAppBar}>
+              <TouchableOpacity onPress={() => setShowPayzappWallet(false)}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <Text style={styles.modalAppBarTitle}>Payzapp Wallet Loads</Text>
+              <View style={{ width: 24 }} />
+            </View>
+            <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <PayzappWalletScreen />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bill Payment Modal */}
       {editingCard && (
@@ -1145,4 +1213,68 @@ const styles = StyleSheet.create({
     borderColor: `${colors.success}40`,
   },
   markPaidBtnText: { fontSize: 14, fontWeight: '700', color: colors.success },
+  // Tools bento grid
+  toolsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toolBentoCard: {
+    flex: 1,
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.lg,
+    padding: spacing.cardPadding,
+    gap: 10,
+    position: 'relative',
+  },
+  toolIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  toolCardDesc: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    lineHeight: 16,
+  },
+  toolCardArrow: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  // Full-screen modal
+  fullModalContent: {
+    flex: 1,
+    backgroundColor: colors.background,
+    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 48,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  modalAppBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.containerPadding,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  modalAppBarTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  modalScrollContent: {
+    padding: spacing.containerPadding,
+    gap: spacing.stackGapLg,
+    paddingBottom: 40,
+  },
 });

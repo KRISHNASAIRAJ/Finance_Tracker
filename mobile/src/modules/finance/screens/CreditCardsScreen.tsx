@@ -26,6 +26,15 @@ type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'CreditCa
 
 const NETWORKS = ['VISA', 'Mastercard', 'RuPay', 'Amex'] as const;
 
+import { CARD_DEFINITIONS } from '../cardData';
+
+const CARD_TEMPLATES = CARD_DEFINITIONS.map(c => ({
+  id: c.id,
+  name: c.name,
+  network: c.network,
+  bank: c.bank,
+}));
+
 // Card brand-specific colors
 function getCardAccent(name: string): string {
   const n = name.toLowerCase();
@@ -269,6 +278,31 @@ export default function CreditCardsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Credit Card</Text>
+            {/* Quick-add card templates */}
+            <View style={{ gap: 8 }}>
+              <Text style={styles.inputLabel}>QUICK ADD</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+                {CARD_TEMPLATES.map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={styles.templatePill}
+                    onPress={() => {
+                      setAddName(t.name);
+                      setAddNetwork(t.network);
+                      setAddBank(t.bank);
+                      setAddEndingWith('');
+                      setAddBillingDay('');
+                      setAddLimit('');
+                      setAddBalance('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add-circle" size={14} color={colors.primary} />
+                    <Text style={styles.templateText}>{t.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
             <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ gap: 12 }}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>CARD NAME</Text>
@@ -469,4 +503,21 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
   chipTextActive: { color: '#fff' },
   rowFields: { flexDirection: 'row', gap: 10 },
+  templatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: rounded.full,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    marginRight: 8,
+  },
+  templateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurface,
+  },
 });
