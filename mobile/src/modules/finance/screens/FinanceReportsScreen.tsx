@@ -29,19 +29,22 @@ export default function FinanceReportsScreen() {
     ...fixedExpenses.map((f: any) => f.name),
   ];
 
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
   const expenseTxs = transactions.filter(
     (tx: any) =>
-      (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+      (tx.type === 'expense' || tx.type === 'vehicle_service') &&
+      new Date(tx.date) >= monthStart &&
       !EXCLUDED_CATEGORIES.some(cat =>
         cat.toLowerCase() === (tx.category || '').toLowerCase()
       )
   );
-  const hasFuelTxs = expenseTxs.some((tx: any) => tx.type === 'fuel_purchase');
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthGarageFills = garageFills.filter((f: any) => new Date(f.date) >= monthStart);
-  const totalExpense = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0)
-    + (!hasFuelTxs ? monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0) : 0);
+
+  const fuelFillAmount = garageFills
+    .filter((f: any) => new Date(f.date) >= monthStart)
+    .reduce((sum: number, f: any) => sum + f.amount, 0);
+  const totalExpense = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0) + fuelFillAmount;
 
   // Group by category
   const categoryTotals: { [key: string]: number } = {};
@@ -49,11 +52,8 @@ export default function FinanceReportsScreen() {
     categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
   });
 
-  if (!hasFuelTxs) {
-    const fuelTotal = monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0);
-    if (fuelTotal > 0) {
-      categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelTotal;
-    }
+  if (fuelFillAmount > 0) {
+    categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelFillAmount;
   }
 
   const categories = Object.keys(categoryTotals).map((cat) => ({
@@ -64,7 +64,23 @@ export default function FinanceReportsScreen() {
 
   // Filtered transactions for selected category
   const filteredTxs = selectedCategory
-    ? transactions.filter((tx) => tx.category === selectedCategory)
+    ? transactions
+        .filter((tx) => tx.category === selectedCategory && tx.type !== 'fuel_purchase' && new Date(tx.date) >= monthStart)
+    : [];
+
+  const filteredFuelPseudoTxs = selectedCategory === 'Fuel'
+    ? garageFills
+        .filter((f) => new Date(f.date) >= monthStart)
+        .map((f) => ({
+        id: `fill-${f.id}`,
+        type: 'expense',
+        amount: f.amount,
+        currency: 'INR',
+        category: 'Fuel',
+        notes: `${Number(f.liters).toFixed(2)}L Fuel`,
+        date: f.date,
+        source: 'manual',
+      }))
     : [];
 
   const formatCurrency = (paise: number) => {
@@ -166,13 +182,17 @@ export default function FinanceReportsScreen() {
         </View>
 
         {/* Filtered transactions sub-ledger */}
-        {selectedCategory && filteredTxs.length > 0 && (
+        {selectedCategory && (() => {
+          const allFiltered = [...filteredTxs, ...filteredFuelPseudoTxs]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          if (allFiltered.length === 0) return null;
+          return (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {selectedCategory.toUpperCase()} TRANSACTIONS ({filteredTxs.length})
+              {selectedCategory.toUpperCase()} TRANSACTIONS ({allFiltered.length})
             </Text>
             <View style={styles.listContainer}>
-              {filteredTxs.map((tx) => {
+              {allFiltered.map((tx: any) => {
                 const isIncome = tx.type === 'income';
                 const catColor = getCategoryColor(tx.category);
                 return (
@@ -204,7 +224,8 @@ export default function FinanceReportsScreen() {
               })}
             </View>
           </View>
-        )}
+          );
+        })()}
       </ScrollView>
     </SafeAreaView>
   );

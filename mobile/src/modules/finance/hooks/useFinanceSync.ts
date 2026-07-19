@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -37,25 +37,35 @@ export function useFinanceSync() {
   useEffect(() => {
     if (!user || synced.current) return;
     synced.current = true;
-    doPull(setState, user.id);
+    doFullSync(user.id);
   }, [user]);
 
-  return state;
+  const pullFromCloud = useCallback(async () => {
+    if (!user) return;
+    _hasSeeded = true;
+    setState({ loading: true, error: null, lastSyncAt: null });
+    await doPull(user.id);
+    setState({ loading: false, error: null, lastSyncAt: new Date() });
+  }, [user]);
+
+  return { ...state, pullFromCloud };
 }
 
 export async function syncNow(userId: string): Promise<SyncState> {
   const state: SyncState = { loading: true, error: null, lastSyncAt: null };
-  await doPull(
-    (s) => Object.assign(state, s),
-    userId
-  );
+  _hasSeeded = true;
+  await doPull(userId);
+  state.loading = false;
+  state.lastSyncAt = new Date();
   return state;
 }
 
-async function doPull(
-  setState: Dispatch<SetStateAction<SyncState>>,
-  userId: string
-) {
+async function doFullSync(userId: string) {
+  await doPull(userId);
+  _hasSeeded = true;
+}
+
+async function doPull(userId: string) {
   for (const table of TABLE_MAP) {
     const { data, error } = await supabase
       .from(table.supabaseTable)
@@ -63,8 +73,8 @@ async function doPull(
       .eq("user_id", userId);
 
     if (error) {
-      setState((prev) => ({ ...prev, loading: false, error: `${table.supabaseTable}: ${error.message}`, lastSyncAt: null }));
-      return;
+      console.warn('[FinanceSync] doPull error:', table.supabaseTable, error.message);
+      continue;
     }
 
     if (data && data.length > 0) {
@@ -74,11 +84,9 @@ async function doPull(
     }
   }
 
-  _hasSeeded = true;
   const now = new Date().toISOString();
   const storeModule = require("../store");
   storeModule.useFinanceStore.getState().setLastSyncedAt(now);
-  setState((prev) => ({ ...prev, loading: false, error: null, lastSyncAt: new Date() }));
 }
 
 function getStore() {
@@ -108,7 +116,9 @@ const TABLE_MAP = [
         currency: t.currency, date: t.date, category: t.category,
         notes: t.notes ?? null, source: t.source,
       }));
-      supabase.from("transactions").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("transactions").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed transactions:', error.message);
+      });
     },
   },
   {
@@ -150,7 +160,9 @@ const TABLE_MAP = [
         current_outstanding: c.currentOutstanding,
         bill_amount: c.billAmount ?? 0, paid_amount: c.paidAmount ?? 0,
       }));
-      supabase.from("credit_cards").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("credit_cards").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed cards:', error.message);
+      });
     },
   },
   {
@@ -172,7 +184,9 @@ const TABLE_MAP = [
       const rows = items.map((a) => ({
         id: a.id, user_id: userId, title: a.title, amount: a.amount,
       }));
-      supabase.from("bank_accounts").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("bank_accounts").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed accounts:', error.message);
+      });
     },
   },
   {
@@ -204,7 +218,9 @@ const TABLE_MAP = [
         id: r.id, user_id: userId, person_name: r.personName, amount: r.amount,
         due_date: r.dueDate, note: r.note ?? null, type: r.type,
       }));
-      supabase.from("receivables").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("receivables").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed receivables:', error.message);
+      });
     },
   },
   {
@@ -238,7 +254,9 @@ const TABLE_MAP = [
         billing_day: f.billingDay, category: f.category,
         last_paid_month: f.lastPaidMonth, due_date: f.dueDate,
       }));
-      supabase.from("fixed_expenses").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("fixed_expenses").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed fixed_expenses:', error.message);
+      });
     },
   },
   {
@@ -260,7 +278,9 @@ const TABLE_MAP = [
       const rows = items.map((p) => ({
         id: p.id, user_id: userId, amount: p.amount, date: p.date,
       }));
-      supabase.from("payzapp_loads").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("payzapp_loads").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed payzapp_loads:', error.message);
+      });
     },
   },
   {
@@ -291,7 +311,9 @@ const TABLE_MAP = [
         id: e.id, user_id: userId, name: e.name, amount: e.amount,
         notes: e.notes ?? null, date: e.date,
       }));
-      supabase.from("expected_incomes").upsert(rows, { onConflict: "id" }).then(() => {});
+      supabase.from("expected_incomes").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed expected_incomes:', error.message);
+      });
     },
   },
   {
@@ -309,7 +331,9 @@ const TABLE_MAP = [
       const budget = state.monthlyBudget;
       supabase.from("user_settings").upsert({
         user_id: userId, monthly_budget: budget ?? 0,
-      }, { onConflict: "user_id" }).then(() => {});
+      }, { onConflict: "user_id" }).then(({ error }) => {
+        if (error) console.warn('[FinanceSync] seed user_settings:', error.message);
+      });
     },
   },
 ];
@@ -321,7 +345,9 @@ export function queueTransactionSync(
   action: "create" | "update" | "delete",
   data: Record<string, unknown>
 ) {
-  enqueue("transactions", action, { ...data, user_id: userId });
+  enqueue("transactions", action, { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueTransactionSync failed:', e)
+  );
 }
 
 export function queueCardSync(
@@ -329,7 +355,9 @@ export function queueCardSync(
   action: "update",
   data: Record<string, unknown>
 ) {
-  enqueue("credit_cards", action, { ...data, user_id: userId });
+  enqueue("credit_cards", action, { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueCardSync failed:', e)
+  );
 }
 
 export function queueBankAccountSync(
@@ -337,7 +365,9 @@ export function queueBankAccountSync(
   action: "update",
   data: Record<string, unknown>
 ) {
-  enqueue("bank_accounts", action, { ...data, user_id: userId });
+  enqueue("bank_accounts", action, { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueBankAccountSync failed:', e)
+  );
 }
 
 export function queueFixedExpenseSync(
@@ -345,7 +375,9 @@ export function queueFixedExpenseSync(
   action: "update",
   data: Record<string, unknown>
 ) {
-  enqueue("fixed_expenses", action, { ...data, user_id: userId });
+  enqueue("fixed_expenses", action, { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueFixedExpenseSync failed:', e)
+  );
 }
 
 export function queueExpectedIncomeSync(
@@ -353,12 +385,16 @@ export function queueExpectedIncomeSync(
   action: "create" | "update" | "delete",
   data: Record<string, unknown>
 ) {
-  enqueue("expected_incomes", action, { ...data, user_id: userId });
+  enqueue("expected_incomes", action, { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueExpectedIncomeSync failed:', e)
+  );
 }
 
 export function queueUserSettingsSync(
   userId: string,
   data: Record<string, unknown>
 ) {
-  enqueue("user_settings", "update", { ...data, user_id: userId });
+  enqueue("user_settings", "update", { ...data, user_id: userId }).catch((e: Error) =>
+    console.warn('[FinanceSync] queueUserSettingsSync failed:', e)
+  );
 }

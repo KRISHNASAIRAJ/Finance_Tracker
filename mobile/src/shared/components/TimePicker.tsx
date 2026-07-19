@@ -12,7 +12,7 @@ interface TimePickerProps {
 }
 
 const HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-const MINUTES = [0, 15, 30, 45];
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
 
 export default function TimePicker({ visible, selected, onSelect, onClose }: TimePickerProps) {
   const hours24 = selected.getHours();

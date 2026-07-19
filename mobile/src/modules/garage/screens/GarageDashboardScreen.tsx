@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,7 +12,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,6 +20,8 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore, FuelFill } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
+import { useGarageSync } from '../hooks/useGarageSync';
+import { processSyncQueue } from '../../../services/syncQueue';
 import Svg, { Path, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
 
 
@@ -43,8 +45,15 @@ function getStationIcon(station?: string) {
 export default function GarageDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, fills, maintenance, getVehicleSpendTotal, addVehicle, editVehicle, deleteVehicle } = useGarageStore();
+  const { pullFromCloud } = useGarageSync();
 
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(vehicles[0]);
+
+  React.useEffect(() => {
+    if (!selectedVehicle && vehicles.length > 0) {
+      setSelectedVehicle(vehicles[0]);
+    }
+  }, [vehicles, selectedVehicle]);
   const [chartView, setChartView] = useState<'latest' | 'overall'>('latest');
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
@@ -54,6 +63,13 @@ export default function GarageDashboardScreen() {
   React.useEffect(() => {
     setSelectedPointIndex(null);
   }, [selectedVehicle, chartView]);
+
+  useFocusEffect(
+    useCallback(() => {
+      pullFromCloud();
+      processSyncQueue().catch((e: Error) => console.warn('[Garage] syncQueue flush failed:', e));
+    }, [pullFromCloud])
+  );
 
   const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
   const vehicleMaint = maintenance.filter((m) => m.vehicle === selectedVehicle);

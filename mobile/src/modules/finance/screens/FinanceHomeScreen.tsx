@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G as SvgG } from 'react-native-svg';
@@ -21,10 +21,12 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Transaction, getMinBalanceForAccount, CreditCard } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
-import { useFinanceSync, queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
+import { useFinanceSync } from '../hooks/useFinanceSync';
+import { queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
 import { useAuth } from '../../../services/AuthProvider';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
+import { processSyncQueue } from '../../../services/syncQueue';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -118,7 +120,14 @@ export default function FinanceHomeScreen() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const { loading: syncing } = useFinanceSync();
+  const { loading: syncing, pullFromCloud } = useFinanceSync();
+
+  useFocusEffect(
+    useCallback(() => {
+      pullFromCloud();
+      processSyncQueue().catch((e: Error) => console.warn('[FinanceHome] syncQueue flush failed:', e));
+    }, [pullFromCloud])
+  );
 
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
@@ -198,28 +207,25 @@ export default function FinanceHomeScreen() {
   ];
   const expenseTxs = transactions.filter(
     (tx: any) =>
-      (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+      (tx.type === 'expense' || tx.type === 'vehicle_service') &&
       tx.type !== 'fixed_expense' &&
       !EXCLUDED_CHART_CATEGORIES.some(cat =>
         cat.toLowerCase() === (tx.category || '').toLowerCase()
       )
   );
-  const hasFuelTxs = expenseTxs.some((tx: any) => tx.type === 'fuel_purchase');
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthGarageFills = garageFills.filter((f: any) => new Date(f.date) >= monthStart);
-  const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0)
-    + (!hasFuelTxs ? monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0) : 0);
+  const fuelFillAmount = garageFills
+    .filter((f: any) => new Date(f.date) >= monthStart)
+    .reduce((sum: number, f: any) => sum + f.amount, 0);
+  const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0) + fuelFillAmount;
 
   const categoryTotals: { [key: string]: number } = {};
   expenseTxs.forEach((tx: any) => {
     categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
   });
 
-  if (!hasFuelTxs) {
-    const fuelTotal = monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0);
-    if (fuelTotal > 0) {
-      categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelTotal;
-    }
+  if (fuelFillAmount > 0) {
+    categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelFillAmount;
   }
 
   const categoriesSorted = Object.keys(categoryTotals).map((cat: string) => ({
@@ -534,15 +540,14 @@ export default function FinanceHomeScreen() {
           <View style={styles.activityList}>
             {(() => {
               const filteredTxs = transactions.filter(
-                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load'
+                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load' && tx.type !== 'fuel_purchase'
               );
-              const hasFuelTxs = filteredTxs.some((tx: any) => tx.type === 'fuel_purchase');
-              const fuelPseudoTxs: any[] = hasFuelTxs ? [] : garageFills.map((f) => ({
+              const fuelPseudoTxs: any[] = garageFills.map((f) => ({
                 id: `fill-${f.id}`,
                 type: 'expense',
                 amount: f.amount,
                 category: 'Fuel',
-                notes: `${f.liters}L in ${f.vehicle}`,
+                notes: `${Number(f.liters).toFixed(2)}L Fuel`,
                 date: f.date,
                 source: 'manual',
               }));
@@ -557,7 +562,13 @@ export default function FinanceHomeScreen() {
                 <TouchableOpacity
                   key={tx.id}
                   style={styles.activityRow}
-                  onPress={() => navigation.navigate('EditTransaction', { transactionId: tx.id })}
+                  onPress={() => {
+                    if (tx.id?.startsWith('fill-')) {
+                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
+                    } else {
+                      navigation.navigate('EditTransaction', { transactionId: tx.id });
+                    }
+                  }}
                 >
                   <View style={styles.row}>
                     <View style={[styles.activityIcon, { backgroundColor: `${catColor}15` }]}>

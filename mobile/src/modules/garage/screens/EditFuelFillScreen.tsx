@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import { useAuth } from '../../../services/AuthProvider';
@@ -59,6 +60,8 @@ export default function EditFuelFillScreen() {
     STATION_OPTIONS.includes(fill.station || '') ? '' : (fill.station || '')
   );
   const [note, setNote] = useState(fill.note || '');
+  const [fillDate, setFillDate] = useState(new Date(fill.date));
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   const handleSubmit = () => {
     const rawLiters = parseFloat(liters);
@@ -91,6 +94,7 @@ export default function EditFuelFillScreen() {
       odometer: rawOdo,
       station: finalStation || undefined,
       note: note.trim() || undefined,
+      date: fillDate.toISOString(),
     }, user?.id);
 
     navigation.goBack();
@@ -231,6 +235,20 @@ export default function EditFuelFillScreen() {
             />
           </View>
 
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>FILL DATE</Text>
+            <TouchableOpacity
+              style={styles.datePickerTrigger}
+              onPress={() => setCalendarVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.datePickerText}>
+                {fillDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Dynamic Summary Card */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total Amount</Text>
@@ -281,6 +299,12 @@ export default function EditFuelFillScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <CalendarPicker
+        visible={calendarVisible}
+        selected={fillDate}
+        onSelect={setFillDate}
+        onClose={() => setCalendarVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -481,5 +505,21 @@ const styles = StyleSheet.create({
   dropdownItemTextActive: {
     color: colors.primary,
     fontWeight: '600',
+  },
+  datePickerTrigger: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: colors.onSurface,
+    fontWeight: '500',
   },
 });

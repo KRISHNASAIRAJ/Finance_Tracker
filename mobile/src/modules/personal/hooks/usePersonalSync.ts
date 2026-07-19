@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -24,13 +24,22 @@ export function usePersonalSync() {
   useEffect(() => {
     if (!user || synced.current) return;
     synced.current = true;
-    doPull(setState, user.id);
+    doFullSync(user.id);
   }, [user]);
 
-  return state;
+  const pullFromCloud = useCallback(async () => {
+    if (!user) return;
+    _hasPersonalSeeded = true;
+    setState({ loading: true, error: null, lastSyncAt: null });
+    await doPull(user.id);
+    setState({ loading: false, error: null, lastSyncAt: new Date() });
+  }, [user]);
+
+  return { ...state, pullFromCloud };
 }
 
 export async function syncPersonalNow(userId: string): Promise<SyncState> {
+  _hasPersonalSeeded = true;
   let state: SyncState = { loading: true, error: null, lastSyncAt: null };
   const setter: Dispatch<SetStateAction<SyncState>> = ((s: SetStateAction<SyncState>) => {
     if (typeof s === 'function') {
@@ -39,7 +48,9 @@ export async function syncPersonalNow(userId: string): Promise<SyncState> {
       Object.assign(state, s);
     }
   }) as Dispatch<SetStateAction<SyncState>>;
-  await doPull(setter, userId);
+  await doPull(userId);
+  state.loading = false;
+  state.lastSyncAt = new Date();
   return state;
 }
 
@@ -51,10 +62,12 @@ function uuid(): string {
   });
 }
 
-async function doPull(
-  setState: Dispatch<SetStateAction<SyncState>>,
-  userId: string
-) {
+async function doFullSync(userId: string) {
+  await doPull(userId);
+  _hasPersonalSeeded = true;
+}
+
+async function doPull(userId: string) {
   const store = usePersonalStore;
 
   // --- GOALS ---
@@ -63,12 +76,7 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (goalsErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `goals: ${goalsErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (goalsData && goalsData.length > 0) {
+  if (!goalsErr && goalsData && goalsData.length > 0) {
     const existingIds = new Set(store.getState().goals.map((g: PersonalGoal) => g.id));
     const newGoals: PersonalGoal[] = (goalsData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
@@ -80,7 +88,7 @@ async function doPull(
     if (newGoals.length > 0) {
       store.setState({ goals: [...newGoals, ...store.getState().goals] });
     }
-  } else if (!_hasPersonalSeeded) {
+  } else if (!_hasPersonalSeeded && goalsData && goalsData.length === 0) {
     await seedGoals(userId);
   }
 
@@ -90,12 +98,7 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (notesErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `notes: ${notesErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (notesData && notesData.length > 0) {
+  if (!notesErr && notesData && notesData.length > 0) {
     const existingIds = new Set(store.getState().notes.map((n: Note) => n.id));
     const newNotes: Note[] = (notesData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
@@ -108,7 +111,7 @@ async function doPull(
     if (newNotes.length > 0) {
       store.setState({ notes: [...newNotes, ...store.getState().notes] });
     }
-  } else if (!_hasPersonalSeeded) {
+  } else if (!_hasPersonalSeeded && notesData && notesData.length === 0) {
     await seedNotes(userId);
   }
 
@@ -118,12 +121,7 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (recipesErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `recipes: ${recipesErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (recipesData && recipesData.length > 0) {
+  if (!recipesErr && recipesData && recipesData.length > 0) {
     const existingIds = new Set(store.getState().recipes.map((r: Recipe) => r.id));
     const newRecipes: Recipe[] = (recipesData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
@@ -138,7 +136,7 @@ async function doPull(
     if (newRecipes.length > 0) {
       store.setState({ recipes: [...newRecipes, ...store.getState().recipes] });
     }
-  } else if (!_hasPersonalSeeded) {
+  } else if (!_hasPersonalSeeded && recipesData && recipesData.length === 0) {
     await seedRecipes(userId);
   }
 
@@ -148,23 +146,16 @@ async function doPull(
     .select("*")
     .eq("user_id", userId);
 
-  if (dietErr) {
-    setState((prev) => ({ ...prev, loading: false, error: `diet_plans: ${dietErr.message}`, lastSyncAt: null }));
-    return;
-  }
-
-  if (dietData && dietData.length > 0) {
+  if (!dietErr && dietData && dietData.length > 0) {
     const mealsFromDB = mealsFromRows(dietData as Array<Record<string, unknown>>);
     const localMeals = store.getState().meals;
     const merged = mergeMeals(localMeals, mealsFromDB);
     store.setState({ meals: merged });
-  } else if (!_hasPersonalSeeded) {
+  } else if (!_hasPersonalSeeded && dietData && dietData.length === 0) {
     await seedDietPlans(userId);
   }
 
-  _hasPersonalSeeded = true;
   store.getState().setLastPersonalSyncedAt(new Date().toISOString());
-  setState((prev) => ({ ...prev, loading: false, error: null, lastSyncAt: new Date() }));
 }
 
 // --- SEED FUNCTIONS ---
@@ -239,7 +230,9 @@ async function seedDietPlans(userId: string) {
       });
     }
   }
-  await supabase.from("diet_plans").upsert(rows, { onConflict: "id" }).then(() => {});
+  supabase.from("diet_plans").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+    if (error) console.warn('[PersonalSync] seed diet_plans:', error.message);
+  });
 }
 
 // --- MERGE HELPERS ---
@@ -299,7 +292,7 @@ export function queueGoalSync(
   enqueue("goals", action, {
     id: goal.id, user_id: userId, title: goal.name,
     is_completed: goal.completed, updated_at: new Date().toISOString(),
-  });
+  }).catch((e: Error) => console.warn('[PersonalSync] queueGoalSync failed:', e));
 }
 
 export function queueNoteSync(
@@ -312,7 +305,7 @@ export function queueNoteSync(
   if (note.content !== undefined) data.content = note.content;
   if (note.date !== undefined) data.created_at = note.date;
   data.updated_at = new Date().toISOString();
-  enqueue("notes", action, data);
+  enqueue("notes", action, data).catch((e: Error) => console.warn('[PersonalSync] queueNoteSync failed:', e));
 }
 
 export function queueRecipeSync(
@@ -327,7 +320,7 @@ export function queueRecipeSync(
   if (recipe.ingredients !== undefined) data.ingredients = JSON.stringify(recipe.ingredients);
   if (recipe.steps !== undefined) data.steps = JSON.stringify(recipe.steps);
   data.updated_at = new Date().toISOString();
-  enqueue("recipes", action, data);
+  enqueue("recipes", action, data).catch((e: Error) => console.warn('[PersonalSync] queueRecipeSync failed:', e));
 }
 
 export function queueDietSync(
@@ -339,5 +332,5 @@ export function queueDietSync(
   enqueue("diet_plans", "create", {
     id: uuid(), user_id: userId, day, meal_type: slot,
     meal_name: mealName, updated_at: new Date().toISOString(),
-  });
+  }).catch((e: Error) => console.warn('[PersonalSync] queueDietSync failed:', e));
 }

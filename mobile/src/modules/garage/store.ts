@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFinanceStore } from '../finance/store';
 
 export interface FuelFill {
   id: string;
@@ -38,7 +39,7 @@ interface GarageState {
   addVehicle: (name: string, userId?: string) => void;
   editVehicle: (oldName: string, newName: string, userId?: string) => void;
   deleteVehicle: (name: string, userId?: string) => void;
-  addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'>, userId?: string) => string;
+  addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editFuelFill: (id: string, updated: Partial<FuelFill>, userId?: string) => void;
   deleteFuelFill: (id: string, userId?: string) => void;
   addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'>, userId?: string) => string;
@@ -52,171 +53,35 @@ const rupeeToPaise = (val: number) => Math.round(val * 100);
 
 function queueGarageSync(entity: string, operation: string, payload: Record<string, unknown>) {
   try {
-    const { enqueue } = require('../../services/syncQueue');
+    const { enqueue, processSyncQueue } = require('../../services/syncQueue');
     const action = operation === 'delete' ? 'delete' as const : 'create' as const;
-    enqueue(entity, action, payload);
-  } catch { }
+    enqueue(entity, action, payload).finally(() => {
+      processSyncQueue().catch((e: Error) => console.warn('[GarageStore] flush failed:', e));
+    }).catch((e: Error) => console.warn('[GarageStore] enqueue failed:', e));
+  } catch (e) { console.warn('[GarageStore] queueGarageSync failed:', e); }
 }
 
-function addFuelTransaction(
-  userId: string | undefined,
-  fill: FuelFill,
-  addTx: (tx: { type: string; amount: number; currency: string; category: string; notes: string; source: string }, uid?: string) => string
-) {
+function addFuelTransaction(userId: string | undefined, fill: FuelFill) {
   if (!userId) return;
-  const txId = addTx(
+  useFinanceStore.getState().addTransaction(
     {
       type: 'fuel_purchase',
       amount: fill.amount,
       currency: 'INR',
       category: 'Fuel',
-      notes: `${fill.liters}L in ${fill.vehicle} @ ${fill.station || 'Unknown'}`,
+      notes: `${Number(fill.liters).toFixed(2)}L Fuel`,
       source: 'manual',
+      date: fill.date,
     },
     userId
   );
-  // Don't try to set linked_vehicle_id on the transaction from here
-  // The transaction store manages its own IDs
 }
 
 export const useGarageStore = create<GarageState>()(
   persist(
     (set, get) => ({
-      vehicles: ['Jupiter 125'],
-      fills: [
-        {
-          id: 'fill-16',
-          vehicle: 'Jupiter 125',
-          date: new Date(1783881000000).toISOString(),
-          amount: rupeeToPaise(3.08 * 115.62),
-          liters: 3.08,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 1905,
-          station: 'HPCL KONDAPUR',
-          note: '',
-        },
-        {
-          id: 'fill-14',
-          vehicle: 'Jupiter 125',
-          date: new Date(1783276200000).toISOString(),
-          amount: rupeeToPaise(2.949 * 115.62),
-          liters: 2.949,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 1750,
-          station: 'HPCL KONDAPUR',
-          note: '',
-        },
-        {
-          id: 'fill-13',
-          vehicle: 'Jupiter 125',
-          date: new Date(1783017000000).toISOString(),
-          amount: rupeeToPaise(1.94 * 115.62),
-          liters: 1.94,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 1605,
-          station: 'HPCL KONDAPUR',
-          note: '',
-        },
-        {
-          id: 'fill-12',
-          vehicle: 'Jupiter 125',
-          date: new Date(1782844200000).toISOString(),
-          amount: rupeeToPaise(3.01 * 115.62),
-          liters: 3.01,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 1509,
-          station: 'HPCL KONDAPUR',
-          note: '',
-        },
-        {
-          id: 'fill-11',
-          vehicle: 'Jupiter 125',
-          date: new Date(1782066600000).toISOString(),
-          amount: rupeeToPaise(3.35 * 116.0),
-          liters: 3.35,
-          pricePerLiter: rupeeToPaise(116.0),
-          odometer: 1339,
-          station: 'HPCL MOINABAD',
-          note: '',
-        },
-        {
-          id: 'fill-10',
-          vehicle: 'Jupiter 125',
-          date: new Date(1781375400000).toISOString(),
-          amount: rupeeToPaise(3.35 * 115.62),
-          liters: 3.35,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 1165,
-          station: 'HPCL KONDAPUR',
-          note: 'Good mileage',
-        },
-        {
-          id: 'fill-9',
-          vehicle: 'Jupiter 125',
-          date: new Date(1781202600000).toISOString(),
-          amount: rupeeToPaise(2.22 * 116.0),
-          liters: 2.22,
-          pricePerLiter: rupeeToPaise(116.0),
-          odometer: 1001,
-          station: 'HPCL MOINABAD',
-          note: '',
-        },
-        {
-          id: 'fill-8',
-          vehicle: 'Jupiter 125',
-          date: new Date(1781029800000).toISOString(),
-          amount: rupeeToPaise(2.38 * 115.62),
-          liters: 2.38,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 889,
-          station: 'HPCL Kondapur',
-          note: 'Very less mileage due to traffic',
-        },
-        {
-          id: 'fill-6',
-          vehicle: 'Jupiter 125',
-          date: new Date(1780684200000).toISOString(),
-          amount: rupeeToPaise(3.66 * 115.62),
-          liters: 3.66,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 775,
-          station: 'HPCL Kondapur',
-          note: '',
-        },
-        {
-          id: 'fill-5',
-          vehicle: 'Jupiter 125',
-          date: new Date(1780425000000).toISOString(),
-          amount: rupeeToPaise(3.32 * 115.62),
-          liters: 3.32,
-          pricePerLiter: rupeeToPaise(115.62),
-          odometer: 586,
-          station: 'HPCL Kondapur',
-          note: 'Avg 56km/l',
-        },
-        {
-          id: 'fill-4',
-          vehicle: 'Jupiter 125',
-          date: new Date(1780165800000).toISOString(),
-          amount: rupeeToPaise(4.08 * 117.57),
-          liters: 4.08,
-          pricePerLiter: rupeeToPaise(117.57),
-          odometer: 418,
-          station: 'BPCL HAFEEZPET',
-          note: '',
-        },
-        {
-          id: 'fill-3',
-          vehicle: 'Jupiter 125',
-          date: new Date(1779647400000).toISOString(),
-          amount: rupeeToPaise(2.81 * 117.57),
-          liters: 2.81,
-          pricePerLiter: rupeeToPaise(117.57),
-          odometer: 260,
-          station: 'BPCL Hafeezpet',
-          note: '',
-        },
-      ],
+      vehicles: [],
+      fills: [],
       maintenance: [],
       addVehicle: (name, userId) => {
         set((state) => ({
@@ -250,12 +115,13 @@ export const useGarageStore = create<GarageState>()(
         const newFill: FuelFill = {
           ...fill,
           id: Math.random().toString(36).substring(2, 9),
-          date: new Date().toISOString(),
+          date: fill.date || new Date().toISOString(),
         };
         set((state) => ({
           fills: [newFill, ...state.fills],
         }));
         if (userId) {
+          addFuelTransaction(userId, newFill);
           queueGarageSync('fuel_fills', 'upsert', {
             id: newFill.id,
             user_id: userId,
@@ -268,10 +134,6 @@ export const useGarageStore = create<GarageState>()(
             station: newFill.station ?? null,
             note: newFill.note ?? null,
           });
-          try {
-            const { useFinanceStore } = require('../finance/store');
-            addFuelTransaction(userId, newFill, useFinanceStore.getState().addTransaction);
-          } catch {}
         }
         return newFill.id;
       },
@@ -303,6 +165,10 @@ export const useGarageStore = create<GarageState>()(
         }));
         if (userId) {
           queueGarageSync('fuel_fills', 'delete', { id, user_id: userId });
+          const { supabase } = require('../../services/supabaseClient');
+          supabase.from('fuel_fills').delete().eq('id', id).then(({ error }: any) => {
+            if (error) console.warn('[GarageStore] delete fill from Supabase failed:', error.message);
+          });
         }
       },
       addMaintenanceLog: (log, userId) => {
@@ -366,8 +232,10 @@ export const useGarageStore = create<GarageState>()(
       },
     }),
     {
-      name: 'meridian-garage-storage-v8', // Do NOT bump — preserves data across updates
+      name: 'meridian-garage-storage-v8',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      migrate: (state) => state as GarageState,
     }
   )
 );

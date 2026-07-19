@@ -57,7 +57,7 @@ export default function CombinedReportScreen() {
     .filter(
       (tx) =>
         new Date(tx.date) >= startOfMonth &&
-        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+        (tx.type === 'expense' || tx.type === 'vehicle_service') &&
         !WL_EXCLUDE.includes(tx.category)
     )
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -73,12 +73,15 @@ export default function CombinedReportScreen() {
     .filter(
       (tx) =>
         new Date(tx.date) >= startOfMonth &&
-        (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
+        (tx.type === 'expense' || tx.type === 'vehicle_service') &&
         !WL_EXCLUDE.includes(tx.category)
     )
     .forEach((tx) => {
       catMap[tx.category] = (catMap[tx.category] || 0) + tx.amount;
     });
+  if (monthlyFuel > 0) {
+    catMap['Fuel'] = (catMap['Fuel'] || 0) + monthlyFuel;
+  }
   const topCategories = Object.entries(catMap)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
@@ -142,7 +145,7 @@ export default function CombinedReportScreen() {
                       style={[
                         styles.catBarFill,
                         {
-                          width: `${Math.min(100, (amt / monthlyExpenses) * 100)}%`,
+                          width: `${Math.min(100, (amt / (monthlyExpenses + monthlyFuel)) * 100)}%`,
                           backgroundColor: colors.primary,
                         },
                       ]}

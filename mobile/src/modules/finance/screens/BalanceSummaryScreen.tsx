@@ -55,9 +55,10 @@ export default function BalanceSummaryScreen() {
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
-  const monthlyExpenses = transactions
-    .filter((tx) => new Date(tx.date) >= startOfMonth && (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service'))
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const monthlyTxns = transactions
+    .filter((tx) => new Date(tx.date) >= startOfMonth && (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service'));
+  const monthlyExpenses = monthlyTxns.reduce((sum, tx) => sum + tx.amount, 0);
+  const monthlyTxCount = monthlyTxns.length;
 
   const formatCurrency = (paise: number) => {
     const rupees = paise / 100;
@@ -136,9 +137,18 @@ export default function BalanceSummaryScreen() {
       title: 'Monthly Spends',
       icon: 'wallet-outline',
       color: colors.primary,
-      items: [],
+      items: monthlyTxns
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 3)
+        .map((tx) => ({
+          label: tx.notes || tx.category || 'Expense',
+          value: tx.amount,
+          subtitle: new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+          alert: false,
+        })),
       total: monthlyExpenses,
       totalLabel: 'This Month',
+      showViewAll: monthlyTxCount > 3,
     },
   ];
 
@@ -190,7 +200,7 @@ export default function BalanceSummaryScreen() {
             {section.items.length > 0 && (
               <View style={styles.sectionBody}>
                 {section.items.map((item, idx) => (
-                  <View key={idx} style={[styles.itemRow, idx === section.items.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View key={idx} style={[styles.itemRow, idx === section.items.length - 1 && !(section as any).showViewAll && { borderBottomWidth: 0 }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.itemLabel}>{item.label}</Text>
                       {item.subtitle && (
@@ -200,6 +210,16 @@ export default function BalanceSummaryScreen() {
                     <Text style={[styles.itemValue, item.alert && { color: '#ef4444' }]}>{formatCurrency(item.value)}</Text>
                   </View>
                 ))}
+                {(section as any).showViewAll && (
+                  <TouchableOpacity
+                    style={styles.viewAllBtn}
+                    onPress={() => navigation.navigate('MonthlySpend' as never)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.viewAllText}>View All ({monthlyTxCount} total)</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
             {section.items.length === 0 && (
@@ -382,5 +402,19 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     fontWeight: '600',
     flex: 1,
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

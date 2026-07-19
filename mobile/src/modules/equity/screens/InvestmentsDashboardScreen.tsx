@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,7 +9,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
@@ -18,6 +18,8 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
+import { useEquitySync } from '../hooks/useEquitySync';
+import { processSyncQueue } from '../../../services/syncQueue';
 
 type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'InvestmentsDashboard'>;
 
@@ -26,6 +28,14 @@ export default function InvestmentsDashboardScreen() {
   const { holdings, goals, getPortfolioValue, snapshots } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
   const [activeTab, setActiveTab] = useState<'equity' | 'mf'>('equity');
+  const { pullFromCloud } = useEquitySync();
+
+  useFocusEffect(
+    useCallback(() => {
+      pullFromCloud();
+      processSyncQueue().catch((e: Error) => console.warn('[Investments] syncQueue flush failed:', e));
+    }, [pullFromCloud])
+  );
 
   const equityHoldings = holdings.filter(
     (h) => h.type === 'equity' && h.allocation !== 'Gold' && h.allocation !== 'Realty',

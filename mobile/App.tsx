@@ -9,6 +9,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import RootNavigator from './src/navigation/RootNavigator';
 import { navigationTheme } from './src/shared/theme/colors';
 import RestorePrompt from './src/shared/components/RestorePrompt';
+import AuthGate from './src/shared/components/AuthGate';
 import { exportAllData, TASK_NAME, cleanOldBackups } from './src/services/backupService';
 import { scheduleNextBackup, registerBackupTask } from './src/services/backupScheduler';
 import { scheduleAllReminders, requestNotificationPermission } from './src/services/notificationService';
@@ -59,10 +60,10 @@ export default function App() {
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        processSyncQueue();
+        processSyncQueue().catch((e) => console.warn('[App] foreground sync failed:', e));
       }
       if (nextState === 'background') {
-        processSyncQueue();
+        processSyncQueue().catch((e) => console.warn('[App] background sync failed:', e));
       }
       appState.current = nextState;
     });
@@ -72,13 +73,15 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <SafeAreaProvider>
-        <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-          <StatusBar style="light" />
-          <RestorePrompt />
-          <RootNavigator />
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <AuthGate>
+        <SafeAreaProvider>
+          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+            <StatusBar style="light" />
+            <RestorePrompt />
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </AuthGate>
     </AuthProvider>
   );
 }

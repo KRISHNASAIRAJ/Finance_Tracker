@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
+import { useGarageStore } from '../../garage/store';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 
@@ -24,6 +25,7 @@ type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AllTrans
 export default function AllTransactionsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { transactions } = useFinanceStore();
+  const { fills: garageFills } = useGarageStore();
 
   const formatCurrencyDetailed = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', {
@@ -32,12 +34,24 @@ export default function AllTransactionsScreen() {
     })}`;
   };
 
+  const filteredTxs = transactions.filter((tx) => tx.type !== 'fuel_purchase');
+  const fuelPseudoTxs: any[] = garageFills.map((f) => ({
+    id: `fill-${f.id}`,
+    type: 'expense',
+    amount: f.amount,
+    currency: 'INR',
+    category: 'Fuel',
+    notes: `${Number(f.liters).toFixed(2)}L Fuel`,
+    date: f.date,
+    source: 'manual',
+  }));
+
   // Sort transactions by date descending, then group by date
-  const sorted = [...transactions].sort(
+  const sorted = [...filteredTxs, ...fuelPseudoTxs].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-  const grouped: { date: string; items: typeof transactions }[] = [];
-  const dateMap: Record<string, typeof transactions> = {};
+  const grouped: { date: string; items: any[] }[] = [];
+  const dateMap: Record<string, any[]> = {};
 
   sorted.forEach((tx) => {
     const dateKey = new Date(tx.date).toLocaleDateString('en-IN', {
@@ -54,7 +68,7 @@ export default function AllTransactionsScreen() {
 
   type ListItem =
     | { type: 'header'; date: string }
-    | { type: 'transaction'; tx: (typeof transactions)[number] };
+    | { type: 'transaction'; tx: any };
 
   const flatData: ListItem[] = [];
   grouped.forEach((group) => {
@@ -74,7 +88,13 @@ export default function AllTransactionsScreen() {
     return (
       <TouchableOpacity
         style={styles.txRow}
-        onPress={() => navigation.navigate('EditTransaction', { transactionId: tx.id })}
+        onPress={() => {
+          if (typeof tx.id === 'string' && tx.id.startsWith('fill-')) {
+            navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
+          } else {
+            navigation.navigate('EditTransaction', { transactionId: tx.id });
+          }
+        }}
         activeOpacity={0.8}
       >
         <View style={styles.txLeft}>

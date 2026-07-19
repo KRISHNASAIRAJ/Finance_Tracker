@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Modal,
   StyleSheet,
@@ -13,7 +14,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,16 +29,28 @@ import { useAuth } from '../../../services/AuthProvider';
 import { syncNow } from '../../finance/hooks/useFinanceSync';
 import { usePersonalSync, syncPersonalNow } from '../hooks/usePersonalSync';
 import { useEquitySync, syncEquityNow } from '../../equity/hooks/useEquitySync';
+import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
 import { scanExistingSms } from '../../../services/smsHandler';
 import { supabase } from '../../../services/supabaseClient';
+import { processSyncQueue } from '../../../services/syncQueue';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
 export default function MoreMenuScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user, signIn, signOut } = useAuth();
-  usePersonalSync();
-  useEquitySync();
+  const { pullFromCloud: pullPersonal } = usePersonalSync();
+  const { pullFromCloud: pullEquity } = useEquitySync();
+  const { pullFromCloud: pullTasks } = useTasksSync();
+
+  useFocusEffect(
+    useCallback(() => {
+      pullPersonal();
+      pullEquity();
+      pullTasks();
+      processSyncQueue().catch((e: Error) => console.warn('[MoreMenu] syncQueue flush failed:', e));
+    }, [pullPersonal, pullEquity, pullTasks])
+  );
   const notifications = useFinanceStore((state) => state.notifications);
   const lastSyncedAt = useFinanceStore((state) => state.lastSyncedAt);
   const lastPersonalSync = usePersonalStore((state) => state.lastPersonalSyncedAt);
@@ -67,6 +80,7 @@ export default function MoreMenuScreen() {
     await syncNow(user.id);
     await syncPersonalNow(user.id);
     await syncEquityNow(user.id);
+    await syncTasksNow(user.id);
     setSyncing(false);
   };
 
@@ -419,11 +433,7 @@ export default function MoreMenuScreen() {
 
         {/* Cloud Sync */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CLOUD SYNC</Text>
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={() => user ? signOut() : setShowAuth(!showAuth)}
-          activeOpacity={0.8}
-        >
+        <View style={styles.menuCard}>
           <View style={[styles.iconWrapper, { backgroundColor: user ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
             <Ionicons
               name={user ? 'cloud-done-outline' : 'cloud-offline-outline'}
@@ -435,12 +445,11 @@ export default function MoreMenuScreen() {
             <Text style={styles.cardTitle}>{user ? 'Cloud Synced' : 'Sign In to Sync'}</Text>
             <Text style={styles.cardSubtitle}>
               {user
-                ? `Signed in as ${user.email} · Fin: ${timeAgo(lastSyncedAt)} · Eq: ${timeAgo(lastEquitySync)} · Notes: ${timeAgo(lastPersonalSync)}`
+                ? `Signed in as ${user.email}`
                 : 'Sync expenses, cards, and data across devices'}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-        </TouchableOpacity>
+        </View>
 
         {user && (
           <TouchableOpacity
@@ -457,6 +466,17 @@ export default function MoreMenuScreen() {
             <Text style={styles.syncNowText}>
               {syncing ? 'Syncing...' : 'Sync Now'}
             </Text>
+          </TouchableOpacity>
+        )}
+
+        {!user && (
+          <TouchableOpacity
+            style={styles.syncNowBtn}
+            onPress={() => setShowAuth(!showAuth)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-in-outline" size={16} color={colors.primary} />
+            <Text style={styles.syncNowText}>Sign In</Text>
           </TouchableOpacity>
         )}
 
@@ -527,6 +547,27 @@ export default function MoreMenuScreen() {
             <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
           )}
         </TouchableOpacity>
+
+        {/* Logout Button */}
+        {user && (
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              Alert.alert(
+                'Logout',
+                'Are you sure you want to sign out? Your local data will remain on device.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Logout', style: 'destructive', onPress: () => signOut() },
+                ]
+              );
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -729,4 +770,22 @@ const styles = StyleSheet.create({
   modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
   modalSaveTxt: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.25)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
 });

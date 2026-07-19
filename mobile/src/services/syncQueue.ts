@@ -29,7 +29,10 @@ const getStorage = () => {
 
 export async function enqueue(entity: string, action: SyncQueueItem["action"], data: Record<string, unknown>): Promise<void> {
   const storage = getStorage();
-  if (!storage) return;
+  if (!storage) {
+    console.warn('[SyncQueue] enqueue failed: AsyncStorage unavailable');
+    return;
+  }
   const item: SyncQueueItem = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     entity,
@@ -97,7 +100,8 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
         if (error) throw error;
       }
       succeeded++;
-    } catch {
+    } catch (e) {
+      console.warn(`[SyncQueue] upsert/delete failed for ${item.entity}/${item.data.id}:`, e);
       const backoffSeconds = Math.min(60, Math.pow(2, item.retryCount) * 5);
       await new Promise((resolve) => setTimeout(resolve, backoffSeconds * 1000));
       await enqueueWithRetry(item.entity, item.action, item.data, item.retryCount + 1);

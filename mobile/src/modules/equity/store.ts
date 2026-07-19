@@ -53,11 +53,11 @@ interface InvestmentsState {
   snapshots: PortfolioSnapshot[];
   chatHistory: ChatMessage[];
   addHolding: (holding: Omit<Holding, 'id'>) => string;
-  updateHolding: (id: string, updates: Partial<Holding>) => void;
-  deleteHolding: (id: string) => void;
+  updateHolding: (id: string, updates: Partial<Holding>, userId?: string) => void;
+  deleteHolding: (id: string, userId?: string) => void;
   addGoal: (goal: Omit<InvestmentGoal, 'id'>) => string;
-  updateGoal: (id: string, updates: Partial<InvestmentGoal>) => void;
-  deleteGoal: (id: string) => void;
+  updateGoal: (id: string, updates: Partial<InvestmentGoal>, userId?: string) => void;
+  deleteGoal: (id: string, userId?: string) => void;
   setSnapshots: (snapshots: PortfolioSnapshot[]) => void;
   addChatMessage: (sender: 'user' | 'assistant', text: string) => void;
   clearChatHistory: () => void;
@@ -72,70 +72,24 @@ function uid(): string {
   });
 }
 
+function enqFlush(entity: string, action: string, data: Record<string, unknown>) {
+  try {
+    const { enqueue, processSyncQueue } = require('../../services/syncQueue');
+    enqueue(entity, action, data).finally(() => {
+      processSyncQueue().catch((e: Error) => console.warn('[EquityStore] flush failed:', e));
+    });
+  } catch (e) { console.warn('[EquityStore] enqFlush failed:', e); }
+}
+
 export const useInvestmentsStore = create<InvestmentsState>()(
   persist(
     (set, get) => ({
       lastEquitySyncedAt: null,
       setLastEquitySyncedAt: (iso) => set({ lastEquitySyncedAt: iso }),
-      holdings: [
-        {
-          id: uid(),
-          symbol: 'RELIANCE',
-          name: 'Reliance Industries Ltd.',
-          type: 'equity' as const,
-          quantity: 25,
-          avgPrice: 245000,
-          currentPrice: 268000,
-          source: 'manual' as const,
-        },
-        {
-          id: uid(),
-          symbol: 'TCS',
-          name: 'Tata Consultancy Services',
-          type: 'equity' as const,
-          quantity: 12,
-          avgPrice: 335000,
-          currentPrice: 382000,
-          source: 'manual' as const,
-        },
-        {
-          id: uid(),
-          symbol: 'HDFCBANK',
-          name: 'HDFC Bank Limited',
-          type: 'equity' as const,
-          quantity: 50,
-          avgPrice: 151000,
-          currentPrice: 164000,
-          source: 'manual' as const,
-        },
-      ],
-      goals: [
-        {
-          id: uid(),
-          name: 'Retirement Fund 2045',
-          target: 500000000,
-          current: 124500000,
-          dueDate: new Date('2045-12-31').toISOString(),
-          priority: 'medium' as const,
-        },
-        {
-          id: uid(),
-          name: 'New Car Down Payment',
-          target: 100000000,
-          current: 45000000,
-          dueDate: new Date('2027-06-30').toISOString(),
-          priority: 'high' as const,
-        },
-      ],
+      holdings: [],
+      goals: [],
       snapshots: [],
-      chatHistory: [
-        {
-          id: '1',
-          sender: 'assistant',
-          text: 'Hi Krishna, I am your Meridian Portfolio Assistant. Ask me anything about your current allocations, target rebalancing, or investment goals.',
-          date: new Date().toISOString(),
-        },
-      ],
+      chatHistory: [],
       addHolding: (holding) => {
         const id = uid();
         set((state) => ({
@@ -143,15 +97,39 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         }));
         return id;
       },
-      updateHolding: (id, updates) => {
+      updateHolding: (id, updates, userId) => {
         set((state) => ({
           holdings: state.holdings.map((h) => (h.id === id ? { ...h, ...updates } : h)),
         }));
+        if (userId) {
+          try {
+            const { enqueue } = require('../../services/syncQueue');
+            const holding = get().holdings.find((h) => h.id === id);
+            if (holding) {
+              const data: Record<string, unknown> = { id, user_id: userId };
+              if (holding.symbol !== undefined) data.symbol = holding.symbol;
+              if (holding.name !== undefined) data.fund_name = holding.name;
+              if (holding.type !== undefined) data.type = holding.type;
+              if (holding.quantity !== undefined) data.quantity = holding.quantity;
+              if (holding.avgPrice !== undefined) data.avg_buy_price = holding.avgPrice;
+              if (holding.currentPrice !== undefined) { data.current_price = holding.currentPrice; data.current_value = holding.quantity * holding.currentPrice; }
+              if (holding.source !== undefined) data.source = holding.source;
+              data.updated_at = new Date().toISOString();
+              enqFlush('holdings', 'update', data);
+            }
+          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+        }
       },
-      deleteHolding: (id) => {
+      deleteHolding: (id, userId) => {
         set((state) => ({
           holdings: state.holdings.filter((h) => h.id !== id),
         }));
+        if (userId) {
+          try {
+            const { enqueue } = require('../../services/syncQueue');
+            enqFlush('holdings', 'delete', { id, user_id: userId });
+          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+        }
       },
       addGoal: (goal) => {
         const id = uid();
@@ -160,15 +138,31 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         }));
         return id;
       },
-      updateGoal: (id, updates) => {
+      updateGoal: (id, updates, userId) => {
         set((state) => ({
           goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
         }));
+        if (userId) {
+          try {
+            const { enqueue } = require('../../services/syncQueue');
+            const goal = get().goals.find((g) => g.id === id);
+            if (goal) {
+              const data: Record<string, unknown> = { id, user_id: userId, goal_name: goal.name, target_amount: goal.target, current_progress: goal.current, target_date: goal.dueDate, priority: goal.priority, updated_at: new Date().toISOString() };
+              enqFlush('investment_goals', 'update', data);
+            }
+          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+        }
       },
-      deleteGoal: (id) => {
+      deleteGoal: (id, userId) => {
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }));
+        if (userId) {
+          try {
+            const { enqueue } = require('../../services/syncQueue');
+            enqFlush('investment_goals', 'delete', { id, user_id: userId });
+          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+        }
       },
       setSnapshots: (snapshots) => set({ snapshots }),
       addChatMessage: (sender, text) => {
