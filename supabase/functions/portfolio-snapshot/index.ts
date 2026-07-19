@@ -6,7 +6,7 @@
  *
  * Deploy: supabase functions deploy portfolio-snapshot
  * Cron: SELECT cron.schedule('portfolio-snapshot', '0 15 * * *',
- *   $$SELECT net.http_post('https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/portfolio-snapshot', '{}')$$);
+ *   $$SELECT net.http_post('https://<project-ref>.supabase.co/functions/v1/portfolio-snapshot', '{}')$$);
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
