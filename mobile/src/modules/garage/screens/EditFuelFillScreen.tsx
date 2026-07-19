@@ -20,6 +20,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
+import { useAuth } from '../../../services/AuthProvider';
 
 type EditFuelFillRouteProp = RouteProp<GarageStackParamList, 'EditFuelFill'>;
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'EditFuelFill'>;
@@ -32,6 +33,7 @@ export default function EditFuelFillScreen() {
   const { fillId } = route.params;
 
   const { fills, vehicles, editFuelFill, deleteFuelFill } = useGarageStore();
+  const { user } = useAuth();
   const fill = fills.find((f) => f.id === fillId);
 
   if (!fill) {
@@ -89,7 +91,7 @@ export default function EditFuelFillScreen() {
       odometer: rawOdo,
       station: finalStation || undefined,
       note: note.trim() || undefined,
-    });
+    }, user?.id);
 
     navigation.goBack();
   };
@@ -264,7 +266,7 @@ export default function EditFuelFillScreen() {
                       text: 'Delete',
                       style: 'destructive',
                       onPress: () => {
-                        deleteFuelFill(fill.id);
+                        deleteFuelFill(fill.id, user?.id);
                         navigation.goBack();
                       },
                     },

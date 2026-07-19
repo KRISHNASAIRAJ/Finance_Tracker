@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,57 +18,99 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
+import { askPortfolioRecommend } from '../../../services/aiServices';
 
 export default function AIRecommendationsScreen() {
   const navigation = useNavigation();
-  const { chatHistory, addChatMessage } = useInvestmentsStore();
+  const { chatHistory, addChatMessage, holdings, goals } = useInvestmentsStore();
   const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
+  const scrollToEnd = () => {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  const handleSend = async () => {
+    if (!inputText.trim() || loading) return;
 
     const query = inputText.trim();
     addChatMessage('user', query);
     setInputText('');
+    scrollToEnd();
 
-    // Generate a mock smart investment response matching the portfolio
-    setTimeout(() => {
-      let reply = "Based on your goals and current profile, I suggest rebalancing to increase allocation in small-cap funds slightly. Your Parag Parikh Flexi Cap allocation is currently at 45%, which is optimal.";
-      if (query.toLowerCase().includes('reliance') || query.toLowerCase().includes('stock')) {
-        reply = "Your RELIANCE holdings are showing a healthy +9.3% return. However, it represents 35% of your single-stock holdings. Consider taking partial profits and moving funds into a debt instrument or index fund to match your Retirement 2045 risk scale.";
+    setLoading(true);
+    try {
+      const result = await askPortfolioRecommend(
+        holdings.map(h => ({
+          symbol: h.symbol,
+          name: h.name,
+          type: h.type,
+          quantity: h.quantity,
+          avgPrice: h.avgPrice,
+          currentPrice: h.currentPrice,
+          allocation: h.allocation,
+        })),
+        goals.map(g => ({
+          name: g.name,
+          target: g.target,
+          current: g.current,
+          dueDate: g.dueDate,
+        }))
+      );
+
+      let reply = result.summary;
+      if (result.recommendations.length > 0) {
+        const recs = result.recommendations.map(
+          r => `\n\n• ${r.asset}: ${r.action.toUpperCase()} — ${r.reason}`
+        ).join('');
+        reply += recs;
       }
       addChatMessage('assistant', reply);
-    }, 1000);
+    } catch {
+      addChatMessage('assistant', 'Sorry, I couldn\'t process your request. Please try again.');
+    } finally {
+      setLoading(false);
+      scrollToEnd();
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Safety Compliance Disclaimer Banner */}
       <View style={styles.disclaimerBanner}>
         <Ionicons name="alert-circle" size={16} color={colors.onPrimaryContainer} />
         <Text style={styles.disclaimerText}>
-          All AI recommendations are suggestions only. Confirm pricing and market conditions before trading.
+          AI recommendations are suggestions only. Not investment advice.
         </Text>
       </View>
 
-      {/* Header */}
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>AI Portfolio Advisor</Text>
-          <Text style={styles.headerSubtitle}>Goal-aware allocations</Text>
+          <Text style={styles.headerSubtitle}>Goal-aware allocations · Groq Llama 3.3</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Chat History View */}
       <ScrollView
+        ref={scrollRef}
         style={styles.chatScroll}
         contentContainerStyle={styles.chatContent}
-        ref={(ref) => ref?.scrollToEnd({ animated: true })}
+        onContentSizeChange={scrollToEnd}
       >
+        {chatHistory.length === 0 && (
+          <View style={styles.emptyChat}>
+            <Ionicons name="sparkles" size={28} color={colors.outline} />
+            <Text style={styles.emptyTitle}>AI Portfolio Advisor</Text>
+            <Text style={styles.emptySub}>
+              Ask about rebalancing, diversification, or goal progress.{'\n'}
+              Your holdings and goals will be analyzed.
+            </Text>
+          </View>
+        )}
         {chatHistory.map((msg) => {
           const isUser = msg.sender === 'user';
           return (
@@ -90,9 +133,13 @@ export default function AIRecommendationsScreen() {
             </View>
           );
         })}
+        {loading && (
+          <View style={[styles.messageBubble, styles.assistantBubble]}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        )}
       </ScrollView>
 
-      {/* Input row */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
@@ -104,9 +151,18 @@ export default function AIRecommendationsScreen() {
             placeholderTextColor={colors.onSurfaceVariant}
             value={inputText}
             onChangeText={setInputText}
+            multiline
           />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Ionicons name="send" size={18} color="#ffffff" />
+          <TouchableOpacity
+            style={[styles.sendButton, loading && styles.sendDisabled]}
+            onPress={handleSend}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={18} color="#ffffff" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -165,6 +221,22 @@ const styles = StyleSheet.create({
     padding: spacing.containerPadding,
     gap: 16,
     paddingBottom: 24,
+  },
+  emptyChat: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    gap: 10,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   messageBubble: {
     maxWidth: '80%',
@@ -226,5 +298,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendDisabled: {
+    opacity: 0.5,
   },
 });

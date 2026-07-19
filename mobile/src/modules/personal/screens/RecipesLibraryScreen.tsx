@@ -16,16 +16,17 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { usePersonalStore } from '../store';
+import { usePersonalStore, Recipe } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { queueRecipeSync } from '../hooks/usePersonalSync';
 
 export default function RecipesLibraryScreen() {
   const navigation = useNavigation();
-  const { recipes, addRecipe, deleteRecipe } = usePersonalStore();
+  const { recipes, addRecipe, updateRecipe, deleteRecipe } = usePersonalStore();
   const { user } = useAuth();
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [title, setTitle] = useState('');
   const [prepTime, setPrepTime] = useState('');
   const [calories, setCalories] = useState('');
@@ -33,6 +34,7 @@ export default function RecipesLibraryScreen() {
   const [stepsText, setStepsText] = useState('');
 
   const resetForm = () => {
+    setEditingRecipe(null);
     setTitle('');
     setPrepTime('');
     setCalories('');
@@ -40,19 +42,43 @@ export default function RecipesLibraryScreen() {
     setStepsText('');
   };
 
+  const openEdit = (recipe: Recipe) => {
+    setEditingRecipe(recipe);
+    setTitle(recipe.title);
+    setPrepTime(recipe.prepTime);
+    setCalories(recipe.calories);
+    setIngredientsText(recipe.ingredients.join('\n'));
+    setStepsText(recipe.steps.join('\n'));
+    setModalVisible(true);
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       alert('Please enter a recipe title');
       return;
     }
-    const id = addRecipe({
-      title: title.trim(),
-      prepTime: prepTime.trim() || '—',
-      calories: calories.trim() || '—',
-      ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean),
-      steps: stepsText.split('\n').map((s) => s.trim()).filter(Boolean),
-    });
-    if (user) queueRecipeSync(user.id, 'create', { id, title: title.trim(), prepTime, calories, ingredients: ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean), steps: stepsText.split('\n').map((s) => s.trim()).filter(Boolean) });
+    const ingredients = ingredientsText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const steps = stepsText.split('\n').map((s) => s.trim()).filter(Boolean);
+
+    if (editingRecipe) {
+      updateRecipe(editingRecipe.id, {
+        title: title.trim(),
+        prepTime: prepTime.trim() || '—',
+        calories: calories.trim() || '—',
+        ingredients,
+        steps,
+      });
+      if (user) queueRecipeSync(user.id, 'update', { id: editingRecipe.id, title: title.trim(), prepTime, calories, ingredients, steps });
+    } else {
+      const id = addRecipe({
+        title: title.trim(),
+        prepTime: prepTime.trim() || '—',
+        calories: calories.trim() || '—',
+        ingredients,
+        steps,
+      });
+      if (user) queueRecipeSync(user.id, 'create', { id, title: title.trim(), prepTime, calories, ingredients, steps });
+    }
     resetForm();
     setModalVisible(false);
   };
@@ -65,7 +91,7 @@ export default function RecipesLibraryScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.logoText}>Recipes Library</Text>
-        <TouchableOpacity style={styles.fabSmall} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.fabSmall} onPress={() => { resetForm(); setModalVisible(true); }}>
           <Ionicons name="add" size={22} color={colors.onPrimary} />
         </TouchableOpacity>
       </View>
@@ -82,11 +108,16 @@ export default function RecipesLibraryScreen() {
           <View key={recipe.id} style={styles.recipeCard}>
             <View style={styles.recipeHeader}>
               <Text style={styles.recipeTitle}>{recipe.title}</Text>
-              <TouchableOpacity
-                onPress={() => { deleteRecipe(recipe.id); if (user) queueRecipeSync(user.id, 'delete', { id: recipe.id }); }}
-              >
-                <Ionicons name="trash-outline" size={16} color={colors.error} />
-              </TouchableOpacity>
+              <View style={styles.recipeActions}>
+                <TouchableOpacity onPress={() => openEdit(recipe)} style={{ padding: 4 }}>
+                  <Ionicons name="create-outline" size={16} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { deleteRecipe(recipe.id); if (user) queueRecipeSync(user.id, 'delete', { id: recipe.id }); }}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colors.error} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Metas */}
@@ -133,7 +164,7 @@ export default function RecipesLibraryScreen() {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Recipe</Text>
+            <Text style={styles.modalTitle}>{editingRecipe ? 'Edit Recipe' : 'Add New Recipe'}</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>TITLE</Text>
@@ -286,6 +317,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.onSurface,
+    flex: 1,
+  },
+  recipeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   metaRow: {
     flexDirection: 'row',

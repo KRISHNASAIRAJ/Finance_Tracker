@@ -14,6 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, G as SvgG } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -23,8 +24,7 @@ import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { useFinanceSync, queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
 import { useAuth } from '../../../services/AuthProvider';
 import { scheduleAllReminders } from '../../../services/notificationService';
-import CardAssistant from '../../../shared/components/CardAssistant';
-import PayzappWalletScreen from '../../../shared/components/PayzappWallet';
+import { useGarageStore } from '../../garage/store';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -103,6 +103,7 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: CalendarPicker
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
+  const garageFills = useGarageStore((s) => s.fills);
   const {
     transactions,
     cards,
@@ -125,8 +126,6 @@ export default function FinanceHomeScreen() {
   const [paidAmountInput, setPaidAmountInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [showCardAssistant, setShowCardAssistant] = useState(false);
-  const [showPayzappWallet, setShowPayzappWallet] = useState(false);
 
   useEffect(() => {
     scheduleAllReminders();
@@ -193,19 +192,35 @@ export default function FinanceHomeScreen() {
   const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal - deficitsSum;
 
   // Dynamic category calculations for Expense Distribution
-  const EXCLUDED_CHART_CATEGORIES = ['Rent', 'SIP', 'Investments', 'Housing'];
+  const EXCLUDED_CHART_CATEGORIES = [
+    'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
+    ...fixedExpenses.map((f: any) => f.name),
+  ];
   const expenseTxs = transactions.filter(
     (tx: any) =>
       (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
       tx.type !== 'fixed_expense' &&
-      !EXCLUDED_CHART_CATEGORIES.includes(tx.category)
+      !EXCLUDED_CHART_CATEGORIES.some(cat =>
+        cat.toLowerCase() === (tx.category || '').toLowerCase()
+      )
   );
-  const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0);
+  const hasFuelTxs = expenseTxs.some((tx: any) => tx.type === 'fuel_purchase');
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthGarageFills = garageFills.filter((f: any) => new Date(f.date) >= monthStart);
+  const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0)
+    + (!hasFuelTxs ? monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0) : 0);
 
   const categoryTotals: { [key: string]: number } = {};
   expenseTxs.forEach((tx: any) => {
     categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
   });
+
+  if (!hasFuelTxs) {
+    const fuelTotal = monthGarageFills.reduce((sum: number, f: any) => sum + f.amount, 0);
+    if (fuelTotal > 0) {
+      categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelTotal;
+    }
+  }
 
   const categoriesSorted = Object.keys(categoryTotals).map((cat: string) => ({
     name: cat,
@@ -363,15 +378,44 @@ export default function FinanceHomeScreen() {
         >
           <Text style={styles.cardTitle}>Expense Distribution</Text>
           <View style={styles.distributionContent}>
-            {/* Custom Visual Donut Ring Representation */}
             <View style={styles.donutContainer}>
-              <View style={[styles.donutOuterRing, { borderColor: categoriesSorted[0] ? getCategoryColor(categoriesSorted[0].name) : colors.primary, borderTopColor: 'transparent', borderRightColor: 'transparent' }]}>
-                <View style={styles.donutInnerRing}>
-                  <Text style={styles.donutSub}>Total</Text>
-                  <Text style={styles.donutVal}>
-                    {formatCurrency(totalExpense)}
-                  </Text>
-                </View>
+              <Svg width={130} height={130} viewBox="0 0 130 130">
+                {categoriesSorted.length > 0 && (() => {
+                  const R = 48;
+                  const strokeW = 16;
+                  const cx = 65;
+                  const cy = 65;
+                  const circumference = 2 * Math.PI * R;
+                  let cumulativeDeg = 0;
+                  return categoriesSorted.map((cat) => {
+                    const pct = cat.percentage / 100;
+                    const segLen = Math.max(pct * circumference, 0.8);
+                    const deg = cumulativeDeg;
+                    cumulativeDeg += pct * 360;
+                    return (
+                      <SvgG key={cat.name} rotation={deg} origin={`${cx}, ${cy}`}>
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={R}
+                          stroke={getCategoryColor(cat.name)}
+                          strokeWidth={strokeW}
+                          strokeDasharray={`${segLen} ${circumference - segLen}`}
+                          strokeDashoffset={circumference * 0.25}
+                          fill="none"
+                          strokeLinecap="butt"
+                        />
+                      </SvgG>
+                    );
+                  });
+                })()}
+                {categoriesSorted.length === 0 && (
+                  <Circle cx={65} cy={65} r={48} stroke="rgba(255,255,255,0.08)" strokeWidth={16} fill="none" />
+                )}
+              </Svg>
+              <View style={styles.donutCenter}>
+                <Text style={styles.donutSub}>Total</Text>
+                <Text style={styles.donutVal}>{formatCurrency(totalExpense)}</Text>
               </View>
             </View>
 
@@ -488,10 +532,25 @@ export default function FinanceHomeScreen() {
             )}
           </View>
           <View style={styles.activityList}>
-            {[...transactions]
-              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .slice(0, isExpanded ? undefined : 5)
-              .map((tx: any) => {
+            {(() => {
+              const filteredTxs = transactions.filter(
+                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load'
+              );
+              const hasFuelTxs = filteredTxs.some((tx: any) => tx.type === 'fuel_purchase');
+              const fuelPseudoTxs: any[] = hasFuelTxs ? [] : garageFills.map((f) => ({
+                id: `fill-${f.id}`,
+                type: 'expense',
+                amount: f.amount,
+                category: 'Fuel',
+                notes: `${f.liters}L in ${f.vehicle}`,
+                date: f.date,
+                source: 'manual',
+              }));
+              const combined = [...filteredTxs, ...fuelPseudoTxs]
+                .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, isExpanded ? undefined : 5);
+
+              return combined.map((tx: any) => {
               const isIncome = tx.type === 'income';
               const catColor = getCategoryColor(tx.category, isIncome);
               return (
@@ -519,7 +578,8 @@ export default function FinanceHomeScreen() {
                   </View>
                 </TouchableOpacity>
               );
-            })}
+            });
+          })()}
           </View>
         </View>
 
@@ -527,66 +587,28 @@ export default function FinanceHomeScreen() {
         <View style={styles.toolsGrid}>
           <TouchableOpacity
             style={styles.toolBentoCard}
-            onPress={() => setShowCardAssistant(true)}
+            onPress={() => navigation.navigate('CardAssistant')}
             activeOpacity={0.8}
           >
             <View style={[styles.toolIconWrap, { backgroundColor: `${colors.primary}15` }]}>
               <Ionicons name="sparkles" size={22} color={colors.primary} />
             </View>
             <Text style={styles.toolCardTitle}>Card Assistant</Text>
-            <Text style={styles.toolCardDesc}>Best card for every spend{'\n'}T&C-based offline engine</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.toolBentoCard}
-            onPress={() => setShowPayzappWallet(true)}
+            onPress={() => navigation.navigate('PayzappWallet')}
             activeOpacity={0.8}
           >
             <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(132, 204, 22, 0.12)' }]}>
               <Ionicons name="wallet" size={22} color="#84CC16" />
             </View>
             <Text style={styles.toolCardTitle}>Payzapp Wallet</Text>
-            <Text style={styles.toolCardDesc}>Track ₹40K loads{'\n'}₹400 cashback via HDFC Millennia</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Card Assistant Modal */}
-      <Modal visible={showCardAssistant} transparent animationType="slide" onRequestClose={() => setShowCardAssistant(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.fullModalContent}>
-            <View style={styles.modalAppBar}>
-              <TouchableOpacity onPress={() => setShowCardAssistant(false)}>
-                <Ionicons name="close" size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-              <Text style={styles.modalAppBarTitle}>Card Assistant</Text>
-              <View style={{ width: 24 }} />
-            </View>
-            <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
-              <CardAssistant showFuelCalc />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Payzapp Wallet Modal */}
-      <Modal visible={showPayzappWallet} transparent animationType="slide" onRequestClose={() => setShowPayzappWallet(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.fullModalContent}>
-            <View style={styles.modalAppBar}>
-              <TouchableOpacity onPress={() => setShowPayzappWallet(false)}>
-                <Ionicons name="close" size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-              <Text style={styles.modalAppBarTitle}>Payzapp Wallet Loads</Text>
-              <View style={{ width: 24 }} />
-            </View>
-            <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
-              <PayzappWalletScreen />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* Bill Payment Modal */}
       {editingCard && (
@@ -898,31 +920,15 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   donutContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 12,
-    borderColor: colors.primaryContainer,
+    width: 130,
+    height: 130,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  donutOuterRing: {
+  donutCenter: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 12,
-    transform: [{ rotate: '45deg' }],
-  },
-  donutInnerRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ rotate: '-45deg' }],
   },
   donutSub: {
     fontSize: 10,
@@ -1249,32 +1255,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 12,
     right: 12,
-  },
-  // Full-screen modal
-  fullModalContent: {
-    flex: 1,
-    backgroundColor: colors.background,
-    marginTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 48,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  modalAppBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.containerPadding,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  modalAppBarTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  modalScrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 40,
   },
 });

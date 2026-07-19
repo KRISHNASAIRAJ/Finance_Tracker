@@ -98,14 +98,14 @@ IMPORTANT RULES:
 
 **What it does**: Extracts structured data from a bank SMS when regex rules fail.
 
-**Allowed inputs to Claude**:
+**Allowed inputs to Groq**:
 - The raw SMS text (single SMS only)
 - The expected output JSON schema
 
 **Pre-processing required before sending**:
 ```python
-def sanitize_sms_for_claude(sms_text: str) -> str:
-    """Strip phone numbers and email addresses from SMS before sending to Claude."""
+def sanitize_sms_for_ai(sms_text: str) -> str:
+    """Strip phone numbers and email addresses from SMS before sending to AI."""
     import re
     # Remove phone numbers
     text = re.sub(r'\b\d{10,12}\b', '[PHONE]', sms_text)
@@ -114,7 +114,7 @@ def sanitize_sms_for_claude(sms_text: str) -> str:
     return text
 ```
 
-**Required output schema** (Claude must return this JSON structure):
+**Required output schema** (Groq must return this JSON structure):
 ```json
 {
   "amount": 450,              // integer in paise, null if not found
@@ -135,7 +135,7 @@ def sanitize_sms_for_claude(sms_text: str) -> str:
 
 ## 3. Data Sanitization Checklist
 
-Before every Claude API call, verify:
+Before every Groq API call, verify:
 
 ```
 [ ] No raw account numbers in the prompt
@@ -144,7 +144,7 @@ Before every Claude API call, verify:
 [ ] No PAN/Aadhaar numbers in the prompt
 [ ] No UPI IDs that could identify the user externally
 [ ] Monetary amounts are in percentages (portfolio use case) or paise with no user identity link (SMS use case)
-[ ] SMS text has been pre-processed through sanitize_sms_for_claude()
+[ ] SMS text has been pre-processed through sanitize_sms_for_ai()
 [ ] Prompt length is within token limits for the use case
 [ ] System prompt contains the required disclaimer instruction
 ```
@@ -222,11 +222,11 @@ Before returning any Claude response to the mobile client, validate:
 | Portfolio recommendations | 5 calls/day | ~150 calls | Return last cached response with timestamp |
 | SMS parsing fallback | 50 calls/day | ~1,500 calls | Fall through to manual entry prompt |
 
-**Cost estimation** (claude-3-5-sonnet at ~$3/MTok input, ~$15/MTok output):
-- T&C Q&A: ~2K tokens/call × 30 × 30 days ≈ $5.40/month
-- Portfolio: ~1K tokens/call × 5 × 30 days ≈ $0.68/month
-- SMS parsing: ~200 tokens/call × 50 × 30 days ≈ $1.35/month
-- **Estimated total: ~$7.50/month** — review quarterly as usage scales
+**Cost estimation** (Llama 3.3 70B on Groq: free tier with 7K req/day, 30 req/min; Llama 3.1 8B: free tier with generous limits):
+- T&C Q&A: ~2K tokens/call × 30 × 30 days ≈ $0/month (free tier)
+- Portfolio: ~1K tokens/call × 5 × 30 days ≈ $0/month (free tier)
+- SMS parsing: ~200 tokens/call × 50 × 30 days ≈ $0/month (free tier)
+- **Estimated total: $0/month** — Groq free tier covers all current use cases
 
 ### 6.1 Rate Limit Implementation
 ```python
@@ -287,8 +287,8 @@ async def check_rate_limit(use_case: str, limit: int) -> bool:
 
 ## 9. Security Headers & Transport
 
-- All Claude API calls from the backend must use **HTTPS** (enforced by the `anthropic` Python SDK)
-- The `ANTHROPIC_API_KEY` is loaded only from environment variables — never hardcoded
+- All Groq API calls from the backend must use **HTTPS**
+- The `GROQ_API_KEY` is loaded only from environment variables — never hardcoded
 - API key rotation: if the key is compromised, rotate immediately and update the VPS/Railway environment
 
 ---

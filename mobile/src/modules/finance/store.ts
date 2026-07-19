@@ -54,6 +54,14 @@ export interface FixedExpense {
   dueDate: string; // ISO date string
 }
 
+export interface ExpectedIncome {
+  id: string;
+  name: string;
+  amount: number; // in paise
+  notes?: string;
+  date: string; // ISO date string
+}
+
 interface FinanceState {
   transactions: Transaction[];
   cards: CreditCard[];
@@ -75,6 +83,12 @@ interface FinanceState {
   addPayzappLoad: (amount: number) => void;
   editPayzappLoad: (id: string, amount: number) => void;
   resetPayzappLoadsIfNewMonth: () => void;
+  expectedIncomes: ExpectedIncome[];
+  addExpectedIncome: (item: Omit<ExpectedIncome, 'id'>, userId?: string) => void;
+  editExpectedIncome: (id: string, updated: Partial<ExpectedIncome>, userId?: string) => void;
+  deleteExpectedIncome: (id: string, userId?: string) => void;
+  monthlyBudget: number; // in rupees (not paise)
+  setMonthlyBudget: (amount: number, userId?: string) => void;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>, userId?: string) => string;
   editTransaction: (id: string, updated: Partial<Transaction>, userId?: string) => void;
   deleteTransaction: (id: string, userId?: string) => void;
@@ -148,6 +162,8 @@ export const useFinanceStore = create<FinanceState>()(
         }
       ],
       payzappLoads: [],
+      expectedIncomes: [],
+      monthlyBudget: 0,
       transactions: [
         {
           id: 'ex-26',
@@ -589,7 +605,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("transactions", "create", { ...newTransaction, user_id: userId });
           } catch {}
         }
@@ -603,7 +619,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("transactions", "update", { id, ...updated, user_id: userId });
           } catch {}
         }
@@ -614,7 +630,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("transactions", "delete", { id, user_id: userId });
           } catch {}
         }
@@ -627,7 +643,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("bank_accounts", "update", { id, amount, user_id: userId });
           } catch {}
         }
@@ -642,7 +658,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("receivables", "create", {
               id: newItem.id, person_name: newItem.personName,
               amount: newItem.amount, due_date: newItem.dueDate,
@@ -659,7 +675,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             const payload: Record<string, unknown> = { id, user_id: userId };
             if (updated.personName !== undefined) payload.person_name = updated.personName;
             if (updated.amount !== undefined) payload.amount = updated.amount;
@@ -676,7 +692,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("receivables", "delete", { id, user_id: userId });
           } catch {}
         }
@@ -765,7 +781,7 @@ export const useFinanceStore = create<FinanceState>()(
 
         const newTx: Transaction = {
           id: Math.random().toString(36).substring(2, 9),
-          type: 'fixed_expense', // satisfies spine write
+          type: 'fixed_expense',
           amount,
           currency: 'INR',
           date: new Date().toISOString(),
@@ -777,7 +793,6 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           payzappLoads: [newLoad, ...state.payzappLoads],
           transactions: [newTx, ...state.transactions],
-          // Also dynamically add a notification if they hit the target!
           notifications: [
             {
               id: Math.random().toString(36).substring(2, 9),
@@ -789,6 +804,14 @@ export const useFinanceStore = create<FinanceState>()(
             ...state.notifications,
           ]
         }));
+
+        try {
+          const { user } = require('../../services/AuthProvider');
+          if (user) {
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
+            syncEnqueue("payzapp_loads", "create", { id, user_id: user.id, amount, date: newLoad.date });
+          }
+        } catch {}
       },
       editPayzappLoad: (id, amount) => {
         set((state) => ({
@@ -816,7 +839,7 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             const payload: Record<string, unknown> = { id, user_id: userId };
             if (updated.balance !== undefined) payload.balance = updated.balance;
             if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
@@ -837,7 +860,7 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({ cards: [...state.cards, newCard] }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("credit_cards", "create", {
               id: newCard.id,
               user_id: userId,
@@ -860,7 +883,7 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({ cards: state.cards.filter((c) => c.id !== id) }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("credit_cards", "delete", { id, user_id: userId });
           } catch {}
         }
@@ -874,16 +897,35 @@ export const useFinanceStore = create<FinanceState>()(
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const EXCLUDED_CATEGORIES = ['Rent', 'SIP', 'Investments', 'Housing'];
-        return txs
+        const excluded = new Set([
+          'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
+          ...get().fixedExpenses.map((f) => f.name.toLowerCase()),
+        ]);
+        let total = txs
           .filter(
             (tx) =>
               new Date(tx.date) >= startOfMonth &&
               (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
               tx.type !== 'fixed_expense' &&
-              !EXCLUDED_CATEGORIES.includes(tx.category)
+              !excluded.has(tx.category.toLowerCase())
           )
           .reduce((acc, tx) => acc + tx.amount, 0);
+
+        // Include garage fuel fills for months where no fuel_purchase transactions exist yet
+        const hasFuelTxs = txs.some(
+          (tx) => tx.type === 'fuel_purchase' && new Date(tx.date) >= startOfMonth
+        );
+        if (!hasFuelTxs) {
+          try {
+            const { useGarageStore } = require('../../modules/garage/store');
+            const fills: Array<{ date: string; amount: number }> = useGarageStore.getState().fills;
+            total += fills
+              .filter((f) => new Date(f.date) >= startOfMonth)
+              .reduce((sum, f) => sum + f.amount, 0);
+          } catch {}
+        }
+
+        return total;
       },
       getMonthlyIncome: () => {
         const txs = get().transactions;
@@ -913,10 +955,64 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         if (userId) {
           try {
-            const { enqueue: syncEnqueue } = require("../../../services/syncQueue");
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
             syncEnqueue("fixed_expenses", "update", {
               id, user_id: userId, last_paid_month: "", due_date: get().fixedExpenses.find((f: FixedExpense) => f.id === id)?.dueDate ?? "",
             });
+          } catch {}
+        }
+      },
+      addExpectedIncome: (item, userId) => {
+        const id = `expinc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const newItem = { ...item, id };
+        set((state) => ({ expectedIncomes: [...state.expectedIncomes, newItem] }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
+            syncEnqueue("expected_incomes", "create", {
+              id, user_id: userId, name: newItem.name, amount: newItem.amount,
+              notes: newItem.notes ?? null, date: newItem.date,
+            });
+          } catch {}
+        }
+      },
+      editExpectedIncome: (id, updated, userId) => {
+        set((state) => ({
+          expectedIncomes: state.expectedIncomes.map((ei) =>
+            ei.id === id ? { ...ei, ...updated } : ei
+          ),
+        }));
+        if (userId) {
+          try {
+            const item = get().expectedIncomes.find((ei) => ei.id === id);
+            if (item) {
+              const { enqueue: syncEnqueue } = require("../../services/syncQueue");
+              syncEnqueue("expected_incomes", "update", {
+                id, user_id: userId, name: item.name, amount: item.amount,
+                notes: item.notes ?? null, date: item.date,
+              });
+            }
+          } catch {}
+        }
+      },
+      deleteExpectedIncome: (id, userId) => {
+        set((state) => ({ expectedIncomes: state.expectedIncomes.filter((ei) => ei.id !== id) }));
+        if (userId) {
+          try {
+            const { enqueue: syncEnqueue } = require("../../services/syncQueue");
+            syncEnqueue("expected_incomes", "delete", { id, user_id: userId });
+          } catch {}
+        }
+      },
+      setMonthlyBudget: (amount, userId) => {
+        set({ monthlyBudget: amount });
+        if (userId) {
+          try {
+            const { supabase } = require("../../services/supabaseClient");
+            supabase.from("user_settings").upsert(
+              { user_id: userId, monthly_budget: amount },
+              { onConflict: "user_id" }
+            ).then(() => {});
           } catch {}
         }
       },
@@ -939,7 +1035,7 @@ export const useFinanceStore = create<FinanceState>()(
       },
     }),
     {
-      name: 'meridian-finance-storage-v12', // v12: corrected SIP names + marketExpirePaid sync
+      name: 'meridian-finance-storage-v13', // v13: expectedIncomes + monthlyBudget
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

@@ -19,6 +19,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
+import { useAuth } from '../../../services/AuthProvider';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'AddFuelFill'>;
 
@@ -27,6 +28,7 @@ const STATION_OPTIONS = ['HPCL Kondapur', 'HPCL Moinabad', 'Other'];
 export default function AddFuelFillScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, addFuelFill } = useGarageStore();
+  const { user } = useAuth();
 
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [liters, setLiters] = useState('');
@@ -66,7 +68,7 @@ export default function AddFuelFillScreen() {
       pricePerLiter: priceInPaise,
       odometer: rawOdo,
       station: finalStation || undefined,
-    });
+    }, user?.id);
 
     navigation.goBack();
   };

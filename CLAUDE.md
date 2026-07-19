@@ -42,7 +42,7 @@
 - **No Jest tests anywhere** — zero `__tests__` directories
 - **No SQLite local cache** — Zustand + AsyncStorage used instead (works for offline-first)
 - **Only Finance + Garage have Supabase sync hooks** — Tasks, Equity, Personal are local-only
-- **5/6 edge functions are scaffolds** — only `_shared/claude.ts` has real logic
+- **5/6 edge functions are scaffolds** — only `_shared/groq.ts` has real logic
 - **No WorkManager/notifee** — using expo-notifications instead
 
 ---
@@ -109,7 +109,7 @@ curl -X POST https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/portfolio-sna
 cd mobile && npm run lint && npm run typecheck
 
 # Set Edge Function secrets
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set GROQ_API_KEY=gsk_...
 ```
 
 ---

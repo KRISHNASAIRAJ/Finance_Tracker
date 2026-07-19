@@ -47,7 +47,6 @@ export default function GarageDashboardScreen() {
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [chartView, setChartView] = useState<'latest' | 'overall'>('latest');
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
-  const [fabOpen, setFabOpen] = useState(false);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [vehicleNameInput, setVehicleNameInput] = useState('');
   const [editingVehicleName, setEditingVehicleName] = useState<string | null>(null);
@@ -251,17 +250,26 @@ export default function GarageDashboardScreen() {
         <View style={styles.gridSection}>
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => navigation.navigate('VehicleSpend')}
+            onPress={() => navigation.navigate('AllFuelFills')}
             activeOpacity={0.7}
           >
             <View style={styles.gridHeader}>
               <View style={[styles.gridIcon, { backgroundColor: `${colors.primary}15` }]}>
                 <Ionicons name="water-outline" size={16} color={colors.primary} />
               </View>
-              <Text style={styles.gridLabel} numberOfLines={1}>Fuel Spend</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.gridLabel} numberOfLines={1}>Fuel Spend</Text>
+              </View>
             </View>
             <Text style={[styles.gridValue, { fontWeight: '700' }]}>{formatCurrency(monthlyFuelSpend)}</Text>
             <Text style={styles.gridSubValue}>{formatCurrency(totalFuelSpend)} total</Text>
+            <TouchableOpacity
+              style={styles.cardAction}
+              onPress={(e) => { e.stopPropagation(); navigation.navigate('AddFuelFill'); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cardActionText}>+ Add Fuel Fill</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -273,10 +281,19 @@ export default function GarageDashboardScreen() {
               <View style={[styles.gridIcon, { backgroundColor: '#f59e0b20' }]}>
                 <Ionicons name="construct-outline" size={16} color="#f59e0b" />
               </View>
-              <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
+              </View>
             </View>
             <Text style={styles.gridValue}>{formatCurrency(totalMaintSpend)}</Text>
             <Text style={styles.gridLink}>{vehicleMaint.length} logs →</Text>
+            <TouchableOpacity
+              style={styles.cardAction}
+              onPress={(e) => { e.stopPropagation(); navigation.navigate('AddMaintenance', {}); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.cardActionText, { color: '#f59e0b' }]}>+ Add Service</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         </View>
 
@@ -421,45 +438,6 @@ export default function GarageDashboardScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* FAB Menu */}
-      {fabOpen && (
-        <TouchableOpacity
-          style={styles.fabOverlay}
-          activeOpacity={1}
-          onPress={() => setFabOpen(false)}
-        >
-          <View style={styles.fabMenuContainer}>
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => { setFabOpen(false); navigation.navigate('AddFuelFill'); }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.fabMenuIcon, { backgroundColor: `${colors.primary}20` }]}>
-                <Ionicons name="water-outline" size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.fabMenuLabel}>Fuel Fill</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => { setFabOpen(false); navigation.navigate('AddMaintenance'); }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.fabMenuIcon, { backgroundColor: '#f59e0b20' }]}>
-                <Ionicons name="construct-outline" size={18} color="#f59e0b" />
-              </View>
-              <Text style={styles.fabMenuLabel}>Service Log</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      )}
-      <TouchableOpacity
-        style={[styles.fab, fabOpen && { transform: [{ rotate: '45deg' }] }]}
-        onPress={() => setFabOpen(!fabOpen)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={28} color="#ffffff" />
-      </TouchableOpacity>
 
       {/* Vehicle Add/Edit/Delete Modal */}
       <Modal visible={showVehicleModal} transparent animationType="fade" onRequestClose={() => setShowVehicleModal(false)}>
@@ -664,6 +642,20 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     flexShrink: 1,
   },
+  cardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.04)',
+    marginTop: 4,
+  },
+  cardActionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   gridValue: {
     fontSize: 16,
     fontWeight: '700',
@@ -855,24 +847,6 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-  },
   touchOverlay: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
@@ -892,43 +866,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fabOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    zIndex: 100,
-    justifyContent: 'flex-end',
-  },
-  fabMenuContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 160,
-    gap: 12,
-  },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  fabMenuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onSurface,
   },
   modalOverlay: {
     flex: 1,

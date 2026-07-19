@@ -55,7 +55,7 @@ class SMSParseResult:
     account_last4: str | None   # 4-digit string (for bank debit SMS)
     transaction_type: Literal['debit', 'credit'] | None
     confidence: float           # 0.0 to 1.0
-    parse_stage: Literal['regex', 'claude']
+    parse_stage: Literal['regex', 'groq']
     raw_sms_hash: str           # SHA-256 of raw SMS (for audit, not the SMS itself)
 ```
 
