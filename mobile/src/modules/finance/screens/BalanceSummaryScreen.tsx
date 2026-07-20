@@ -36,6 +36,8 @@ export default function BalanceSummaryScreen() {
   const { transactions, cards, receivables, accounts, fixedExpenses } = useFinanceStore();
 
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
+  const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
+  const effectiveBalance = totalBalance - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + r.amount, 0);
 
@@ -49,7 +51,7 @@ export default function BalanceSummaryScreen() {
     const min = getMinBalanceForAccount(acc.title);
     return sum + (acc.amount < min ? min - acc.amount : 0);
   }, 0);
-  const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal - deficitsSum;
+  const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
 
   // Monthly expenses
   const startOfMonth = new Date();
@@ -170,7 +172,7 @@ export default function BalanceSummaryScreen() {
           <View style={styles.heroBreakdown}>
             <View style={styles.heroChip}>
               <Text style={styles.heroChipLabel}>Banks</Text>
-              <Text style={styles.heroChipValue}>{formatCurrency(totalBalance)}</Text>
+              <Text style={styles.heroChipValue}>{formatCurrency(effectiveBalance)}</Text>
             </View>
             <View style={styles.heroChip}>
               <Text style={styles.heroChipLabel}>Lent</Text>

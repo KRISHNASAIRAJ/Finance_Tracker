@@ -12,7 +12,6 @@ Task reminders and the 8:30 PM portfolio report must fire reliably even when the
 | Type | Mechanism | Survival |
 |---|---|---|
 | Task reminder | AlarmManager exact alarm (`@notifee` schedules via `setAlarm`) | Survives app kill |
-| SMS expense confirm | BroadcastReceiver → `@notifee` | Fires on SMS receipt |
 | Daily portfolio report | FCM push from backend cron | Always-on (server-side) |
 | Fixed expense due | WorkManager PeriodicWork (daily) checks due dates | KEEP policy |
 | Credit card due | WorkManager PeriodicWork (daily) checks due dates | KEEP policy |

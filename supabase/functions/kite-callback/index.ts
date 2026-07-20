@@ -13,9 +13,17 @@ const KITE_API_KEY = Deno.env.get("KITE_API_KEY")!;
 const KITE_API_SECRET = Deno.env.get("KITE_API_SECRET")!;
 
 Deno.serve(async (req: Request) => {
+  if (!KITE_API_KEY || !KITE_API_SECRET) {
+    return new Response(
+      `<html><body><h2>Configuration Error</h2><p>KITE_API_KEY or KITE_API_SECRET is not set. Run: supabase secrets set KITE_API_KEY=xxx KITE_API_SECRET=yyy</p></body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
+  }
+
   const url = new URL(req.url);
   const requestToken = url.searchParams.get("request_token");
   const status = url.searchParams.get("status");
+  const stateUserId = url.searchParams.get("state") || ""; // Supabase user UUID passed via OAuth state
 
   if (status === "error") {
     return new Response(`<html><body><h2>Authorization failed</h2><p>Kite Connect authorization was denied.</p></body></html>`, {
@@ -56,27 +64,18 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = kiteData.data.access_token;
     const publicToken = kiteData.data.public_token || "";
-    const kiteUserId = kiteData.data.user_id || "";
 
-    // Store token in kite_tokens table (using service_role to bypass RLS)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Look up the user by the Kite user_id
-    const { data: existingUser } = await supabase
-      .from("users")
-      .select("user_id")
-      .eq("zerodha_client_id", kiteUserId)
-      .single();
+    const tokenUserId = stateUserId || "default";
 
-    // For personal app: use the authenticated user from the session
-    // We store the token linked to the first available user
     const { error: upsertErr } = await supabase
       .from("kite_tokens")
       .upsert({
-        user_id: existingUser?.user_id || kiteUserId || "default",
+        user_id: tokenUserId,
         access_token: accessToken,
         public_token: publicToken,
         updated_at: new Date().toISOString(),

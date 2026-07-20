@@ -6,7 +6,7 @@ Meridian is a personal-use mobile app (Android-first) that unifies daily life tr
 
 | Module | Description |
 |---|---|
-| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, SMS auto-capture, AI T&C assistant, Payzapp wallet |
+| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, AI T&C assistant, Payzapp wallet |
 | **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend |
 | **Task Manager** | Notion-style tasks with subtasks, recurrence, and local notifications |
 | **Equity/MF Tracker** | Holdings, Kite Connect sync, AI rebalancing, daily 8:30 PM IST portfolio snapshots |
@@ -140,7 +140,6 @@ All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) wi
 | DB schema | `docs/db-schema.md` |
 | UI design system | `DESIGN.md` |
 | API contracts | `docs/api-contracts.md` |
-| SMS parser spec | `docs/sms-parser-spec.md` |
 | Notification flows | `docs/notification-flows.md` |
 | AI safety rules | `SAFETY.md` |
 

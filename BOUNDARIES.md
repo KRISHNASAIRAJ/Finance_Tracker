@@ -15,12 +15,6 @@
 - **NEVER** expose a user's net worth, account balances, or full transaction history in API responses that don't require authentication
 - **NEVER** include financial data in crash reports, analytics events, or error logs
 
-### 1.2 SMS Data
-- **NEVER** store the full raw SMS text in the database permanently — `raw_sms_text` in `transactions` is only for auditing and must be masked/deleted after 30 days
-- **NEVER** send raw SMS text to Claude API without first stripping the sender phone number and any unrelated content
-- **NEVER** collect or store SMS data from senders not on the bank/card allowlist
-- **NEVER** enable SMS reading on iOS — SMS read permission is Android-only (sideloaded app)
-
 ### 1.3 Authentication & Tokens
 - **NEVER** store JWT tokens or Supabase keys in `AsyncStorage` — use `react-native-keychain` (Android Keystore / iOS Secure Enclave backed)
 - **NEVER** commit `.env` files, API keys, or secrets to the repository
@@ -64,9 +58,8 @@
 The Claude API may **only** be called for these exact purposes:
 
 | ✅ Permitted | Description |
-|---|---|
+|---|---|---|
 | Card T&C Q&A | RAG-grounded answers from the user's uploaded T&C document |
-| SMS parsing fallback | Structured extraction from a single SMS text (no PII) |
 | Portfolio recommendations | High-level suggestions from aggregated portfolio data |
 
 ### 3.2 Prohibited Claude API Uses
@@ -81,7 +74,6 @@ The Claude API may **only** be called for these exact purposes:
 Every AI response displayed to the user MUST include one of:
 - Card T&C: *"Based on the document you uploaded — verify with your bank for current terms."*
 - Portfolio: *"For informational purposes only. This is not investment advice."*
-- SMS parsing: No disclaimer needed (it's a utility extraction, not advice)
 
 ---
 

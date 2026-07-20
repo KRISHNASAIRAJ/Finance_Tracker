@@ -30,7 +30,6 @@ import { syncNow } from '../../finance/hooks/useFinanceSync';
 import { usePersonalSync, syncPersonalNow } from '../hooks/usePersonalSync';
 import { useEquitySync, syncEquityNow } from '../../equity/hooks/useEquitySync';
 import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
-import { scanExistingSms } from '../../../services/smsHandler';
 import { supabase } from '../../../services/supabaseClient';
 import { processSyncQueue } from '../../../services/syncQueue';
 
@@ -58,8 +57,6 @@ export default function MoreMenuScreen() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const [backupState, setBackupState] = useState<'idle' | 'backing' | 'done' | 'error'>('idle');
   const [showAuth, setShowAuth] = useState(false);
-  const [scanningSms, setScanningSms] = useState(false);
-  const [smsScanResult, setSmsScanResult] = useState<string | null>(null);
   const [kiteSyncing, setKiteSyncing] = useState(false);
   const [kiteSyncResult, setKiteSyncResult] = useState<string | null>(null);
   const [kiteConnected, setKiteConnected] = useState(false);
@@ -203,7 +200,9 @@ export default function MoreMenuScreen() {
       setTimeout(() => setKiteSyncResult(null), 3000);
       return;
     }
-    const loginUrl = `https://kite.zerodha.com/connect/login?v=3&api_key=${apiKey}`;
+    const redirectUri = 'https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-callback';
+    const stateParam = user ? encodeURIComponent(user.id) : 'unknown';
+    const loginUrl = `https://kite.zerodha.com/connect/login?v=3&api_key=${apiKey}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${stateParam}`;
     Linking.openURL(loginUrl);
   };
 
@@ -212,13 +211,15 @@ export default function MoreMenuScreen() {
     setKiteSyncing(true);
     setKiteSyncResult(null);
     try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
       const res = await fetch(
         'https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-holdings-sync',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${(supabase as any).supabaseKey}`,
+            Authorization: `Bearer ${token ?? ''}`,
           },
           body: JSON.stringify({ user_id: user.id }),
         }
@@ -512,41 +513,6 @@ export default function MoreMenuScreen() {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* SMS Scanner */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>SMS EXPENSE DETECTION</Text>
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={async () => {
-            setScanningSms(true);
-            setSmsScanResult(null);
-            const count = await scanExistingSms();
-            setScanningSms(false);
-            setSmsScanResult(count > 0 ? `Found ${count} transactions` : 'No transactions found');
-            if (count > 0) {
-              setTimeout(() => setSmsScanResult(null), 3000);
-            }
-          }}
-          activeOpacity={0.8}
-          disabled={scanningSms}
-        >
-          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#3b82f6" />
-          </View>
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>
-              {scanningSms ? 'Scanning SMS...' : smsScanResult || 'Scan Bank SMS'}
-            </Text>
-            <Text style={styles.cardSubtitle}>
-              Auto-detect expenses from HDFC, ICICI, SBI, Axis & more
-            </Text>
-          </View>
-          {scanningSms ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-          )}
-        </TouchableOpacity>
 
         {/* Logout Button */}
         {user && (

@@ -21,5 +21,5 @@
     "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "no-console": "warn"
   },
-  "ignorePatterns": ["node_modules/", "android/", "ios/", ".expo/", "dist/", "modules/sms-native/"]
+  "ignorePatterns": ["node_modules/", "android/", "ios/", ".expo/", "dist/"]
 }

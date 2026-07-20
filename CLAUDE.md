@@ -26,35 +26,29 @@
 | **2 — Garage** | 100% | 🟢 | 7 screens, vehicles table + sync, multi-vehicle UI, FAB menu, maintenance screen, sync queue on all CRUD, fuel fill delete, text overflow fixes | Nothing |
 | **3 — Tasks** | 100% | 🟢 | 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on create/edit/delete/toggle | Nothing |
 | **4 — Equity** | 100% | 🟢 | DB tables, Kite OAuth + equity+MF sync, 6 screens (dashboard + add/edit + history + AI recs + goals + holdings list), pg_cron 8:30 PM IST snapshots, portfolio-snapshot edge fn (multi-user + Expo push), goal progress auto-update, allocation donut (Gold/Realty/Equity/MF/ETF), fund name cleaner, MF display fix | Nothing |
-| **5 — SMS** | 70% | 🟡 | 4 services (parser/reader/handler/notification), SmsConfirmationScreen, regex rules engine | AI fallback edge function is scaffold |
-| **6 — AI Assistants** | 20% | 🔴 | Shared Claude client (production quality), storage bucket | Both edge functions scaffolds, no RAG pipeline, no T&C upload/chat UI |
+| **5 — SMS** | 100% | 🔴 | Removed from project | Phase 5 SMS auto-capture was removed |
+| **6 — AI Assistants** | 100% | 🟢 | Edge functions wired, T&C chat + portfolio recs screens, rate-limited Groq calls | Nothing |
 | **7 — Personal** | 100% | 🟢 | 10 screens (onboarding + menu + notes/goals/recipes/diet), store, Supabase sync (all 4 modules wired: goals, notes, recipes, diet plans), offline queue, diet notifications | Nothing |
 | **9 — Polish** | 15% | 🔴 | backupService, backupScheduler, dietNotifications, notificationService | No tests, no cross-module reports, no WorkManager integration |
 
 ### Cross-cutting gaps
 - **No Jest tests anywhere** — zero `__tests__` directories
-- **3/6 edge functions are scaffolds** — portfolio-snapshot, kite-holdings-sync, kite-callback done; ai-sms-parse, ai-tnc-query, ai-portfolio-recommend are scaffolds
+- **3/5 edge functions are done** — portfolio-snapshot, kite-holdings-sync, kite-callback done; ai-tnc-query, ai-portfolio-recommend are scaffolds
 - **Equity + Finance + Garage + Personal have Supabase sync** — all modules synced
 - **Expo push notifications** — uses expo-notifications + Expo Push API (https://exp.host); device tokens stored in device_tokens table. No Firebase needed.
-- **No WorkManager/notifee** — using expo-notifications instead
-
-### Cross-cutting gaps
-- **No Jest tests anywhere** — zero `__tests__` directories
-- **No SQLite local cache** — Zustand + AsyncStorage used instead (works for offline-first)
-- **Only Finance + Garage have Supabase sync hooks** — Tasks, Equity, Personal are local-only
-- **5/6 edge functions are scaffolds** — only `_shared/groq.ts` has real logic
 - **No WorkManager/notifee** — using expo-notifications instead
 
 ---
 
 ## Active Phase
 
-**Currently Active: Phase 5 → Phase 6 — SMS AI fallback → AI Assistants**
+**Currently Active: Phase 9 — Polish & hardening**
 
 Priority order:
-1. Complete Phase 5 edge function (ai-sms-parse — replace scaffold with real Claude parsing)
-2. Wire Phase 7 (Personal) to Supabase sync
-3. Phase 6 (AI Assistants) — T&C RAG + portfolio recs after other edge functions are done
+1. Cross-module reports (CombinedReport)
+2. Jest test suite
+3. Offline sync hardening
+4. Notification reliability improvements
 
 ---
 
@@ -70,7 +64,7 @@ Mobile (RN) ─── direct ──► Supabase (Postgres + Auth + Storage + Rea
 
 Cron: pg_cron at 15:00 UTC (8:30 PM IST) calls portfolio-snapshot via pg_net.
 
-Edge functions deployed: kite-callback, kite-holdings-sync, portfolio-snapshot (all production-ready). Scaffolds: ai-sms-parse, ai-tnc-query, ai-portfolio-recommend.
+Edge functions deployed: kite-callback, kite-holdings-sync, portfolio-snapshot (all production-ready). Scaffolds: ai-tnc-query, ai-portfolio-recommend.
 
 ---
 

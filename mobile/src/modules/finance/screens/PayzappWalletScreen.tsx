@@ -136,18 +136,18 @@ export default function PayzappWalletScreen() {
           <View style={styles.emptyWrap}>
             <Ionicons name="wallet-outline" size={24} color={colors.outline} />
             <Text style={styles.emptyText}>No wallet loads recorded yet.</Text>
-            <Text style={styles.emptySub}>SMS auto-detection works for HDFC debit wallet load messages.</Text>
+            <Text style={styles.emptySub}>Tap "Log Wallet Load" to add one manually.</Text>
           </View>
         ) : (
           walletLoads.map((tx: Transaction) => (
             <View key={tx.id} style={styles.loadItem}>
               <View style={styles.loadLeft}>
-                <View style={[styles.loadDot, { backgroundColor: tx.source === 'sms_auto' ? '#3B82F6' : '#84CC16' }]} />
+                <View style={[styles.loadDot, { backgroundColor: '#84CC16' }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.loadAmt}>-{formatCur(tx.amount)}</Text>
                   <Text style={styles.loadDt}>
                     {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    {tx.source === 'sms_auto' ? ' · Auto' : ' · Manual'}
+                    {' · Manual'}
                   </Text>
                   {tx.notes ? <Text style={styles.loadNotes}>{tx.notes}</Text> : null}
                 </View>

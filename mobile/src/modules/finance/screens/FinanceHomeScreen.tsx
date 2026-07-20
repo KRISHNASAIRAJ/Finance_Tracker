@@ -120,13 +120,12 @@ export default function FinanceHomeScreen() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const { loading: syncing, pullFromCloud } = useFinanceSync();
+  const { loading: syncing } = useFinanceSync();
 
   useFocusEffect(
     useCallback(() => {
-      pullFromCloud();
       processSyncQueue().catch((e: Error) => console.warn('[FinanceHome] syncQueue flush failed:', e));
-    }, [pullFromCloud])
+    }, [])
   );
 
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -177,6 +176,8 @@ export default function FinanceHomeScreen() {
     : 0;
 
   const totalBalance = getTotalBalance();
+  const totalMinBalance = accounts.reduce((sum: number, acc: any) => sum + getMinBalanceForAccount(acc.title), 0);
+  const effectiveBalance = totalBalance - totalMinBalance;
   const monthlyExpenses = getMonthlyExpenses();
 
   const now = new Date();
@@ -190,15 +191,9 @@ export default function FinanceHomeScreen() {
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
-  
-  // Calculate minimum balance deficits
-  const deficitsSum = accounts.reduce((sum: number, acc: any) => {
-    const min = getMinBalanceForAccount(acc.title);
-    return sum + (acc.amount < min ? min - acc.amount : 0);
-  }, 0);
 
-  // User Formula: bank balance + lent - borrow - fixed expenses - credit card bills - minimum balances (if less than defined)
-  const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal - deficitsSum;
+  // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
+  const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
 
   // Dynamic category calculations for Expense Distribution
   const EXCLUDED_CHART_CATEGORIES = [

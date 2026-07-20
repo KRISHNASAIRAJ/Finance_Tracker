@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SmsParseResult } from '../../services/smsParser';
 
 export interface Transaction {
   id: string;
@@ -11,7 +10,7 @@ export interface Transaction {
   date: string; // ISO string
   category: string;
   notes?: string;
-  source: 'manual' | 'sms_auto' | 'kite_sync';
+  source: 'manual' | 'kite_sync';
 }
 
 export interface CreditCard {
@@ -105,12 +104,6 @@ interface FinanceState {
   getMonthlyExpenses: () => number;
   getMonthlyIncome: () => number;
   setLastSyncedAt: (ts: string) => void;
-  pendingSmsItems: SmsParseResult[];
-  suppressedSenders: string[];
-  addPendingSms: (item: SmsParseResult) => void;
-  removePendingSms: (id: string) => void;
-  clearPendingSms: () => void;
-  addSuppressedSender: (sender: string) => void;
 }
 
 // Helper to convert Rupees from JSON to Paise integers
@@ -127,7 +120,7 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
 
 export const getMinBalanceForAccount = (title: string): number => {
   const norm = title.toLowerCase();
-  if (norm.includes('hdfc')) return 250000; // ₹2,500
+  if (norm.includes('hdfc')) return 260000; // ₹2,600
   if (norm.includes('axis')) return 1000000; // ₹10,000
   if (norm.includes('sbi')) return 210000; // ₹2,100
   if (norm.includes('hsbc')) return 0;
@@ -140,8 +133,6 @@ export const useFinanceStore = create<FinanceState>()(
   persist(
     (set, get) => ({
       lastSyncedAt: null,
-      pendingSmsItems: [],
-      suppressedSenders: [],
       isOnboarded: false,
       onboardingName: '',
       onboardingGoals: [],
@@ -250,6 +241,9 @@ const payload: Record<string, unknown> = { id, user_id: userId };
 
         const now = new Date();
         const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        if (currentExp.lastPaidMonth === currentMonthStr) return; // already paid this month
+
         const currentDueDate = new Date(currentExp.dueDate);
         const nextDueDate = new Date(
           currentDueDate.getFullYear(),
@@ -550,22 +544,6 @@ const payload: Record<string, unknown> = { id, user_id: userId };
         }
       },
       setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
-      addPendingSms: (item) => {
-        set((state) => ({
-          pendingSmsItems: [item, ...state.pendingSmsItems],
-        }));
-      },
-      removePendingSms: (id) => {
-        set((state) => ({
-          pendingSmsItems: state.pendingSmsItems.filter((s) => s.id !== id),
-        }));
-      },
-      clearPendingSms: () => set({ pendingSmsItems: [] }),
-      addSuppressedSender: (sender) => {
-        set((state) => ({
-          suppressedSenders: [...new Set([...state.suppressedSenders, sender.toUpperCase()])],
-        }));
-      },
     }),
     {
       name: 'meridian-finance-storage-v13',

@@ -306,7 +306,7 @@ These are the canonical screens to implement. Title starts with "Meridian:" in S
 | 1 | Meridian: Finance Home | `58381ce9` | Finance | 1 |
 | 2 | Meridian: Add Expense Form | `d7ccc69b` | Finance | 1 |
 | 3 | Meridian: Recurring Expenses | `d8377e5a` | Finance | 1 |
-| 4 | Meridian: Expense Confirmation | `0defa469` | Finance | 4 |
+| 4 | Meridian: Expense Confirmation | `0defa469` | Finance | 1 |
 | 5 | Meridian: Bank Accounts | `5a2de0fa` | Finance | 1 |
 | 6 | Meridian: Finance Reports | `f948153e` | Finance | 1 |
 | 7 | Meridian: Lent & Borrowed | `91c0f6c3` | Finance | 1 |
@@ -333,7 +333,7 @@ These exist in Stitch but are pre-rename light screens. Use for layout/component
 | 22 | Recurring Expenses | `3d7afd51` | Finance | 1 |
 | 23 | Finance Reports | `322593d2` | Finance | 1 |
 | 24 | Add Expense Form | `c6f62569` | Finance | 1 |
-| 25 | Expense Confirmation | `ea7005ad` | Finance | 4 |
+| 25 | Expense Confirmation | `ea7005ad` | Finance | 1 |
 | 26 | Card T&C Chat | `a63955df` | Finance/AI | 6 |
 | 27 | Garage Dashboard | `3bdaa732` | Garage | 2 |
 | 28 | Vehicle Garage Dashboard | `10e22cae` | Garage | 2 |
@@ -368,8 +368,6 @@ Bottom Tab: Finance
       ├─ [Recurring] → Meridian: Recurring Expenses
       ├─ [Reports] → Meridian: Finance Reports
       └─ [FAB +] → Meridian: Add Expense Form
-              or
-         [SMS tap] → Meridian: Expense Confirmation
 
 Bottom Tab: Garage
   └─ Meridian: Garage Dashboard → Fuel Fill | Vehicle Spend | Reports
