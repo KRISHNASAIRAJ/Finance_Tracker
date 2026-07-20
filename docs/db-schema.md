@@ -16,20 +16,23 @@
 | `bank_accounts` | Finance | Bank savings/current accounts |
 | `lent_borrowed` | Finance | Person-to-person lending records |
 | `fixed_expenses` | Finance | Recurring bills and subscriptions |
+| `expected_incomes` | Finance | Expected income entries per user |
+| `user_settings` | Finance | Per-user settings (monthly budget) |
+| `payzapp_loads` | Finance | Payzapp wallet load tracking |
+| `kite_tokens` | Equity | Kite Connect OAuth access tokens |
 | `tnc_documents` | Finance/AI | Uploaded card T&C PDFs metadata |
 | `tnc_embeddings` | Finance/AI | pgvector embeddings for RAG |
 | `vehicles` | Garage | Vehicle registry |
 | `fuel_fills` | Garage | Fuel fill-up logs with mileage |
 | `vehicle_spends` | Garage | Service, repair, insurance logs |
 | `tasks` | Tasks | Task records with recurrence |
-| `task_reminders` | Tasks | Reminder timestamps per task |
-| `holdings` | Equity | Stock/MF holding positions |
 | `portfolio_snapshots` | Equity | Daily portfolio value history |
 | `investment_goals` | Equity | Investment goal targets |
 | `goals_2026` | Personal | Life goals for 2026 |
 | `notes` | Personal | Freeform personal notes |
 | `recipes` | Personal | Recipe book |
 | `diet_plan_entries` | Personal | Weekly meal plan |
+| `device_tokens` | Shared | Expo push notification tokens |
 
 ---
 
@@ -62,12 +65,6 @@ vehicle_spends
 lent_borrowed
   └─→ transactions (transaction_id)
 
-task_reminders
-  └─→ tasks (task_id) [CASCADE DELETE]
-
-tasks
-  └─→ tasks (parent_task_id) [self-referential]
-
 diet_plan_entries
   └─→ recipes (recipe_id)
 ```
@@ -94,16 +91,26 @@ diet_plan_entries
 ## Migration Naming Convention
 
 ```
-YYYYMMDD_HHMMSS_<description>.py
+NNNN_description.sql
 
-Examples:
-20260717_090000_create_shared_transactions.py
-20260717_090100_create_finance_tables.py
-20260717_090200_create_vehicle_tables.py
-20260717_090300_create_task_tables.py
-20260717_090400_create_equity_tables.py
-20260717_090500_create_personal_notes_tables.py
-20260717_090700_create_tnc_embeddings_pgvector.py
+Migrations are numbered sequentially in supabase/migrations/:
+0001_init.sql              — All base tables
+0002_rls.sql               — Row-Level Security policies
+0003_storage.sql           — Storage buckets
+0004_finance_polish.sql    — Finance polish
+0005_lent_borrowed.sql     — Lent/borrowed table
+0006_fix_users_rls.sql     — User RLS fixes
+0007_vehicles.sql          — Vehicle garage tables
+0008_tasks_recurrence.sql  — Task recurrence fields
+0009_equity.sql            — Equity holdings + Kite tokens
+0010_mf_fields.sql         — Mutual fund fields
+0011_pg_cron_portfolio_snapshot.sql — Cron job for snapshots
+0012_allocation_category.sql — Allocation categories
+0013_device_tokens.sql     — Push token registration
+0014_credit_card_bill_tracking.sql — Card bill tracking
+0015_card_documents.sql    — Card T&C documents
+0016_user_settings.sql     — Expected incomes + user settings
+0017_tasks_completed_at.sql — Task completion timestamps
 ```
 
-Create using: `alembic revision --autogenerate -m "create_shared_transactions"`
+Push to remote: `supabase db push --linked`

@@ -74,7 +74,7 @@ Always work within the current phase. Do NOT skip ahead.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟢 100% — 13 migrations (17 tables), RLS fixed, config.toml polished, all services done |
+| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟢 100% — 17 migrations (17 tables + RLS), config.toml polished, all services done |
 | **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | 🟢 100% — 15 screens, add-card/delete-card, bank/limit fields, typed store, dynamic donut, bidirectional sync |
 | **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | 🟢 100% — 7 screens, vehicles table + sync, multi-vehicle UI (add/edit/delete), FAB menu, maintenance screen, sync queue |
 | **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD |
@@ -82,7 +82,7 @@ Always work within the current phase. Do NOT skip ahead.
 | **Phase 5** | SMS Auto-capture — REMOVED from project | 🔴 Removed |
 | **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation (goal-aware) | 🟢 100% — shared Groq client, both edge functions fully implemented (T&C Q&A + portfolio recs), CardChat + AIRecommendations screens, document upload + RAG via text retrieval, rate-limited Groq calls |
 | **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
-| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, key tests (finance store) |
+| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, sync queue crash-safety (no-dataloss), fixed expense idempotency guard, balance summary min-bal exclusion, task notification catch-up for near-term tasks, Kite OAuth state-param + redirect URI + verify_jwt fix, Android 13 POST_NOTIFICATIONS permission |
 
 ---
 
