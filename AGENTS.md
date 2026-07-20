@@ -41,8 +41,7 @@ krishnas-tracker/
 ├── docs/
 │   ├── api-contracts.md       ← API endpoint specs
 │   ├── db-schema.md           ← Full DB schema reference
-│   ├── notification-flows.md  ← Notification trigger maps
-│   └── sms-parser-spec.md     ← SMS parsing rules
+│   └── notification-flows.md  ← Notification trigger maps
 ├── mobile/                    ← React Native app
 │   ├── src/
 │   │   ├── modules/           ← Feature modules (finance, garage, tasks, equity, personal)
@@ -61,7 +60,6 @@ krishnas-tracker/
 │       ├── _shared/groq.ts     ← Shared Groq API client
 │       ├── ai-tnc-query/       ← Card T&C chat (Phase 6 — deployed, uses Groq)
 │       ├── ai-portfolio-recommend/  ← Portfolio recs (Phase 6 — deployed, uses Groq)
-│       ├── ai-sms-parse/       ← SMS parsing fallback (Phase 5 — deployed, uses Groq)
 │       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4 — deployed)
 │       ├── kite-callback/      ← Kite OAuth callback (Phase 4 — deployed)
 │       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4 — deployed)
@@ -81,10 +79,10 @@ Always work within the current phase. Do NOT skip ahead.
 | **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | 🟢 100% — 7 screens, vehicles table + sync, multi-vehicle UI (add/edit/delete), FAB menu, maintenance screen, sync queue |
 | **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD |
 | **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | 🟢 100% — 6 screens, Kite OAuth + equity+MF sync, allocation donut (Gold/Realty/Equity/MF), pg_cron portfolio snapshots, Expo push notifications, goal auto-progress |
-| **Phase 5** | SMS Auto-capture: listener, parser (regex rules + AI fallback), confirm flow, suppressed senders, persistent dedup | 🟢 100% — 5 services, native module, confirmation screen, regex engine, AI Claude fallback edge function, rate limiting, ignore-sender UI |
+| **Phase 5** | SMS Auto-capture — REMOVED from project | 🔴 Removed |
 | **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation (goal-aware) | 🟢 100% — shared Groq client, both edge functions fully implemented (T&C Q&A + portfolio recs), CardChat + AIRecommendations screens, document upload + RAG via text retrieval, rate-limited Groq calls |
 | **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
-| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, key tests (smsParser, finance store) |
+| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, key tests (finance store) |
 
 ---
 
@@ -164,10 +162,9 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 
 | Risk | Mitigation |
 |---|---|
-| Kite Connect API pricing | Confirm free-tier access before Phase 5. Implement manual entry as full fallback |
-| SMS parsing coverage | Budget for edge cases across HDFC, ICICI, SBI, Axis, Kotak SMS formats |
+| Kite Connect API pricing | Confirm free-tier access before Phase 4. Implement manual entry as full fallback |
 | Android OEM battery optimization | Prompt user to whitelist app; use `WorkManager` with `KEEP` policy |
-| Claude API costs | Gate AI calls behind usage caps; cache responses where appropriate |
+| Groq API costs | Gate AI calls behind usage caps; cache responses where appropriate |
 
 ---
 
@@ -181,7 +178,6 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 | AI safety rules | `SAFETY.md` |
 | UI design system + screens | `DESIGN.md` ← **dark mode first; 16 canonical dark screens + 30 light legacy** |
 | DB schema | `docs/db-schema.md` |
-| SMS parser spec | `docs/sms-parser-spec.md` |
 | Notification flows | `docs/notification-flows.md` |
 | Screen screenshots index | `docs/screens.md` |
 | Architecture decision (BaaS-first) | `ADR/ADR-008-baas-first.md` |

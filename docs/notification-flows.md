@@ -9,9 +9,8 @@
 ## Notification Types Overview
 
 | ID | Name | Trigger | Mechanism | Privacy Level |
-|---|---|---|---|---|
+|---|---|---|---|
 | N1 | Task Reminder | User-set reminder time | Local (AlarmManager) | Private — never via FCM |
-| N2 | SMS Expense Confirm | Incoming bank SMS | Local (BroadcastReceiver) | Private — never via FCM |
 | N3 | Daily Portfolio Report | 8:30 PM IST daily | FCM Push (server cron) | Low-sensitivity summary only |
 | N4 | Fixed Expense Due | N days before due date | Local (WorkManager daily check) | Private |
 | N5 | Credit Card Due | N days before due date | Local (WorkManager daily check) | Private |
@@ -54,60 +53,6 @@ User taps → navigate to task detail screen
 ```
 
 ---
-
-## N2: SMS Expense Confirm
-
-### Trigger
-Incoming SMS from an allowlisted bank/card sender ID.
-
-### Flow
-```
-Incoming SMS
-    ↓
-Android BroadcastReceiver (android.provider.Telephony.SMS_RECEIVED)
-    ↓
-Check: sender_id in BANK_SENDER_ALLOWLIST?
-  No → ignore silently
-  Yes → pass SMS to SMS parser service
-    ↓
-SMS Parser (regex rules engine → Claude fallback if needed)
-    ↓
-If parse confidence ≥ 0.7:
-  Write to pending_transactions queue (SQLite)
-  Show notification:
-    title: "₹<amount> at <merchant>"
-    body: "Tap to add as expense"
-    actions: [✅ Add] [❌ Ignore]
-    ↓
-User taps "Add" → navigate to expense confirm screen (pre-filled)
-User taps "Ignore" → dismiss (optionally mark sender as suppressed)
-```
-
-### BANK_SENDER_ALLOWLIST (starter list — expand as needed)
-```typescript
-export const BANK_SENDER_ALLOWLIST = [
-  'HDFCBK', 'HDFCCC',     // HDFC Bank / Credit Card
-  'ICICIB', 'ICICIC',     // ICICI Bank / Credit Card
-  'SBICRD', 'SBIBNK',     // SBI
-  'AXISBK', 'AXISCC',     // Axis Bank
-  'KOTAKB', 'KOTAKC',     // Kotak
-  'INDUSB',               // IndusInd
-  'YESBK',                // Yes Bank
-  'PAYTMB',               // Paytm Bank
-];
-```
-
-### Implementation Notes
-- The BroadcastReceiver must be declared in `AndroidManifest.xml` with `android:exported="false"`
-- SMS read permission: `READ_SMS` (acceptable for sideloaded personal app — documented in PRD)
-- **Never** process SMS from numbers not in the allowlist
-- Strip sender number before any Claude API call (see `SAFETY.md`)
-
-### Permissions Required
-```xml
-<uses-permission android:name="android.permission.RECEIVE_SMS" />
-<uses-permission android:name="android.permission.READ_SMS" />
-```
 
 ---
 
@@ -220,12 +165,6 @@ await notifee.createChannels([
     importance: AndroidImportance.HIGH,
     sound: 'default',
     vibration: true,
-  },
-  {
-    id: 'sms_expense',
-    name: 'Expense Detection',
-    importance: AndroidImportance.HIGH,
-    sound: 'default',
   },
   {
     id: 'portfolio',

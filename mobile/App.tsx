@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox, Platform } from 'react-native';
+import { AppState, AppStateStatus, LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -16,7 +16,6 @@ import { scheduleAllReminders, requestNotificationPermission } from './src/servi
 import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask, triggerSyncNow } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
-import { initSmsHandler, scanExistingSms } from './src/services/smsHandler';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 
 TaskManager.defineTask(TASK_NAME, async () => {
@@ -46,17 +45,6 @@ export default function App() {
       scheduleAllReminders();
       setTimeout(() => promptBatteryOptimization(), 3000);
     });
-
-    if (Platform.OS === 'android') {
-      initSmsHandler((smsData) => {
-        if (navigationRef.isReady()) {
-          (navigationRef as any).navigate('FinanceTab', {
-            screen: 'SmsConfirmation',
-            params: { smsData },
-          });
-        }
-      });
-    }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {

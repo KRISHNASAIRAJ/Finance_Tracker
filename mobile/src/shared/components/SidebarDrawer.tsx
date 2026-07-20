@@ -42,6 +42,8 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
   // Calculations — match FinanceHomeScreen formula exactly
   const displayName = onboardingName || 'Meridian User';
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
+  const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
+  const effectiveBalance = totalBalance - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + r.amount, 0);
   
@@ -51,12 +53,8 @@ export default function SidebarDrawer({ isOpen, onClose, navigation }: SidebarDr
     .filter((f) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum, f) => sum + f.amount, 0);
   const totalCardBills = cards.reduce((sum, c) => sum + c.balance, 0);
-  const deficitsSum = accounts.reduce((sum, acc) => {
-    const min = getMinBalanceForAccount(acc.title);
-    return sum + (acc.amount < min ? min - acc.amount : 0);
-  }, 0);
   
-  const totalNetWorth = totalBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - totalCardBills - deficitsSum;
+  const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - totalCardBills;
 
   // Name edit state
   const [nameModalOpen, setNameModalOpen] = useState(false);

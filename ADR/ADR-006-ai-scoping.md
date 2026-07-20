@@ -5,7 +5,7 @@
 The Claude API has ongoing token costs and privacy implications. Without explicit scoping, "add AI to everything" becomes a common request that inflates costs and creates privacy surface area.
 
 ## Decision
-**In v1, Claude API is permitted for EXACTLY three purposes: Card T&C Q&A (RAG), SMS parsing fallback, and Portfolio recommendations. All three are backend-only.**
+**In v1, Claude API is permitted for EXACTLY two purposes: Card T&C Q&A (RAG) and Portfolio recommendations. Both are backend-only.**
 
 ## Rationale
 - **Cost control**: Unbounded AI features on a personal app can cost $50-200/month unexpectedly
@@ -22,5 +22,5 @@ The Claude API has ongoing token costs and privacy implications. Without explici
 
 ## Consequences
 - Any new AI feature proposal must go through the gate process in SAFETY.md Section 10
-- The `backend/app/ai/` directory has exactly three service files in v1
+- The `backend/app/ai/` directory has exactly two service files in v1
 - Rate limits are enforced per use case (see SAFETY.md Section 6)

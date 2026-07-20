@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { isExpoGo } from '../shared/isExpoGo';
@@ -40,6 +40,7 @@ let channelsCreated = false;
 function ensureInit() {
   if (_initialized) return Notifications !== null;
   if (isExpoGo()) {
+    console.warn('[notificationService] Blocked: running in Expo Go. Build a dev client (npx expo run:android) for notifications.');
     _initialized = true;
     return false;
   }
@@ -56,8 +57,10 @@ function ensureInit() {
       }),
     });
     setupChannels();
+    console.log('[notificationService] Initialized successfully');
     return true;
-  } catch {
+  } catch (e) {
+    console.warn('[notificationService] Init failed:', e);
     Notifications = null;
     return false;
   }
@@ -68,7 +71,6 @@ async function setupChannels() {
   try {
     const channels = [
       { id: 'task_reminders', name: 'Task Reminders', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
-      { id: 'sms_expense', name: 'Expense Detection', importance: Notifications.AndroidImportance.HIGH, sound: 'default' },
       { id: 'portfolio', name: 'Portfolio Updates', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'bills_due', name: 'Bills & Due Dates', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
     ];
@@ -76,17 +78,27 @@ async function setupChannels() {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
     }
     channelsCreated = true;
-  } catch {}
+  } catch (e) { console.warn('[notificationService] Channel setup failed:', e); }
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!ensureInit()) return false;
+
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      const result = await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS');
+      if (result !== 'granted') {
+        console.warn('[notificationService] Android POST_NOTIFICATIONS denied:', result);
+      }
+    } catch (e) { console.warn('[notificationService] POST_NOTIFICATIONS request failed:', e); }
+  }
+
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     if (existing === 'granted') return true;
     const { status } = await Notifications.requestPermissionsAsync();
     return status === 'granted';
-  } catch { return false; }
+  } catch (e) { console.warn('[notificationService] Permission request failed:', e); return false; }
 }
 
 export async function scheduleLocal(
@@ -97,7 +109,10 @@ export async function scheduleLocal(
 ) {
   if (!ensureInit()) return;
   const now = new Date();
-  if (triggerDate <= now) return;
+  if (triggerDate <= now) {
+    console.log('[notificationService] Skipping past trigger:', title, triggerDate.toISOString());
+    return;
+  }
 
   const secondsUntil = Math.floor((triggerDate.getTime() - now.getTime()) / 1000);
   if (secondsUntil <= 0) return;
@@ -117,7 +132,7 @@ export async function scheduleLocal(
         seconds: secondsUntil,
       },
     });
-  } catch {}
+  } catch (e) { console.warn('[notificationService] scheduleLocal failed:', title, e); }
 }
 
 function getNextBillingDate(billingDay: number): Date {
@@ -137,13 +152,21 @@ function getNextBillingDate(billingDay: number): Date {
 }
 
 export async function scheduleAllReminders() {
-  if (!ensureInit() || isScheduling) return;
+  if (isScheduling) return;
+  if (!ensureInit()) {
+    console.warn('[notificationService] scheduleAllReminders: ensureInit failed. isExpoGo:', isExpoGo());
+    return;
+  }
   const granted = await requestNotificationPermission();
-  if (!granted) return;
+  if (!granted) {
+    console.warn('[notificationService] scheduleAllReminders: permission not granted');
+    return;
+  }
 
   isScheduling = true;
   try {
     if (!Notifications) return;
+    console.log('[notificationService] Cancelling all + rescheduling...');
     await Notifications.cancelAllScheduledNotificationsAsync();
 
     const { cards, receivables } = useFinanceStore.getState();
@@ -230,19 +253,32 @@ export async function scheduleAllReminders() {
       }
     }
 
-    // Task reminders — 1 day before due
+    // Task reminders — 1 day before due; fallback to near-term if missed
+    const now = new Date();
     for (const task of (tasks || [])) {
       if (task.completed) continue;
       const dueDate = new Date(task.dueDate);
+      if (isNaN(dueDate.getTime())) continue;
+
+      const priorityEmoji = task.priority === 'urgent' ? '\u{1F534}' : task.priority === 'high' ? '\u{1F7E0}' : '\u{1F7E1}';
+      const subtasks = task.subtasks || [];
+      const remainingStr = subtasks.length > 0 ? `${subtasks.filter((s: any) => !s.completed).length} subtasks remaining. ` : '';
+      const dueStr = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
       const remindDate = new Date(dueDate.getTime() - 86400000);
-      const now = new Date();
+
       if (remindDate > now) {
-        const priorityEmoji = task.priority === 'urgent' ? '\u{1F534}' : task.priority === 'high' ? '\u{1F7E0}' : '\u{1F7E1}';
-        const subtasks = task.subtasks || [];
         await scheduleLocal(
           `${priorityEmoji} Task: ${task.name}`,
-          `Due tomorrow. ${subtasks.length > 0 ? `${subtasks.filter((s: any) => !s.completed).length} subtasks remaining.` : ''}`,
+          `${remainingStr}Due by ${dueStr}`,
           remindDate
+        );
+      } else if (dueDate > now) {
+        const catchUp = new Date(now.getTime() + 5 * 60000);
+        await scheduleLocal(
+          `${priorityEmoji} Task: ${task.name}`,
+          `${remainingStr}Due by ${dueStr}`,
+          catchUp
         );
       }
     }

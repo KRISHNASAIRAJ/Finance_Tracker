@@ -50,6 +50,13 @@ Deno.serve(async (req: Request) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
+  if (!KITE_API_KEY || !KITE_API_SECRET) {
+    return new Response(
+      JSON.stringify({ error: "KITE_API_KEY or KITE_API_SECRET is not configured. Run: supabase secrets set KITE_API_KEY=xxx KITE_API_SECRET=yyy", synced: 0 }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,20 +73,52 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Fetch access token from kite_tokens (personal app: use first available)
-    const { data: tokenRows, error: tokenErr } = await supabase
+    // Fetch access token — prefer matching user_id, fallback to first available (legacy tokens)
+    let accessToken: string | null = null;
+
+    const { data: matchedRows, error: matchErr } = await supabase
       .from("kite_tokens")
       .select("access_token, user_id")
-      .limit(1);
+      .eq("user_id", userId);
 
-    if (tokenErr || !tokenRows || tokenRows.length === 0) {
+    if (matchErr) {
+      console.error("kite_tokens lookup error:", matchErr.message);
+    }
+
+    if (matchedRows && matchedRows.length > 0) {
+      accessToken = matchedRows[0].access_token;
+    } else {
+      // Legacy fallback: old tokens stored with Kite internal ID as user_id
+      const { data: legacyRows, error: legacyErr } = await supabase
+        .from("kite_tokens")
+        .select("access_token, user_id")
+        .limit(1);
+
+      if (legacyErr || !legacyRows || legacyRows.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "No Kite token found. Please connect Kite first.", synced: 0 }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      accessToken = legacyRows[0].access_token;
+      // Migrate: update the legacy token's user_id to match the requesting user
+      const legacyUserId = legacyRows[0].user_id;
+      if (legacyUserId !== userId) {
+        await supabase
+          .from("kite_tokens")
+          .update({ user_id: userId, updated_at: new Date().toISOString() })
+          .eq("user_id", legacyUserId);
+        console.log(`Migrated kite_tokens user_id from "${legacyUserId}" to "${userId}"`);
+      }
+    }
+
+    if (!accessToken) {
       return new Response(
-        JSON.stringify({ error: "No Kite token. Please connect Kite first.", synced: 0 }),
+        JSON.stringify({ error: "No Kite token found. Please connect Kite first.", synced: 0 }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    const accessToken = tokenRows[0].access_token;
 
     // Fetch equity holdings from Kite Connect
     const kiteRes = await fetch("https://api.kite.trade/portfolio/holdings", {

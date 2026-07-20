@@ -43,7 +43,6 @@ The mobile app communicates directly with Supabase's PostgREST API for all CRUD 
 │  │  Edge Functions (Deno/TypeScript, hold secrets):  │   │
 │  │   · ai-tnc-query          (Card T&C RAG, Phase 6) │   │
 │  │   · ai-portfolio-recommend(Phase 6)                │   │
-│  │   · ai-sms-parse-fallback (Phase 5)                │   │
 │  │   · kite-holdings-sync    (Phase 4, gated)        │   │
 │  │   · portfolio-snapshot    (pg_cron trigger, Ph 4) │   │
 │  └──────────────────────────────────────────────────┘   │
@@ -61,7 +60,7 @@ The `backend/` folder (FastAPI, SQLAlchemy, Alembic, Pydantic) is archived to a 
 - **Simpler offline sync** — mobile writes to SQLite → queues → direct Supabase insert (one hop instead of mobile → FastAPI → Supabase)
 - **End-to-end TypeScript** — mobile (React Native) + backend logic (Edge Functions) share TS types
 - **Built-in RLS** — row-level security scopes all data to `auth.uid()`, future-proof for multi-user if needed
-- **Realtime out of the box** — Supabase Realtime subscriptions for live data sync (Phase 4, 5)
+- **Realtime out of the box** — Supabase Realtime subscriptions for live data sync (Phase 4)
 - **Edge Functions solve the secret problem** — Claude API keys and Kite OAuth secrets live in Supabase Edge Function secrets, never in the mobile app (BOUNDARIES §3.2, §4.1 honored)
 
 ### Negative
@@ -69,7 +68,6 @@ The `backend/` folder (FastAPI, SQLAlchemy, Alembic, Pydantic) is archived to a 
 - **RLS learning curve** — the team needs to write PostgreSQL RLS policies instead of Python middleware
 - **Edge Function cold start** — Deno Edge Functions have ~100-500ms cold start vs always-warm FastAPI
 - **No Python AI ecosystem** — Edge Functions use Deno/TypeScript for Groq API calls
-- **SMS parsing regex engine** — moves from Python to TypeScript (or Edge Function)
 
 ## Revises
 - **ADR-001** (2026-07-17): "React Native + FastAPI + PostgreSQL" → "React Native + Supabase (no FastAPI)". The Supabase PostgreSQL choice remains. FastAPI is removed.

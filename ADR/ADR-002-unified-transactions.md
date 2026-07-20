@@ -11,7 +11,7 @@ The app has four modules that all produce "money events": Finance (expenses, car
 - Enables a single SQL query for total monthly outflow across all modules
 - Simplifies the "net worth" calculation (one table scan)
 - Future cross-module reports (Phase 9) become trivial
-- The `source` field (manual/sms_auto/kite_sync) provides provenance for any transaction
+- The `source` field (manual/kite_sync) provides provenance for any transaction
 
 ## Trade-offs
 - The table has many nullable foreign keys — acceptable for a single-user personal app

@@ -29,7 +29,6 @@ import FinanceReportsScreen from '../modules/finance/screens/FinanceReportsScree
 import AllTransactionsScreen from '../modules/finance/screens/AllTransactionsScreen';
 import CreditCardsScreen from '../modules/finance/screens/CreditCardsScreen';
 import BalanceSummaryScreen from '../modules/finance/screens/BalanceSummaryScreen';
-import SmsConfirmationScreen from '../modules/finance/screens/SmsConfirmationScreen';
 import CreditCardDetailScreen from '../modules/finance/screens/CreditCardDetailScreen';
 import CardAssistantScreen from '../modules/finance/screens/CardAssistantScreen';
 import PayzappWalletScreen from '../modules/finance/screens/PayzappWalletScreen';
@@ -77,20 +76,6 @@ export type FinanceStackParamList = {
   AllTransactions: undefined;
   CreditCards: undefined;
   BalanceSummary: undefined;
-  SmsConfirmation: {
-    smsData: {
-      smsId?: string;
-      smsBody: string;
-      senderId: string;
-      parsedAmount: number | null;
-      parsedMerchant: string | null;
-      parsedCard: string | null;
-      parsedAccount: string | null;
-      parsedType: string | null;
-      confidence: number;
-      onDone?: () => void;
-    };
-  };
   CreditCardDetail: { cardId: string };
   CardAssistant: undefined;
   PayzappWallet: undefined;
@@ -186,7 +171,6 @@ function FinanceStackNavigator() {
       <FinanceStack.Screen name="AllTransactions" component={AllTransactionsScreen} />
       <FinanceStack.Screen name="CreditCards" component={CreditCardsScreen} />
       <FinanceStack.Screen name="BalanceSummary" component={BalanceSummaryScreen} />
-      <FinanceStack.Screen name="SmsConfirmation" component={SmsConfirmationScreen} options={modalScreenOptions} />
       <FinanceStack.Screen name="CreditCardDetail" component={CreditCardDetailScreen} />
       <FinanceStack.Screen name="CardAssistant" component={CardAssistantScreen} />
       <FinanceStack.Screen name="PayzappWallet" component={PayzappWalletScreen} />

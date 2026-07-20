@@ -1,6 +1,6 @@
 /**
  * Shared Anthropic (Claude) client for Edge Functions.
- * Used by ai-tnc-query, ai-portfolio-recommend, ai-sms-parse.
+ * Used by ai-tnc-query, ai-portfolio-recommend.
  *
  * Phase 6 — not deployed yet.
  */

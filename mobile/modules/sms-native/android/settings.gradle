@@ -1,3 +1,0 @@
-rootProject.name = 'sms-native'
-
-apply from: new File(["node", "--print", "require.resolve('expo-modules-core/package.json')"].execute(null, rootDir).text.trim(), "../android/expo-gradle.gradle")

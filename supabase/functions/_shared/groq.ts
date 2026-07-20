@@ -1,6 +1,6 @@
 /**
  * Shared Groq client for Edge Functions.
- * Used by ai-tnc-query, ai-portfolio-recommend, ai-sms-parse.
+ * Used by ai-tnc-query, ai-portfolio-recommend.
  *
  * Groq offers generous free tier (Llama models): ~7,000 req/day, 30 req/min.
  * Significantly cheaper than Anthropic Claude.

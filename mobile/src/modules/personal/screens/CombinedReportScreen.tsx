@@ -30,6 +30,8 @@ export default function CombinedReportScreen() {
 
   // ---- Bank ----
   const totalBankBalance = accounts.reduce((sum, a) => sum + a.amount, 0);
+  const totalMinBalance = accounts.reduce((sum, a) => sum + getMinBalanceForAccount(a.title), 0);
+  const effectiveBalance = totalBankBalance - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + r.amount, 0);
 
@@ -42,13 +44,9 @@ export default function CombinedReportScreen() {
     .filter((f) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum, f) => sum + f.amount, 0);
   const cardOutstanding = cards.reduce((sum, c) => sum + c.balance, 0);
-  const deficitsSum = accounts.reduce((sum, acc) => {
-    const min = getMinBalanceForAccount(acc.title);
-    return sum + (acc.amount < min ? min - acc.amount : 0);
-  }, 0);
 
   const netWorth =
-    totalBankBalance + portfolioValue + totalLent + totalExpectedIncome - totalBorrowed - unpaidFixed - cardOutstanding - deficitsSum;
+    effectiveBalance + portfolioValue + totalLent + totalExpectedIncome - totalBorrowed - unpaidFixed - cardOutstanding;
 
   // ---- Monthly spend ----
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

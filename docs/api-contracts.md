@@ -118,7 +118,7 @@ GET    /api/v1/transactions/summary      → Aggregated summary for dashboard
 ?date_from=2026-07-01
 ?date_to=2026-07-31
 ?linked_card_id=<uuid>
-?source=manual,sms_auto
+?source=manual
 ?page=1&per_page=20
 ```
 
@@ -258,6 +258,5 @@ DELETE /api/v1/diet-plan/{date}/{slot}   → Clear a meal slot
 
 ```
 GET    /api/v1/dashboard                 → Combined home dashboard data
-POST   /api/v1/sms/parse                 → Parse SMS text (AI Use Case C — internal use)
 GET    /api/v1/health                    → [PUBLIC] Health check
 ```

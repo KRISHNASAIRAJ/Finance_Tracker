@@ -11,7 +11,7 @@ interface WalletLoadEntry {
   date: string;
   amount: number;
   notes?: string;
-  source: 'manual' | 'sms_auto';
+  source: 'manual';
 }
 
 const WALLET_TARGET = 4000000; // ₹40,000 in paise
@@ -176,19 +176,19 @@ export default function PayzappWalletScreen() {
         <View style={styles.emptyState}>
           <Ionicons name="wallet-outline" size={24} color={colors.outline} />
           <Text style={styles.emptyText}>No wallet loads recorded yet.</Text>
-          <Text style={styles.emptySubtext}>Tap "Log Wallet Load" to add one manually, or the app will auto-detect from SMS.</Text>
+          <Text style={styles.emptySubtext}>Tap "Log Wallet Load" to add one manually.</Text>
         </View>
       ) : (
         <ScrollView style={styles.loadsList} showsVerticalScrollIndicator={false}>
           {walletLoads.map((tx: Transaction) => (
             <View key={tx.id} style={styles.loadRow}>
               <View style={styles.loadLeft}>
-                <View style={[styles.loadDot, { backgroundColor: tx.source === 'sms_auto' ? '#3B82F6' : '#84CC16' }]} />
+                <View style={[styles.loadDot, { backgroundColor: '#84CC16' }]} />
                 <View>
                   <Text style={styles.loadAmount}>-{formatCur(tx.amount)}</Text>
                   <Text style={styles.loadDate}>
                     {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    {tx.source === 'sms_auto' ? ' · Auto' : ' · Manual'}
+                    {' · Manual'}
                   </Text>
                   {tx.notes ? <Text style={styles.loadNotes}>{tx.notes}</Text> : null}
                 </View>

@@ -58,17 +58,11 @@
 | 4.9 | Backend: Implement 8:30 PM IST cron job for daily portfolio snapshot | Backend | 🔴 | Requires FCM push |
 | 4.10 | Backend: Verify Kite Connect pricing, implement if feasible | Backend | 🔴 | Phase 5.5 — gate-check first |
 
-## Phase 5 — SMS Auto-Capture
+## Phase 5 — SMS Auto-Capture (REMOVED)
 
 | # | Feature | Area | Status | Notes |
 |---|---------|------|--------|-------|
-| 5.1 | Backend: Create SMS parsing service (regex rules engine) | Backend | 🔴 | |
-| 5.2 | Backend: Add Claude API fallback for failed SMS parses | Backend | 🔴 | |
-| 5.3 | Backend: Create `pending_transactions` table + confirm endpoint | Backend | 🔴 | |
-| 5.4 | Mobile: Android SMS BroadcastReceiver native module | Mobile | 🔴 | |
-| 5.5 | Mobile: SMS allowlist config screen | Mobile | 🔴 | |
-| 5.6 | Mobile: Match SMS → show confirmation notification | Mobile | 🔴 | |
-| 5.7 | Mobile: Expense confirmation screen (category picker, edit, add/ignore) | Mobile | 🟢 | Screen exists but needs backend wiring |
+| — | This phase has been removed from the project | — | ⏭️ | SMS auto-capture is no longer in scope |
 
 ## Phase 6 — AI Assistants
 
@@ -119,11 +113,11 @@
 | 2 - Garage | 7 | 0 | 0% |
 | 3 - Tasks | 7 | 0 | 0% |
 | 4 - Equity/MF | 10 | 0 | 0% |
-| 5 - SMS Capture | 7 | 1 | 14% |
+| 5 - SMS Capture | 1 | 0 | Removed |
 | 6 - AI Assistants | 7 | 0 | 0% |
 | 7 - Personal Notes | 7 | 3 | 43% |
 | 9 - Polish | 10 | 0 | 0% |
-| **Total** | **63** | **5** | **8%** |
+| **Total** | **55** | **5** | **9%** |
 
 ---
 
@@ -133,7 +127,6 @@
 |------|-------------|-------------|
 | Personal Finance Assistant | Analyze spending patterns, lending status, net worth trends. Give recommendations on card usage, expense reduction, where to cut back. Could use Claude API via backend for analysis. | Phase 1 (Finance) stable, Phase 6 (AI) backend |
 | Kite Integration | Fetch live holdings from Zerodha via Kite Connect API. Update holdings store with real prices. Daily 8:30 PM cron job to snapshot portfolio + send FCM push with summary. Goal-aware recommendations. | Verify Kite API pricing, Phase 4 (Equity) backend |
-| SMS Auto-Capture | Android SMS BroadcastReceiver. Regex rules engine + Claude fallback. Confirmation notification flow. | Phase 1 stable, Android native module |
 | Cross-Module Net Worth Report | Combine finance, equity, and garage spend into a unified net worth dashboard with trends. | All modules data-rich |
 | Offline Sync Hardening | SQLite queue + WorkManager for reliable background sync. Conflict resolution. | Phase 9 Polish |
 

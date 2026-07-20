@@ -57,11 +57,11 @@
 | DB | PostgreSQL 15 | Hosted on Supabase |
 | Auth | Supabase Auth | JWT tokens |
 | Push notifications | Firebase Cloud Messaging | Server-triggered |
-| Local notifications | `@notifee/react-native` | Task reminders, SMS confirms |
+| Local notifications | `@notifee/react-native` | Task reminders, bill dues |
 | Background scheduler | Android WorkManager (via native module) | 8:30 PM cron on device |
 | AI | Groq API (Llama 3.3 70B + Llama 3.1 8B) — free-tier friendly |
 | Vector store | pgvector (PostgreSQL extension) | Card T&C document embeddings |
-| Brokerage | Kite Connect API (Zerodha) | Verify pricing before Phase 5 |
+| Brokerage | Kite Connect API (Zerodha) | Verify pricing before Phase 4 |
 | Hosting | Supabase + small VPS or Railway | Backend FastAPI instance |
 
 ---
@@ -87,9 +87,8 @@ CREATE TABLE transactions (
     linked_vehicle_id   UUID REFERENCES vehicles(id),
     linked_holding_id   UUID REFERENCES holdings(id),
     source          TEXT NOT NULL DEFAULT 'manual'
-                        CHECK (source IN ('manual', 'sms_auto', 'kite_sync')),
+                        CHECK (source IN ('manual', 'kite_sync')),
     notes           TEXT,
-    raw_sms_text    TEXT,                     -- stored only for sms_auto source
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -433,7 +432,6 @@ On conflict: server wins, re-sync SQLite
 | Notification Type | Mechanism | Trigger |
 |---|---|---|
 | Task reminder | `@notifee` local notification | WorkManager alarm at reminder time |
-| SMS expense confirm | `@notifee` local notification | SMS BroadcastReceiver |
 | Daily portfolio report | FCM push | Backend cron job at 8:30 PM IST |
 | Fixed expense due | `@notifee` local notification | WorkManager, N days before due |
 | Credit card due | `@notifee` local notification | WorkManager, N days before due |
@@ -482,24 +480,6 @@ Claude API call with system prompt defining scope
 Response: plain-language suggestions
     ↓
 Mobile: display with "Not financial advice" disclaimer
-```
-
-### 6.3 SMS Parsing Flow
-
-```
-Incoming SMS
-    ↓
-BroadcastReceiver → check sender ID against allowlist
-    ↓
-Regex/rules engine → try to parse amount, merchant, last4
-    ↓
-If parse fails → Claude API fallback (pass SMS text + parsing schema)
-    ↓
-Store parsed result in pending_transactions queue
-    ↓
-Local notification → user confirms or ignores
-    ↓
-On confirm → write to transactions table (source: sms_auto)
 ```
 
 ---

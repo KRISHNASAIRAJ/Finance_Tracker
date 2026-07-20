@@ -20,9 +20,7 @@
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
-        "VIBRATE",
-        "READ_SMS",
-        "RECEIVE_SMS"
+        "VIBRATE"
       ]
     },
     "splash": {
@@ -44,8 +42,7 @@
         {
           "sounds": []
         }
-      ],
-      "./plugins/withSmsReader"
+      ]
     ]
   }
 }

@@ -1,9 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-  <uses-permission android:name="android.permission.READ_SMS"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-  <uses-permission android:name="android.permission.RECEIVE_SMS"/>
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
@@ -32,10 +30,5 @@
         <data android:scheme="meridian"/>
       </intent-filter>
     </activity>
-    <receiver android:name="expo.modules.smsnative.SmsBroadcastReceiver" android:exported="true">
-      <intent-filter>
-        <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
-      </intent-filter>
-    </receiver>
   </application>
 </manifest>

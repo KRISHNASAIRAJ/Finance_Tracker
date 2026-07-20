@@ -61,6 +61,10 @@ export async function syncNow(userId: string): Promise<SyncState> {
 }
 
 async function doFullSync(userId: string) {
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue();
+  } catch (_e) { /* sync attempt fails silently — will retry on next CRUD */ }
   await doPull(userId);
   _hasSeeded = true;
 }
