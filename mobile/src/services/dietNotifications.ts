@@ -1,6 +1,24 @@
 import { Platform } from 'react-native';
 import { isExpoGo } from '../shared/isExpoGo';
 
+function ensureIST(date: Date): Date {
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const localOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  if (Math.abs(localOffsetMs + istOffsetMs) > 60000) {
+    return new Date(date.getTime() + istOffsetMs + localOffsetMs);
+  }
+  return date;
+}
+
+function istNow(): Date {
+  return ensureIST(new Date());
+}
+
+function createISTDate(year: number, month: number, day: number, hours: number, minutes: number): Date {
+  const utc = Date.UTC(year, month, day, hours, minutes, 0) - (5.5 * 3600000);
+  return new Date(utc);
+}
+
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (isExpoGo()) return false;
   try {
@@ -69,6 +87,19 @@ export async function scheduleDietNotifications(
 
         const mealName = dayMeals[config.slot as keyof typeof dayMeals] || 'Not planned';
 
+        const now = istNow();
+        const nowDay = now.getDay();
+        let daysUntil = dayNum - nowDay;
+        if (daysUntil < 0) daysUntil += 7;
+        if (daysUntil === 0) {
+          const todayTarget = createISTDate(now.getFullYear(), now.getMonth(), now.getDate(), config.hour, config.minute);
+          if (todayTarget <= now) daysUntil = 7;
+        }
+
+        const nextTrigger = createISTDate(now.getFullYear(), now.getMonth(), now.getDate() + daysUntil, config.hour, config.minute);
+        const secondsUntil = Math.floor((nextTrigger.getTime() - now.getTime()) / 1000);
+        if (secondsUntil <= 0) continue;
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `${config.slot.charAt(0).toUpperCase() + config.slot.slice(1)} — ${dayName}`,
@@ -76,10 +107,25 @@ export async function scheduleDietNotifications(
             data: { screen: 'DietPlanTracker', day: dayName, slot: config.slot },
           },
           trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-            weekday: dayNum,
-            hour: config.hour,
-            minute: config.minute,
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: secondsUntil,
+            repeats: false,
+            channelId: 'diet-reminders',
+          },
+        });
+
+        const weekLaterMs = 7 * 24 * 3600000;
+        const recurringSeconds = secondsUntil + weekLaterMs;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${config.slot.charAt(0).toUpperCase() + config.slot.slice(1)} — ${dayName}`,
+            body: mealName,
+            data: { screen: 'DietPlanTracker', day: dayName, slot: config.slot },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: recurringSeconds,
+            repeats: false,
             channelId: 'diet-reminders',
           },
         });

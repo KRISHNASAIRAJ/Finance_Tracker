@@ -3,11 +3,25 @@ import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { isExpoGo } from '../shared/isExpoGo';
 
-const WALLET_TARGET = 4000000; // ₹40,000 in paise
+const WALLET_TARGET = 4000000;
+
+function ensureIST(date: Date): Date {
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const localOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  if (Math.abs(localOffsetMs + istOffsetMs) > 60000) {
+    return new Date(date.getTime() + istOffsetMs + localOffsetMs);
+  }
+  return date;
+}
+
+function istNow(): Date {
+  return ensureIST(new Date());
+}
 
 function getCurrentMonthWalletLoad(): number {
   const { transactions } = useFinanceStore.getState();
-  const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const now = istNow();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
   return transactions
     .filter((tx: any) =>
       (tx.category === 'Wallet Loads' || tx.category === 'Wallet Load' ||
@@ -19,8 +33,8 @@ function getCurrentMonthWalletLoad(): number {
 }
 
 function getNextThursday(): Date {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun, 4=Thu
+  const now = istNow();
+  const day = now.getDay();
   const daysUntilThu = (4 - day + 7) % 7;
   const nextThu = new Date(now);
   nextThu.setDate(now.getDate() + (daysUntilThu === 0 ? 7 : daysUntilThu));
@@ -108,7 +122,7 @@ export async function scheduleLocal(
   channelId: string = 'bills_due'
 ) {
   if (!ensureInit()) return;
-  const now = new Date();
+  const now = istNow();
   if (triggerDate <= now) {
     console.log('[notificationService] Skipping past trigger:', title, triggerDate.toISOString());
     return;
@@ -136,7 +150,7 @@ export async function scheduleLocal(
 }
 
 function getNextBillingDate(billingDay: number): Date {
-  const now = new Date();
+  const now = istNow();
   const year = now.getFullYear();
   const month = now.getMonth();
   const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
@@ -181,7 +195,7 @@ export async function scheduleAllReminders() {
 
       const dueDate = new Date(card.dueDate);
       const dueDateStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 9, 0, 0);
-      const now = new Date();
+      const now = istNow();
       const cardName = card.name;
       const billStr = `\u20B9${(billAmt / 100).toLocaleString('en-IN')}`;
       const leftStr = `\u20B9${(billLeft / 100).toLocaleString('en-IN')}`;
@@ -226,7 +240,7 @@ export async function scheduleAllReminders() {
     for (const rec of (receivables || [])) {
       const dueDate = new Date(rec.dueDate);
       const remindDate = new Date(dueDate.getTime() - 86400000);
-      const now = new Date();
+      const now = istNow();
       if (remindDate > now) {
         const isLent = rec.type === 'lent';
         await scheduleLocal(
@@ -243,7 +257,7 @@ export async function scheduleAllReminders() {
       const nextThu = getNextThursday();
       const completed = formatCurrencyAmount(currentLoad);
       const left = formatCurrencyAmount(WALLET_TARGET - currentLoad);
-      if (nextThu > new Date()) {
+      if (nextThu > istNow()) {
         await scheduleLocal(
           '\u{1F4B0} Payzapp Wallet Incomplete',
           `${completed} loaded. ${left} left to reach \u20B940K target this month. Load via HDFC Millennia debit for 1% cashback.`,
@@ -254,7 +268,7 @@ export async function scheduleAllReminders() {
     }
 
     // Task reminders — 1 day before due; fallback to near-term if missed
-    const now = new Date();
+    const now = istNow();
     for (const task of (tasks || [])) {
       if (task.completed) continue;
       const dueDate = new Date(task.dueDate);

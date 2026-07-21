@@ -24,6 +24,7 @@ import {
   autoDetectCategory,
 } from '../../../shared/categoryMap';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
+import DateTimePicker from '../../../shared/components/DateTimePicker';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AddExpense'>;
 
@@ -38,6 +39,8 @@ export default function AddExpenseScreen() {
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [selectedCategory, setSelectedCategory] = useState(EXPENSE_CATEGORIES[0].name);
   const [isManualCategory, setIsManualCategory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
@@ -73,6 +76,7 @@ export default function AddExpenseScreen() {
       category: selectedCategory,
       notes: expenseName.trim() + (notes.trim() ? ` — ${notes.trim()}` : ''),
       source: 'manual',
+      date: selectedDate.toISOString(),
     }, user?.id);
 
     navigation.navigate('ExpenseConfirmation', { transactionId: newId });
@@ -173,6 +177,25 @@ export default function AddExpenseScreen() {
             </View>
           </View>
 
+          {/* Date & Time Picker */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>DATE & TIME</Text>
+            <TouchableOpacity
+              style={styles.datePickerTrigger}
+              onPress={() => setShowDateTimePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.datePickerText}>
+                {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+              <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+              <Text style={styles.datePickerText}>
+                {selectedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Notes */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>NOTES (EXTRA INFO)</Text>
@@ -197,6 +220,13 @@ export default function AddExpenseScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <DateTimePicker
+        visible={showDateTimePicker}
+        selected={selectedDate}
+        onSelect={(d) => { setSelectedDate(d); setShowDateTimePicker(false); }}
+        onClose={() => setShowDateTimePicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -281,6 +311,19 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   categoryText: { fontSize: 12, fontWeight: '500', color: colors.onSurfaceVariant },
+  dateTimeRow: { flexDirection: 'row', gap: 10 },
+  datePickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 44,
+    paddingHorizontal: 14,
+  },
+  datePickerText: { fontSize: 14, color: colors.onSurface, fontWeight: '600' },
   buttonContainer: { gap: 10, paddingTop: 8 },
   submitButton: {
     flexDirection: 'row',

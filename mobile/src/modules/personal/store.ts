@@ -85,65 +85,53 @@ export const usePersonalStore = create<PersonalState>()(
           const updated = state.goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g));
           return { goals: updated };
         });
-        if (userId) {
-          const goal = get().goals.find((g) => g.id === id);
-          if (goal) {
-            enqueueSync('goals', 'create', {
-              id: goal.id, user_id: userId, title: goal.name,
-              is_completed: goal.completed, updated_at: new Date().toISOString(),
-            });
-          }
+        const goal = get().goals.find((g) => g.id === id);
+        if (goal) {
+          enqueueSync('goals', 'create', {
+            id: goal.id, user_id: userId || null, title: goal.name,
+            is_completed: goal.completed, updated_at: new Date().toISOString(),
+          });
         }
       },
       addGoal: (name, userId) => {
         const goal: PersonalGoal = { id: Math.random().toString(36).substring(2, 9), name, completed: false };
         set((state) => ({ goals: [...state.goals, goal] }));
-        if (userId) {
-          enqueueSync('goals', 'create', {
-            id: goal.id, user_id: userId, title: goal.name,
-            is_completed: false, updated_at: new Date().toISOString(),
-          });
-        }
+        enqueueSync('goals', 'create', {
+          id: goal.id, user_id: userId || null, title: goal.name,
+          is_completed: false, updated_at: new Date().toISOString(),
+        });
         return goal;
       },
       deleteGoal: (id, userId) => {
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }));
-        if (userId) {
-          enqueueSync('goals', 'delete', { id, user_id: userId });
-        }
+        enqueueSync('goals', 'delete', { id, user_id: userId || null });
       },
       addNote: (title, content, userId) => {
         const id = Math.random().toString(36).substring(2, 9);
         const newNote: Note = { id, title, content, date: new Date().toISOString() };
         set((state) => ({ notes: [newNote, ...state.notes] }));
-        if (userId) {
-          enqueueSync('notes', 'create', {
-            id, user_id: userId, title, content,
-            created_at: newNote.date, updated_at: new Date().toISOString(),
-          });
-        }
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, title, content,
+          created_at: newNote.date, updated_at: new Date().toISOString(),
+        });
         return id;
       },
       deleteNote: (id, userId) => {
         set((state) => ({
           notes: state.notes.filter((n) => n.id !== id),
         }));
-        if (userId) {
-          enqueueSync('notes', 'delete', { id, user_id: userId });
-        }
+        enqueueSync('notes', 'delete', { id, user_id: userId || null });
       },
       updateNote: (id, title, content, userId) => {
         const date = new Date().toISOString();
         set((state) => ({
           notes: state.notes.map((n) => (n.id === id ? { ...n, title, content, date } : n)),
         }));
-        if (userId) {
-          enqueueSync('notes', 'create', {
-            id, user_id: userId, title, content, created_at: date, updated_at: date,
-          });
-        }
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, title, content, created_at: date, updated_at: date,
+        });
       },
       addRecipe: (recipe, userId) => {
         const newRecipe: Recipe = {
@@ -153,55 +141,47 @@ export const usePersonalStore = create<PersonalState>()(
         set((state) => ({
           recipes: [...state.recipes, newRecipe],
         }));
-        if (userId) {
-          enqueueSync('recipes', 'create', {
-            id: newRecipe.id, user_id: userId, title: newRecipe.title,
-            prep_time: parseInt(newRecipe.prepTime) || 0,
-            calories: parseInt(newRecipe.calories) || 0,
-            ingredients: JSON.stringify(newRecipe.ingredients),
-            steps: JSON.stringify(newRecipe.steps),
-            updated_at: new Date().toISOString(),
-          });
-        }
+        enqueueSync('recipes', 'create', {
+          id: newRecipe.id, user_id: userId || null, title: newRecipe.title,
+          prep_time: parseInt(newRecipe.prepTime) || 0,
+          calories: parseInt(newRecipe.calories) || 0,
+          ingredients: JSON.stringify(newRecipe.ingredients),
+          steps: JSON.stringify(newRecipe.steps),
+          updated_at: new Date().toISOString(),
+        });
         return newRecipe.id;
       },
       deleteRecipe: (id, userId) => {
         set((state) => ({
           recipes: state.recipes.filter((r) => r.id !== id),
         }));
-        if (userId) {
-          enqueueSync('recipes', 'delete', { id, user_id: userId });
-        }
+        enqueueSync('recipes', 'delete', { id, user_id: userId || null });
       },
       updateRecipe: (id, recipe, userId) => {
         set((state) => ({
           recipes: state.recipes.map((r) => (r.id === id ? { ...r, ...recipe } : r)),
         }));
-        if (userId) {
-          const updated = get().recipes.find((r) => r.id === id);
-          if (updated) {
-            enqueueSync('recipes', 'create', {
-              id: updated.id, user_id: userId, title: updated.title,
-              prep_time: parseInt(updated.prepTime) || 0,
-              calories: parseInt(updated.calories) || 0,
-              ingredients: JSON.stringify(updated.ingredients),
-              steps: JSON.stringify(updated.steps),
-              updated_at: new Date().toISOString(),
-            });
-          }
+        const updated = get().recipes.find((r) => r.id === id);
+        if (updated) {
+          enqueueSync('recipes', 'create', {
+            id: updated.id, user_id: userId || null, title: updated.title,
+            prep_time: parseInt(updated.prepTime) || 0,
+            calories: parseInt(updated.calories) || 0,
+            ingredients: JSON.stringify(updated.ingredients),
+            steps: JSON.stringify(updated.steps),
+            updated_at: new Date().toISOString(),
+          });
         }
       },
       updateMealSlot: (day, slot, name, userId) => {
         set((state) => ({
           meals: state.meals.map((m) => (m.day === day ? { ...m, [slot]: name } : m)),
         }));
-        if (userId) {
-          enqueueSync('diet_plans', 'create', {
-            id: `${userId}_${day}_${slot}`,
-            user_id: userId, day, meal_type: slot,
-            meal_name: name, updated_at: new Date().toISOString(),
-          });
-        }
+        enqueueSync('diet_plans', 'create', {
+          id: `${userId || 'local'}_${day}_${slot}`,
+          user_id: userId || null, day, meal_type: slot,
+          meal_name: name, updated_at: new Date().toISOString(),
+        });
       },
     }),
     {

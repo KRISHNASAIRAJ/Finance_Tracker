@@ -30,5 +30,53 @@
         <data android:scheme="meridian"/>
       </intent-filter>
     </activity>
+
+    <!-- Widget: Add Expense -->
+    <receiver android:name=".widgets.AddExpenseWidget"
+        android:label="Add Expense"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widget_add_expense"/>
+    </receiver>
+
+    <!-- Widget: Add Fuel -->
+    <receiver android:name=".widgets.AddFuelWidget"
+        android:label="Add Fuel"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widget_add_fuel"/>
+    </receiver>
+
+    <!-- Widget: Add Task -->
+    <receiver android:name=".widgets.AddTaskWidget"
+        android:label="Add Task"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widget_add_task"/>
+    </receiver>
+
+    <!-- Widget: Combined Report -->
+    <receiver android:name=".widgets.CombinedReportWidget"
+        android:label="Report"
+        android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/widget_combined_report"/>
+    </receiver>
   </application>
 </manifest>

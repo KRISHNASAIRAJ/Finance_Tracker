@@ -26,16 +26,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const triggerSyncOnSignIn = () => {
+    setTimeout(() => {
+      try {
+        const { processSyncQueue } = require('./syncQueue');
+        processSyncQueue().catch((e: Error) =>
+          console.warn('[AuthProvider] Auto-sync on sign-in failed:', e?.message)
+        );
+      } catch (e) { console.warn('[AuthProvider] triggerSyncOnSignIn failed:', e); }
+    }, 1000);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        triggerSyncOnSignIn();
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (_event === 'SIGNED_IN' && session?.user) {
+        triggerSyncOnSignIn();
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -190,6 +190,22 @@ export default function MoreMenuScreen() {
       color: '#f59e0b',
       route: 'DietPlanTracker' as const,
     },
+    {
+      id: 'career',
+      title: 'Career Track',
+      subtitle: 'Ups & downs timeline chart',
+      icon: 'analytics-outline',
+      color: '#ec4899',
+      route: 'CareerTracker' as const,
+    },
+    {
+      id: 'meals',
+      title: 'Meal Logger',
+      subtitle: 'Daily protein & calorie tracking',
+      icon: 'fitness-outline',
+      color: '#f59e0b',
+      route: 'MealLogger' as const,
+    },
   ];
 
   const handleConnectKite = () => {

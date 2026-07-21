@@ -1,8 +1,8 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
 import { useFinanceStore } from '../modules/finance/store';
@@ -60,6 +60,10 @@ import CombinedReportScreen from '../modules/personal/screens/CombinedReportScre
 import GoalsTrackerScreen from '../modules/personal/screens/GoalsTrackerScreen';
 import RecipesLibraryScreen from '../modules/personal/screens/RecipesLibraryScreen';
 import DietPlanTrackerScreen from '../modules/personal/screens/DietPlanTrackerScreen';
+import CareerTrackerScreen from '../modules/career/screens/CareerTrackerScreen';
+import AddCareerEventScreen from '../modules/career/screens/AddCareerEventScreen';
+import MealLoggerScreen from '../modules/meals/screens/MealLoggerScreen';
+import MealAISuggestionsScreen from '../modules/meals/screens/MealAISuggestionsScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -115,6 +119,10 @@ export type MoreStackParamList = {
   GoalsTracker: undefined;
   RecipesLibrary: undefined;
   DietPlanTracker: undefined;
+  CareerTracker: undefined;
+  AddCareerEvent: { eventId?: string } | undefined;
+  MealLogger: undefined;
+  MealAISuggestions: undefined;
 };
 
 export type RootTabParamList = {
@@ -226,6 +234,10 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="GoalsTracker" component={GoalsTrackerScreen} />
       <MoreStack.Screen name="RecipesLibrary" component={RecipesLibraryScreen} />
       <MoreStack.Screen name="DietPlanTracker" component={DietPlanTrackerScreen} />
+      <MoreStack.Screen name="CareerTracker" component={CareerTrackerScreen} />
+      <MoreStack.Screen name="AddCareerEvent" component={AddCareerEventScreen} options={modalScreenOptions} />
+      <MoreStack.Screen name="MealLogger" component={MealLoggerScreen} />
+      <MoreStack.Screen name="MealAISuggestions" component={MealAISuggestionsScreen} />
     </MoreStack.Navigator>
   );
 }

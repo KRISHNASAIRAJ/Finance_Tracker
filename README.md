@@ -1,21 +1,36 @@
 # Meridian — Personal Life Tracker
 
-Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across five modules. Built with React Native (Expo) and Supabase, featuring offline-first sync and AI-powered insights.
+Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across seven modules. Built with React Native (Expo) and Supabase, featuring offline-first sync, AI-powered insights, and Android home screen widgets.
 
 ## Modules
 
 | Module | Description |
 |---|---|
-| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, AI T&C assistant, Payzapp wallet |
-| **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend |
-| **Task Manager** | Notion-style tasks with subtasks, recurrence, and local notifications |
-| **Equity/MF Tracker** | Holdings, Kite Connect sync, AI rebalancing, daily 8:30 PM IST portfolio snapshots |
-| **Personal** | Goals, notes, recipes, diet plans with onboarding flow |
+| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, bill payment tracking, PayZapp wallet, combined reports |
+| **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
+| **Task Manager** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
+| **Equity/MF Tracker** | Holdings, Kite Connect sync, allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron |
+| **Personal** | Goals, notes, recipes, diet plans with onboarding flow, diet notifications |
+| **Career Tracker** (NEW) | Career ups & downs with area chart visualization, event timeline |
+| **Meal Logger** (NEW) | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
 
 ## Cross-Module Integration
 
-- **Fuel → Finance:** Fuel fill expenses flow from Garage into Finance dashboards (donut charts, monthly spends, reports). Expense totals in Finance are sourced directly from Garage fill data, keeping a single source of truth. Editing a fuel entry from any Finance screen opens the Garage EditFuelFill screen.
-- **Garage sync:** Fills sync from Supabase on app startup via `GarageSyncInitializer` in RootNavigator, ensuring correct data before any screen renders. Deletions sync to Supabase immediately to prevent stale re-fetches.
+- **Fuel → Finance:** Fuel fill expenses flow from Garage into Finance dashboards (donut charts, monthly spends, reports). Editing a fuel entry from any Finance screen opens the Garage EditFuelFill screen.
+- **Garage sync:** Fills sync from Supabase on app startup via `GarageSyncInitializer` in RootNavigator.
+- **Card bill payment:** Mark credit card bills as paid from the card detail screen; re-sorts cards by due date.
+- **Recurrence auto-create:** Checking off a recurring task auto-creates the next occurrence.
+
+## Android Home Screen Widgets (NEW)
+
+Four 2×2 home screen widgets for one-tap access:
+
+| Widget | Deep Link | Opens |
+|---|---|---|
+| Add Expense | `meridian://add-expense` | Finance → Add Expense screen |
+| Add Fuel | `meridian://add-fuel` | Garage → Add Fuel Fill screen |
+| Add Task | `meridian://add-task` | Tasks → Add Task screen |
+| Combined Report | `meridian://combined-report` | More → Combined Report screen |
 
 ## Tech Stack
 
@@ -26,7 +41,7 @@ Meridian is a personal-use mobile app (Android-first) that unifies daily life tr
 - **Auth:** Supabase Auth (JWT)
 - **AI:** Groq API (Llama 3.3 70B + Llama 3.1 8B)
 - **Notifications:** Expo Push Notifications + local scheduling
-- **Design:** Dark mode first, Glassmorphism UI
+- **Design:** Dark mode first, Glassmorphism UI, custom DateTimePicker (Fold Money style)
 
 ## Project Structure
 
@@ -41,15 +56,16 @@ meridian/
 ├── ADR/                   ← Architecture Decision Records
 ├── docs/                  ← API contracts, DB schema, notification flows
 ├── mobile/                ← React Native app
-│   └── src/
-│       ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal)
-│       ├── shared/        ← Shared components, hooks, utilities
-│       ├── navigation/    ← Navigator setup
-│       ├── store/         ← Zustand global state
-│       └── services/      ← API clients, local DB, sync queue, notifications
+│   ├── src/
+│   │   ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal, career, meals)
+│   │   ├── shared/        ← Shared components, hooks, utilities
+│   │   ├── navigation/    ← Navigator setup
+│   │   ├── store/         ← Zustand global state
+│   │   └── services/      ← API clients, local DB, sync queue, notifications
+│   └── android/           ← Android native layer (widgets)
 └── supabase/
     ├── config.toml         ← Supabase project config
-    ├── migrations/        ← SQL migration files
+    ├── migrations/        ← SQL migration files (19 migrations)
     └── functions/         ← Deno Edge Functions
 ```
 
@@ -114,10 +130,10 @@ Copy `.env.example` to `mobile/.env` and configure:
 
 Meridian uses an offline-first bidirectional sync pattern:
 
-- **App → Cloud:** Every mutation (create/edit/delete) writes to local Zustand store, then enqueues a sync operation. The queue is flushed immediately after each task change and on app foreground/background transitions.
-- **Cloud → App:** On every screen focus, the latest data is pulled from Supabase and merged into the local store. New items from cloud are added; existing items are updated with cloud state.
-- **Initial sync:** On first launch, if cloud is empty, local data is seeded to Supabase. If cloud has data, it's pulled and merged locally.
-- **Background sync:** Expo BackgroundFetch runs periodically to flush any pending offline changes.
+- **App → Cloud:** Every mutation (create/edit/delete) writes to local Zustand store, then enqueues a sync operation. Data is always enqueued regardless of auth state; `processSyncQueue` resolves `user_id` from the current session at flush time.
+- **Cloud → App:** On every screen focus, the latest data is pulled from Supabase and merged into the local store.
+- **Auto-sync on sign-in:** `AuthProvider` triggers `processSyncQueue` immediately after login, flushing all offline-queued data.
+- **Background sync:** Expo BackgroundFetch runs periodically to flush pending offline changes.
 
 All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) with retry and exponential backoff (max 5 retries).
 

@@ -101,35 +101,31 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         set((state) => ({
           holdings: state.holdings.map((h) => (h.id === id ? { ...h, ...updates } : h)),
         }));
-        if (userId) {
-          try {
-            const { enqueue } = require('../../services/syncQueue');
-            const holding = get().holdings.find((h) => h.id === id);
-            if (holding) {
-              const data: Record<string, unknown> = { id, user_id: userId };
-              if (holding.symbol !== undefined) data.symbol = holding.symbol;
-              if (holding.name !== undefined) data.fund_name = holding.name;
-              if (holding.type !== undefined) data.type = holding.type;
-              if (holding.quantity !== undefined) data.quantity = holding.quantity;
-              if (holding.avgPrice !== undefined) data.avg_buy_price = holding.avgPrice;
-              if (holding.currentPrice !== undefined) { data.current_price = holding.currentPrice; data.current_value = holding.quantity * holding.currentPrice; }
-              if (holding.source !== undefined) data.source = holding.source;
-              data.updated_at = new Date().toISOString();
-              enqFlush('holdings', 'update', data);
-            }
-          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
-        }
+        try {
+          const { enqueue } = require('../../services/syncQueue');
+          const holding = get().holdings.find((h) => h.id === id);
+          if (holding) {
+            const data: Record<string, unknown> = { id, user_id: userId || null };
+            if (holding.symbol !== undefined) data.symbol = holding.symbol;
+            if (holding.name !== undefined) data.fund_name = holding.name;
+            if (holding.type !== undefined) data.type = holding.type;
+            if (holding.quantity !== undefined) data.quantity = holding.quantity;
+            if (holding.avgPrice !== undefined) data.avg_buy_price = holding.avgPrice;
+            if (holding.currentPrice !== undefined) { data.current_price = holding.currentPrice; data.current_value = holding.quantity * holding.currentPrice; }
+            if (holding.source !== undefined) data.source = holding.source;
+            data.updated_at = new Date().toISOString();
+            enqFlush('holdings', 'update', data);
+          }
+        } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
       deleteHolding: (id, userId) => {
         set((state) => ({
           holdings: state.holdings.filter((h) => h.id !== id),
         }));
-        if (userId) {
-          try {
-            const { enqueue } = require('../../services/syncQueue');
-            enqFlush('holdings', 'delete', { id, user_id: userId });
-          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
-        }
+        try {
+          const { enqueue } = require('../../services/syncQueue');
+          enqFlush('holdings', 'delete', { id, user_id: userId || null });
+        } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
       addGoal: (goal) => {
         const id = uid();
@@ -142,27 +138,23 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         set((state) => ({
           goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
         }));
-        if (userId) {
-          try {
-            const { enqueue } = require('../../services/syncQueue');
-            const goal = get().goals.find((g) => g.id === id);
-            if (goal) {
-              const data: Record<string, unknown> = { id, user_id: userId, goal_name: goal.name, target_amount: goal.target, current_progress: goal.current, target_date: goal.dueDate, priority: goal.priority, updated_at: new Date().toISOString() };
-              enqFlush('investment_goals', 'update', data);
-            }
-          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
-        }
+        try {
+          const { enqueue } = require('../../services/syncQueue');
+          const goal = get().goals.find((g) => g.id === id);
+          if (goal) {
+            const data: Record<string, unknown> = { id, user_id: userId || null, goal_name: goal.name, target_amount: goal.target, current_progress: goal.current, target_date: goal.dueDate, priority: goal.priority, updated_at: new Date().toISOString() };
+            enqFlush('investment_goals', 'update', data);
+          }
+        } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
       deleteGoal: (id, userId) => {
         set((state) => ({
           goals: state.goals.filter((g) => g.id !== id),
         }));
-        if (userId) {
-          try {
-            const { enqueue } = require('../../services/syncQueue');
-            enqFlush('investment_goals', 'delete', { id, user_id: userId });
-          } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
-        }
+        try {
+          const { enqueue } = require('../../services/syncQueue');
+          enqFlush('investment_goals', 'delete', { id, user_id: userId || null });
+        } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
       setSnapshots: (snapshots) => set({ snapshots }),
       addChatMessage: (sender, text) => {
