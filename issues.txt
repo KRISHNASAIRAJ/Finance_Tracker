@@ -8,5 +8,9 @@
 
 5. Inside credit card bills card sort them by due date.
 
+6. I feel so the notification is coming at GMT time not IST time so check and fix it.
+
+7. Also The date and time picker should open calendar and clock like fold money app asks for date and time picker.
+
 New Feature
 * I want to add meal logger which helps me to track my protein intake. So it should track my breakfast, lunch, snack(optional) and dinner. So it should ask me the items which i took and based on that it needs to calculate. It should show the calories, protein, etc. should show progress bar for the day. So it should store all the data into db and also we will connect to groq free tier model and take suggestions. It should give suggestions for my weight gain so all the restrictions, conditions on diet and health will be written in the doc name health.txt which you should pass to the LLM as context also you should maintain the context properly inorder to avoid hallucination of the model(groq).
