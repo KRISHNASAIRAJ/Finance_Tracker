@@ -1,0 +1,9 @@
+1. When we marked as paid for the credit card bill and the remaining bill payment was 0 then it should update the billing date to next month same day. Also it should update in the credit card bills sections which isn't doing now.
+
+2. When we do payzapp load its adding to monthly spends please dont do that.
+
+3.Kite still says invalid api key please check this is the 9th time i am asking to fix.
+
+4.While adding an expense date picker is not opening but while editing its coming so fix that.
+
+5. Inside credit card bills card sort them by due date.
