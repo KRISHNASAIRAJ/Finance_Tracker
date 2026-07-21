@@ -1,5 +1,8 @@
 # .gitignore — Meridian App
 
+# MCP / AI agent config (contains API keys)
+opencode.json
+
 # Expo / Metro
 .expo/
 dist/

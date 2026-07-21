@@ -136,7 +136,7 @@ export default function CreditCardsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {cards.map((card: CreditCard) => {
+        {[...cards].sort((a: CreditCard, b: CreditCard) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).map((card: CreditCard) => {
           const accent = getCardAccent(card.name);
           const daysUntilDue = Math.ceil(
             (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)

@@ -87,9 +87,7 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           vehicles: [...state.vehicles, name],
         }));
-        if (userId) {
-          queueGarageSync('vehicles', 'upsert', { name, user_id: userId });
-        }
+        queueGarageSync('vehicles', 'upsert', { name, user_id: userId || null });
       },
       editVehicle: (oldName, newName, userId) => {
         set((state) => ({
@@ -97,9 +95,7 @@ export const useGarageStore = create<GarageState>()(
           fills: state.fills.map((f) => (f.vehicle === oldName ? { ...f, vehicle: newName } : f)),
           maintenance: state.maintenance.map((m) => (m.vehicle === oldName ? { ...m, vehicle: newName } : m)),
         }));
-        if (userId) {
-          queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId, old_name: oldName });
-        }
+        queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId || null, old_name: oldName });
       },
       deleteVehicle: (name, userId) => {
         set((state) => ({
@@ -107,9 +103,7 @@ export const useGarageStore = create<GarageState>()(
           fills: state.fills.filter((f) => f.vehicle !== name),
           maintenance: state.maintenance.filter((m) => m.vehicle !== name),
         }));
-        if (userId) {
-          queueGarageSync('vehicles', 'delete', { name, user_id: userId });
-        }
+        queueGarageSync('vehicles', 'delete', { name, user_id: userId || null });
       },
       addFuelFill: (fill, userId) => {
         const newFill: FuelFill = {
@@ -120,56 +114,50 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           fills: [newFill, ...state.fills],
         }));
-        if (userId) {
-          addFuelTransaction(userId, newFill);
-          queueGarageSync('fuel_fills', 'upsert', {
-            id: newFill.id,
-            user_id: userId,
-            vehicle: newFill.vehicle,
-            date: newFill.date,
-            amount: newFill.amount,
-            liters: newFill.liters,
-            price_per_liter: newFill.pricePerLiter,
-            odometer: newFill.odometer,
-            station: newFill.station ?? null,
-            note: newFill.note ?? null,
-          });
-        }
+        addFuelTransaction(userId, newFill);
+        queueGarageSync('fuel_fills', 'upsert', {
+          id: newFill.id,
+          user_id: userId || null,
+          vehicle: newFill.vehicle,
+          date: newFill.date,
+          amount: newFill.amount,
+          liters: newFill.liters,
+          price_per_liter: newFill.pricePerLiter,
+          odometer: newFill.odometer,
+          station: newFill.station ?? null,
+          note: newFill.note ?? null,
+        });
         return newFill.id;
       },
       editFuelFill: (id, updated, userId) => {
         set((state) => ({
           fills: state.fills.map((f) => (f.id === id ? { ...f, ...updated } : f)),
         }));
-        if (userId) {
-          const fill = get().fills.find((f) => f.id === id);
-          if (fill) {
-            queueGarageSync('fuel_fills', 'upsert', {
-              id: fill.id,
-              user_id: userId,
-              vehicle: fill.vehicle,
-              date: fill.date,
-              amount: fill.amount,
-              liters: fill.liters,
-              price_per_liter: fill.pricePerLiter,
-              odometer: fill.odometer,
-              station: fill.station ?? null,
-              note: fill.note ?? null,
-            });
-          }
+        const fill = get().fills.find((f) => f.id === id);
+        if (fill) {
+          queueGarageSync('fuel_fills', 'upsert', {
+            id: fill.id,
+            user_id: userId || null,
+            vehicle: fill.vehicle,
+            date: fill.date,
+            amount: fill.amount,
+            liters: fill.liters,
+            price_per_liter: fill.pricePerLiter,
+            odometer: fill.odometer,
+            station: fill.station ?? null,
+            note: fill.note ?? null,
+          });
         }
       },
       deleteFuelFill: (id, userId) => {
         set((state) => ({
           fills: state.fills.filter((f) => f.id !== id),
         }));
-        if (userId) {
-          queueGarageSync('fuel_fills', 'delete', { id, user_id: userId });
-          const { supabase } = require('../../services/supabaseClient');
-          supabase.from('fuel_fills').delete().eq('id', id).then(({ error }: any) => {
-            if (error) console.warn('[GarageStore] delete fill from Supabase failed:', error.message);
-          });
-        }
+        queueGarageSync('fuel_fills', 'delete', { id, user_id: userId || null });
+        const { supabase } = require('../../services/supabaseClient');
+        supabase.from('fuel_fills').delete().eq('id', id).then(({ error }: any) => {
+          if (error) console.warn('[GarageStore] delete fill from Supabase failed:', error.message);
+        });
       },
       addMaintenanceLog: (log, userId) => {
         const newLog: MaintenanceLog = {
@@ -180,45 +168,39 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           maintenance: [newLog, ...state.maintenance],
         }));
-        if (userId) {
-          queueGarageSync('maintenance_logs', 'upsert', {
-            id: newLog.id,
-            user_id: userId,
-            vehicle: newLog.vehicle,
-            date: newLog.date,
-            amount: newLog.amount,
-            service_type: newLog.serviceType,
-            notes: newLog.notes ?? null,
-          });
-        }
+        queueGarageSync('maintenance_logs', 'upsert', {
+          id: newLog.id,
+          user_id: userId || null,
+          vehicle: newLog.vehicle,
+          date: newLog.date,
+          amount: newLog.amount,
+          service_type: newLog.serviceType,
+          notes: newLog.notes ?? null,
+        });
         return newLog.id;
       },
       editMaintenanceLog: (id, updated, userId) => {
         set((state) => ({
           maintenance: state.maintenance.map((m) => (m.id === id ? { ...m, ...updated } : m)),
         }));
-        if (userId) {
-          const log = get().maintenance.find((m) => m.id === id);
-          if (log) {
-            queueGarageSync('maintenance_logs', 'upsert', {
-              id: log.id,
-              user_id: userId,
-              vehicle: log.vehicle,
-              date: log.date,
-              amount: log.amount,
-              service_type: log.serviceType,
-              notes: log.notes ?? null,
-            });
-          }
+        const log = get().maintenance.find((m) => m.id === id);
+        if (log) {
+          queueGarageSync('maintenance_logs', 'upsert', {
+            id: log.id,
+            user_id: userId || null,
+            vehicle: log.vehicle,
+            date: log.date,
+            amount: log.amount,
+            service_type: log.serviceType,
+            notes: log.notes ?? null,
+          });
         }
       },
       deleteMaintenanceLog: (id, userId) => {
         set((state) => ({
           maintenance: state.maintenance.filter((m) => m.id !== id),
         }));
-        if (userId) {
-          queueGarageSync('maintenance_logs', 'delete', { id, user_id: userId });
-        }
+        queueGarageSync('maintenance_logs', 'delete', { id, user_id: userId || null });
       },
       getVehicleFills: (vehicle) => {
         return get().fills.filter((f) => f.vehicle === vehicle);

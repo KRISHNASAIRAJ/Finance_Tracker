@@ -93,6 +93,18 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
 
     const { supabase } = require("./supabaseClient");
 
+    let sessionUser: { id: string } | null = null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      sessionUser = session?.user ?? null;
+    } catch (_) {}
+
+    if (!sessionUser) {
+      _processing = false;
+      console.warn('[SyncQueue] No authenticated session — keeping items in queue until sign-in');
+      return { succeeded: 0, failed: items.length, dropped: 0 };
+    }
+
     let succeeded = 0;
     let failed = 0;
     let dropped = 0;
@@ -100,9 +112,16 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
 
     for (const item of items) {
       if (item.retryCount >= MAX_RETRIES) {
+        console.warn(`[SyncQueue] Dropping ${item.entity}/${item.data.id} after ${MAX_RETRIES} retries`);
         dropped++;
         continue;
       }
+
+      const resolvedData = {
+        ...item.data,
+        user_id: item.data.user_id || sessionUser.id,
+        updated_at: new Date().toISOString(),
+      };
 
       try {
         if (item.action === "delete") {
@@ -114,12 +133,12 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
         } else {
           const { error } = await supabase
             .from(item.entity)
-            .upsert({ ...item.data, updated_at: new Date().toISOString() }, { onConflict: "id" });
+            .upsert(resolvedData, { onConflict: "id" });
           if (error) throw error;
         }
         succeeded++;
-      } catch (e) {
-        console.warn(`[SyncQueue] upsert/delete failed for ${item.entity}/${item.data.id}:`, e);
+      } catch (e: any) {
+        console.warn(`[SyncQueue] ${item.action} failed for ${item.entity}/${item.data.id}:`, e?.message ?? e);
         remaining.push({ ...item, retryCount: item.retryCount + 1 });
         failed++;
       }

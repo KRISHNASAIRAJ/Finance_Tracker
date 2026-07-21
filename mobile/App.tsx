@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox } from 'react-native';
+import { AppState, AppStateStatus, LogBox, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -46,6 +46,25 @@ export default function App() {
       setTimeout(() => promptBatteryOptimization(), 3000);
     });
 
+    const handleDeepLink = (url: string | null) => {
+      if (!url) return;
+      if (!navigationRef.isReady()) return;
+
+      const nav = navigationRef as any;
+      if (url.includes('add-expense')) {
+        nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'AddExpense' } });
+      } else if (url.includes('add-fuel')) {
+        nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AddFuelFill' } });
+      } else if (url.includes('add-task')) {
+        nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
+      } else if (url.includes('combined-report')) {
+        nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'CombinedReport' } });
+      }
+    };
+
+    Linking.getInitialURL().then(handleDeepLink);
+    const linkSub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
         processSyncQueue().catch((e) => console.warn('[App] foreground sync failed:', e));
@@ -56,7 +75,10 @@ export default function App() {
       appState.current = nextState;
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      linkSub.remove();
+    };
   }, []);
 
   return (

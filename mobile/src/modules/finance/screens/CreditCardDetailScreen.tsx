@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +39,11 @@ export default function CreditCardDetailScreen() {
   const route = useRoute<DetailRouteProp>();
   const { cardId } = route.params;
   const { cards, transactions } = useFinanceStore() as any;
+  const markCardBillPaid = useFinanceStore((s: any) => s.markCardBillPaid);
+  const { user } = require('../../../services/AuthProvider').useAuth();
+
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paymentInput, setPaymentInput] = useState('');
 
   const card = (cards as any[]).find((c: any) => c.id === cardId);
 
@@ -168,6 +175,54 @@ export default function CreditCardDetailScreen() {
           </View>
         </View>
 
+        {/* Bill Payment */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Bill Payment</Text>
+          </View>
+          <View style={styles.billRow}>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>BILL AMOUNT</Text>
+              <Text style={styles.billValue}>{formatCurrency(card.billAmount ?? card.balance)}</Text>
+            </View>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>PAID</Text>
+              <Text style={[styles.billValue, { color: colors.success }]}>{formatCurrency(card.paidAmount ?? 0)}</Text>
+            </View>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>REMAINING</Text>
+              <Text style={[styles.billValue, { color: colors.error }]}>
+                {formatCurrency(Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)))}
+              </Text>
+            </View>
+          </View>
+          {(card.billAmount ?? card.balance) > 0 && (
+            <View style={styles.payProgressBg}>
+              <View
+                style={[
+                  styles.payProgressFill,
+                  {
+                    backgroundColor: colors.success,
+                    width: `${Math.min(100, ((card.paidAmount ?? 0) / (card.billAmount ?? card.balance)) * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+          )}
+          <TouchableOpacity
+            style={[styles.payButton, { backgroundColor: accent }]}
+            onPress={() => {
+              const remaining = Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)) / 100;
+              setPaymentInput(remaining > 0 ? remaining.toString() : '');
+              setShowPayModal(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="card-outline" size={18} color="#fff" />
+            <Text style={styles.payButtonText}>Pay Bill</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Card Transactions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -210,6 +265,48 @@ export default function CreditCardDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={showPayModal} transparent animationType="fade" onRequestClose={() => setShowPayModal(false)}>
+        <View style={styles.payModalOverlay}>
+          <View style={styles.payModalContent}>
+            <Text style={styles.payModalTitle}>Pay Bill — {card.name}</Text>
+            <Text style={styles.payModalSub}>
+              Total bill: {formatCurrency(card.billAmount ?? card.balance)} | Already paid: {formatCurrency(card.paidAmount ?? 0)}
+            </Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.payInputLabel}>PAYMENT AMOUNT (₹)</Text>
+              <TextInput
+                style={styles.payTextInput}
+                value={paymentInput}
+                onChangeText={setPaymentInput}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.outline}
+                autoFocus
+              />
+            </View>
+            <View style={styles.payModalButtons}>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnCancel]}
+                onPress={() => setShowPayModal(false)}
+              >
+                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                onPress={() => {
+                  const amount = Math.round(parseFloat(paymentInput) * 100);
+                  if (isNaN(amount) || amount <= 0) { alert('Enter a valid amount'); return; }
+                  markCardBillPaid(cardId, amount, user?.id);
+                  setShowPayModal(false);
+                }}
+              >
+                <Text style={styles.payModalBtnSaveText}>Confirm Payment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -281,4 +378,51 @@ const styles = StyleSheet.create({
   txName: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
   txDate: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 1 },
   txAmount: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  billRow: { flexDirection: 'row', gap: 8 },
+  billItem: { flex: 1, backgroundColor: colors.surfaceContainer, padding: 10, borderRadius: rounded.DEFAULT },
+  billLabel: { fontSize: 9, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
+  billValue: { fontSize: 16, fontWeight: '800', marginTop: 2 },
+  payProgressBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 4 },
+  payProgressFill: { height: 6, borderRadius: 3 },
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: rounded.lg,
+    marginTop: 8,
+  },
+  payButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  payModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
+  payModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    padding: 24,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  payModalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
+  payModalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
+  inputGroup: { gap: 6 },
+  payInputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  payTextInput: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    height: 48,
+    paddingHorizontal: 14,
+    color: colors.onSurface,
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  payModalButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  payModalBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
+  payModalBtnCancel: { backgroundColor: 'transparent' },
+  payModalBtnSave: { backgroundColor: colors.primaryContainer },
+  payModalBtnCancelText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  payModalBtnSaveText: { fontSize: 14, color: '#fff', fontWeight: '700' },
 });

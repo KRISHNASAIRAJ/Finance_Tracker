@@ -98,6 +98,7 @@ interface FinanceState {
   editCard: (id: string, updated: Partial<CreditCard>, userId?: string) => void;
   addCard: (card: Omit<CreditCard, 'id'>, userId?: string) => void;
   deleteCard: (id: string, userId?: string) => void;
+  markCardBillPaid: (id: string, paymentAmount: number, userId?: string) => void;
   markFixedExpensePaid: (id: string, userId?: string) => void;
   unmarkFixedExpensePaid: (id: string, userId?: string) => void;
   getTotalBalance: () => number;
@@ -158,9 +159,7 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           transactions: [newTransaction, ...state.transactions],
         }));
-        if (userId) {
-          enqFlush("transactions", "create", { ...newTransaction, user_id: userId });
-        }
+        enqFlush("transactions", "create", { ...newTransaction, user_id: userId || null });
         return generatedId;
       },
       editTransaction: (id, updated, userId) => {
@@ -169,17 +168,13 @@ export const useFinanceStore = create<FinanceState>()(
             tx.id === id ? { ...tx, ...updated } : tx
           ),
         }));
-        if (userId) {
-          enqFlush("transactions", "update", { id, ...updated, user_id: userId });
-        }
+        enqFlush("transactions", "update", { id, ...updated, user_id: userId || null });
       },
       deleteTransaction: (id, userId) => {
         set((state) => ({
           transactions: state.transactions.filter((tx) => tx.id !== id),
         }));
-        if (userId) {
-          enqFlush("transactions", "delete", { id, user_id: userId });
-        }
+        enqFlush("transactions", "delete", { id, user_id: userId || null });
       },
       editAccountBalance: (id, amount, userId) => {
         set((state) => ({
@@ -187,9 +182,7 @@ export const useFinanceStore = create<FinanceState>()(
             acc.id === id ? { ...acc, amount } : acc
           ),
         }));
-        if (userId) {
-          enqFlush("bank_accounts", "update", { id, amount, user_id: userId });
-        }
+        enqFlush("bank_accounts", "update", { id, amount, user_id: userId || null });
       },
       addReceivable: (item, userId) => {
         const newItem: Receivable = {
@@ -199,15 +192,13 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           receivables: [newItem, ...state.receivables],
         }));
-        if (userId) {
-          try {
-            enqFlush("receivables", "create", {
-              id: newItem.id, person_name: newItem.personName,
-              amount: newItem.amount, due_date: newItem.dueDate,
-              note: newItem.note ?? null, type: newItem.type, user_id: userId,
-            });
+        try {
+          enqFlush("receivables", "create", {
+            id: newItem.id, person_name: newItem.personName,
+            amount: newItem.amount, due_date: newItem.dueDate,
+            note: newItem.note ?? null, type: newItem.type, user_id: userId || null,
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       editReceivable: (id, updated, userId) => {
         set((state) => ({
@@ -215,25 +206,21 @@ export const useFinanceStore = create<FinanceState>()(
             rec.id === id ? { ...rec, ...updated } : rec
           ),
         }));
-        if (userId) {
-          try {
-const payload: Record<string, unknown> = { id, user_id: userId };
-            if (updated.personName !== undefined) payload.person_name = updated.personName;
-            if (updated.amount !== undefined) payload.amount = updated.amount;
-            if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
-            if (updated.note !== undefined) payload.note = updated.note;
-            if (updated.type !== undefined) payload.type = updated.type;
-            enqFlush("receivables", "update", payload);
+        try {
+          const payload: Record<string, unknown> = { id, user_id: userId || null };
+          if (updated.personName !== undefined) payload.person_name = updated.personName;
+          if (updated.amount !== undefined) payload.amount = updated.amount;
+          if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
+          if (updated.note !== undefined) payload.note = updated.note;
+          if (updated.type !== undefined) payload.type = updated.type;
+          enqFlush("receivables", "update", payload);
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       deleteReceivable: (id, userId) => {
         set((state) => ({
           receivables: state.receivables.filter((rec) => rec.id !== id),
         }));
-        if (userId) {
-          enqFlush("receivables", "delete", { id, user_id: userId });
-        }
+        enqFlush("receivables", "delete", { id, user_id: userId || null });
       },
       markFixedExpensePaid: (id, userId) => {
         const currentExp = get().fixedExpenses.find((f) => f.id === id);
@@ -276,16 +263,13 @@ const payload: Record<string, unknown> = { id, user_id: userId };
           ),
         }));
 
-        // Queue cloud sync
-        if (userId) {
-          try {
-            enqFlush('transactions', 'create', { ...newTransaction, user_id: userId });
-            enqFlush('fixed_expenses', 'update', {
-              id, user_id: userId, last_paid_month: currentMonthStr,
-              due_date: nextDueDate.toISOString(),
-            });
+        try {
+          enqFlush('transactions', 'create', { ...newTransaction, user_id: userId || null });
+          enqFlush('fixed_expenses', 'update', {
+            id, user_id: userId || null, last_paid_month: currentMonthStr,
+            due_date: nextDueDate.toISOString(),
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       completeOnboarding: (data) => {
         set({
@@ -346,11 +330,8 @@ const payload: Record<string, unknown> = { id, user_id: userId };
         }));
 
         try {
-          const { user } = require('../../services/AuthProvider');
-          if (user) {
-            enqFlush("payzapp_loads", "create", { id, user_id: user.id, amount, date: newLoad.date });
-          }
-      } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
+          enqFlush("payzapp_loads", "create", { id, user_id: null, amount, date: newLoad.date });
+        } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
       editPayzappLoad: (id, amount) => {
         set((state) => ({
@@ -376,19 +357,17 @@ const payload: Record<string, unknown> = { id, user_id: userId };
         set((state) => ({
           cards: state.cards.map((c) => (c.id === id ? { ...c, ...updated } : c)),
         }));
-        if (userId) {
-          try {
-const payload: Record<string, unknown> = { id, user_id: userId };
-            if (updated.balance !== undefined) payload.balance = updated.balance;
-            if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
-            if (updated.name !== undefined) payload.name = updated.name;
-            if (updated.endingWith !== undefined) payload.ending_with = updated.endingWith;
-            if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
-            if (updated.billAmount !== undefined) payload.bill_amount = updated.billAmount;
-            if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
-            enqFlush("credit_cards", "update", payload);
+        try {
+          const payload: Record<string, unknown> = { id, user_id: userId || null };
+          if (updated.balance !== undefined) payload.balance = updated.balance;
+          if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
+          if (updated.name !== undefined) payload.name = updated.name;
+          if (updated.endingWith !== undefined) payload.ending_with = updated.endingWith;
+          if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
+          if (updated.billAmount !== undefined) payload.bill_amount = updated.billAmount;
+          if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
+          enqFlush("credit_cards", "update", payload);
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       addCard: (cardData, userId) => {
         const newCard: CreditCard = {
@@ -396,30 +375,87 @@ const payload: Record<string, unknown> = { id, user_id: userId };
           id: Math.random().toString(36).substring(2, 9),
         };
         set((state) => ({ cards: [...state.cards, newCard] }));
-        if (userId) {
-          try {
-            enqFlush("credit_cards", "create", {
-              id: newCard.id,
-              user_id: userId,
-              name: newCard.name,
-              network: newCard.network,
-              ending_with: newCard.endingWith,
-              billing_day: newCard.billingDay,
-              balance: newCard.balance,
-              due_date: newCard.dueDate,
-              bank: newCard.bank ?? null,
-              card_limit: newCard.cardLimit ?? null,
-              current_outstanding: newCard.currentOutstanding ?? null,
-              bill_amount: newCard.billAmount ?? 0,
-              paid_amount: newCard.paidAmount ?? 0,
-            });
+        try {
+          enqFlush("credit_cards", "create", {
+            id: newCard.id,
+            user_id: userId || null,
+            name: newCard.name,
+            network: newCard.network,
+            ending_with: newCard.endingWith,
+            billing_day: newCard.billingDay,
+            balance: newCard.balance,
+            due_date: newCard.dueDate,
+            bank: newCard.bank ?? null,
+            card_limit: newCard.cardLimit ?? null,
+            current_outstanding: newCard.currentOutstanding ?? null,
+            bill_amount: newCard.billAmount ?? 0,
+            paid_amount: newCard.paidAmount ?? 0,
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       deleteCard: (id, userId) => {
         set((state) => ({ cards: state.cards.filter((c) => c.id !== id) }));
-        if (userId) {
-          enqFlush("credit_cards", "delete", { id, user_id: userId });
+        enqFlush("credit_cards", "delete", { id, user_id: userId || null });
+      },
+      markCardBillPaid: (id, paymentAmount, userId) => {
+        const card = get().cards.find((c) => c.id === id);
+        if (!card) return;
+
+        const billAmt = card.billAmount ?? card.balance;
+        const paidAmt = (card.paidAmount ?? 0) + paymentAmount;
+        const billLeft = Math.max(0, billAmt - paidAmt);
+
+        if (billLeft <= 0) {
+          const currentDue = new Date(card.dueDate);
+          const billingDay = card.billingDay;
+          const nextMonth = currentDue.getMonth() + 1;
+          const nextYear = currentDue.getFullYear();
+          const lastDayOfNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+          const safeDay = Math.min(billingDay, lastDayOfNextMonth);
+          const nextDueDate = new Date(nextYear, nextMonth, safeDay);
+          nextDueDate.setHours(0, 0, 0, 0);
+
+          const generatedTxId = Math.random().toString(36).substring(2, 9);
+          const newTransaction: Transaction = {
+            id: generatedTxId,
+            type: 'credit_card_bill',
+            amount: billAmt,
+            currency: 'INR',
+            date: new Date().toISOString(),
+            category: 'Credit Card Bill',
+            notes: `${card.name} — Bill Paid`,
+            source: 'manual',
+          };
+
+          set((state) => ({
+            cards: state.cards.map((c) =>
+              c.id === id
+                ? { ...c, dueDate: nextDueDate.toISOString(), billAmount: 0, paidAmount: 0 }
+                : c
+            ),
+            transactions: [newTransaction, ...state.transactions],
+          }));
+
+          enqFlush('transactions', 'create', {
+            id: generatedTxId, type: 'credit_card_bill', amount: billAmt,
+            currency: 'INR', date: new Date().toISOString(),
+            category: 'Credit Card Bill', notes: `${card.name} — Bill Paid`,
+            source: 'manual', user_id: userId || null,
+          });
+          enqFlush('credit_cards', 'update', {
+            id, user_id: userId || null, due_date: nextDueDate.toISOString(),
+            bill_amount: 0, paid_amount: 0,
+          });
+        } else {
+          set((state) => ({
+            cards: state.cards.map((c) =>
+              c.id === id ? { ...c, paidAmount: paidAmt } : c
+            ),
+          }));
+
+          enqFlush('credit_cards', 'update', {
+            id, user_id: userId || null, paid_amount: paidAmt,
+          });
         }
       },
       getTotalBalance: () => {
@@ -432,7 +468,7 @@ const payload: Record<string, unknown> = { id, user_id: userId };
         startOfMonth.setHours(0, 0, 0, 0);
 
         const excluded = new Set([
-          'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
+          'rent', 'sip', 'investments', 'housing', 'wallet loads', 'wallet load',
           ...get().fixedExpenses.map((f) => f.name.toLowerCase()),
         ]);
         const monthTxs = txs.filter(
@@ -486,26 +522,22 @@ const payload: Record<string, unknown> = { id, user_id: userId };
             };
           }),
         }));
-        if (userId) {
-          try {
-            enqFlush("fixed_expenses", "update", {
-              id, user_id: userId, last_paid_month: "", due_date: get().fixedExpenses.find((f: FixedExpense) => f.id === id)?.dueDate ?? "",
-            });
+        try {
+          enqFlush("fixed_expenses", "update", {
+            id, user_id: userId || null, last_paid_month: "", due_date: get().fixedExpenses.find((f: FixedExpense) => f.id === id)?.dueDate ?? "",
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       addExpectedIncome: (item, userId) => {
         const id = `expinc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const newItem = { ...item, id };
         set((state) => ({ expectedIncomes: [...state.expectedIncomes, newItem] }));
-        if (userId) {
-          try {
-            enqFlush("expected_incomes", "create", {
-              id, user_id: userId, name: newItem.name, amount: newItem.amount,
-              notes: newItem.notes ?? null, date: newItem.date,
-            });
+        try {
+          enqFlush("expected_incomes", "create", {
+            id, user_id: userId || null, name: newItem.name, amount: newItem.amount,
+            notes: newItem.notes ?? null, date: newItem.date,
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       editExpectedIncome: (id, updated, userId) => {
         set((state) => ({
@@ -513,35 +545,30 @@ const payload: Record<string, unknown> = { id, user_id: userId };
             ei.id === id ? { ...ei, ...updated } : ei
           ),
         }));
-        if (userId) {
-          try {
-            const item = get().expectedIncomes.find((ei) => ei.id === id);
-            if (item) {
-              enqFlush("expected_incomes", "update", {
-                id, user_id: userId, name: item.name, amount: item.amount,
-                notes: item.notes ?? null, date: item.date,
-              });
-            }
+        try {
+          const item = get().expectedIncomes.find((ei) => ei.id === id);
+          if (item) {
+            enqFlush("expected_incomes", "update", {
+              id, user_id: userId || null, name: item.name, amount: item.amount,
+              notes: item.notes ?? null, date: item.date,
+            });
+          }
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       deleteExpectedIncome: (id, userId) => {
         set((state) => ({ expectedIncomes: state.expectedIncomes.filter((ei) => ei.id !== id) }));
-        if (userId) {
-          enqFlush("expected_incomes", "delete", { id, user_id: userId });
-        }
+        enqFlush("expected_incomes", "delete", { id, user_id: userId || null });
       },
       setMonthlyBudget: (amount, userId) => {
         set({ monthlyBudget: amount });
-        if (userId) {
-          try {
-            const { supabase } = require("../../services/supabaseClient");
-            supabase.from("user_settings").upsert(
-              { user_id: userId, monthly_budget: amount },
-              { onConflict: "user_id" }
-            ).then(() => {});
+        try {
+          const resolvedId = userId || null;
+          const { supabase } = require("../../services/supabaseClient");
+          supabase.from("user_settings").upsert(
+            { user_id: resolvedId, monthly_budget: amount },
+            { onConflict: "user_id" }
+          ).then(() => {}).catch((e: Error) => console.warn('[FinanceStore] budget sync:', e?.message));
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-        }
       },
       setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
     }),
