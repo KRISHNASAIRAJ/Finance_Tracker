@@ -16,5 +16,7 @@
 
 9.We want to add one more feature where I will be adding my ups and downs in my career so when i want to add by tapping add button there you need prompt me to ask name of the event, up/down, other notes. So if its up display in green if its down display red. So, the display should be something like area under the graph and one more thing is if there is balance then make a flat line. 
 
+10. When i add any expense its not asking date picker directly it is showing todays date in the transactions. So, take care of that and fix it.
+
 New Feature
 * I want to add meal logger which helps me to track my protein intake. So it should track my breakfast, lunch, snack(optional) and dinner. So it should ask me the items which i took and based on that it needs to calculate. It should show the calories, protein, etc. should show progress bar for the day. So it should store all the data into db and also we will connect to groq free tier model and take suggestions. It should give suggestions for my weight gain so all the restrictions, conditions on diet and health will be written in the doc name health.txt which you should pass to the LLM as context also you should maintain the context properly inorder to avoid hallucination of the model(groq). For this the screens are already made in the stitch use mcp and fetch the designs and design in the exact manner.
