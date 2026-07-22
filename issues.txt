@@ -1,22 +1,4 @@
-1. When we marked as paid for the credit card bill and the remaining bill payment was 0 then it should update the billing date to next month same day. Also it should update in the credit card bills sections which isn't doing now.
-
-2. When we do payzapp load its adding to monthly spends please dont do that.
-
-3.Kite still says invalid api key please check this is the 9th time i am asking to fix.
-
-4.While adding an expense date picker is not opening but while editing its coming so fix that.
-
-5. Inside credit card bills card sort them by due date.
-
-6. I feel so the notification is coming at GMT time not IST time so check and fix it.
-
-7. Also The date and time picker should open calendar and clock like fold money app asks for date and time picker.
-
-8. Generate some 2x2 widgets that I can add on my mobile screen on clikcing it will directly redirect to that screen. Remember its not widget inside the app but when i go to my mobile's widgets it should show these. The widgets are required for add expense, add fuel fill, add task, combined report which is in the more section. On clicking they should open in the app thats it.
-
-9.We want to add one more feature where I will be adding my ups and downs in my career so when i want to add by tapping add button there you need prompt me to ask name of the event, up/down, other notes. So if its up display in green if its down display red. So, the display should be something like area under the graph and one more thing is if there is balance then make a flat line. 
-
-10. When i add any expense its not asking date picker directly it is showing todays date in the transactions. So, take care of that and fix it.
-
-New Feature
-* I want to add meal logger which helps me to track my protein intake. So it should track my breakfast, lunch, snack(optional) and dinner. So it should ask me the items which i took and based on that it needs to calculate. It should show the calories, protein, etc. should show progress bar for the day. So it should store all the data into db and also we will connect to groq free tier model and take suggestions. It should give suggestions for my weight gain so all the restrictions, conditions on diet and health will be written in the doc name health.txt which you should pass to the LLM as context also you should maintain the context properly inorder to avoid hallucination of the model(groq). For this the screens are already made in the stitch use mcp and fetch the designs and design in the exact manner.
+1. In the finance screen for credit cards edit when i click mark as paid the bill should become 0  and if any new amount is added it should update accordingly in the credit card bills card which is on top. Now its not updating the amount which i entered in the finance screen so it should sync these changes in the credit card bills section.
+2.For lent we can have same person with multiple transactions so you add a symbol to add one more transaction to the same person on opening the edit button of that transaction but the transaction should show the aggregation while displaying as card. aslo sort the cards in lent by due date. Also i need to get push notification on the day of due at 10am and 8.30pm until it is not paid by the person.
+3.Also while we are adding an expense ask which type of payment mode either is upi/card/cash. For upi display the drop down of all the bank accounts that i have. for card dropdown of my credit cards, for cash no need dropdown. So for the existing transaction you mark as bank by default and also provide an option to edit so that i will edit in future.
+4.At the end of each month I need to get a report of all my expenses, credit card bills, lent, credit card transactions like which card I'm using the most and everything as a pdf. This helps me to analyze how my month went.
