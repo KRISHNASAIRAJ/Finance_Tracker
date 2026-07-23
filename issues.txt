@@ -3,3 +3,11 @@
 3.Also while we are adding an expense ask which type of payment mode either is upi/card/cash. For upi display the drop down of all the bank accounts that i have. for card dropdown of my credit cards, for cash no need dropdown. So for the existing transaction you mark as bank by default and also provide an option to edit so that i will edit in future.
 4.At the end of each month I need to get a report of all my expenses, credit card bills, lent, credit card transactions like which card I'm using the most and everything as a pdf. This helps me to analyze how my month went.
 5.When meal logger is clicked the app is crashing check and fix it.
+6.The amount which we are updating in credit cards on the finance screen is not getting updated in the credit card bills card. The same problem when even marked as paid.The both screens should sync the amounts properly.
+7.The due date bar for the bill date is showing only for the first 2 cards but not for all.
+8.Also even if there is a task for tomorrow I'm getting notification today itself instead of getting at the task time. It is coming multiple times fix it to only notify at the task time and notify every 2hrs if not completed.
+9.Also if i click on the tick box of the task its not moving immeidately into done and also when i delete the task its not deleting immediately and when i click delete 2nd time then its deleteing so fix this also.
+10.The notification for tasks should look like this "Task_Name, Due Date+Time" no need of symbols or any other text.
+11.Fix the kite issue its not at all solving from many days you are just asking to add secret but its not fixing try to fix this time properly.
+12. Also when i click on diet planner, meal logger the app is crashing immediately.
+13.Also the task you are sending in notifications when clicked should open the task but it is opening the app only.
