@@ -14,11 +14,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useMealStore, MealAIMessage } from '../store';
 import { supabase } from '../../../services/supabaseClient';
 import { saveAIChatToFile } from '../../../services/chatExportService';
+import { tc, ts, tr, card, labelMuted } from '../../../shared/theme/tracend';
 
 const HEALTH_PROFILE = `Project 65 — Body Recomposition Protocol
 * Current: 54kg, 170.6cm, BMI 18.5 (underweight). Target: 65kg at ~0.4 kg/week. Age 23 Male.
@@ -109,7 +108,7 @@ export default function MealAISuggestionsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          <Ionicons name="arrow-back" size={24} color={tc.action} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>Meal AI</Text>
         <View style={{ width: 40 }}>
@@ -121,7 +120,7 @@ export default function MealAISuggestionsScreen() {
                 'Meal AI Chat'
               )}
             >
-              <Ionicons name="download-outline" size={20} color={colors.primary} />
+              <Ionicons name="download-outline" size={20} color={tc.action} />
             </TouchableOpacity>
           )}
         </View>
@@ -134,7 +133,9 @@ export default function MealAISuggestionsScreen() {
       >
         {aiMessages.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="sparkles" size={48} color={colors.primary} />
+            <View style={styles.emptyIcon}>
+              <Ionicons name="sparkles" size={36} color={tc.action} />
+            </View>
             <Text style={styles.emptyTitle}>Meal AI Assistant</Text>
             <Text style={styles.emptySub}>
               Ask for meal suggestions, recipes, or nutrition advice based on your health profile and today's food log.
@@ -185,7 +186,7 @@ export default function MealAISuggestionsScreen() {
 
         {loading && (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={tc.action} />
             <Text style={styles.loadingText}>Thinking...</Text>
           </View>
         )}
@@ -196,17 +197,17 @@ export default function MealAISuggestionsScreen() {
             value={input}
             onChangeText={setInput}
             placeholder="Ask about meals, nutrition..."
-            placeholderTextColor={colors.onSurfaceVariant}
+            placeholderTextColor={tc.textMuted}
             multiline
             maxLength={500}
             onSubmitEditing={handleSend}
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.4 }]}
+            style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.3 }]}
             onPress={handleSend}
             disabled={!input.trim() || loading}
           >
-            <Ionicons name="send" size={18} color="#fff" />
+            <Ionicons name="arrow-up" size={18} color={tc.canvas} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -215,26 +216,152 @@ export default function MealAISuggestionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
+  container: {
+    flex: 1,
+    backgroundColor: tc.canvas,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  },
   flex: { flex: 1 },
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
-  iconBtn: { padding: 8, borderRadius: rounded.full },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.onSurface, marginTop: 8 },
-  emptySub: { fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20 },
-  quickActions: { width: '100%', gap: 8, marginTop: 12 },
-  quickChip: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  quickChipText: { fontSize: 13, color: colors.primary, fontWeight: '500' },
-  chatList: { padding: spacing.containerPadding, gap: 12, paddingBottom: 16 },
-  msgBubble: { maxWidth: '85%', padding: 12, borderRadius: rounded.lg },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: colors.primaryContainer },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  userText: { fontSize: 14, color: '#fff', lineHeight: 20 },
-  assistantText: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
-  loadingText: { fontSize: 12, color: colors.onSurfaceVariant },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-  chatInput: { flex: 1, backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, paddingHorizontal: 14, paddingVertical: 10, color: colors.onSurface, fontSize: 14, maxHeight: 100, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' },
+  appBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 64,
+    paddingHorizontal: ts.gutter,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tc.border,
+  },
+  appBarTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: tc.textPrimary,
+    letterSpacing: -0.3,
+  },
+  iconBtn: { padding: 8, borderRadius: tr.full },
+
+  // Empty state
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: ts.gutter,
+    gap: 12,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: tc.actionDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: tc.textPrimary,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: tc.textSecondary,
+    textAlign: 'center',
+    lineHeight: 21,
+    maxWidth: 280,
+  },
+
+  // Quick actions
+  quickActions: {
+    paddingHorizontal: ts.gutter,
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  quickChip: {
+    padding: 12,
+    borderRadius: tr.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.borderStrong,
+    backgroundColor: tc.actionDim,
+  },
+  quickChipText: {
+    fontSize: 13,
+    color: tc.action,
+    fontWeight: '500',
+  },
+
+  // Chat list
+  chatList: {
+    padding: ts.gutter,
+    gap: 10,
+    paddingBottom: 12,
+  },
+  msgBubble: {
+    maxWidth: '85%',
+    padding: 12,
+    borderRadius: tr.lg,
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: tc.action,
+  },
+  assistantBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: tc.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  userText: {
+    fontSize: 14,
+    color: tc.canvas,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  assistantText: {
+    fontSize: 14,
+    color: tc.textPrimary,
+    lineHeight: 20,
+  },
+
+  // Loading
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: ts.gutter,
+    paddingVertical: 6,
+  },
+  loadingText: {
+    fontSize: 12,
+    color: tc.textSecondary,
+  },
+
+  // Input
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    padding: ts.gutter,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tc.border,
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: tc.surface,
+    borderRadius: tr.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: tc.textPrimary,
+    fontSize: 14,
+    maxHeight: 100,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: tc.action,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

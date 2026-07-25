@@ -71,7 +71,7 @@ export default function GoalsTrackerScreen() {
             onSubmitEditing={handleAddGoal}
           />
           <TouchableOpacity style={styles.addButton} onPress={handleAddGoal}>
-            <Ionicons name="add" size={24} color="#ffffff" />
+              <Ionicons name="add" size={24} color={colors.onSurface} />
           </TouchableOpacity>
         </View>
 
@@ -89,7 +89,7 @@ export default function GoalsTrackerScreen() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.checkbox, g.completed && styles.checkboxCompleted]}>
-                  {g.completed && <Ionicons name="checkmark" size={12} color="#ffffff" />}
+                  {g.completed && <Ionicons name="checkmark" size={12} color={colors.onSurface} />}
                 </View>
                 <Text style={[styles.goalName, g.completed && styles.goalNameCompleted]}>
                   {g.name}
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -151,9 +151,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   progressCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     gap: 12,
@@ -189,9 +189,9 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -207,9 +207,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   goalRow: {
@@ -217,8 +217,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   goalLeft: {
     flexDirection: 'row',

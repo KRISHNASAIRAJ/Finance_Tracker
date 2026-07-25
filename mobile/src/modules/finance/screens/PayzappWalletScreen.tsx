@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -126,7 +126,7 @@ export default function PayzappWalletScreen() {
           }}
           activeOpacity={0.8}
         >
-          <Ionicons name="add-circle" size={18} color="#000" />
+          <Ionicons name="add-circle" size={18} color={colors.textInverse} />
           <Text style={styles.addBtnText}>Log Wallet Load</Text>
         </TouchableOpacity>
 
@@ -142,7 +142,7 @@ export default function PayzappWalletScreen() {
           walletLoads.map((tx: Transaction) => (
             <View key={tx.id} style={styles.loadItem}>
               <View style={styles.loadLeft}>
-                <View style={[styles.loadDot, { backgroundColor: '#84CC16' }]} />
+                <View style={[styles.loadDot, { backgroundColor: colors.chartreuse }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.loadAmt}>-{formatCur(tx.amount)}</Text>
                   <Text style={styles.loadDt}>
@@ -230,35 +230,35 @@ const styles = StyleSheet.create({
   appBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     height: 56, paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
   scroll: { padding: spacing.containerPadding, gap: 16, paddingBottom: 60 },
   progressCard: {
-    backgroundColor: 'rgba(132,204,22,0.04)', borderRadius: rounded.DEFAULT,
-    borderWidth: 1, borderColor: 'rgba(132,204,22,0.1)', padding: 16, gap: 10,
+    backgroundColor: 'rgba(188,232,93,0.04)', borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: 16, gap: 10,
   },
   progressTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   progressLabel: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
-  progressVal: { fontSize: 24, fontWeight: '800', color: '#84CC16' },
+  progressVal: { fontSize: 24, fontWeight: '800', color: colors.chartreuse },
   barBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: 8, borderRadius: 4, backgroundColor: '#84CC16' },
+  barFill: { height: 8, borderRadius: 4, backgroundColor: colors.chartreuse },
   progressBottom: { flexDirection: 'row', justifyContent: 'space-between' },
   metaText: { fontSize: 11, color: colors.onSurfaceVariant },
   cashbackText: { fontSize: 13, fontWeight: '700', color: colors.success },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: '#84CC16',
+    paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.chartreuse,
   },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: '#000' },
+  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.textInverse },
   sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   emptyWrap: { alignItems: 'center', paddingVertical: 24, gap: 6 },
   emptyText: { fontSize: 12, color: colors.onSurfaceVariant },
   emptySub: { fontSize: 11, color: colors.outline, textAlign: 'center' },
   loadItem: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   loadLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   loadDot: { width: 8, height: 8, borderRadius: 4 },
@@ -268,18 +268,18 @@ const styles = StyleSheet.create({
   loadActions: { flexDirection: 'row', gap: 4 },
   actBtn: { padding: 8, borderRadius: rounded.full },
   mOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  mCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  mCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   mTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   inpGrp: { gap: 6 },
   inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   inp: {
     backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', height: 44,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44,
     paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500',
   },
   mBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
   mCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
   mCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   mSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  mSaveTxt: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  mSaveTxt: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
 });

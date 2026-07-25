@@ -13,11 +13,10 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useMealStore, MealFoodItem, MealLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { getTodayDateString } from '../../../shared/istDate';
+import { tc, ts, tr, card, labelMuted } from '../../../shared/theme/tracend';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
@@ -29,11 +28,11 @@ type RouteParams = {
   };
 };
 
-const MEAL_META: Record<MealType, { label: string; icon: string; color: string }> = {
-  breakfast: { label: 'Breakfast', icon: 'sunny-outline', color: colors.primary },
-  lunch: { label: 'Lunch', icon: 'restaurant-outline', color: '#f59e0b' },
-  snack: { label: 'Snack', icon: 'nutrition-outline', color: colors.success },
-  dinner: { label: 'Dinner', icon: 'moon-outline', color: '#3b82f6' },
+const MEAL_META: Record<MealType, { label: string; icon: string; color: string; bg: string }> = {
+  breakfast: { label: 'Breakfast', icon: 'sunny-outline', color: tc.action, bg: tc.actionDim },
+  lunch: { label: 'Lunch', icon: 'restaurant-outline', color: tc.amber, bg: 'rgba(226,164,92,0.12)' },
+  snack: { label: 'Snack', icon: 'nutrition-outline', color: tc.carbs, bg: tc.carbsBg },
+  dinner: { label: 'Dinner', icon: 'moon-outline', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)' },
 };
 
 export default function MealEditScreen() {
@@ -103,11 +102,11 @@ export default function MealEditScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          <Ionicons name="arrow-back" size={24} color={tc.action} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>{isEdit ? 'Edit Meal' : 'New Meal'}</Text>
         <TouchableOpacity style={styles.iconBtn} onPress={handleSave}>
-          <Ionicons name="checkmark" size={24} color={colors.success} />
+          <Ionicons name="checkmark" size={24} color={tc.carbs} />
         </TouchableOpacity>
       </View>
 
@@ -117,7 +116,7 @@ export default function MealEditScreen() {
       >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Meal Type */}
-        <Text style={styles.sectionLabel}>MEAL TYPE</Text>
+        <Text style={labelMuted}>Meal Type</Text>
         <View style={styles.mealTypeRow}>
           {(Object.keys(MEAL_META) as MealType[]).map((type) => {
             const m = MEAL_META[type];
@@ -125,10 +124,10 @@ export default function MealEditScreen() {
             return (
               <TouchableOpacity
                 key={type}
-                style={[styles.mealTypeChip, selected && { backgroundColor: `${m.color}25`, borderColor: m.color }]}
+                style={[styles.mealTypeChip, selected && { backgroundColor: m.bg, borderColor: m.color }]}
                 onPress={() => setMealType(type)}
               >
-                <Ionicons name={m.icon as any} size={16} color={selected ? m.color : colors.onSurfaceVariant} />
+                <Ionicons name={m.icon as any} size={13} color={selected ? m.color : tc.textMuted} />
                 <Text style={[styles.mealTypeText, selected && { color: m.color }]}>{m.label}</Text>
               </TouchableOpacity>
             );
@@ -136,17 +135,17 @@ export default function MealEditScreen() {
         </View>
 
         {/* Date */}
-        <Text style={styles.sectionLabel}>DATE</Text>
+        <Text style={labelMuted}>Date</Text>
         <TextInput
           style={styles.dateInput}
           value={mealDate}
           onChangeText={setMealDate}
           placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.onSurfaceVariant}
+          placeholderTextColor={tc.textMuted}
         />
 
         {/* Food Items */}
-        <Text style={styles.sectionLabel}>FOOD ITEMS</Text>
+        <Text style={labelMuted}>Food Items</Text>
         {foodItems.map((item, i) => (
           <View key={i} style={styles.foodCard}>
             <View style={styles.foodHeader}>
@@ -156,10 +155,10 @@ export default function MealEditScreen() {
                 value={item.name}
                 onChangeText={(v) => updateFoodItem(i, 'name', v)}
                 placeholder="Food name"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={tc.textMuted}
               />
               <TouchableOpacity onPress={() => removeFoodRow(i)}>
-                <Ionicons name="close-circle" size={20} color={colors.error} />
+                <Ionicons name="close-circle" size={20} color={tc.attention} />
               </TouchableOpacity>
             </View>
             <View style={styles.foodQtyRow}>
@@ -170,86 +169,60 @@ export default function MealEditScreen() {
                   value={item.quantity}
                   onChangeText={(v) => updateFoodItem(i, 'quantity', v)}
                   placeholder="200g"
-                  placeholderTextColor={colors.onSurfaceVariant}
+                  placeholderTextColor={tc.textMuted}
                 />
               </View>
             </View>
             <View style={styles.nutriGrid}>
-              <View style={styles.nutriItem}>
-                <Text style={styles.nutriLabel}>Calories</Text>
-                <TextInput
-                  style={styles.nutriInput}
-                  value={item.calories ? item.calories.toString() : ''}
-                  onChangeText={(v) => updateFoodItem(i, 'calories', v)}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.onSurfaceVariant}
-                />
-              </View>
-              <View style={styles.nutriItem}>
-                <Text style={styles.nutriLabel}>Protein (g)</Text>
-                <TextInput
-                  style={styles.nutriInput}
-                  value={item.protein ? item.protein.toString() : ''}
-                  onChangeText={(v) => updateFoodItem(i, 'protein', v)}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.onSurfaceVariant}
-                />
-              </View>
-              <View style={styles.nutriItem}>
-                <Text style={styles.nutriLabel}>Carbs (g)</Text>
-                <TextInput
-                  style={styles.nutriInput}
-                  value={item.carbs ? item.carbs.toString() : ''}
-                  onChangeText={(v) => updateFoodItem(i, 'carbs', v)}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.onSurfaceVariant}
-                />
-              </View>
-              <View style={styles.nutriItem}>
-                <Text style={styles.nutriLabel}>Fat (g)</Text>
-                <TextInput
-                  style={styles.nutriInput}
-                  value={item.fat ? item.fat.toString() : ''}
-                  onChangeText={(v) => updateFoodItem(i, 'fat', v)}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.onSurfaceVariant}
-                />
-              </View>
+              {[
+                { label: 'Calories', key: 'calories', color: tc.calories },
+                { label: 'Protein (g)', key: 'protein', color: tc.action },
+                { label: 'Carbs (g)', key: 'carbs', color: tc.carbs },
+                { label: 'Fat (g)', key: 'fat', color: tc.fat },
+              ].map((f) => (
+                <View style={styles.nutriItem} key={f.key}>
+                  <Text style={[styles.nutriLabel, { color: f.color }]}>{f.label}</Text>
+                  <TextInput
+                    style={styles.nutriInput}
+                    value={(item as any)[f.key] ? (item as any)[f.key].toString() : ''}
+                    onChangeText={(v) => updateFoodItem(i, f.key as any, v)}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={tc.textMuted}
+                  />
+                </View>
+              ))}
             </View>
           </View>
         ))}
 
         <TouchableOpacity style={styles.addItemBtn} onPress={addFoodRow}>
-          <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+          <Ionicons name="add" size={16} color={tc.action} />
           <Text style={styles.addItemText}>Add Another Item</Text>
         </TouchableOpacity>
 
         {/* Notes */}
-        <Text style={styles.sectionLabel}>NOTES</Text>
+        <Text style={labelMuted}>Notes</Text>
         <TextInput
           style={styles.notesInput}
           value={mealNotes}
           onChangeText={setMealNotes}
           placeholder="Optional notes..."
-          placeholderTextColor={colors.onSurfaceVariant}
+          placeholderTextColor={tc.textMuted}
           multiline
           numberOfLines={3}
           textAlignVertical="top"
         />
 
         {/* Actions */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.9}>
+          <Ionicons name="checkmark-circle" size={18} color={tc.canvas} />
           <Text style={styles.saveBtnText}>{isEdit ? 'Update Meal' : 'Save Meal'}</Text>
         </TouchableOpacity>
 
         {isEdit && (
           <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={16} color={colors.error} />
+            <Ionicons name="trash-outline" size={16} color={tc.attention} />
             <Text style={styles.deleteBtnText}>Delete Meal</Text>
           </TouchableOpacity>
         )}
@@ -260,34 +233,163 @@ export default function MealEditScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
+  container: {
+    flex: 1,
+    backgroundColor: tc.canvas,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  },
   flex: { flex: 1 },
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
-  iconBtn: { padding: 8, borderRadius: rounded.full },
-  scroll: { padding: spacing.containerPadding, gap: 16, paddingBottom: 40 },
-  sectionLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  mealTypeRow: { flexDirection: 'row', gap: 8 },
-  mealTypeChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: rounded.DEFAULT, backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  mealTypeText: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant },
-  dateInput: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, height: 48, paddingHorizontal: 14, color: colors.onSurface, fontSize: 15, fontWeight: '500', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  foodCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 16, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-  foodHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  foodIndex: { fontSize: 14, fontWeight: '700', color: colors.onSurfaceVariant, width: 22, textAlign: 'center' },
-  foodNameInput: { flex: 1, height: 42, paddingHorizontal: 12, color: colors.onSurface, fontSize: 15, fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8 },
+  appBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 64,
+    paddingHorizontal: ts.gutter,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tc.border,
+  },
+  appBarTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: tc.textPrimary,
+    letterSpacing: -0.3,
+  },
+  iconBtn: { padding: 8, borderRadius: tr.full },
+  scroll: { padding: ts.gutter, gap: 14, paddingBottom: 50 },
+
+  mealTypeRow: { flexDirection: 'row', gap: 6 },
+  mealTypeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 12,
+    borderRadius: tr.DEFAULT,
+    backgroundColor: tc.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  mealTypeText: { fontSize: 11, fontWeight: '600', color: tc.textMuted },
+
+  dateInput: {
+    backgroundColor: tc.surface,
+    borderRadius: tr.DEFAULT,
+    height: 48,
+    paddingHorizontal: 14,
+    color: tc.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+
+  foodCard: {
+    ...card,
+    padding: 14,
+    gap: 12,
+  },
+  foodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  foodIndex: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: tc.textMuted,
+    width: 22,
+    textAlign: 'center',
+  },
+  foodNameInput: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
+    color: tc.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+    backgroundColor: 'rgba(244,247,251,0.03)',
+    borderRadius: 8,
+  },
   foodQtyRow: { flexDirection: 'row', gap: 10 },
   qtyField: { flex: 1 },
-  qtyLabel: { fontSize: 9, color: colors.onSurfaceVariant, fontWeight: '600', marginBottom: 4 },
-  qtyInput: { height: 38, paddingHorizontal: 12, color: colors.onSurface, fontSize: 13, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8 },
-  nutriGrid: { flexDirection: 'row', gap: 8 },
+  qtyLabel: {
+    fontSize: 9,
+    color: tc.textMuted,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  qtyInput: {
+    height: 38,
+    paddingHorizontal: 12,
+    color: tc.textPrimary,
+    fontSize: 13,
+    backgroundColor: 'rgba(244,247,251,0.03)',
+    borderRadius: 8,
+  },
+  nutriGrid: { flexDirection: 'row', gap: 6 },
   nutriItem: { flex: 1 },
-  nutriLabel: { fontSize: 9, color: colors.onSurfaceVariant, fontWeight: '600', marginBottom: 4, textAlign: 'center' },
-  nutriInput: { height: 38, color: colors.onSurface, fontSize: 13, fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, textAlign: 'center' },
-  addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)', borderRadius: rounded.DEFAULT, borderStyle: 'dashed' },
-  addItemText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  notesInput: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, height: 80, paddingHorizontal: 12, paddingVertical: 10, color: colors.onSurface, fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primaryContainer, paddingVertical: 16, borderRadius: rounded.lg, marginTop: 4 },
-  saveBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, marginTop: 4 },
-  deleteBtnText: { fontSize: 14, color: colors.error, fontWeight: '600' },
+  nutriLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  nutriInput: {
+    height: 36,
+    color: tc.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: 'rgba(244,247,251,0.03)',
+    borderRadius: 8,
+    textAlign: 'center',
+  },
+
+  addItemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.borderFocus,
+    borderRadius: tr.DEFAULT,
+    borderStyle: 'dashed' as const,
+  },
+  addItemText: { fontSize: 13, color: tc.action, fontWeight: '600' },
+
+  notesInput: {
+    backgroundColor: tc.surface,
+    borderRadius: tr.DEFAULT,
+    height: 80,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: tc.textPrimary,
+    fontSize: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+
+  saveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: tc.action,
+    paddingVertical: 16,
+    borderRadius: tr.lg,
+    marginTop: 4,
+  },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: tc.canvas },
+
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  deleteBtnText: { fontSize: 14, color: tc.attention, fontWeight: '600' },
 });

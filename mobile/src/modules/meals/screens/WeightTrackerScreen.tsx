@@ -200,7 +200,7 @@ export default function WeightTrackerScreen() {
 
         {/* Add Button */}
         <TouchableOpacity style={styles.addBtn} onPress={openAdd} activeOpacity={0.8}>
-          <Ionicons name="add-circle" size={20} color="#fff" />
+          <Ionicons name="add-circle" size={20} color={colors.onSurface} />
           <Text style={styles.addBtnText}>Log Weight</Text>
         </TouchableOpacity>
 
@@ -296,12 +296,12 @@ export default function WeightTrackerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   appBarCenter: { alignItems: 'center' },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
   iconBtn: { padding: 8, borderRadius: rounded.full },
   scroll: { padding: spacing.containerPadding, gap: 14, paddingBottom: 40 },
-  heroCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 20, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  heroCard: {     backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 20, alignItems: 'center', gap: 6,     borderWidth: StyleSheet.hairlineWidth,     borderColor: colors.border, },
   heroLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   heroValue: { fontSize: 40, fontWeight: '800', color: colors.onSurface, letterSpacing: -1 },
@@ -310,17 +310,17 @@ const styles = StyleSheet.create({
   changeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   changeText: { fontSize: 13, fontWeight: '600' },
   targetText: { fontSize: 11, color: colors.onSurfaceVariant },
-  chartCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  chartCard: {     backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, gap: 8,     borderWidth: StyleSheet.hairlineWidth,     borderColor: colors.border, },
   chartTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, color: colors.onSurfaceVariant },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primaryContainer, paddingVertical: 14, borderRadius: rounded.lg },
-  addBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  addBtnText: { fontSize: 15, fontWeight: '700', color: colors.onSurface },
   sectionTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 20 },
-  entryCard: { flexDirection: 'row', backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, padding: 12, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center' },
-  entryIcon: { width: 40, height: 40, borderRadius: rounded.DEFAULT, backgroundColor: 'rgba(124,58,237,0.1)', alignItems: 'center', justifyContent: 'center' },
+  entryCard: { flexDirection: 'row',     backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, padding: 12, gap: 12,     borderWidth: StyleSheet.hairlineWidth,     borderColor: colors.border, alignItems: 'center' },
+  entryIcon: { width: 40, height: 40, borderRadius: rounded.DEFAULT,     backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' },
   entryInfo: { flex: 1, gap: 2 },
   entryDate: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
   entryNote: { fontSize: 11, color: colors.onSurfaceVariant },
@@ -331,9 +331,9 @@ const styles = StyleSheet.create({
   modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center', marginBottom: 16 },
   fieldLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginBottom: 4, marginTop: 8 },
-  fieldInput: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, height: 44, paddingHorizontal: 14, color: colors.onSurface, fontSize: 15, fontWeight: '500', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  fieldInput: {     backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, height: 44, paddingHorizontal: 14, color: colors.onSurface, fontSize: 15, fontWeight: '500',     borderWidth: StyleSheet.hairlineWidth,     borderColor: colors.border, },
   saveBtn: { backgroundColor: colors.primaryContainer, paddingVertical: 14, borderRadius: rounded.lg, alignItems: 'center', marginTop: 16 },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: 15, fontWeight: '700', color: colors.onSurface },
   cancelBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
   cancelBtnText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
 });

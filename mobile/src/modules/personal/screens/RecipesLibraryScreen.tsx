@@ -259,8 +259,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -301,9 +301,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   recipeCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     gap: 12,
@@ -416,8 +416,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.surfaceContainerHigh,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextSave: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.onSurface,
     fontWeight: '700',
   },
 });

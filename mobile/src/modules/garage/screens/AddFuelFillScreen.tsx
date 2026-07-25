@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.lg,
     padding: 4,
     gap: 4,
@@ -319,9 +319,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   textInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -329,9 +329,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   summaryCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     alignItems: 'center',
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -371,9 +371,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   datePickerTrigger: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -387,9 +387,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dropdownButton: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 13,
@@ -407,9 +407,9 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   dropdownMenu: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     marginTop: 4,
     overflow: 'hidden',
@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
   dropdownItem: {
     paddingHorizontal: 16,
     paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   dropdownItemActive: {
     backgroundColor: `${colors.primary}20`,

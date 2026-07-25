@@ -210,44 +210,41 @@ export default function GarageDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Vehicle Selector Tabs */}
-      <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-          {vehicles.map((v) => {
-            const isSelected = selectedVehicle === v;
-            return (
-              <TouchableOpacity
-                key={v}
-                style={[styles.tabButton, isSelected && styles.tabButtonActive]}
-                onPress={() => setSelectedVehicle(v)}
-                onLongPress={() => {
-                  if (vehicles.length <= 1) return;
-                  setEditingVehicleName(v);
-                  setVehicleNameInput(v);
-                  setShowVehicleModal(true);
-                }}
-              >
-                <Text style={styles.vehicleEmoji}>🛵</Text>
-                <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
-              </TouchableOpacity>
-            );
-          })}
-          <TouchableOpacity
-            style={styles.addVehicleBtn}
-            onPress={() => {
-              setEditingVehicleName(null);
-              setVehicleNameInput('');
-              setShowVehicleModal(true);
-            }}
-          >
-            <Ionicons name="add" size={18} color={colors.primary} />
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Mileage Hero */}
         <View style={styles.heroCard}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleTabsRow}>
+            {vehicles.map((v) => {
+              const isSelected = selectedVehicle === v;
+              return (
+                <TouchableOpacity
+                  key={v}
+                  style={[styles.tabButton, isSelected && styles.tabButtonActive]}
+                  onPress={() => setSelectedVehicle(v)}
+                  onLongPress={() => {
+                    if (vehicles.length <= 1) return;
+                    setEditingVehicleName(v);
+                    setVehicleNameInput(v);
+                    setShowVehicleModal(true);
+                  }}
+                >
+                  <Text style={styles.vehicleEmoji}>🛵</Text>
+                  <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={styles.addVehicleBtn}
+              onPress={() => {
+                setEditingVehicleName(null);
+                setVehicleNameInput('');
+                setShowVehicleModal(true);
+              }}
+            >
+              <Ionicons name="add" size={18} color={colors.action} />
+            </TouchableOpacity>
+          </ScrollView>
+          <View style={styles.heroDivider} />
           <Text style={styles.heroLabel}>CURRENT EFFICIENCY</Text>
           <View style={styles.heroValueRow}>
             <Text style={styles.heroValue}>{displayMileage}</Text>
@@ -294,8 +291,8 @@ export default function GarageDashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.gridHeader}>
-              <View style={[styles.gridIcon, { backgroundColor: '#f59e0b20' }]}>
-                <Ionicons name="construct-outline" size={16} color="#f59e0b" />
+              <View style={[styles.gridIcon, { backgroundColor: `${colors.amber}20` }]}>
+                <Ionicons name="construct-outline" size={16} color={colors.amber} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
@@ -308,7 +305,7 @@ export default function GarageDashboardScreen() {
               onPress={(e) => { e.stopPropagation(); navigation.navigate('AddMaintenance', {}); }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.cardActionText, { color: '#f59e0b' }]}>+ Add Service</Text>
+              <Text style={[styles.cardActionText, { color: colors.amber }]}>+ Add Service</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
@@ -345,16 +342,16 @@ export default function GarageDashboardScreen() {
                 <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
                   <Defs>
                     <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0%" stopColor="#a855f7" stopOpacity="0.35" />
-                      <Stop offset="100%" stopColor="#a855f7" stopOpacity="0.0" />
+                      <Stop offset="0%" stopColor={colors.action} stopOpacity="0.35" />
+                      <Stop offset="100%" stopColor={colors.action} stopOpacity="0.0" />
                     </LinearGradient>
                   </Defs>
 
-                  <Line x1="0" y1={CHART_H * 0.33} x2={CHART_W} y2={CHART_H * 0.33} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                  <Line x1="0" y1={CHART_H * 0.66} x2={CHART_W} y2={CHART_H * 0.66} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                  <Line x1="0" y1={CHART_H * 0.33} x2={CHART_W} y2={CHART_H * 0.33} stroke={colors.border} strokeWidth="1" />
+                  <Line x1="0" y1={CHART_H * 0.66} x2={CHART_W} y2={CHART_H * 0.66} stroke={colors.border} strokeWidth="1" />
 
                   <Path d={fillD} fill="url(#grad)" />
-                  <Path d={pathD} stroke="#c084fc" strokeWidth="2.5" fill="none" />
+                  <Path d={pathD} stroke={colors.action} strokeWidth="2.5" fill="none" />
 
                   {activeIndex >= 0 && activeIndex < points.length && (
                     <Line
@@ -362,7 +359,7 @@ export default function GarageDashboardScreen() {
                       y1={points[activeIndex].y}
                       x2={points[activeIndex].x}
                       y2={CHART_H - padY + 10}
-                      stroke="#c084fc"
+                      stroke={colors.action}
                       strokeWidth="1.5"
                       strokeDasharray="3,3"
                     />
@@ -530,27 +527,36 @@ const styles = StyleSheet.create({
   tabContainer: {
     backgroundColor: colors.surface,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   tabScroll: {
     paddingHorizontal: spacing.containerPadding,
     gap: 8,
   },
+  vehicleTabsRow: {
+    paddingBottom: 4,
+    gap: 8,
+  },
+  heroDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: 4,
+  },
   tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(155,165,255,0.08)',
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   tabButtonActive: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.primary,
+    backgroundColor: colors.actionDim,
+    borderColor: colors.action,
   },
   vehicleEmoji: {
     fontSize: 14,
@@ -570,9 +576,9 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   heroCard: {
-    backgroundColor: '#0f0f1a',
-    borderColor: 'rgba(168, 85, 247, 0.15)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     alignItems: 'flex-start',
@@ -595,7 +601,7 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 40,
     fontWeight: '800',
-    color: '#c084fc',
+    color: colors.action,
     letterSpacing: -1,
   },
   heroUnit: {
@@ -634,9 +640,9 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 12,
@@ -663,8 +669,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.04)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
     marginTop: 4,
   },
   cardActionText: {
@@ -689,9 +695,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   chartCard: {
-    backgroundColor: '#0f0f1a',
-    borderColor: 'rgba(168, 85, 247, 0.12)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     overflow: 'hidden',
@@ -718,7 +724,7 @@ const styles = StyleSheet.create({
   chartBigValue: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#c084fc',
+    color: colors.action,
     letterSpacing: -1,
   },
   chartUnit: {
@@ -729,7 +735,7 @@ const styles = StyleSheet.create({
   },
   chartToggleGroup: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.border,
     borderRadius: rounded.full,
     padding: 2,
     gap: 2,
@@ -740,7 +746,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.full,
   },
   chartToggleBtnActive: {
-    backgroundColor: 'rgba(168,85,247,0.3)',
+    backgroundColor: colors.actionStrong,
   },
   chartToggleText: {
     fontSize: 11,
@@ -748,7 +754,7 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   chartToggleTextActive: {
-    color: '#c084fc',
+    color: colors.action,
   },
   areaChartContainer: {
     position: 'relative',
@@ -757,13 +763,13 @@ const styles = StyleSheet.create({
   },
   floatValueBadge: {
     position: 'absolute',
-    backgroundColor: '#a855f7',
+    backgroundColor: colors.action,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: rounded.sm,
-    borderWidth: 1,
-    borderColor: '#c084fc',
-    shadowColor: '#a855f7',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.action,
+    shadowColor: colors.action,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -772,7 +778,7 @@ const styles = StyleSheet.create({
   floatValueText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   logsSection: {
     gap: 8,
@@ -794,9 +800,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   logsContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   logRow: {
@@ -804,8 +810,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logLeft: {
     flexDirection: 'row',
@@ -877,8 +883,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: rounded.full,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -894,8 +900,8 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: 24,
     gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
@@ -904,10 +910,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalInput: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -940,5 +946,5 @@ const styles = StyleSheet.create({
   modalBtnCancel: { backgroundColor: 'transparent' },
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
 });

@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   markReadButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    backgroundColor: colors.primaryContainer,
     borderRadius: 8,
   },
   markReadText: {
@@ -125,16 +125,16 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   cardUnread: {
-    backgroundColor: 'rgba(124, 58, 237, 0.05)',
-    borderColor: 'rgba(124, 58, 237, 0.2)',
-    borderWidth: 1,
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.borderStrong,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   cardHeader: {
     flexDirection: 'row',

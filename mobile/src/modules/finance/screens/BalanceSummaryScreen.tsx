@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -71,7 +71,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Bank Balances',
       icon: 'business-outline',
-      color: '#10b981',
+      color: colors.stable,
       items: accounts.map((acc) => ({
         label: acc.title,
         value: acc.amount,
@@ -86,7 +86,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Credit Card Bills',
       icon: 'card-outline',
-      color: '#f59e0b',
+      color: colors.amber,
       items: cards.filter((c) => c.balance > 0).map((c) => ({
         label: `${c.name} •••• ${c.endingWith}`,
         value: c.balance,
@@ -99,7 +99,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Lent Money',
       icon: 'arrow-up-circle-outline',
-      color: '#3b82f6',
+      color: colors.action,
       items: receivables.filter((r) => r.type === 'lent').map((r) => ({
         label: r.personName,
         value: r.amount,
@@ -112,7 +112,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Borrowed Money',
       icon: 'arrow-down-circle-outline',
-      color: '#ef4444',
+      color: colors.attention,
       items: receivables.filter((r) => r.type === 'borrowed').map((r) => ({
         label: r.personName,
         value: r.amount,
@@ -125,7 +125,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Fixed Expenses (Unpaid)',
       icon: 'lock-closed-outline',
-      color: '#6366f1',
+      color: colors.action,
       items: fixedExpenses.filter((f) => f.lastPaidMonth !== currentMonthStr).map((f) => ({
         label: f.name,
         value: f.amount,
@@ -176,15 +176,15 @@ export default function BalanceSummaryScreen() {
             </View>
             <View style={styles.heroChip}>
               <Text style={styles.heroChipLabel}>Lent</Text>
-              <Text style={[styles.heroChipValue, { color: '#3b82f6' }]}>+{formatCurrency(totalLent)}</Text>
+              <Text style={[styles.heroChipValue, { color: colors.action }]}>+{formatCurrency(totalLent)}</Text>
             </View>
             <View style={styles.heroChip}>
               <Text style={styles.heroChipLabel}>Cards</Text>
-              <Text style={[styles.heroChipValue, { color: '#f59e0b' }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
+              <Text style={[styles.heroChipValue, { color: colors.amber }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
             </View>
             <View style={styles.heroChip}>
               <Text style={styles.heroChipLabel}>Fixed</Text>
-              <Text style={[styles.heroChipValue, { color: '#6366f1' }]}>-{formatCurrency(unpaidFixedExpensesTotal)}</Text>
+              <Text style={[styles.heroChipValue, { color: colors.action }]}>-{formatCurrency(unpaidFixedExpensesTotal)}</Text>
             </View>
           </View>
         </View>
@@ -206,10 +206,10 @@ export default function BalanceSummaryScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.itemLabel}>{item.label}</Text>
                       {item.subtitle && (
-                        <Text style={[styles.itemSubtitle, item.alert && { color: '#ef4444' }]}>{item.subtitle}</Text>
+                        <Text style={[styles.itemSubtitle, item.alert && { color: colors.attention }]}>{item.subtitle}</Text>
                       )}
                     </View>
-                    <Text style={[styles.itemValue, item.alert && { color: '#ef4444' }]}>{formatCurrency(item.value)}</Text>
+                    <Text style={[styles.itemValue, item.alert && { color: colors.attention }]}>{formatCurrency(item.value)}</Text>
                   </View>
                 ))}
                 {(section as any).showViewAll && (
@@ -234,7 +234,7 @@ export default function BalanceSummaryScreen() {
 
         {deficitsSum > 0 && (
           <View style={styles.deficitBanner}>
-            <Ionicons name="warning" size={16} color="#f59e0b" />
+            <Ionicons name="warning" size={16} color={colors.amber} />
             <Text style={styles.deficitText}>
               Bank balance deficits: {formatCurrency(deficitsSum)} below minimum required
             </Text>
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
     padding: 24,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(124, 58, 237, 0.2)',
     alignItems: 'center',
     gap: 8,
@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
   section: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   sectionHeader: {
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   sectionBody: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.03)',
+    borderTopColor: colors.border,
   },
   itemRow: {
     flexDirection: 'row',
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
+    borderBottomColor: colors.border,
   },
   itemLabel: {
     fontSize: 13,
@@ -393,15 +393,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colors.amberDim,
     borderRadius: rounded.DEFAULT,
     padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   deficitText: {
     fontSize: 12,
-    color: '#f59e0b',
+    color: colors.amber,
     fontWeight: '600',
     flex: 1,
   },
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.03)',
+    borderTopColor: colors.border,
   },
   viewAllText: {
     fontSize: 13,

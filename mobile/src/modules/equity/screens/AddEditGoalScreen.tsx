@@ -214,9 +214,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   input: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -235,10 +235,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
   },
   priorityBtnActive: {
     backgroundColor: `${colors.primary}20`,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimaryContainer,
   },
   deleteBtn: {
     flexDirection: 'row',
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.error}30`,
   },
   deleteBtnText: {

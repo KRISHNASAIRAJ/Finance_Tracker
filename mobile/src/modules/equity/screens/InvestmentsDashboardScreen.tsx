@@ -96,7 +96,7 @@ export default function InvestmentsDashboardScreen() {
           <Text style={styles.heroLabel}>PORTFOLIO VALUE</Text>
           <Text style={styles.heroValue}>{formatCurrency(portfolioValue)}</Text>
           <View style={styles.heroSubRow}>
-            <View style={[styles.trendBadge, { backgroundColor: isPositive ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)' }]}>
+            <View style={[styles.trendBadge, { backgroundColor: isPositive ? colors.successContainer : colors.errorContainer }]}> 
               <Ionicons name={isPositive ? 'trending-up' : 'trending-down'} size={12} color={isPositive ? colors.success : colors.error} />
               <Text style={[styles.trendText, { color: isPositive ? colors.success : colors.error }]}>
                 {isPositive ? '+' : ''}{pnlPct}% P&amp;L
@@ -145,12 +145,12 @@ export default function InvestmentsDashboardScreen() {
         {/* Allocation Donut */}
         {holdings.length > 0 && (() => {
           const CAT_COLORS: Record<string, string> = {
-            Equity: '#60a5fa',
-            'Mutual Funds': '#a78bfa',
-            Gold: '#fbbf24',
-            Realty: '#34d399',
-            ETF: '#f472b6',
-            Other: '#94a3b8',
+            Equity: '#9BA5FF',
+            'Mutual Funds': '#8894A8',
+            Gold: '#E2A45C',
+            Realty: '#59D6C7',
+            ETF: '#FF887D',
+            Other: '#8894A8',
           };
 
           const allocMap: Record<string, number> = {};
@@ -444,7 +444,7 @@ export default function InvestmentsDashboardScreen() {
         onPress={() => navigation.navigate('AIRecommendations')}
         activeOpacity={0.85}
       >
-        <Ionicons name="sparkles" size={24} color="#fff" />
+        <Ionicons name="sparkles" size={24} color={colors.onPrimaryContainer} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -462,9 +462,9 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heroCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     alignItems: 'center',
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    backgroundColor: colors.successContainer,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: rounded.full,
@@ -506,9 +506,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   snapshotCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 12,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   snapshotDivider: {
     width: 1,
     height: 32,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
   },
   snapshotLabel: {
     fontSize: 10,
@@ -548,9 +548,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   donutCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 14,
@@ -599,9 +599,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: `${colors.primaryContainer}15`,
-    borderColor: `${colors.primaryContainer}40`,
-    borderWidth: 1,
+    backgroundColor: colors.actionDim,
+    borderColor: colors.actionStrong,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
   },
@@ -622,9 +622,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 16,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surface,
     borderRadius: rounded.full,
     overflow: 'hidden',
   },
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
+    borderBottomColor: colors.border,
   },
   holdingLeft: {
     gap: 3,
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
   },
   segmentedRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
     padding: 3,
     gap: 3,
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   segmentedBtnActive: {
     backgroundColor: `${colors.primary}25`,
     borderColor: colors.primary,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   segmentedText: {
     fontSize: 13,
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.04)',
+    borderTopColor: colors.border,
   },
   viewAllText: {
     fontSize: 13,
@@ -806,9 +806,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   planCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 10,
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   planInput: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 12,
     color: colors.onSurface,
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.outlineVariant,
   },
   planCancelText: {
@@ -887,7 +887,7 @@ const styles = StyleSheet.create({
   planSaveText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimaryContainer,
   },
   fab: {
     position: 'absolute',
@@ -904,7 +904,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

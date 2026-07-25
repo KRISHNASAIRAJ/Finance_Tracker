@@ -161,8 +161,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -179,9 +179,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   creatorCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 12,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.onSurface,
     borderBottomColor: 'rgba(255,255,255,0.05)',
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 8,
   },
   contentInput: {
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveText: {
-    color: '#ffffff',
+    color: colors.onSurface,
     fontWeight: '700',
   },
   cancelButton: {
@@ -225,8 +225,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: rounded.DEFAULT,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   cancelText: {
     color: colors.onSurfaceVariant,
@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   noteCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 10,

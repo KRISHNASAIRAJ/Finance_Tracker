@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -164,7 +164,7 @@ export default function MonthlySpendScreen() {
         {/* Total Spend + Budget */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>TOTAL MONTH SPEND</Text>
-          <Text style={[styles.summaryValue, { color: budgetExceeded ? '#ef4444' : colors.error }]}>
+          <Text style={[styles.summaryValue, { color: budgetExceeded ? colors.attention : colors.error }]}>
             {formatCurrency(totalSpend)}
           </Text>
 
@@ -175,12 +175,13 @@ export default function MonthlySpendScreen() {
                 <Text style={styles.budgetVal}>{formatCurrency(budgetPaise)}</Text>
               </View>
               <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${Math.min(100, (totalSpend / budgetPaise) * 100)}%`, backgroundColor: budgetExceeded ? '#ef4444' : '#84CC16' }]} />
+                <View style={[styles.barFill, { width: `${Math.min(100, (totalSpend / budgetPaise) * 100)}%`, backgroundColor: budgetExceeded ? colors.attention : colors.chartreuse }]} />
               </View>
               {budgetExceeded ? (
                 <View style={styles.budgetWarning}>
-                  <Ionicons name="warning" size={14} color="#ef4444" />
+                  <Ionicons name="warning" size={14} color={colors.attention} />
                   <Text style={styles.budgetWarningText}>Budget crossed by {formatCurrency(totalSpend - budgetPaise)}</Text>
+                
                 </View>
               ) : (
                 <View style={styles.safeInfo}>
@@ -209,20 +210,20 @@ export default function MonthlySpendScreen() {
               <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} pointerEvents="none">
                 <Defs>
                   <LinearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#ef4444" stopOpacity="0.3" />
-                    <Stop offset="1" stopColor="#ef4444" stopOpacity="0" />
+                    <Stop offset="0" stopColor={colors.attention} stopOpacity="0.3" />
+                    <Stop offset="1" stopColor={colors.attention} stopOpacity="0" />
                   </LinearGradient>
                 </Defs>
                 {fillD ? <Path d={fillD} fill="url(#spendGrad)" /> : null}
-                {pathD ? <Path d={pathD} stroke="#ef4444" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
+                {pathD ? <Path d={pathD} stroke={colors.attention} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
                 {selectedDay !== null && selectedDay < points.length && (
                   <>
                     <Line
                       x1={points[selectedDay].x} y1={points[selectedDay].y}
                       x2={points[selectedDay].x} y2={CHART_H - padY}
-                      stroke="#ef4444" strokeWidth={1} strokeDasharray="3,3"
+                      stroke={colors.attention} strokeWidth={1} strokeDasharray="3,3"
                     />
-                    <Circle cx={points[selectedDay].x} cy={points[selectedDay].y} r={4} fill="#ef4444" />
+                    <Circle cx={points[selectedDay].x} cy={points[selectedDay].y} r={4} fill={colors.attention} />
                   </>
                 )}
               </Svg>
@@ -328,7 +329,7 @@ export default function MonthlySpendScreen() {
       </ScrollView>
 
       <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddExpense')} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={colors.textPrimary} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
   iconButton: { padding: 8, borderRadius: rounded.full },
@@ -358,8 +359,8 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     alignItems: 'center',
@@ -374,18 +375,18 @@ const styles = StyleSheet.create({
   barBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: 6, borderRadius: 3 },
   budgetWarning: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  budgetWarningText: { fontSize: 12, fontWeight: '600', color: '#ef4444' },
+  budgetWarningText: { fontSize: 12, fontWeight: '600', color: colors.attention },
   safeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   safeLabel: { fontSize: 11, color: colors.onSurfaceVariant },
-  safeVal: { fontSize: 14, fontWeight: '700', color: '#84CC16' },
+  safeVal: { fontSize: 14, fontWeight: '700', color: colors.chartreuse },
   editBudgetBtn: { alignItems: 'center', paddingVertical: 6 },
   editBudgetText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
   setBudgetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 8 },
   setBudgetText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   chartCard: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 10,
@@ -393,12 +394,12 @@ const styles = StyleSheet.create({
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.attention,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  tooltipText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+  tooltipText: { fontSize: 9, fontWeight: '700', color: colors.textPrimary },
   touchOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -406,22 +407,22 @@ const styles = StyleSheet.create({
   },
   touchSlice: { flex: 1 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   inpGrp: { gap: 6 },
   inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  inp: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
+  inp: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
   modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
   modalCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
   modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  modalSaveTxt: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalSaveTxt: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
   section: { gap: 8 },
   sectionTitle: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   listContainer: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   rowItem: {
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWrapper: { width: 32, height: 32, borderRadius: rounded.DEFAULT, alignItems: 'center', justifyContent: 'center' },
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, fontWeight: '500' },
   viewAllBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)',
+    paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.border,
   },
   viewAllText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   fab: {
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

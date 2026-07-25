@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -94,7 +94,7 @@ export default function FixedExpensesScreen() {
                         onPress={() => unmarkFixedExpensePaid(item.id, user?.id)}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="checkmark-circle" size={12} color="#ffffff" />
+                        <Ionicons name="checkmark-circle" size={12} color={colors.textPrimary} />
                         <Text style={styles.paidBadgeText}>Paid</Text>
                       </TouchableOpacity>
                     ) : (
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -148,8 +148,8 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     alignItems: 'center',
@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   rowItem: {
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   itemLeft: {
     flexDirection: 'row',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.DEFAULT,
   },
   payButtonText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.error}28`,
   },
   unpayButtonText: {
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   paidBadgeText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },

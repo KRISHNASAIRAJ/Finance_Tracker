@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   iconButton: {
     padding: 8,
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heroCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     alignItems: 'center',
@@ -181,9 +181,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   listCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     overflow: 'hidden',
   },
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: colors.border,
   },
   holdingLeft: {
     flex: 1,

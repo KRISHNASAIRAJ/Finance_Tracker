@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -15,14 +15,14 @@ type SpendMode = 'online' | 'offline' | 'upi';
 const formatCur = (paise: number) => `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const cardColors: Record<string, string> = {
-  'SBI Cashback Card': '#3B82F6',
-  'SBI SimplySAVE': '#F59E0B',
-  'IDFC Power+': '#10B981',
-  'Amazon Pay ICICI': '#8B5CF6',
-  'HSBC Platinum RuPay': '#6B7280',
-  'CRED IndusInd': '#06B6D4',
-  'Slice Card': '#F97316',
-  'Load Card': '#6B7280',
+  'SBI Cashback Card': colors.action,
+  'SBI SimplySAVE': colors.amber,
+  'IDFC Power+': colors.stable,
+  'Amazon Pay ICICI': colors.action,
+  'HSBC Platinum RuPay': colors.secondary,
+  'CRED IndusInd': colors.stable,
+  'Slice Card': colors.amber,
+  'Load Card': colors.secondary,
 };
 
 interface RenderedResult {
@@ -85,9 +85,9 @@ export default function CardAssistantScreen() {
         {/* Spend Mode Toggle */}
         <View style={styles.modeToggleRow}>
           {([
-            { key: 'online' as SpendMode, label: 'Online', icon: 'globe', color: '#3B82F6' },
-            { key: 'offline' as SpendMode, label: 'Offline', icon: 'storefront', color: '#F59E0B' },
-            { key: 'upi' as SpendMode, label: 'UPI', icon: 'phone-portrait', color: '#10B981' },
+            { key: 'online' as SpendMode, label: 'Online', icon: 'globe', color: colors.action },
+            { key: 'offline' as SpendMode, label: 'Offline', icon: 'storefront', color: colors.amber },
+            { key: 'upi' as SpendMode, label: 'UPI', icon: 'phone-portrait', color: colors.stable },
           ]).map(m => (
             <TouchableOpacity
               key={m.key}
@@ -184,7 +184,7 @@ export default function CardAssistantScreen() {
                   </View>
                   {r.estimatedCashback > 0 && (
                     <View style={styles.metric}>
-                      <Text style={[styles.metricVal, { color: '#10B981' }]}>+{formatCur(r.estimatedCashback)}</Text>
+                      <Text style={[styles.metricVal, { color: colors.stable }]}>+{formatCur(r.estimatedCashback)}</Text>
                       <Text style={styles.metricLbl}>Cashback</Text>
                     </View>
                   )}
@@ -192,7 +192,7 @@ export default function CardAssistantScreen() {
 
                 {r.capWarning && (
                   <View style={styles.warnRow}>
-                    <Ionicons name="warning-outline" size={11} color="#F59E0B" />
+                    <Ionicons name="warning-outline" size={11} color={colors.amber} />
                     <Text style={styles.warnText}>{r.capWarning}</Text>
                   </View>
                 )}
@@ -257,7 +257,7 @@ function FuelCalculatorBlock() {
   return (
     <View style={styles.fuelBlock}>
       <View style={styles.fuelHeader}>
-        <Ionicons name="calculator-outline" size={18} color="#10B981" />
+        <Ionicons name="calculator-outline" size={18} color={colors.stable} />
         <Text style={styles.fuelTitle}>IDFC Power+ Fuel Calculator</Text>
       </View>
 
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: rounded.full,
     backgroundColor: `${colors.primary}12`,
-    borderWidth: 1, borderColor: `${colors.primary}25`,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: `${colors.primary}25`,
   },
   askAiText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   scroll: { padding: spacing.containerPadding, gap: 16, paddingBottom: 60 },
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 12, borderRadius: rounded.DEFAULT,
     backgroundColor: colors.surfaceContainer,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
   modeText: { fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant },
   label: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginBottom: 6 },
@@ -369,8 +369,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   clearBtn: { position: 'absolute', right: 10, top: 12, padding: 2 },
   upiNote: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${colors.primary}08`, borderWidth: 1, borderColor: `${colors.primary}12`,
+    backgroundColor: `${colors.primary}08`, borderWidth: StyleSheet.hairlineWidth, borderColor: `${colors.primary}12`,
     borderRadius: rounded.DEFAULT, padding: 10,
   },
   upiNoteText: { fontSize: 11, color: colors.onSurfaceVariant, flex: 1 },
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   resultsTitle: { fontSize: 12, fontWeight: '700', color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
   resultCard: {
     backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', borderLeftWidth: 3,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderLeftWidth: 3,
     padding: 14, gap: 10,
   },
   topCard: { backgroundColor: `${colors.primaryContainer}06`, borderColor: `${colors.primaryContainer}25` },
@@ -403,24 +403,24 @@ const styles = StyleSheet.create({
   },
   cardSub: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 2 },
   bestChip: {
-    backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: rounded.full,
+    backgroundColor: 'rgba(226,164,92,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: rounded.full,
   },
-  bestChipText: { fontSize: 9, fontWeight: '800', color: '#F59E0B' },
+  bestChipText: { fontSize: 9, fontWeight: '800', color: colors.amber },
   metricsRow: { flexDirection: 'row', gap: 28 },
   metric: { gap: 2 },
   metricVal: { fontSize: 18, fontWeight: '800', color: colors.onSurface },
   metricLbl: { fontSize: 10, color: colors.onSurfaceVariant },
   warnRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(245,158,11,0.08)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: rounded.DEFAULT,
+    backgroundColor: 'rgba(226,164,92,0.08)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: rounded.DEFAULT,
   },
-  warnText: { fontSize: 10, color: '#F59E0B', flex: 1 },
+  warnText: { fontSize: 10, color: colors.amber, flex: 1 },
   emptyWrap: { alignItems: 'center', paddingVertical: 32, gap: 10 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: colors.onSurface },
   emptyDesc: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20 },
   fuelBlock: {
-    backgroundColor: 'rgba(16,185,129,0.03)', borderRadius: rounded.lg,
-    borderWidth: 1, borderColor: 'rgba(16,185,129,0.08)',
+    backgroundColor: 'rgba(89,214,199,0.04)', borderRadius: rounded.lg,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
     padding: 16, gap: 14, marginTop: 8,
   },
   fuelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -428,13 +428,13 @@ const styles = StyleSheet.create({
   typeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', height: 44, paddingHorizontal: 12,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44, paddingHorizontal: 12,
   },
   typeBtnText: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
   modeSubBtn: {
     flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 6,
     borderRadius: rounded.DEFAULT, backgroundColor: colors.surfaceContainer,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)', gap: 2,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: 2,
   },
   modeSubBtnSel: { backgroundColor: `${colors.primary}12`, borderColor: colors.primaryContainer },
   modeSubLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant },
@@ -442,17 +442,17 @@ const styles = StyleSheet.create({
   modeSubPct: { fontSize: 14, fontWeight: '800', color: colors.onSurface },
   modeSubPctSel: { color: colors.primary },
   savingCard: {
-    backgroundColor: 'rgba(16,185,129,0.05)', borderRadius: rounded.DEFAULT,
-    borderWidth: 1, borderColor: 'rgba(16,185,129,0.12)', padding: 14, gap: 12,
+    backgroundColor: 'rgba(89,214,199,0.06)', borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: 14, gap: 12,
   },
-  savingTitle: { fontSize: 13, fontWeight: '700', color: '#10B981', textAlign: 'center' },
+  savingTitle: { fontSize: 13, fontWeight: '700', color: colors.stable, textAlign: 'center' },
   savingLabel: { fontSize: 10, color: colors.onSurfaceVariant },
   savingVal: { fontSize: 16, fontWeight: '800', color: colors.onSurface },
   savingTotal: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(16,185,129,0.12)',
+    paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(89,214,199,0.12)',
   },
   savingTotalLabel: { fontSize: 11, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
-  savingTotalVal: { fontSize: 20, fontWeight: '800', color: '#10B981' },
+  savingTotalVal: { fontSize: 20, fontWeight: '800', color: colors.stable },
   capText: { fontSize: 10, color: colors.onSurfaceVariant, textAlign: 'center', fontStyle: 'italic' },
 });

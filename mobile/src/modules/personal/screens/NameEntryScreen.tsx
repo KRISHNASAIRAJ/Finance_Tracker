@@ -41,7 +41,7 @@ export default function NameEntryScreen() {
               style={styles.iconButton}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="arrow-back" size={24} color="#ccc3d8" />
+              <Ionicons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Your Name</Text>
             <View style={{ width: 40 }} />
@@ -68,7 +68,7 @@ export default function NameEntryScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Jane Doe"
-                placeholderTextColor="rgba(204, 195, 216, 0.3)"
+                placeholderTextColor={colors.outline}
                 value={name}
                 onChangeText={setName}
                 autoFocus
@@ -92,7 +92,7 @@ export default function NameEntryScreen() {
               <Ionicons
                 name="arrow-forward"
                 size={18}
-                color={isEnabled ? '#ffffff' : 'rgba(204, 195, 216, 0.4)'}
+                color={isEnabled ? colors.onSurface : colors.outline}
                 style={styles.buttonIcon}
               />
             </TouchableOpacity>
@@ -106,7 +106,7 @@ export default function NameEntryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#15121b',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   body: {
     flex: 1,
@@ -138,13 +138,13 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 6,
-    backgroundColor: '#37333e',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 999,
   },
   titleSection: {
@@ -154,14 +154,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: '#ccc3d8',
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     opacity: 0.8,
   },
@@ -171,46 +171,46 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#7c3aed',
+    color: colors.primary,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   textInput: {
     height: 60,
-    backgroundColor: '#1d1a24',
-    borderWidth: 1,
-    borderColor: 'rgba(74, 68, 85, 0.4)',
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 20,
     fontSize: 18,
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   button: {
     height: 56,
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#221e28',
+    backgroundColor: colors.surface,
     shadowOpacity: 0,
     elevation: 0,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   buttonTextDisabled: {
-    color: 'rgba(204, 195, 216, 0.4)',
+    color: colors.outline,
   },
   buttonIcon: {
     marginLeft: 8,

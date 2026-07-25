@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+    backgroundColor: colors.successContainer,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
   summaryCard: {
     width: '100%',
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     gap: 14,
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: rounded.full,
     borderColor: `${colors.primary}30`,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   badgeText: {
     fontSize: 10,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.border,
   },
   doneButton: {
     width: '100%',
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

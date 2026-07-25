@@ -18,18 +18,18 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore, Holding } from '../store';
 
 const CAT_COLORS: Record<string, string> = {
-  Equity: '#60a5fa',
-  'Mutual Funds': '#a78bfa',
-  Gold: '#fbbf24',
-  Realty: '#34d399',
-  ETF: '#f472b6',
-  Other: '#94a3b8',
+  Equity: '#9BA5FF',
+  'Mutual Funds': '#8894A8',
+  Gold: '#E2A45C',
+  Realty: '#59D6C7',
+  ETF: '#FF887D',
+  Other: '#8894A8',
 };
 
 const HOLDING_COLORS = [
-  '#60a5fa', '#a78bfa', '#fbbf24', '#34d399', '#f472b6',
-  '#fb923c', '#38bdf8', '#f87171', '#a3e635', '#c084fc',
-  '#facc15', '#22d3ee', '#e879f9', '#4ade80', '#f97316',
+  '#9BA5FF', '#59D6C7', '#FF887D', '#E2A45C', '#BCE85D',
+  '#B3BBFF', '#74E0D4', '#FFA297', '#EDBB76', '#CCF070',
+  '#7A84E0', '#3FBBAE', '#E06A60', '#D49A4E', '#A3CC40',
 ];
 
 const formatCurrency = (paise: number) =>
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
@@ -226,9 +226,9 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyText: { fontSize: 14, color: colors.onSurfaceVariant },
   donutCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
   },
@@ -252,10 +252,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   holdingCard: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     borderLeftWidth: 3,
     padding: 14,
     gap: 10,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   allocBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface,
     borderRadius: 3,
     overflow: 'hidden',
   },

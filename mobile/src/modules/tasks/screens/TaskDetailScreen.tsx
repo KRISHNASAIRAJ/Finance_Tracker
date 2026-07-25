@@ -56,7 +56,7 @@ export default function TaskDetailScreen() {
       case 'urgent':
         return colors.error;
       case 'high':
-        return '#f59e0b';
+        return colors.warning;
       case 'medium':
         return colors.primary;
       default:
@@ -117,7 +117,7 @@ export default function TaskDetailScreen() {
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
+            <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.infoText}>
               Due:{' '}
               <Text style={styles.infoHighlight}>
@@ -130,7 +130,7 @@ export default function TaskDetailScreen() {
 
           {task.recurrence && task.recurrence !== 'none' && (
             <View style={styles.infoRow}>
-              <Ionicons name="repeat-outline" size={16} color={colors.onSurfaceVariant} />
+              <Ionicons name="repeat-outline" size={16} color={colors.textSecondary} />
               <Text style={styles.infoText}>
                 Recurrence:{' '}
                 <Text style={styles.infoHighlight}>
@@ -158,7 +158,7 @@ export default function TaskDetailScreen() {
                     activeOpacity={0.8}
                   >
                   <View style={[styles.subtaskCheckbox, st.completed && styles.subtaskCheckboxCompleted]}>
-                    {st.completed && <Ionicons name="checkmark" size={12} color="#ffffff" />}
+                    {st.completed && <Ionicons name="checkmark" size={12} color={colors.onSurface} />}
                   </View>
                   <Text style={[styles.subtaskName, st.completed && styles.subtaskNameCompleted]}>
                     {st.name}
@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   backButton: {
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.DEFAULT,
   },
   backButtonText: {
-    color: '#ffffff',
+    color: colors.onSurface,
     fontWeight: '700',
   },
   scrollContent: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rounded.full,
@@ -249,30 +249,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusBadge: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rounded.full,
     justifyContent: 'center',
   },
   statusBadgeCompleted: {
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    borderColor: 'rgba(74, 222, 128, 0.2)',
+    backgroundColor: colors.successContainer,
+    borderColor: colors.border,
   },
   statusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   statusTextCompleted: {
     color: colors.success,
   },
   detailsCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     gap: 12,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   taskDesc: {
     fontSize: 14,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   taskDescEmpty: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.border,
     marginVertical: 4,
   },
   infoRow: {
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   infoHighlight: {
     fontWeight: '600',
@@ -316,13 +316,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     letterSpacing: 0.6,
   },
   subtaskContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   subtaskRow: {
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   subtaskCheckbox: {
     width: 18,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   subtaskNameCompleted: {
     textDecorationLine: 'line-through',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   emptySubtasks: {
     padding: 24,

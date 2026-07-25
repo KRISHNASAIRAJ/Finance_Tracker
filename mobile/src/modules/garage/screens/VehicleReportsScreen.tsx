@@ -165,12 +165,12 @@ export default function VehicleReportsScreen() {
               <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
                 <Defs>
                   <LinearGradient id="reportGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0%" stopColor="#a855f7" stopOpacity="0.35" />
-                    <Stop offset="100%" stopColor="#a855f7" stopOpacity="0.0" />
+                    <Stop offset="0%" stopColor={colors.action} stopOpacity="0.35" />
+                    <Stop offset="100%" stopColor={colors.action} stopOpacity="0.0" />
                   </LinearGradient>
                 </Defs>
                 <Path d={fillD} fill="url(#reportGrad)" />
-                <Path d={pathD} stroke="#c084fc" strokeWidth="2.5" fill="none" />
+                <Path d={pathD} stroke={colors.action} strokeWidth="2.5" fill="none" />
               </Svg>
             </View>
           ) : (
@@ -192,7 +192,7 @@ export default function VehicleReportsScreen() {
           </View>
           <View style={styles.costRow}>
             <View style={styles.costItem}>
-              <View style={[styles.costDot, { backgroundColor: '#f59e0b' }]} />
+              <View style={[styles.costDot, { backgroundColor: colors.amber }]} />
               <Text style={styles.costLabel}>Service</Text>
             </View>
             <Text style={styles.costValue}>{formatCurrency(totalMaintSpend)}</Text>
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -265,8 +265,8 @@ const styles = StyleSheet.create({
   tabContainer: {
     backgroundColor: colors.surface,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   tabScroll: {
     paddingHorizontal: spacing.containerPadding,
@@ -276,9 +276,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -310,9 +310,9 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 14,
     alignItems: 'center',
@@ -327,16 +327,16 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#c084fc',
+    color: colors.action,
   },
   summaryUnit: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
   },
   chartCard: {
-    backgroundColor: '#0f0f1a',
-    borderColor: 'rgba(168, 85, 247, 0.12)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     overflow: 'hidden',
@@ -352,9 +352,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   costCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 12,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   },
   costDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.border,
   },
   costTotalLabel: {
     fontSize: 14,
@@ -404,9 +404,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   breakdownCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 12,

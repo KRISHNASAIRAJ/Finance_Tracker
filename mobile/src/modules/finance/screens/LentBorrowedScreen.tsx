@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -350,8 +350,8 @@ export default function LentBorrowedScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.itemLeft}>
-                    <View style={[styles.iconWrapper, { backgroundColor: 'rgba(132,204,22,0.12)' }]}>
-                      <Ionicons name="cash-outline" size={20} color="#84CC16" />
+                    <View style={[styles.iconWrapper, { backgroundColor: 'rgba(188,232,93,0.12)' }]}>
+                      <Ionicons name="cash-outline" size={20} color={colors.chartreuse} />
                     </View>
                     <View>
                       <Text style={styles.itemTitle}>{item.name}</Text>
@@ -360,7 +360,7 @@ export default function LentBorrowedScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.itemAmount, { color: '#84CC16' }]}>
+                  <Text style={[styles.itemAmount, { color: colors.chartreuse }]}>
                     +{formatCurrency(item.amount)}
                   </Text>
                 </TouchableOpacity>
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -612,8 +612,8 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   rowItem: {
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   itemLeft: {
     flexDirection: 'row',
@@ -669,8 +669,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     gap: 16,
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   modalToggleTextActive: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   inputGroup: {
@@ -720,8 +720,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -733,8 +733,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     height: 44,
     paddingHorizontal: 12,
     gap: 10,
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBtnDelete: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: colors.attentionDim,
   },
   modalBtnCancel: {
     backgroundColor: 'transparent',
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextSave: {
     fontSize: 14,
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   expandedSection: {
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: colors.border,
   },
   subItemLeft: {
     flexDirection: 'row',

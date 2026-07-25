@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     alignItems: 'center',
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
   },
   accountsContainer: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   accountRow: {
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
     gap: 8,
   },
   accountRowTop: {
@@ -291,8 +291,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 24,
     gap: 16,
@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
   },
   inputPrefix: {
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextSave: {
     fontSize: 14,
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
 });
