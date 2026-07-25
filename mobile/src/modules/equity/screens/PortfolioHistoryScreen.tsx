@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,13 +17,39 @@ import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle } from 'react-nativ
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { deleteCloudSnapshot } from '../hooks/useEquitySync';
 
 const formatCurrency = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export default function PortfolioHistoryScreen() {
   const navigation = useNavigation();
-  const { snapshots } = useInvestmentsStore();
+  const { snapshots, deleteSnapshot } = useInvestmentsStore();
+  const { user } = useAuth();
+  const [showAllDates, setShowAllDates] = useState(false);
+
+  const handleDeleteSnapshot = (date: string) => {
+    Alert.alert(
+      'Delete Snapshot',
+      `Remove snapshot from ${new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            deleteSnapshot(date);
+            if (user?.id) {
+              deleteCloudSnapshot(user.id, date).catch((e: Error) =>
+                console.warn('[PortfolioHistory] delete snapshot:', e)
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
 
   if (snapshots.length === 0) {
     return (
@@ -145,11 +172,12 @@ export default function PortfolioHistoryScreen() {
         {/* Date Points */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>SNAPSHOT DATES</Text>
-          {points.map((p, idx) => (
+          {points.slice(0, showAllDates ? points.length : Math.min(5, points.length)).map((p, idx) => (
             <TouchableOpacity
               key={p.label}
               style={[styles.pointRow, selectedIndex === idx && styles.pointRowActive]}
               onPress={() => setSelectedIndex(idx)}
+              onLongPress={() => handleDeleteSnapshot(p.label)}
             >
               <Text style={styles.pointDate}>
                 {new Date(p.label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -157,6 +185,18 @@ export default function PortfolioHistoryScreen() {
               <Text style={styles.pointValue}>{formatCurrency(chartData[idx].totalValue)}</Text>
             </TouchableOpacity>
           ))}
+          {points.length > 5 && !showAllDates && (
+            <TouchableOpacity style={styles.viewMoreBtn} onPress={() => setShowAllDates(true)}>
+              <Text style={styles.viewMoreText}>View All ({points.length} dates)</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          {showAllDates && points.length > 5 && (
+            <TouchableOpacity style={styles.viewMoreBtn} onPress={() => setShowAllDates(false)}>
+              <Text style={styles.viewMoreText}>Show Less</Text>
+              <Ionicons name="chevron-up" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Allocation */}
@@ -329,5 +369,18 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     width: 42,
     textAlign: 'right',
+  },
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  viewMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 65 — Body Recomposition Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F1EDE1;
+    --paper-raised:#FAF7EF;
+    --ink:#2B2E26;
+    --ink-soft:#5C5F52;
+    --forest:#33512E;
+    --forest-deep:#233B20;
+    --mustard:#C98A2C;
+    --mustard-soft:#EFDCB4;
+    --brick:#A8462F;
+    --brick-soft:#F0DAD2;
+    --sage:#7C9473;
+    --sage-soft:#E2E9DA;
+    --hairline:#D9D0BC;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 28px 120px;}
+  a{color:var(--forest-deep);}
+
+  header.hero{border-bottom:2px solid var(--ink);padding:44px 0 26px;margin-bottom:36px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--forest-deep);display:flex;justify-content:space-between;margin-bottom:18px;}
+  h1.title{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(40px,6vw,64px);line-height:0.98;margin:0 0 6px;letter-spacing:-0.01em;}
+  h1.title em{font-style:italic;font-weight:400;color:var(--forest);}
+  .subtitle{font-size:17px;color:var(--ink-soft);max-width:620px;margin:8px 0 0;}
+
+  .stat-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin-top:32px;border-top:1px solid var(--hairline);border-left:1px solid var(--hairline);}
+  .stat{border-right:1px solid var(--hairline);border-bottom:1px solid var(--hairline);padding:14px 16px;background:var(--paper-raised);}
+  .stat .k{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);display:block;margin-bottom:6px;}
+  .stat .v{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--forest-deep);}
+  .stat .v small{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--ink-soft);}
+  @media (max-width:760px){.stat-strip{grid-template-columns:repeat(2,1fr);}.eyebrow{flex-direction:column;gap:4px;}}
+
+  section{margin:64px 0;}
+  .section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;}
+  .section-num{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mustard);border:1px solid var(--mustard);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  h2{font-family:'Fraunces',serif;font-weight:600;font-size:28px;margin:0;letter-spacing:-0.01em;}
+  .section-note{font-size:14px;color:var(--ink-soft);margin:0 0 0 40px;max-width:660px;}
+
+  .timeline-card{background:var(--paper-raised);border:1px solid var(--hairline);border-radius:4px;padding:26px 24px 18px;}
+  .timeline-rail{position:relative;display:flex;height:64px;border-radius:3px;overflow:hidden;margin-bottom:14px;}
+  .timeline-rail .seg{display:flex;align-items:center;justify-content:center;color:var(--paper-raised);font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:center;padding:4px;position:relative;}
+  .timeline-rail .seg span{position:relative;z-index:2;}
+  .tl-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;padding-top:14px;border-top:1px dashed var(--hairline);}
+  .tl-legend .item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);}
+  .tl-legend .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+  .macro-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--hairline);border:1px solid var(--hairline);}
+  .macro-card{background:var(--paper-raised);padding:22px 18px;}
+  .macro-card .label{font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+  .macro-card .num{font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--forest-deep);margin:8px 0 2px;}
+  .macro-card .unit{font-size:12px;color:var(--ink-soft);}
+  @media (max-width:760px){.macro-grid{grid-template-columns:repeat(2,1fr);}}
+
+  .dose-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .dose-card{border:1px solid var(--hairline);background:var(--paper-raised);border-radius:4px;padding:20px 22px;}
+  .dose-card.wide{grid-column:1/-1;}
+  .dose-card h3{font-family:'Fraunces',serif;font-size:19px;margin:0 0 4px;color:var(--forest-deep);}
+  .dose-card .amt{font-family:'IBM Plex Mono',monospace;color:var(--mustard);font-size:13px;margin-bottom:10px;display:inline-block;}
+  .dose-card p{font-size:13.5px;color:var(--ink-soft);margin:0;}
+  @media (max-width:760px){.dose-row{grid-template-columns:1fr;}}
+
+  .day-card{border:1px solid var(--hairline);background:var(--paper-raised);border-radius:4px;margin-bottom:16px;overflow:hidden;}
+  .day-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--forest-deep);color:var(--paper);gap:10px;flex-wrap:wrap;}
+  .day-head.veg{background:var(--sage);color:var(--forest-deep);}
+  .day-head .dname{font-family:'Fraunces',serif;font-size:19px;font-weight:600;}
+  .day-head .tag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid currentColor;padding:3px 9px;border-radius:20px;opacity:.9;}
+  .meal-grid{display:grid;grid-template-columns:120px 1fr;font-size:14px;}
+  .meal-grid .row{display:contents;}
+  .meal-grid .time{padding:13px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);border-top:1px solid var(--hairline);display:flex;align-items:flex-start;padding-top:14px;}
+  .meal-grid .content{padding:13px 20px 13px 0;border-top:1px solid var(--hairline);}
+  .meal-grid .content .m-label{font-weight:600;color:var(--forest-deep);margin-right:6px;}
+  @media (max-width:600px){.meal-grid{grid-template-columns:90px 1fr;}}
+
+  .grocery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .grocery-col h4{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mustard);margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--hairline);}
+  .grocery-col ul{list-style:none;margin:0;padding:0;}
+  .grocery-col li{font-size:13.5px;padding:6px 0;border-bottom:1px dashed var(--hairline);display:flex;align-items:center;gap:8px;}
+  .grocery-col li::before{content:"";width:9px;height:9px;border:1.5px solid var(--forest);border-radius:2px;flex-shrink:0;}
+  @media (max-width:760px){.grocery-grid{grid-template-columns:1fr 1fr;}}
+  @media (max-width:520px){.grocery-grid{grid-template-columns:1fr;}}
+
+  .note-card{border-left:3px solid var(--brick);background:var(--brick-soft);padding:18px 22px;border-radius:0 4px 4px 0;margin-bottom:14px;}
+  .note-card.forest{border-left-color:var(--forest);background:var(--sage-soft);}
+  .note-card h4{font-family:'Fraunces',serif;margin:0 0 6px;font-size:16px;color:var(--forest-deep);}
+  .note-card p{margin:0;font-size:13.5px;color:var(--ink-soft);}
+
+  footer{border-top:2px solid var(--ink);margin-top:80px;padding-top:22px;display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);letter-spacing:.04em;}
+  @media (max-width:600px){footer{flex-direction:column;gap:8px;align-items:flex-start;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">
+      <span>Personal Nutrition Protocol — Confidential</span>
+      <span>Rev. 25 Jul 2026 · v3</span>
+    </div>
+    <h1 class="title">Project 65<br><em>a build plan, not a diet.</em></h1>
+    <p class="subtitle">A structured eating protocol to move from 54&nbsp;kg to 65&nbsp;kg — rebuilding weight, strength, immunity and skin tone after a long antibiotic course, cooked entirely in one morning window.</p>
+    <div class="stat-strip">
+      <div class="stat"><span class="k">Current</span><span class="v">54<small>&nbsp;kg</small></span></div>
+      <div class="stat"><span class="k">Target</span><span class="v">65<small>&nbsp;kg</small></span></div>
+      <div class="stat"><span class="k">Height</span><span class="v">170.6<small>&nbsp;cm</small></span></div>
+      <div class="stat"><span class="k">Age</span><span class="v">23<small>&nbsp;yrs</small></span></div>
+      <div class="stat"><span class="k">Current BMI</span><span class="v">18.5<small>&nbsp;underweight</small></span></div>
+      <div class="stat"><span class="k">Target pace</span><span class="v">~0.4<small>&nbsp;kg/wk</small></span></div>
+    </div>
+  </header>
+
+  <!-- 01 DAILY TIMELINE -->
+  <section id="timeline">
+    <div class="section-head"><span class="section-num">01</span><h2>The daily rail</h2></div>
+    <p class="section-note">Everything cooked once, in the morning. Breakfast and lunch are both made in the 5:30–7:45am window — lunch goes into a tiffin for the office, and the protein curry is doubled so half of it comes back as dinner. Evenings only need a fresh dosa or chapati, nothing more.</p>
+    <div class="timeline-card">
+      <div class="timeline-rail">
+        <div class="seg" style="width:6%;background:#7C9473"><span>Wake</span></div>
+        <div class="seg" style="width:16%;background:#33512E"><span>Cook b'fast+lunch</span></div>
+        <div class="seg" style="width:5%;background:#C98A2C"><span>B'fast</span></div>
+        <div class="seg" style="width:23%;background:#2B2E26"><span>Office</span></div>
+        <div class="seg" style="width:3%;background:#C98A2C"><span>Snack</span></div>
+        <div class="seg" style="width:6%;background:#A8462F"><span>Lunch (tiffin)</span></div>
+        <div class="seg" style="width:16%;background:#2B2E26"><span>Office</span></div>
+        <div class="seg" style="width:4%;background:#C98A2C"><span>Snack 5:30–6</span></div>
+        <div class="seg" style="width:6%;background:#7C9473"><span>Commute</span></div>
+        <div class="seg" style="width:8%;background:#A8462F"><span>Reheat+dosa</span></div>
+        <div class="seg" style="width:4%;background:#233B20"><span>Wind-down</span></div>
+      </div>
+      <div class="tl-legend">
+        <div class="item"><span class="dot" style="background:#33512E"></span>One cooking block — breakfast + lunch + dinner's protein, doubled</div>
+        <div class="item"><span class="dot" style="background:#C98A2C"></span>Snack (seeds &amp; nuts fuel)</div>
+        <div class="item"><span class="dot" style="background:#A8462F"></span>Main meal</div>
+        <div class="item"><span class="dot" style="background:#2B2E26"></span>Office block</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 MACRO TARGETS -->
+  <section id="macros">
+    <div class="section-head"><span class="section-num">02</span><h2>Daily targets</h2></div>
+    <p class="section-note">Unchanged from before — swapping dishes doesn't move these numbers, only how you cook them. A ~500–600&nbsp;kcal surplus over maintenance, weighted toward protein.</p>
+    <div class="macro-grid">
+      <div class="macro-card"><span class="label">Calories</span><div class="num">2,650</div><span class="unit">kcal / day <em>(range 2,600–2,800)</em></span></div>
+      <div class="macro-card"><span class="label">Protein</span><div class="num">130</div><span class="unit">g / day (~2.4 g/kg)</span></div>
+      <div class="macro-card"><span class="label">Carbs</span><div class="num">340</div><span class="unit">g / day</span></div>
+      <div class="macro-card"><span class="label">Fats</span><div class="num">85</div><span class="unit">g / day</span></div>
+      <div class="macro-card"><span class="label">Water</span><div class="num">2.5–3</div><span class="unit">litres / day</span></div>
+    </div>
+  </section>
+
+  <!-- 03 SEED DOSE -->
+  <section id="dose">
+    <div class="section-head"><span class="section-num">03</span><h2>The daily fixed dose</h2></div>
+    <p class="section-note">Non-negotiables that run every day, veg or non-veg, layered into whatever meal is convenient.</p>
+    <div class="dose-row">
+      <div class="dose-card">
+        <h3>Pumpkin + sesame seeds</h3>
+        <span class="amt">1 tbsp pumpkin + 1 tbsp sesame, lightly roasted</span>
+        <p>Zinc and copper for hair pigment and shedding, plus zinc/magnesium for testosterone support. Split across breakfast topping and evening snack rather than dumping both in one sitting.</p>
+      </div>
+      <div class="dose-card">
+        <h3>1 fruit, bought in batches</h3>
+        <span class="amt">Buy one at a time — banana, avocado or pineapple — and eat it 2–3 days straight before switching. Orange when it's around.</span>
+        <p>No need for a fresh variety daily. Banana for dense easy calories, avocado for skin-feeding healthy fats (counts as your fat serving that day — go lighter on ghee), pineapple for digestion and vitamin C, orange for extra vitamin C whenever you find it.</p>
+      </div>
+      <div class="dose-card">
+        <h3>Fats: ghee + groundnut oil</h3>
+        <span class="amt">1–2 tsp ghee on dal/rice · groundnut oil for all cooking</span>
+        <p>Dense calories without added bulk, plus fat-soluble vitamins A/D/E/K worth prioritising after a long antibiotic course.</p>
+      </div>
+      <div class="dose-card">
+        <h3>Plant protein (Comix)</h3>
+        <span class="amt">1 scoop (~24g protein) blended into 1 shake/day</span>
+        <p>Closes the protein gap without needing another cooked meal — blend with banana, peanut butter and water, carry in a shaker for your mid-morning slot.</p>
+      </div>
+      <div class="dose-card wide">
+        <h3>For the skin — layered into meals above, nothing extra to cook</h3>
+        <span class="amt">Vitamin C (pineapple, orange) · healthy fats (avocado, seeds, groundnut oil) · zinc (pumpkin seeds) · beta-carotene (carrot, beetroot, spinach) · collagen-building protein (egg, chicken, fish, paneer)</span>
+        <p>Skin tone responds to the same things as hair and testosterone here — consistent protein, healthy fats, vitamin C and hydration, not any single "miracle" food. You're already covering all of it through the plan; the main lever left is your 2.5–3L water and enough sleep to actually recover.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 WEEKLY MEAL PLAN -->
+  <section id="week">
+    <div class="section-head"><span class="section-num">04</span><h2>7-day rotation</h2></div>
+    <p class="section-note">Breakfast and lunch are cooked together in the morning; lunch's protein curry is made in a double batch, so dinner is just that curry reheated alongside a fresh dosa or chapati — five, ten minutes of actual evening cooking on your lowest-energy hours. Chicken is used through the week since it's available daily; fish/prawns only show up on Saturday, and only on alternate weekends — swap in chicken on the off weeks. Wed &amp; Thu are vegetarian, dal is mandatory once (Wed), and Greek yoghurt is the only dairy used — no curd or buttermilk anywhere.</p>
+
+    <!-- MONDAY -->
+    <div class="day-card">
+      <div class="day-head"><span class="dname">Monday</span><span class="tag">Non-veg · chicken</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with 4 soaked almonds + 2 walnuts (eat after)</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (10 min) —</span>Overnight oats: oats soaked overnight in water + Greek yoghurt, topped with your current fruit, walnuts, a spoon of homemade peanut butter, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + quick tomato rasam + airfryer marinated chicken (double batch — half goes into the tiffin, half set aside for tonight) + sautéed cabbage</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack —</span>Roasted chana (¼ cup) + small mixed nuts handful</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + rasam + chicken + cabbage, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted peanuts + seed dose</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's chicken + fresh ragi dosa (2) with chutney</div></div>
+      </div>
+    </div>
+
+    <!-- TUESDAY -->
+    <div class="day-card">
+      <div class="day-head"><span class="dname">Tuesday</span><span class="tag">Non-veg · chicken · dosa day</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked black raisins</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (20 min) —</span>Dosa (your batter) + tomato chutney + 1 boiled egg, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + quick sambar (sambar powder) + airfryer marinated chicken, double batch + carrot poriyal</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack (carry) —</span>Protein smoothie: banana + peanut butter + 1 scoop plant protein + water, blended, in a shaker</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + sambar + chicken + carrot poriyal, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted makhana tossed in ghee + seed dose</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's chicken + fresh chapati</div></div>
+      </div>
+    </div>
+
+    <!-- WEDNESDAY -->
+    <div class="day-card">
+      <div class="day-head veg"><span class="dname">Wednesday</span><span class="tag">Vegetarian · mandatory dal day</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked almonds</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (10 min) —</span>Overnight oats: oats soaked in water + Greek yoghurt, topped with your current fruit, almonds, peanut butter, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + dal tadka — this week's mandatory dal, double batch — + sautéed cabbage or mixed veg</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack —</span>Fruit chaat with roasted peanuts</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + dal + cabbage, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted chana + nuts + small Greek yoghurt bowl</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's dal + fresh ragi dosa with chutney</div></div>
+      </div>
+    </div>
+
+    <!-- THURSDAY -->
+    <div class="day-card">
+      <div class="day-head veg"><span class="dname">Thursday</span><span class="tag">Vegetarian</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked raisins</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (10 min) —</span>Toasted multigrain/sourdough with mashed avocado, a drizzle of peanut butter, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + tomato pappu (quick moong dal) + paneer or mushroom curry, double batch + beetroot poriyal</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack (carry) —</span>Protein smoothie: fruit + peanut butter + 1 scoop plant protein + water</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + pappu + paneer/mushroom curry + beetroot poriyal, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted chana + nuts + fruit</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's paneer/mushroom curry + fresh aloo-paneer paratha (potato + paneer stuffing — this replaces moong dal chilla, same protein, familiar dish)</div></div>
+      </div>
+    </div>
+
+    <!-- FRIDAY -->
+    <div class="day-card">
+      <div class="day-head"><span class="dname">Friday</span><span class="tag">Non-veg · chicken · dosa day</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked almonds</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (20 min) —</span>Dosa (your batter) + chutney + 1 boiled egg, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + rasam + airfryer marinated chicken, double batch + bhindi fry</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack —</span>Roasted makhana + mixed nuts</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + rasam + chicken + bhindi fry, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted peanuts + seed dose</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's chicken + fresh chapati</div></div>
+      </div>
+    </div>
+
+    <!-- SATURDAY -->
+    <div class="day-card">
+      <div class="day-head"><span class="dname">Saturday</span><span class="tag">Fish/prawns on alternate weekends · else chicken</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked raisins</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (10 min) —</span>Overnight oats: oats soaked in water + Greek yoghurt, topped with banana/avocado, walnuts, peanut butter, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + quick veg kurma + airfryer fish or prawns (seafood weekend) — or chicken on the off week — double batch + sautéed cabbage</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack —</span>Protein smoothie (blender at home, easy on a weekend)</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + kurma + fish/prawns or chicken + cabbage, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack —</span>Roasted chana + nuts + fruit</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's fish/prawns or chicken + fresh ragi dosa</div></div>
+      </div>
+    </div>
+
+    <!-- SUNDAY -->
+    <div class="day-card">
+      <div class="day-head"><span class="dname">Sunday</span><span class="tag">Non-veg · chicken · prep day</span></div>
+      <div class="meal-grid">
+        <div class="row"><div class="time">5:30 AM</div><div class="content"><span class="m-label">Wake sip —</span>Warm water with soaked almonds</div></div>
+        <div class="row"><div class="time">7:00 AM</div><div class="content"><span class="m-label">Breakfast (10 min) —</span>Toasted sourdough/milk bread with peanut butter and banana slices, seed dose</div></div>
+        <div class="row"><div class="time">Same window</div><div class="content"><span class="m-label">Lunch, packed —</span>Rice + sambar + mixed veg curry + chicken curry — this week's bigger, more relaxed meal</div></div>
+        <div class="row"><div class="time">10:45 AM</div><div class="content"><span class="m-label">Snack —</span>Nuts + seeds trail mix</div></div>
+        <div class="row"><div class="time">1:30 PM</div><div class="content"><span class="m-label">Lunch (at office) —</span>Rice + sambar + veg curry + chicken, from the tiffin</div></div>
+        <div class="row"><div class="time">5:30–6 PM</div><div class="content"><span class="m-label">Snack + prep —</span>Fruit chaat + small Greek yoghurt bowl. Use this slot to make the week's dosa batter, soak/sprout moong for chaats, marinate chicken or fish for the airfryer, and roast the seed/nut stock</div></div>
+        <div class="row"><div class="time">7:45 PM</div><div class="content"><span class="m-label">Dinner —</span>Reheat this morning's chicken + fresh chapati</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 GROCERY LIST -->
+  <section id="grocery">
+    <div class="section-head"><span class="section-num">05</span><h2>Weekly grocery list</h2></div>
+    <p class="section-note">One shop covers the week — chicken fresh from the local store any day, fish/prawns only on seafood weekends, everything else via quick-commerce.</p>
+    <div class="grocery-grid">
+      <div class="grocery-col">
+        <h4>Grains &amp; batters</h4>
+        <ul>
+          <li>Rice (sona masuri/basmati)</li>
+          <li>Ragi flour (have it)</li>
+          <li>Wheat flour (chapati/paratha)</li>
+          <li>Oats (rolled)</li>
+          <li>Moong dal, urad dal</li>
+          <li>Sourdough / multigrain / milk bread</li>
+        </ul>
+      </div>
+      <div class="grocery-col">
+        <h4>Proteins</h4>
+        <ul>
+          <li>Eggs</li>
+          <li>Chicken (local store, any day)</li>
+          <li>Fish / prawns (alternate weekends)</li>
+          <li>Paneer</li>
+          <li>Mushroom</li>
+          <li>Sprouts (moong/chana)</li>
+          <li>Potatoes (for aloo-paneer paratha)</li>
+          <li>Comix plant protein</li>
+        </ul>
+      </div>
+      <div class="grocery-col">
+        <h4>Dairy &amp; fats</h4>
+        <ul>
+          <li>Epigamia/Milkymist Greek yoghurt</li>
+          <li>Anveshan groundnut oil</li>
+          <li>Desi ghee</li>
+          <li>Homemade peanut butter (have it)</li>
+        </ul>
+      </div>
+      <div class="grocery-col">
+        <h4>Nuts, seeds &amp; snacks</h4>
+        <ul>
+          <li>Pumpkin seeds</li>
+          <li>Sesame seeds</li>
+          <li>Almonds, walnuts</li>
+          <li>Makhana (fox nuts)</li>
+          <li>Roasted chana</li>
+          <li>Peanuts</li>
+        </ul>
+      </div>
+      <div class="grocery-col">
+        <h4>Fruit &amp; veg</h4>
+        <ul>
+          <li>Banana, avocado, pineapple (buy one at a time)</li>
+          <li>Orange (when available)</li>
+          <li>Spinach, methi</li>
+          <li>Cabbage, bhindi (okra)</li>
+          <li>Carrot, beetroot</li>
+          <li>Capsicum, tomato, onion</li>
+        </ul>
+      </div>
+      <div class="grocery-col">
+        <h4>Pantry</h4>
+        <ul>
+          <li>Turmeric, black pepper</li>
+          <li>Jeera, ginger-garlic</li>
+          <li>Coriander, mint</li>
+          <li>Sambar/rasam powder</li>
+          <li>Black raisins</li>
+          <li>Rock salt / regular salt</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 NOTES -->
+  <section id="notes">
+    <div class="section-head"><span class="section-num">06</span><h2>Read before you start</h2></div>
+
+    <div class="note-card forest">
+      <h4>Your bloodwork came back normal — good sign</h4>
+      <p>With LFT and other markers clear, there's no red flag holding this plan back. Still worth repeating a basic panel (Vitamin D, B12, ferritin, zinc) in a few months once you're deeper into the surplus, just to confirm the plan is actually closing any gaps left over from the TB treatment — nothing urgent, just good tracking.</p>
+    </div>
+
+    <div class="note-card forest">
+      <h4>How the mornings actually work</h4>
+      <p>Marinate the day's chicken/fish the night before (5 minutes) and refrigerate. In the morning: rice in the cooker, dal/curry on induction in a doubled batch, protein in the airfryer — all running in parallel while you also plate breakfast and pack the tiffin. Half the curry goes into lunch, the other half sits covered in the fridge for dinner. Evenings then only need a fresh dosa or chapati — five to ten minutes, no real cooking.</p>
+    </div>
+
+    <div class="note-card forest">
+      <h4>Introduce new foods gradually</h4>
+      <p>Your gut has been through a long antibiotic course — bring in the daily Greek yoghurt, sprouts and plant protein shake gradually over the first 1–2 weeks rather than all at once, and watch how you respond before locking in full portions.</p>
+    </div>
+
+    <div class="note-card forest">
+      <h4>Track weekly, not daily</h4>
+      <p>Weigh yourself once a week, same day, same time, before breakfast. Track waist and upper-arm measurements monthly, and take progress photos monthly. Daily weight swings from water and food volume will only distract you.</p>
+    </div>
+
+    <div class="note-card">
+      <h4>Workouts come after, not now</h4>
+      <p>You've already made the right call — this phase is about food, sleep and recovery. Once weight and energy improve (roughly 4–6 weeks in), a simple 3-day resistance routine focused on arms/shoulders/back will convert this surplus into visible muscle rather than just softness.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Project 65 — Body Recomposition Protocol</span>
+    <span>54kg → 65kg · Built for your schedule</span>
+  </footer>
+
+</div>
+</body>
+</html>

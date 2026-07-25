@@ -292,8 +292,8 @@ function FuelCalculator() {
           <Text style={styles.inputLabel}>HP PAY MODE</Text>
           <View style={styles.modeRow}>
             {[
-              { key: 'qr', label: 'Pay by QR', rate: '5.4%' },
-              { key: 'wallet', label: 'Wallet Upload', rate: '5.4%' },
+              { key: 'qr', label: 'Pay by QR', rate: '5%' },
+              { key: 'wallet', label: 'Wallet Upload', rate: '5%' },
               { key: 'none', label: 'Card Only', rate: '3.9%' },
             ].map(m => (
               <TouchableOpacity

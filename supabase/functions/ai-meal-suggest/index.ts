@@ -76,6 +76,7 @@ Deno.serve(async (req: Request) => {
     const query = (body.query as string)?.trim();
     const healthProfile = (body.healthProfile as string)?.trim() || "";
     const todayContext = (body.todayContext as string)?.trim() || "";
+    const conversation = body.conversation as Array<{ role: string; content: string }> | undefined;
 
     if (!query) {
       return new Response(
@@ -89,15 +90,25 @@ Deno.serve(async (req: Request) => {
       todayContext ? `TODAY'S LOG:\n${todayContext}` : "",
     ].filter(Boolean).join("\n\n");
 
-    const userMessage = contextBlock
+    const currentUserMessage = contextBlock
       ? `CONTEXT:\n${contextBlock}\n\nUSER QUESTION: ${query}`
       : query;
+
+    const messages: Array<{ role: string; content: string }> = [];
+
+    if (conversation && conversation.length > 0) {
+      for (const turn of conversation) {
+        messages.push({ role: turn.role, content: turn.content });
+      }
+    }
+
+    messages.push({ role: "user", content: currentUserMessage });
 
     const groq = createGroqClient();
 
     const response = await groq.complete({
       systemPrompt: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages,
       maxTokens: 800,
       temperature: 0.7,
     });

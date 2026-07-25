@@ -9,6 +9,7 @@ import {
   TextInput,
   Platform,
   StatusBar,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -110,6 +111,10 @@ export default function MealEditScreen() {
         </TouchableOpacity>
       </View>
 
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Meal Type */}
         <Text style={styles.sectionLabel}>MEAL TYPE</Text>
@@ -249,12 +254,14 @@ export default function MealEditScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
+  flex: { flex: 1 },
   appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
   iconBtn: { padding: 8, borderRadius: rounded.full },

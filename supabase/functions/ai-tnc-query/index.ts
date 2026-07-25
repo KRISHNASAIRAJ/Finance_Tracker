@@ -81,7 +81,13 @@ const CARD_KNOWLEDGE = `## Credit Card Database
 - Forex transactions attract a markup % over VISA/Mastercard exchange rate.
 - Annual fees may be waived if annual spend threshold is met.`;
 
-const GENERAL_SYSTEM_PROMPT = `You are a credit card rewards expert for Indian cards. Answer user questions based ONLY on the card database provided below. Be concise and specific. If the answer is not in the database, say "I don't have that information in my database." Always mention any caps, exclusions, or conditions that apply.
+const GENERAL_SYSTEM_PROMPT = `You are a credit card rewards and spending advisor for Indian cards. Answer user questions about cards OR their spending. Be concise and specific.
+
+If the user asks about credit cards: answer based ONLY on the card database below. Mention any caps, exclusions, or conditions. If the answer is not in the database, say "I don't have that information in my database."
+
+If the user asks about their spending or which card to use: use the provided transaction context to give personalized advice. Recommend specific cards they own for specific categories. Do NOT reveal raw amounts — speak in general terms like "you spend significantly on dining" or "your fuel purchases are moderate."
+
+Never expose exact transaction amounts, names, or sensitive details.
 
 At the end of every response, add this disclaimer in italic: "_Based on publicly available card information — verify with your bank for current terms._"
 
@@ -109,7 +115,7 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    const { query, document_id } = await req.json();
+    const { query, document_id, transactions_ctx } = await req.json();
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
@@ -158,9 +164,17 @@ Deno.serve(async (req: Request) => {
       });
     } else {
       // Mode: General card knowledge
+      const spendingBlock = transactions_ctx
+        ? `\n\nUSER'S RECENT SPENDING:\n${transactions_ctx}\nUse this ONLY when the user asks about their spending, budgets, or which card they should use for their patterns.`
+        : "";
+
+      const userMessage = spendingBlock
+        ? `${query.trim()}${spendingBlock}`
+        : query.trim();
+
       answer = await groq.complete({
         systemPrompt: GENERAL_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: query.trim() }],
+        messages: [{ role: "user", content: userMessage }],
         maxTokens: 512,
         temperature: 0.3,
       });

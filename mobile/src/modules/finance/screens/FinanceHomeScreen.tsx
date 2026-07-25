@@ -42,6 +42,7 @@ export default function FinanceHomeScreen() {
     accounts,
     fixedExpenses,
     notifications,
+    payzappLoads,
     getTotalBalance,
     getMonthlyExpenses,
     editCard,
@@ -139,6 +140,9 @@ export default function FinanceHomeScreen() {
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
+
+  const payzappMonthlyLoad = payzappLoads.reduce((sum, load) => sum + load.amount, 0);
+  const PAYZAPP_MONTHLY_CAP = 40_000 * 100;
 
   // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
   const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
@@ -288,33 +292,35 @@ export default function FinanceHomeScreen() {
 
           {/* Fixed Expenses (Links to FixedExpensesScreen) */}
           <TouchableOpacity
-            style={[styles.bentoCard, styles.bentoCardFullWidth]}
+            style={styles.bentoCard}
             onPress={() => navigation.navigate('FixedExpenses')}
             activeOpacity={0.85}
           >
             <View style={[styles.bentoIconWrapper, { backgroundColor: '#6366f120' }]}>
               <Ionicons name="lock-closed-outline" size={18} color="#6366f1" />
             </View>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1 }}>
-                <View style={styles.fixedHeaderRow}>
-                  <Text style={styles.bentoLabel}>Fixed Expenses</Text>
-                  {unpaidFixedExpensesTotal > 0 ? (
-                    <View style={styles.statusPill}>
-                      <Text style={styles.statusPillText}>
-                        {fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} paid
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={[styles.statusPill, { backgroundColor: `${colors.success}18`, borderColor: `${colors.success}30` }]}>
-                      <Text style={[styles.statusPillText, { color: colors.success }]}>All paid</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.bentoValue}>{formatCurrency(unpaidFixedExpensesTotal)}</Text>
-                <Text style={styles.bentoValueSecondary}>of {formatCurrency(fixedExpensesTotal)} total</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+            <View>
+              <Text style={styles.bentoLabel}>Fixed Expenses</Text>
+              <Text style={styles.bentoValue}>{formatCurrency(unpaidFixedExpensesTotal)}</Text>
+              <Text style={styles.bentoValueSecondary}>
+                of {formatCurrency(fixedExpensesTotal)} · {fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} of {fixedExpenses.length} paid
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Payzapp */}
+          <TouchableOpacity
+            style={styles.bentoCard}
+            onPress={() => navigation.navigate('PayzappWallet')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.bentoIconWrapper, { backgroundColor: 'rgba(132, 204, 22, 0.12)' }]}>
+              <Ionicons name="wallet" size={18} color="#84CC16" />
+            </View>
+            <View>
+              <Text style={styles.bentoLabel}>Payzapp</Text>
+              <Text style={styles.bentoValue}>{formatCurrency(payzappMonthlyLoad)}</Text>
+              <Text style={styles.bentoValueSecondary}>of {formatCurrency(PAYZAPP_MONTHLY_CAP)} max</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -536,33 +542,16 @@ export default function FinanceHomeScreen() {
           })()}
           </View>
         </View>
-
-        {/* Quick Tools — Two-column bento */}
-        <View style={styles.toolsGrid}>
-          <TouchableOpacity
-            style={styles.toolBentoCard}
-            onPress={() => navigation.navigate('CardAssistant')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.toolIconWrap, { backgroundColor: `${colors.primary}15` }]}>
-              <Ionicons name="sparkles" size={22} color={colors.primary} />
-            </View>
-            <Text style={styles.toolCardTitle}>Card Assistant</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.toolBentoCard}
-            onPress={() => navigation.navigate('PayzappWallet')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.toolIconWrap, { backgroundColor: 'rgba(132, 204, 22, 0.12)' }]}>
-              <Ionicons name="wallet" size={22} color="#84CC16" />
-            </View>
-            <Text style={styles.toolCardTitle}>Payzapp Wallet</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.outline} style={styles.toolCardArrow} />
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      {/* Floating AI Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CardChat')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="sparkles" size={24} color="#fff" />
+      </TouchableOpacity>
 
       {/* Bill Payment Modal */}
       {editingCard && (
@@ -805,6 +794,19 @@ const styles = StyleSheet.create({
   },
   bentoCardFullWidth: {
     minWidth: '95%',
+  },
+  bentoRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  bentoCardHalf: {
+    flex: 1,
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.lg,
+    padding: 14,
+    gap: 10,
   },
   bentoIconWrapper: {
     width: 36,

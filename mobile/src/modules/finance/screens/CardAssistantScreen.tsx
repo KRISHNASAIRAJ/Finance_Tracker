@@ -251,7 +251,7 @@ function FuelCalculatorBlock() {
     // wallet/QR mode
     const netReward = Math.round(fuelCap * 3.92 / 100);
     const coins = Math.round(Math.min(a, 10000) * 100 * 1.5 / 100);
-    return { rewardPts: netReward, happyCoins: coins, total: netReward + coins, gross: grossReward, surcharge, isFuel: true, netPct: 5.4 };
+    return { rewardPts: netReward, happyCoins: coins, total: netReward + coins, gross: grossReward, surcharge, isFuel: true, netPct: 5 };
   }, [fuelAmt, mode, grocery]);
 
   return (
@@ -278,7 +278,7 @@ function FuelCalculatorBlock() {
       {!grocery && (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[
-            { key: 'wallet', label: 'Wallet/QR', pct: '5.4%' },
+            { key: 'wallet', label: 'Wallet/QR', pct: '5%' },
             { key: 'tap', label: 'Card Tap', pct: '4.5%' },
             { key: 'none', label: 'Card Only', pct: '3.9%' },
           ].map(m => (

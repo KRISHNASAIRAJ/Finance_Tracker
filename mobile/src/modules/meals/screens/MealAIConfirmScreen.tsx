@@ -59,6 +59,8 @@ export default function MealAIConfirmScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const initialAnalysisDone = useRef(false);
+  const submittedTextRef = useRef(textDescription || '');
+  const [inputText, setInputText] = useState('');
 
   useEffect(() => {
     if (initialAnalysisDone.current) return;
@@ -74,7 +76,6 @@ export default function MealAIConfirmScreen() {
     } else if (textDescription) {
       result = await analyzeMealText(textDescription);
     } else {
-      setAiMessage('No meal data provided. Please go back and try again.');
       setLoading(false);
       return;
     }
@@ -101,8 +102,8 @@ export default function MealAIConfirmScreen() {
     let result;
     if (imageBase64) {
       result = await analyzeMealImage(imageBase64, updatedConversation);
-    } else if (textDescription) {
-      result = await analyzeMealText(textDescription, updatedConversation);
+    } else if (submittedTextRef.current) {
+      result = await analyzeMealText(submittedTextRef.current, updatedConversation);
     } else {
       setSending(false);
       return;
@@ -118,6 +119,24 @@ export default function MealAIConfirmScreen() {
       ...updatedConversation,
       { role: 'assistant', content: result.message || '' },
     ]);
+    setSending(false);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
+  };
+
+  const handleSubmitText = async () => {
+    const text = inputText.trim();
+    if (!text || sending) return;
+    submittedTextRef.current = text;
+    setSending(true);
+    setInputText('');
+
+    const result = await analyzeMealText(text);
+
+    setItems(result.items || []);
+    setAiMessage(result.message || '');
+    setHasQuestions(result.hasQuestions);
+    setIsComplete(result.isComplete);
+    setConversation([{ role: 'assistant', content: result.message || '' }]);
     setSending(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
   };
@@ -251,18 +270,49 @@ Estimate realistic nutrition values for this specific item.`;
             </View>
           ) : null}
 
+          {/* Text input for Describe Meal */}
+          {!imageBase64 && !textDescription && !loading && items.length === 0 && conversation.length === 0 ? (
+            <View style={styles.describeInputCard}>
+              <Text style={styles.describeLabel}>Describe your meal</Text>
+              <TextInput
+                style={styles.describeInput}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder='"Rice with dal and 2 chapatis with paneer curry"'
+                placeholderTextColor={colors.onSurfaceVariant}
+                multiline
+                maxLength={500}
+                textAlignVertical="top"
+              />
+              <TouchableOpacity
+                style={[styles.describeSubmitBtn, (!inputText.trim() || sending) && { opacity: 0.4 }]}
+                onPress={handleSubmitText}
+                disabled={!inputText.trim() || sending}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={16} color="#fff" />
+                    <Text style={styles.describeSubmitText}>Analyze with AI</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* AI Message */}
           {loading ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.loadingText}>AI is analyzing your meal...</Text>
             </View>
-          ) : (
+          ) : aiMessage ? (
             <View style={styles.aiBubble}>
               <Ionicons name="sparkles" size={16} color={colors.primary} style={{ marginTop: 2 }} />
               <Text style={styles.aiText}>{aiMessage}</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Detected Items */}
           {items.length > 0 && (
@@ -480,4 +530,9 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant },
   confirmBtn: { flex: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: rounded.lg, backgroundColor: colors.primaryContainer },
   confirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  describeInputCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(124,58,237,0.15)' },
+  describeLabel: { fontSize: 13, fontWeight: '700', color: colors.onSurface },
+  describeInput: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, color: colors.onSurface, fontSize: 14, minHeight: 100, lineHeight: 20 },
+  describeSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primaryContainer, paddingVertical: 12, borderRadius: 10 },
+  describeSubmitText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

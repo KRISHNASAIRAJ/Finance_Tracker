@@ -16,6 +16,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useMealStore, MealLogEntry } from '../store';
@@ -142,7 +143,7 @@ export default function MealLoggerScreen() {
 
   const handleDescribeMeal = () => {
     setShowLogOptions(false);
-    (navigation as any).navigate('MealAIConfirm', { textDescription: '', mealType: 'lunch' });
+    (navigation as any).navigate('MealAIConfirm', { mealType: 'lunch' });
   };
 
   const handleManualEntry = () => {
@@ -180,7 +181,34 @@ export default function MealLoggerScreen() {
     return days;
   }, [entries]);
 
-  const maxWeekCal = Math.max(dailyCalorieTarget, ...weekOverview.map((d) => d.calories));
+  const [graphMode, setGraphMode] = useState<'week' | 'month'>('week');
+
+  const monthOverview = useMemo(() => {
+    const today = new Date(`${getTodayDateString()}T00:00:00+05:30`);
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const days: { date: string; label: string; calories: number; protein: number }[] = [];
+    for (let d = new Date(firstDay); d <= today; d.setDate(d.getDate() + 1)) {
+      const ds = d.toISOString().slice(0, 10);
+      const dayEntries = entries.filter((e) => e.date.slice(0, 10) === ds);
+      const totals = dayEntries.reduce((acc, e) => {
+        for (const item of e.items) {
+          acc.calories += item.calories || 0;
+          acc.protein += item.protein || 0;
+        }
+        return acc;
+      }, { calories: 0, protein: 0 });
+      days.push({
+        date: ds,
+        label: String(d.getDate()),
+        calories: totals.calories,
+        protein: totals.protein,
+      });
+    }
+    return days;
+  }, [entries]);
+
+  const activeGraphData = graphMode === 'week' ? weekOverview : monthOverview;
+  const maxGraphCal = Math.max(dailyCalorieTarget, ...activeGraphData.map((d) => d.calories));
 
   const generateDailyReport = async () => {
     setReportGenerating(true);
@@ -221,28 +249,25 @@ export default function MealLoggerScreen() {
         </TouchableOpacity>
         <View style={styles.appBarCenter}>
           <Text style={styles.appBarTitle}>Meal Logger</Text>
-          <View style={styles.dateRow}>
-            <TouchableOpacity onPress={goToPrevDay} style={styles.dateArrow}>
-              <Ionicons name="chevron-back" size={14} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
-              <Text style={[styles.appBarDate, dateIsToday && { color: colors.primary }]}>
-                {dateIsToday ? 'Today' : formatDate(selectedDate)}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={goToNextDay} style={[styles.dateArrow, dateIsToday && { opacity: 0.3 }]} disabled={dateIsToday}>
-              <Ionicons name="chevron-forward" size={14} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
         </View>
-        <View style={styles.appBarRight}>
-          <TouchableOpacity style={styles.iconBtnSm} onPress={() => (navigation as any).navigate('MealAISuggestions')}>
-            <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtnSm} onPress={() => { setTargetCal(dailyCalorieTarget.toString()); setTargetProt(dailyProteinTarget.toString()); setTargetCarbs(dailyCarbsTarget.toString()); setTargetFat(dailyFatTarget.toString()); setTargetWater(dailyWaterTarget.toString()); setShowTargets(true); }}>
-            <Ionicons name="options-outline" size={20} color={colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.iconBtnSm} onPress={() => { setTargetCal(dailyCalorieTarget.toString()); setTargetProt(dailyProteinTarget.toString()); setTargetCarbs(dailyCarbsTarget.toString()); setTargetFat(dailyFatTarget.toString()); setTargetWater(dailyWaterTarget.toString()); setShowTargets(true); }}>
+          <Ionicons name="options-outline" size={22} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Date Swapper */}
+      <View style={styles.dateBar}>
+        <TouchableOpacity onPress={goToPrevDay} style={styles.dateArrowBig}>
+          <Ionicons name="chevron-back" size={20} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
+          <Text style={[styles.dateBarText, dateIsToday && { color: colors.primary }]}>
+            {dateIsToday ? 'Today' : formatDateFull(selectedDate)}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToNextDay} style={[styles.dateArrowBig, dateIsToday && { opacity: 0.3 }]} disabled={dateIsToday}>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -308,30 +333,27 @@ export default function MealLoggerScreen() {
           </View>
         </View>
 
-        {/* 7-Day Graph */}
+        {/* Nutrition Graph */}
         <View style={styles.weekCard}>
           <View style={styles.weekHeader}>
-            <Ionicons name="bar-chart-outline" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.weekTitle}>Last 7 Days</Text>
+            <Ionicons name="analytics-outline" size={14} color={colors.onSurfaceVariant} />
+            <Text style={styles.weekTitle}>Nutrition Trend</Text>
+            <View style={styles.graphToggle}>
+              <TouchableOpacity
+                style={[styles.toggleChip, graphMode === 'week' && styles.toggleChipActive]}
+                onPress={() => setGraphMode('week')}
+              >
+                <Text style={[styles.toggleChipText, graphMode === 'week' && styles.toggleChipTextActive]}>7 Days</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleChip, graphMode === 'month' && styles.toggleChipActive]}
+                onPress={() => setGraphMode('month')}
+              >
+                <Text style={[styles.toggleChipText, graphMode === 'month' && styles.toggleChipTextActive]}>Month</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.weekBars}>
-            {weekOverview.map((day) => {
-              const calPct = maxWeekCal > 0 ? (day.calories / maxWeekCal) * 100 : 0;
-              const protPct = dailyProteinTarget > 0 ? (day.protein / dailyProteinTarget) * 100 : 0;
-              const isToday = day.label === 'Today';
-              return (
-                <View key={day.date} style={styles.weekBarCol}>
-                  <View style={styles.weekBarStack}>
-                    <View style={[styles.weekBarFill, { height: `${calPct}%`, backgroundColor: isToday ? '#f59e0b' : 'rgba(245,158,11,0.3)' }]} />
-                    <View style={[styles.weekBarFill, { height: `${protPct}%`, backgroundColor: isToday ? colors.success : 'rgba(52,211,153,0.3)', marginTop: 2 }]} />
-                  </View>
-                  <Text style={[styles.weekBarLabel, isToday && { color: colors.primary, fontWeight: '700' }]}>{day.label}</Text>
-                  <Text style={styles.weekBarVal}>{day.calories > 0 ? `${Math.round(day.calories / 50)}0` : '0'}</Text>
-                </View>
-              );
-            })}
-          </View>
-          <View style={styles.weekLegend}>
+          <View style={styles.graphLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
               <Text style={styles.legendText}>Calories</Text>
@@ -341,6 +363,83 @@ export default function MealLoggerScreen() {
               <Text style={styles.legendText}>Protein</Text>
             </View>
           </View>
+          {(() => {
+            const data = activeGraphData;
+            const W = data.length > 1 ? (data.length - 1) * 40 + 20 : 320;
+            const H = 130;
+            const padX = 16;
+            const padT = 16;
+            const padB = 22;
+            const chartH = H - padT - padB;
+            const maxV = maxGraphCal || 1;
+            const range = maxV;
+
+            const calPoints = data.map((d, i) => {
+              const x = padX + i * 40;
+              const y = padT + chartH - (d.calories / range) * chartH;
+              return { x, y, label: d.label, date: d.date, calories: d.calories, protein: d.protein };
+            });
+
+            let calPath = '';
+            let calFill = '';
+            if (calPoints.length > 1) {
+              calPath = `M ${calPoints[0].x} ${calPoints[0].y}`;
+              for (let i = 0; i < calPoints.length - 1; i++) {
+                const cpX = calPoints[i].x + (calPoints[i + 1].x - calPoints[i].x) / 2;
+                calPath += ` C ${cpX} ${calPoints[i].y}, ${cpX} ${calPoints[i + 1].y}, ${calPoints[i + 1].x} ${calPoints[i + 1].y}`;
+              }
+              calFill = `${calPath} L ${calPoints[calPoints.length - 1].x} ${padT + chartH} L ${calPoints[0].x} ${padT + chartH} Z`;
+            }
+
+            const protPoints = data.map((d, i) => {
+              const x = padX + i * 40;
+              const y = padT + chartH - (d.protein / maxV) * chartH;
+              return { x, y };
+            });
+
+            let protPath = '';
+            if (protPoints.length > 1) {
+              protPath = `M ${protPoints[0].x} ${protPoints[0].y}`;
+              for (let i = 0; i < protPoints.length - 1; i++) {
+                const cpX = protPoints[i].x + (protPoints[i + 1].x - protPoints[i].x) / 2;
+                protPath += ` C ${cpX} ${protPoints[i].y}, ${cpX} ${protPoints[i + 1].y}, ${protPoints[i + 1].x} ${protPoints[i + 1].y}`;
+              }
+            }
+
+            return (
+              <View>
+                <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+                  <Defs>
+                    <LinearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0%" stopColor="#f59e0b" stopOpacity="0.35" />
+                      <Stop offset="100%" stopColor="#f59e0b" stopOpacity="0.02" />
+                    </LinearGradient>
+                    <LinearGradient id="protGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0%" stopColor="#34d399" stopOpacity="0.25" />
+                      <Stop offset="100%" stopColor="#34d399" stopOpacity="0.02" />
+                    </LinearGradient>
+                  </Defs>
+                  {calFill ? <Path d={calFill} fill="url(#calGrad)" /> : null}
+                  {calPath ? <Path d={calPath} stroke="#f59e0b" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
+                  {protPath ? <Path d={protPath} stroke="#34d399" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4,4" /> : null}
+                  {/* Day labels */}
+                  {data.map((d, i) => (
+                    <SvgText
+                      key={d.date}
+                      x={padX + i * 40}
+                      y={H - 4}
+                      textAnchor="middle"
+                      fontSize="9"
+                      fontWeight={d.date === getTodayDateString() ? '700' : '400'}
+                      fill={d.date === getTodayDateString() ? colors.primary : colors.onSurfaceVariant}
+                    >
+                      {d.label}
+                    </SvgText>
+                  ))}
+                </Svg>
+              </View>
+            );
+          })()}
         </View>
 
         {/* Log Meal Button */}
@@ -549,6 +648,15 @@ export default function MealLoggerScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Floating AI Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => (navigation as any).navigate('MealAISuggestions')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="sparkles" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -558,10 +666,9 @@ const styles = StyleSheet.create({
   appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   appBarCenter: { alignItems: 'center' },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
-  appBarDate: { fontSize: 12, color: colors.onSurfaceVariant, fontWeight: '500' },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  dateArrow: { padding: 4 },
-  appBarRight: { flexDirection: 'row', gap: 8, width: 80, justifyContent: 'flex-end' },
+  dateBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.containerPadding, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
+  dateBarText: { fontSize: 15, fontWeight: '700', color: colors.onSurfaceVariant },
+  dateArrowBig: { padding: 6 },
   iconBtn: { padding: 8, borderRadius: rounded.full },
   iconBtnSm: { padding: 6 },
   scroll: { padding: spacing.containerPadding, gap: 14, paddingBottom: 40 },
@@ -576,16 +683,15 @@ const styles = StyleSheet.create({
   macroChip: { flex: 1, alignItems: 'center', paddingVertical: 6 },
   macroVal: { fontSize: 16, fontWeight: '700', color: colors.onSurface },
   macroLabel: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 2 },
-  weekCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 16, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  weekCard: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg, padding: 16, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   weekHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weekTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  weekBars: { flexDirection: 'row', gap: 6, height: 120, alignItems: 'flex-end' },
-  weekBarCol: { flex: 1, alignItems: 'center', gap: 4 },
-  weekBarStack: { flex: 1, width: '100%', flexDirection: 'row', gap: 2, justifyContent: 'center', alignItems: 'flex-end', paddingBottom: 2 },
-  weekBarFill: { width: 12, borderRadius: 2, minHeight: 2 },
-  weekBarLabel: { fontSize: 9, color: colors.onSurfaceVariant, fontWeight: '500' },
-  weekBarVal: { fontSize: 8, color: colors.onSurfaceVariant },
-  weekLegend: { flexDirection: 'row', gap: 16, paddingTop: 4 },
+  weekTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, flex: 1 },
+  graphToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: rounded.full, padding: 2 },
+  toggleChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: rounded.full },
+  toggleChipActive: { backgroundColor: colors.primaryContainer },
+  toggleChipText: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant },
+  toggleChipTextActive: { color: '#fff' },
+  graphLegend: { flexDirection: 'row', gap: 16 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 2 },
   legendText: { fontSize: 10, color: colors.onSurfaceVariant },
@@ -642,4 +748,22 @@ const styles = StyleSheet.create({
   reportText: { fontSize: 12, color: colors.onSurface, lineHeight: 19 },
   reportRefresh: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingTop: 4 },
   reportRefreshText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
+  fab: {
+    position: 'absolute',
+    bottom: 96,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: rounded.full,
+    backgroundColor: colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryContainer,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+  },
 });

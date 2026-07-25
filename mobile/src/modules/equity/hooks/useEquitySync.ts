@@ -130,6 +130,17 @@ async function doPull(userId: string) {
     store.setState({ snapshots: mapped });
   }
 
+  // --- PORTFOLIO ACTION PLAN ---
+  const { data: planData, error: planErr } = await supabase
+    .from("portfolio_action_plans")
+    .select("content")
+    .eq("user_id", userId)
+    .single();
+
+  if (!planErr && planData?.content !== undefined && planData.content !== null) {
+    store.setState({ portfolioActionPlan: planData.content as string });
+  }
+
   store.getState().setLastEquitySyncedAt(new Date().toISOString());
 }
 
@@ -213,4 +224,22 @@ export function queueGoalSync(
   enqueue("investment_goals", action, data).catch((e: Error) =>
     console.warn('[EquitySync] queueGoalSync failed:', e)
   );
+}
+
+export async function syncActionPlan(userId: string, content: string) {
+  await supabase
+    .from("portfolio_action_plans")
+    .upsert({
+      user_id: userId,
+      content,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+}
+
+export async function deleteCloudSnapshot(userId: string, date: string) {
+  await supabase
+    .from("portfolio_snapshots")
+    .delete()
+    .eq("user_id", userId)
+    .eq("date", date);
 }

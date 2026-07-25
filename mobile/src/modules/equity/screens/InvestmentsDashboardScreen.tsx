@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,17 +20,21 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
-import { useEquitySync } from '../hooks/useEquitySync';
+import { useEquitySync, syncActionPlan } from '../hooks/useEquitySync';
 import { processSyncQueue } from '../../../services/syncQueue';
+import { useAuth } from '../../../services/AuthProvider';
 
 type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'InvestmentsDashboard'>;
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { holdings, goals, getPortfolioValue, snapshots } = useInvestmentsStore();
+  const { holdings, goals, getPortfolioValue, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
   const [activeTab, setActiveTab] = useState<'equity' | 'mf'>('equity');
   const { pullFromCloud } = useEquitySync();
+  const { user } = useAuth();
+  const [editPlan, setEditPlan] = useState(false);
+  const [draftPlan, setDraftPlan] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +69,24 @@ export default function InvestmentsDashboardScreen() {
   const totalPnL = portfolioValue - totalCost;
   const pnlPct = totalCost > 0 ? ((totalPnL / totalCost) * 100).toFixed(1) : '0.0';
   const isPositive = totalPnL >= 0;
+
+  const handleStartEditPlan = () => {
+    setDraftPlan(portfolioActionPlan || '');
+    setEditPlan(true);
+  };
+
+  const handleSavePlan = async () => {
+    setPortfolioActionPlan(draftPlan);
+    setEditPlan(false);
+    if (user?.id) {
+      syncActionPlan(user.id, draftPlan).catch(() => {});
+    }
+  };
+
+  const handleCancelEditPlan = () => {
+    setEditPlan(false);
+    setDraftPlan('');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -215,6 +239,49 @@ export default function InvestmentsDashboardScreen() {
             </TouchableOpacity>
           );
         })()}
+
+        {/* Portfolio Action Plan */}
+        <View style={styles.planCard}>
+          <View style={styles.planHeader}>
+            <View style={styles.planTitleRow}>
+              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+              <Text style={styles.planTitle}>PORTFOLIO ACTION PLAN</Text>
+            </View>
+            {!editPlan ? (
+              <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEditBtn}>
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {editPlan ? (
+            <View style={styles.planEditContainer}>
+              <TextInput
+                style={styles.planInput}
+                value={draftPlan}
+                onChangeText={setDraftPlan}
+                placeholder="Enter your action plan..."
+                placeholderTextColor={colors.onSurfaceVariant}
+                multiline
+                textAlignVertical="top"
+              />
+              <View style={styles.planEditActions}>
+                <TouchableOpacity style={styles.planCancelBtn} onPress={handleCancelEditPlan}>
+                  <Text style={styles.planCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.planSaveBtn} onPress={handleSavePlan}>
+                  <Text style={styles.planSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : portfolioActionPlan ? (
+            <Text style={styles.planContent} numberOfLines={12}>{portfolioActionPlan}</Text>
+          ) : (
+            <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEmptyState}>
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text style={styles.planEmptyText}>Add your portfolio action plan</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Holdings List Section */}
         <View style={styles.sectionCard}>
@@ -369,22 +436,16 @@ export default function InvestmentsDashboardScreen() {
           </View>
         </View>
 
-        {/* AI Recommendations Action Card */}
-        <TouchableOpacity
-          style={styles.aiBanner}
-          onPress={() => navigation.navigate('AIRecommendations')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.aiLeft}>
-            <Ionicons name="sparkles" size={22} color={colors.primary} />
-            <View>
-              <Text style={styles.aiTitle}>AI Rebalancing Recommendations</Text>
-              <Text style={styles.aiSubtitle}>Review allocation suggestions based on goals</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.primary} />
-        </TouchableOpacity>
       </ScrollView>
+
+      {/* Floating AI Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('AIRecommendations')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="sparkles" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -743,5 +804,107 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
+  },
+  planCard: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderRadius: rounded.lg,
+    padding: spacing.cardPadding,
+    gap: 10,
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  planTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  planEditBtn: {
+    padding: 4,
+    borderRadius: rounded.full,
+  },
+  planContent: {
+    fontSize: 12,
+    color: colors.onSurface,
+    lineHeight: 18,
+  },
+  planEmptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  planEmptyText: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+  },
+  planEditContainer: {
+    gap: 10,
+  },
+  planInput: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    padding: 12,
+    color: colors.onSurface,
+    fontSize: 12,
+    lineHeight: 18,
+    minHeight: 300,
+    maxHeight: 400,
+  },
+  planEditActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  planCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  planCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  planSaveBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: colors.primaryContainer,
+  },
+  planSaveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 96,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: rounded.full,
+    backgroundColor: colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryContainer,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
   },
 });

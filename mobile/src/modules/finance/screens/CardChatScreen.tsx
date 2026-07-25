@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { askCardTnC } from '../../../services/aiServices';
+import { saveAIChatToFile } from '../../../services/chatExportService';
+import { useFinanceStore } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 
 type CardChatRouteProp = RouteProp<FinanceStackParamList, 'CardChat'>;
@@ -32,25 +34,13 @@ interface ChatMsg {
 let msgId = 0;
 function makeId() { return `cardchat_${++msgId}_${Date.now()}`; }
 
-const QUICK_QUERIES = [
-  'Which card is best for online shopping?',
-  'What\'s the cashback on IDFC Power+ for fuel?',
-  'Compare SBI Cashback vs Amazon Pay ICICI',
-  'Which LTF card has the highest rewards?',
-];
-
-const DOC_QUERIES = [
-  'Summarize the key reward categories',
-  'What are the annual fee and fee waiver conditions?',
-  'List all excluded categories',
-  'What is the fuel surcharge policy?',
-];
-
 export default function CardChatScreen() {
   const navigation = useNavigation();
   const route = useRoute<CardChatRouteProp>();
   const documentId = (route.params as any)?.documentId;
   const documentName = (route.params as any)?.documentName;
+
+  const { transactions, cards } = useFinanceStore();
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [inputText, setInputText] = useState('');
@@ -73,6 +63,20 @@ export default function CardChatScreen() {
     }
   }, []);
 
+  const buildTransactionContext = () => {
+    const recent = transactions.slice(0, 20);
+    if (recent.length === 0) return '';
+    let ctx = 'Recent Transactions:\n';
+    for (const tx of recent) {
+      const date = new Date(tx.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+      const amt = `₹${(Math.abs(tx.amount) / 100).toFixed(0)}`;
+      ctx += `- ${date}: ${tx.category} · ${amt}`;
+      if (tx.paymentMode) ctx += ` via ${tx.paymentMode}`;
+      ctx += '\n';
+    }
+    return ctx;
+  };
+
   const handleSend = async (text?: string) => {
     const query = (text || inputText).trim();
     if (!query || loading) return;
@@ -83,7 +87,8 @@ export default function CardChatScreen() {
 
     setLoading(true);
     try {
-      const result = await askCardTnC(query, documentId);
+      const txCtx = buildTransactionContext();
+      const result = await askCardTnC(query, documentId, txCtx);
       addMessage('assistant', result.answer);
     } catch {
       addMessage('assistant', 'Sorry, I couldn\'t process your question. Please try again.');
@@ -93,7 +98,37 @@ export default function CardChatScreen() {
     }
   };
 
-  const queries = documentId ? DOC_QUERIES : QUICK_QUERIES;
+  const getContextualPrompts = () => {
+    if (documentId) {
+      return [
+        'Summarize the key reward categories',
+        'What are the annual fee and fee waiver conditions?',
+        'List all excluded categories',
+        'What is the fuel surcharge policy?',
+      ];
+    }
+    const prompts: string[] = [];
+    const cardNames = cards.map((c) => c.name).slice(0, 4);
+    if (cards.length > 0) {
+      const firstCard = cardNames[0];
+      prompts.push(`What's the best use for ${firstCard}?`);
+      if (cards.length > 1) {
+        prompts.push(`Compare ${cardNames[0]} vs ${cardNames[1]}`);
+      }
+    }
+    const totalSpent = transactions
+      .filter((t) => t.amount < 0)
+      .slice(0, 10)
+      .reduce((s, t) => s + Math.abs(t.amount), 0);
+    if (totalSpent > 0) {
+      prompts.push(`Analyze my recent spending of ₹${(totalSpent / 100).toFixed(0)}`);
+    }
+    prompts.push('Which of my cards gives the best fuel rewards?');
+    prompts.push('Help me pick the right card for online shopping');
+    return prompts.slice(0, 4);
+  };
+
+  const prompts = getContextualPrompts();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,13 +138,25 @@ export default function CardChatScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={styles.appBarTitle} numberOfLines={1}>
-            {documentName ? `${documentName}` : 'Card AI Assistant'}
+            {documentName || 'Card AI Assistant'}
           </Text>
-          {documentName && (
+          {documentName ? (
             <Text style={styles.appBarSub}>Document Q&A</Text>
+          ) : null}
+        </View>
+        <View style={{ width: 32 }}>
+          {messages.length > 0 && (
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => saveAIChatToFile(
+                messages.map((m) => ({ role: m.sender, text: m.text, date: m.date })),
+                'Card AI Chat'
+              )}
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
           )}
         </View>
-        <View style={{ width: 32 }} />
       </View>
 
       <ScrollView
@@ -123,27 +170,29 @@ export default function CardChatScreen() {
           <View style={styles.emptyChat}>
             <Ionicons name="sparkles" size={32} color={colors.primary} />
             <Text style={styles.emptyTitle}>
-              {documentId ? 'Ask About This Document' : 'Ask About Any Credit Card'}
+              {documentId ? 'Ask About This Document' : 'Card & Spending AI'}
             </Text>
             <Text style={styles.emptySub}>
               {documentId
                 ? 'Ask questions about the terms and conditions\nof your uploaded card document.'
-                : 'I know about SBI Cashback, SimplySAVE, IDFC Power+,\nAmazon Pay ICICI, HSBC Platinum, Slice, Pazapp & more.'}
+                : 'Ask about credit cards, cashback, fees, comparisons,\nor get insights on your spending patterns.'}
             </Text>
-            <View style={styles.quickQueries}>
-              {queries.map((q, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.quickPill}
-                  onPress={() => handleSend(q)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.quickPillText}>{q}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         )}
+
+        {/* Quick Prompts */}
+        <View style={styles.quickQueries}>
+          {prompts.map((q, i) => (
+            <TouchableOpacity
+              key={i}
+              style={styles.quickPill}
+              onPress={() => handleSend(q)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.quickPillText}>{q}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {messages.map((msg) => {
           const isUser = msg.sender === 'user';
@@ -159,10 +208,7 @@ export default function CardChatScreen() {
                 {msg.text}
               </Text>
               <Text style={styles.messageTime}>
-                {new Date(msg.date).toLocaleTimeString('en-IN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {new Date(msg.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
               </Text>
             </View>
           );
@@ -175,7 +221,7 @@ export default function CardChatScreen() {
       </ScrollView>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <View style={styles.inputContainer}>
@@ -184,7 +230,7 @@ export default function CardChatScreen() {
             placeholder={
               documentId
                 ? 'Ask about this document...'
-                : 'Ask me about card rewards, fees, or comparisons...'
+                : 'Ask about cards, cashback, or spending...'
             }
             placeholderTextColor={colors.onSurfaceVariant}
             value={inputText}
@@ -215,28 +261,24 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    height: 56, paddingHorizontal: spacing.containerPadding,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
   appBarSub: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 1 },
   chatScroll: { flex: 1 },
-  chatContent: { padding: spacing.containerPadding, gap: 14, paddingBottom: 24 },
-  emptyChat: { alignItems: 'center', paddingVertical: 32, gap: 12 },
+  chatContent: { padding: spacing.containerPadding, gap: 12, paddingBottom: 24 },
+  emptyChat: { alignItems: 'center', paddingVertical: 24, gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.onSurface },
   emptySub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 18 },
-  quickQueries: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 },
+  quickQueries: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 8 },
   quickPill: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: rounded.full,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: rounded.DEFAULT,
     backgroundColor: `${colors.primary}12`, borderWidth: 1, borderColor: `${colors.primary}20`,
   },
-  quickPillText: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  quickPillText: { fontSize: 12, color: colors.primary, fontWeight: '500' },
   messageBubble: { maxWidth: '82%', padding: 14, borderRadius: rounded.lg, gap: 6 },
   userBubble: {
     alignSelf: 'flex-end', backgroundColor: colors.primaryContainer, borderBottomRightRadius: 2,

@@ -52,6 +52,8 @@ interface InvestmentsState {
   goals: InvestmentGoal[];
   snapshots: PortfolioSnapshot[];
   chatHistory: ChatMessage[];
+  portfolioActionPlan: string;
+  setPortfolioActionPlan: (content: string) => void;
   addHolding: (holding: Omit<Holding, 'id'>) => string;
   updateHolding: (id: string, updates: Partial<Holding>, userId?: string) => void;
   deleteHolding: (id: string, userId?: string) => void;
@@ -59,6 +61,7 @@ interface InvestmentsState {
   updateGoal: (id: string, updates: Partial<InvestmentGoal>, userId?: string) => void;
   deleteGoal: (id: string, userId?: string) => void;
   setSnapshots: (snapshots: PortfolioSnapshot[]) => void;
+  deleteSnapshot: (date: string) => void;
   addChatMessage: (sender: 'user' | 'assistant', text: string) => void;
   clearChatHistory: () => void;
   getPortfolioValue: () => number;
@@ -90,6 +93,7 @@ export const useInvestmentsStore = create<InvestmentsState>()(
       goals: [],
       snapshots: [],
       chatHistory: [],
+      portfolioActionPlan: '',
       addHolding: (holding) => {
         const id = uid();
         set((state) => ({
@@ -157,6 +161,10 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
       setSnapshots: (snapshots) => set({ snapshots }),
+      deleteSnapshot: (date) => set((state) => ({
+        snapshots: state.snapshots.filter((s) => s.date !== date),
+      })),
+      setPortfolioActionPlan: (content) => set({ portfolioActionPlan: content }),
       addChatMessage: (sender, text) => {
         const newMessage: ChatMessage = {
           id: Math.random().toString(36).substring(2, 9),
