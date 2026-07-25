@@ -66,7 +66,7 @@ export const useMealStore = create<MealState>()(
       entries: [],
       aiMessages: [],
       dailyCalorieTarget: 2650,
-      dailyProteinTarget: 140,
+      dailyProteinTarget: 130,
       dailyCarbsTarget: 340,
       dailyFatTarget: 85,
       dailyWaterTarget: 2.8,
