@@ -57,6 +57,9 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  const apiKeyPreview = KITE_API_KEY.substring(0, 4) + "...";
+  console.log(`[kite-holdings-sync] Using Kite API key starting with: ${apiKeyPreview}`);
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -130,8 +133,13 @@ Deno.serve(async (req: Request) => {
     const kiteData = await kiteRes.json();
 
     if (kiteData.status !== "success") {
+      const errMsg = kiteData.message || "Unknown Kite error";
+      console.error(`[kite-holdings-sync] Kite API error — message: ${errMsg}, code: ${kiteData.error_code || 'none'}`);
       return new Response(
-        JSON.stringify({ error: kiteData.message || "Kite API error", synced: 0 }),
+        JSON.stringify({
+          error: `Kite API: ${errMsg} (code: ${kiteData.error_code || 'none'}). Check that KITE_API_KEY="${apiKeyPreview}" matches your Kite Connect app.`,
+          synced: 0
+        }),
         { status: 502, headers: { "Content-Type": "application/json" } }
       );
     }

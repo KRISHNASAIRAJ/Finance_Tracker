@@ -19,23 +19,19 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useMealStore, MealAIMessage } from '../store';
 import { supabase } from '../../../services/supabaseClient';
 
-const HEALTH_PROFILE = `Conditions
-* Current weight is 54.5kg and height is aeound 5.7-5.8ft. Age 23 and Male.
-* Uses Anveshan Groundnut oil. Will prefer to use very less oil in my recipes.
-* Uses homemade peanut butter, ghee whenever needed, home grown hen eggs.
-* Drinks around 2-2.5ltr water per day.
-* Wakesup between 5.30-6.00 am from Mon-Thu and 7.00-8.00 am Fri-Sun, sleeps by 10.00-11.00pm.
-* Cooks food between 6-7.15am Mon-Thu, no non-veg on Wednesday and Thursday strictly.
-* Has airfryer, blender, gas-stove. Yoghurt is favourite (Epigamia/Milkymist).
-* Needs at least one fruit daily. Eats flax seeds and pumpkin seeds.
-* Uses milkbread, multigrain bread (Swisscastle, Theobroma).
-* Primary target: weight gain to 65kgs by end of 2026.
-* Lunch: raw rice (180-200ml cup). Prefers rice only in afternoon.
-* Past Abdominal TB, took many antibiotics. Low immunity.
-* Likes lemon, raw onions, non-veg (chicken, prawns, fish, mutton).
-* Prefers eating at home, strictly no frozen items.
-* No workouts (timings 8am-6pm, 40min commute each way).
-* Goal: weight gain 65kg, immunity boost, skin glow, eliminate grey hair, healthy gut.`;
+const HEALTH_PROFILE = `Project 65 — Body Recomposition Protocol
+* Current: 54kg, 170.6cm, BMI 18.5 (underweight). Target: 65kg at ~0.4 kg/week. Age 23 Male.
+* Daily targets: 2,650 kcal (range 2,600-2,800), 140g protein (~2.6 g/kg), 340g carbs, 85g fat, 2.5-3L water.
+* One cooking block: 5:30-7:45 AM makes breakfast + lunch + dinner's protein doubled. Office 8 AM-6 PM (40min commute).
+* Uses Anveshan groundnut oil, ghee. Airfryer, blender, induction, gas-stove.
+* Fixed daily dose: pumpkin+sesame seeds, 1 fruit (banana/avocado/pineapple), 1 scoop Comix plant protein (~24g).
+* Only Greek yoghurt (Epigamia/Milkymist), no curd/buttermilk.
+* No non-veg Wednesday and Thursday. Fish/prawns only alternate Saturdays, else chicken.
+* Homemade peanut butter. Uses milkbread, multigrain, sourdough (Swisscastle, Theobroma).
+* Wakes 5:30 AM Mon-Thu, 7 AM Fri-Sun. Sleeps 10-11 PM.
+* Past Abdominal TB, took antibiotics. Low immunity.
+* Goals: 65kg, immunity, skin glow, eliminate grey hair, healthy gut.
+* Weigh weekly (not daily), track progress with photos monthly.`;
 
 export default function MealAISuggestionsScreen() {
   const navigation = useNavigation();

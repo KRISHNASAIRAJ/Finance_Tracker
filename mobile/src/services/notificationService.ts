@@ -119,7 +119,8 @@ export async function scheduleLocal(
   title: string,
   body: string,
   triggerDate: Date,
-  channelId: string = 'bills_due'
+  channelId: string = 'bills_due',
+  data?: Record<string, string>,
 ) {
   if (!ensureInit()) return;
   const now = istNow();
@@ -140,6 +141,7 @@ export async function scheduleLocal(
         vibrate: [0, 250, 250, 250],
         priority: Notifications.AndroidNotificationPriority.HIGH,
         channelId,
+        data: data || {},
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -236,18 +238,61 @@ export async function scheduleAllReminders() {
       }
     }
 
-    // Lent/Borrowed reminders — 1 day before due
+    // Lent/Borrowed reminders — at 10 AM and 8:30 PM on the due date, then recurring if overdue
     for (const rec of (receivables || [])) {
+      if (rec.status === 'paid') continue;
       const dueDate = new Date(rec.dueDate);
-      const remindDate = new Date(dueDate.getTime() - 86400000);
       const now = istNow();
-      if (remindDate > now) {
-        const isLent = rec.type === 'lent';
+      const isLent = rec.type === 'lent';
+      const personName = rec.personName;
+      const amountStr = `\u20B9${(rec.amount / 100).toLocaleString('en-IN')}`;
+
+      const tenAm = new Date(dueDate);
+      tenAm.setHours(10, 0, 0, 0);
+      if (tenAm > now) {
         await scheduleLocal(
-          isLent ? `\u{1F4B0} Collect from ${rec.personName}` : `\u{1F4B8} Pay ${rec.personName}`,
-          `\u20B9${(rec.amount / 100).toLocaleString('en-IN')} ${isLent ? 'to be collected' : 'to pay back'} on ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
-          remindDate
+          `${isLent ? 'Collect' : 'Pay'} ${personName}`,
+          `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
+          tenAm,
+          'bills_due',
+          { screen: 'LentBorrowed' }
         );
+      }
+
+      const eightThirtyPm = new Date(dueDate);
+      eightThirtyPm.setHours(20, 30, 0, 0);
+      if (eightThirtyPm > now) {
+        await scheduleLocal(
+          `${isLent ? 'Collect' : 'Pay'} ${personName}`,
+          `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
+          eightThirtyPm,
+          'bills_due',
+          { screen: 'LentBorrowed' }
+        );
+      }
+
+      // Overdue recurring reminders — if past due and unpaid, remind daily at 10AM and 8:30PM
+      const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0);
+      if (dueStart < now) {
+        const overdueDays = Math.min(30, Math.ceil((now.getTime() - dueStart.getTime()) / 86400000));
+        for (let d = 1; d <= Math.min(7, 31 - overdueDays); d++) {
+          const morningReminder = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 10, 0, 0);
+          await scheduleLocal(
+            `\u23F0 ${isLent ? 'Collect' : 'Pay'} ${personName}`,
+            `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
+            morningReminder,
+            'bills_due',
+            { screen: 'LentBorrowed' }
+          );
+          const eveningReminder = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 20, 30, 0);
+          await scheduleLocal(
+            `\u23F0 ${isLent ? 'Collect' : 'Pay'} ${personName}`,
+            `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
+            eveningReminder,
+            'bills_due',
+            { screen: 'LentBorrowed' }
+          );
+        }
       }
     }
 
@@ -267,33 +312,36 @@ export async function scheduleAllReminders() {
       }
     }
 
-    // Task reminders — 1 day before due; fallback to near-term if missed
+    // Task reminders — at exact due time, then every 2h until completed (up to 8h)
     const now = istNow();
     for (const task of (tasks || [])) {
       if (task.completed) continue;
       const dueDate = new Date(task.dueDate);
       if (isNaN(dueDate.getTime())) continue;
 
-      const priorityEmoji = task.priority === 'urgent' ? '\u{1F534}' : task.priority === 'high' ? '\u{1F7E0}' : '\u{1F7E1}';
-      const subtasks = task.subtasks || [];
-      const remainingStr = subtasks.length > 0 ? `${subtasks.filter((s: any) => !s.completed).length} subtasks remaining. ` : '';
-      const dueStr = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const dueStr = new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const dueTimeStr = new Date(dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-      const remindDate = new Date(dueDate.getTime() - 86400000);
-
-      if (remindDate > now) {
+      if (dueDate > now) {
         await scheduleLocal(
-          `${priorityEmoji} Task: ${task.name}`,
-          `${remainingStr}Due by ${dueStr}`,
-          remindDate
+          `${task.name}, ${dueStr} ${dueTimeStr}`,
+          task.description || 'Task due now',
+          dueDate,
+          'task_reminders',
+          { screen: 'TaskDetail', taskId: task.id }
         );
-      } else if (dueDate > now) {
-        const catchUp = new Date(now.getTime() + 5 * 60000);
-        await scheduleLocal(
-          `${priorityEmoji} Task: ${task.name}`,
-          `${remainingStr}Due by ${dueStr}`,
-          catchUp
-        );
+        for (let hr = 2; hr <= 8; hr += 2) {
+          const repeatDate = new Date(dueDate.getTime() + hr * 3600000);
+          if (repeatDate > now) {
+            await scheduleLocal(
+              `${task.name}, ${dueStr} ${dueTimeStr}`,
+              task.description || 'Task overdue — 2h reminder',
+              repeatDate,
+              'task_reminders',
+              { screen: 'TaskDetail', taskId: task.id }
+            );
+          }
+        }
       }
     }
   } finally {

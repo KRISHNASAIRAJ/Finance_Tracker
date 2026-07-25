@@ -117,8 +117,7 @@ export const useTasksStore = create<TasksState>()(
         if (!task) return;
         const newCompleted = !task.completed;
         const completedAt = newCompleted ? new Date().toISOString() : null;
-        set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? { ...t, completed: newCompleted, completedAt } : t)) }));
-        enqueueThenFlush('tasks', 'create', makeTaskPayload(task.id, userId, task.name, task.description, task.priority, task.dueDate, newCompleted, task.subtasks, task.recurrence));
+
         if (newCompleted && task.recurrence !== 'none') {
           const nextDate = getNextDueDate(task.dueDate, task.recurrence);
           const resetSubtasks = task.subtasks.map((st) => ({ ...st, completed: false }));
@@ -133,9 +132,17 @@ export const useTasksStore = create<TasksState>()(
             subtasks: resetSubtasks,
             recurrence: task.recurrence,
           };
-          set((state) => ({ tasks: [nextTask, ...state.tasks] }));
+          set((state) => ({
+            tasks: [
+              nextTask,
+              ...state.tasks.map((t) => (t.id === id ? { ...t, completed: newCompleted, completedAt } : t)),
+            ],
+          }));
           enqueueThenFlush('tasks', 'create', makeTaskPayload(nextTask.id, userId, nextTask.name, nextTask.description, nextTask.priority, nextTask.dueDate, false, resetSubtasks, nextTask.recurrence));
+        } else {
+          set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? { ...t, completed: newCompleted, completedAt } : t)) }));
         }
+        enqueueThenFlush('tasks', 'create', makeTaskPayload(id, userId, task.name, task.description, task.priority, task.dueDate, newCompleted, task.subtasks, task.recurrence));
       },
       deleteTask: (id, userId) => {
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));

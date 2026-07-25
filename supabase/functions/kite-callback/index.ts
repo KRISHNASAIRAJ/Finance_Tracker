@@ -15,7 +15,7 @@ const KITE_API_SECRET = Deno.env.get("KITE_API_SECRET")!;
 Deno.serve(async (req: Request) => {
   if (!KITE_API_KEY || !KITE_API_SECRET) {
     return new Response(
-      `<html><body><h2>Configuration Error</h2><p>KITE_API_KEY or KITE_API_SECRET is not set. Run: supabase secrets set KITE_API_KEY=xxx KITE_API_SECRET=yyy</p></body></html>`,
+      `<html><body><h2>Configuration Error</h2><p>KITE_API_KEY or KITE_API_SECRET is not set.</p></body></html>`,
       { headers: { "Content-Type": "text/html" } }
     );
   }
@@ -23,7 +23,9 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const requestToken = url.searchParams.get("request_token");
   const status = url.searchParams.get("status");
-  const stateUserId = url.searchParams.get("state") || ""; // Supabase user UUID passed via OAuth state
+  const stateUserId = url.searchParams.get("state") || "";
+
+  console.log('[kite-callback] Request received. State:', stateUserId?.substring(0, 12) || 'empty', 'Token:', requestToken ? 'present' : 'missing');
 
   if (status === "error") {
     return new Response(`<html><body><h2>Authorization failed</h2><p>Kite Connect authorization was denied.</p></body></html>`, {
@@ -38,7 +40,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Exchange request_token for access_token
     const checksum = await sha256(KITE_API_KEY + requestToken + KITE_API_SECRET);
 
     const formBody = new URLSearchParams({
@@ -47,6 +48,7 @@ Deno.serve(async (req: Request) => {
       checksum,
     });
 
+    console.log('[kite-callback] Exchanging token...');
     const kiteRes = await fetch("https://api.kite.trade/session/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -56,8 +58,9 @@ Deno.serve(async (req: Request) => {
     const kiteData = await kiteRes.json();
 
     if (kiteData.status !== "success") {
+      console.error('[kite-callback] Token exchange FAILED:', JSON.stringify(kiteData));
       return new Response(
-        `<html><body><h2>Token exchange failed</h2><p>${kiteData.message || "Unknown error"}</p></body></html>`,
+        `<html><body><h2>Token exchange failed</h2><p>${kiteData.message || "Unknown error"} (${kiteData.error_type || ""})</p></body></html>`,
         { headers: { "Content-Type": "text/html" } }
       );
     }
@@ -65,14 +68,23 @@ Deno.serve(async (req: Request) => {
     const accessToken = kiteData.data.access_token;
     const publicToken = kiteData.data.public_token || "";
 
+    if (!accessToken) {
+      console.error('[kite-callback] No access_token in Kite response');
+      return new Response(
+        `<html><body><h2>No access token</h2><p>Kite did not return an access token.</p></body></html>`,
+        { headers: { "Content-Type": "text/html" } }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     const tokenUserId = stateUserId || "default";
+    console.log('[kite-callback] Storing token for user_id:', tokenUserId.substring(0, 12) + '...');
 
-    const { error: upsertErr } = await supabase
+    const { error: upsertErr, status: upsertStatus } = await supabase
       .from("kite_tokens")
       .upsert({
         user_id: tokenUserId,
@@ -82,7 +94,9 @@ Deno.serve(async (req: Request) => {
       }, { onConflict: "user_id" });
 
     if (upsertErr) {
-      console.error("Failed to store token:", upsertErr.message);
+      console.error('[kite-callback] Upsert FAILED:', upsertErr.message, 'code:', upsertErr.code, 'status:', upsertStatus);
+    } else {
+      console.log('[kite-callback] Token stored successfully for user:', tokenUserId.substring(0, 12) + '...');
     }
 
     return new Response(
@@ -104,6 +118,7 @@ Deno.serve(async (req: Request) => {
       { headers: { "Content-Type": "text/html" } }
     );
   } catch (err) {
+    console.error('[kite-callback] CRASH:', (err as Error).message);
     return new Response(
       `<html><body><h2>Error</h2><p>${(err as Error).message}</p></body></html>`,
       { headers: { "Content-Type": "text/html" } }

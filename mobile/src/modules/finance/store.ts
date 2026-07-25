@@ -11,6 +11,7 @@ export interface Transaction {
   category: string;
   notes?: string;
   source: 'manual' | 'kite_sync';
+  paymentMode?: string; // 'upi' | 'card' | 'cash' | 'bank'
 }
 
 export interface CreditCard {
@@ -31,10 +32,11 @@ export interface CreditCard {
 export interface Receivable {
   id: string;
   personName: string;
-  amount: number; // in paise
-  dueDate: string; // ISO date string
+  amount: number;   // in paise
+  dueDate: string;  // ISO date string
   note?: string;
   type: 'lent' | 'borrowed';
+  status?: 'pending' | 'paid';
 }
 
 export interface BankAccount {
@@ -76,6 +78,7 @@ interface FinanceState {
   completeOnboarding: (data: { name: string; goals: string[]; dob: string; gender: string }) => void;
   updateOnboardingName: (name: string) => void;
   notifications: Array<{ id: string; title: string; body: string; date: string; read: boolean }>;
+  addNotification: (title: string, body: string) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   payzappLoads: Array<{ id: string; amount: number; date: string }>;
@@ -188,6 +191,7 @@ export const useFinanceStore = create<FinanceState>()(
         const newItem: Receivable = {
           ...item,
           id: Math.random().toString(36).substring(2, 9),
+          status: item.status ?? 'pending',
         };
         set((state) => ({
           receivables: [newItem, ...state.receivables],
@@ -196,7 +200,8 @@ export const useFinanceStore = create<FinanceState>()(
           enqFlush("receivables", "create", {
             id: newItem.id, person_name: newItem.personName,
             amount: newItem.amount, due_date: newItem.dueDate,
-            note: newItem.note ?? null, type: newItem.type, user_id: userId || null,
+            note: newItem.note ?? null, type: newItem.type,
+            status: newItem.status ?? 'pending', user_id: userId || null,
           });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
@@ -213,6 +218,7 @@ export const useFinanceStore = create<FinanceState>()(
           if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
           if (updated.note !== undefined) payload.note = updated.note;
           if (updated.type !== undefined) payload.type = updated.type;
+          if (updated.status !== undefined) payload.status = updated.status;
           enqFlush("receivables", "update", payload);
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
@@ -288,6 +294,20 @@ export const useFinanceStore = create<FinanceState>()(
           notifications: state.notifications.map((n) =>
             n.id === id ? { ...n, read: true } : n
           ),
+        }));
+      },
+      addNotification: (title, body) => {
+        set((state) => ({
+          notifications: [
+            {
+              id: Math.random().toString(36).substring(2, 9),
+              title,
+              body,
+              date: new Date().toISOString(),
+              read: false,
+            },
+            ...state.notifications,
+          ],
         }));
       },
       markAllNotificationsRead: () => {
@@ -430,7 +450,7 @@ export const useFinanceStore = create<FinanceState>()(
           set((state) => ({
             cards: state.cards.map((c) =>
               c.id === id
-                ? { ...c, dueDate: nextDueDate.toISOString(), billAmount: 0, paidAmount: 0 }
+                ? { ...c, dueDate: nextDueDate.toISOString(), billAmount: 0, paidAmount: 0, balance: 0, currentOutstanding: 0 }
                 : c
             ),
             transactions: [newTransaction, ...state.transactions],
@@ -444,7 +464,7 @@ export const useFinanceStore = create<FinanceState>()(
           });
           enqFlush('credit_cards', 'update', {
             id, user_id: userId || null, due_date: nextDueDate.toISOString(),
-            bill_amount: 0, paid_amount: 0,
+            bill_amount: 0, paid_amount: 0, balance: 0, current_outstanding: 0,
           });
         } else {
           set((state) => ({

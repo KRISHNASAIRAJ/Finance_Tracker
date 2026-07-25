@@ -31,6 +31,8 @@ type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AddExpen
 export default function AddExpenseScreen() {
   const navigation = useNavigation<NavigationProp>();
   const addTransaction = useFinanceStore((state) => state.addTransaction);
+  const accounts = useFinanceStore((state) => state.accounts);
+  const cards = useFinanceStore((state) => state.cards);
   const { user } = useAuth();
 
   const [amount, setAmount] = useState('');
@@ -41,6 +43,9 @@ export default function AddExpenseScreen() {
   const [isManualCategory, setIsManualCategory] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<'upi' | 'card' | 'cash'>('cash');
+  const [selectedPaymentAccount, setSelectedPaymentAccount] = useState<string>('');
+  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
@@ -69,6 +74,8 @@ export default function AddExpenseScreen() {
     if (!expenseName.trim()) { alert('Please enter an expense/income name'); return; }
 
     const amountInPaise = Math.round(rawVal * 100);
+    const accountName = paymentMode === 'upi' ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'UPI') :
+      paymentMode === 'card' ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Card') : '';
     const newId = addTransaction({
       type: transactionType,
       amount: amountInPaise,
@@ -77,6 +84,7 @@ export default function AddExpenseScreen() {
       notes: expenseName.trim() + (notes.trim() ? ` — ${notes.trim()}` : ''),
       source: 'manual',
       date: selectedDate.toISOString(),
+      paymentMode: paymentMode === 'cash' ? 'cash' : `${paymentMode}:${accountName}`,
     }, user?.id);
 
     navigation.navigate('ExpenseConfirmation', { transactionId: newId });
@@ -176,6 +184,93 @@ export default function AddExpenseScreen() {
               })}
             </View>
           </View>
+
+          {/* Payment Mode */}
+          {transactionType === 'expense' && (
+            <View style={styles.formSection}>
+              <Text style={styles.inputLabel}>PAYMENT MODE</Text>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'upi' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('upi'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'upi' && styles.toggleTextActive]}>UPI</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'card' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('card'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'card' && styles.toggleTextActive]}>Card</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'cash' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('cash'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'cash' && styles.toggleTextActive]}>Cash</Text>
+                </TouchableOpacity>
+              </View>
+
+              {paymentMode === 'upi' && (
+                <TouchableOpacity
+                  style={styles.datePickerTrigger}
+                  onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                  <Text style={styles.datePickerText}>
+                    {selectedPaymentAccount ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'Select Account') : 'Select Account'}
+                  </Text>
+                  <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              )}
+
+              {paymentMode === 'card' && (
+                <TouchableOpacity
+                  style={styles.datePickerTrigger}
+                  onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="card-outline" size={18} color={colors.primary} />
+                  <Text style={styles.datePickerText}>
+                    {selectedPaymentAccount ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Select Card') : 'Select Card'}
+                  </Text>
+                  <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              )}
+
+              {showPaymentDropdown && paymentMode === 'upi' && (
+                <View style={styles.dropdownList}>
+                  {accounts.map((acc) => (
+                    <TouchableOpacity
+                      key={acc.id}
+                      style={[styles.dropdownItem, selectedPaymentAccount === acc.id && styles.dropdownItemActive]}
+                      onPress={() => { setSelectedPaymentAccount(acc.id); setShowPaymentDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, selectedPaymentAccount === acc.id && styles.dropdownItemTextActive]}>
+                        {acc.title}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {showPaymentDropdown && paymentMode === 'card' && (
+                <View style={styles.dropdownList}>
+                  {cards.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.dropdownItem, selectedPaymentAccount === c.id && styles.dropdownItemActive]}
+                      onPress={() => { setSelectedPaymentAccount(c.id); setShowPaymentDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, selectedPaymentAccount === c.id && styles.dropdownItemTextActive]}>
+                        {c.name} (•• {c.endingWith})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Date & Time Picker */}
           <View style={styles.formSection}>
@@ -342,4 +437,30 @@ const styles = StyleSheet.create({
   submitButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   cancelButton: { alignItems: 'center', paddingVertical: 12 },
   cancelButtonText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
+  dropdownList: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  dropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  dropdownItemActive: {
+    backgroundColor: `${colors.primary}15`,
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
 });

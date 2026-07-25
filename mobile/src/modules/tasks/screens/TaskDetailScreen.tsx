@@ -48,7 +48,7 @@ export default function TaskDetailScreen() {
   const handleDelete = () => {
     deleteTask(task.id, user?.id);
     scheduleAllReminders();
-    navigation.goBack();
+    setTimeout(() => navigation.goBack(), 50);
   };
 
   const getPriorityColor = (priority: string) => {

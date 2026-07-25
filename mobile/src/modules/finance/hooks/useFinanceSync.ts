@@ -208,6 +208,7 @@ const TABLE_MAP = [
           dueDate: r.due_date as string ?? "",
           note: r.note as string ?? undefined,
           type: (r.type as "lent" | "borrowed") ?? "lent",
+          status: (r.status as "pending" | "paid") ?? "pending",
         }));
       if (newRecvs.length > 0) {
         store.setState({ receivables: [...newRecvs, ...state.receivables] });
@@ -220,7 +221,7 @@ const TABLE_MAP = [
       if (items.length === 0) return;
       const rows = items.map((r) => ({
         id: r.id, user_id: userId, person_name: r.personName, amount: r.amount,
-        due_date: r.dueDate, note: r.note ?? null, type: r.type,
+        due_date: r.dueDate, note: r.note ?? null, type: r.type, status: r.status ?? 'pending',
       }));
       supabase.from("receivables").upsert(rows, { onConflict: "id" }).then(({ error }) => {
         if (error) console.warn('[FinanceSync] seed receivables:', error.message);

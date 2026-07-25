@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,6 +18,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Receivable, ExpectedIncome } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
@@ -34,10 +35,10 @@ export default function LentBorrowedScreen() {
   const [notes, setNotes] = useState('');
   const [entryType, setEntryType] = useState<'lent' | 'borrowed'>('lent');
   
-  // Custom Date Picker Modal States
+  // Date Picker States
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   // Optional Income state
   const [incomeModalVisible, setIncomeModalVisible] = useState(false);
@@ -46,7 +47,6 @@ export default function LentBorrowedScreen() {
   const [incomeAmount, setIncomeAmount] = useState('');
   const [incomeNotes, setIncomeNotes] = useState('');
   const [incomeDate, setIncomeDate] = useState(new Date());
-  const [incomeCalMonth, setIncomeCalMonth] = useState(new Date());
   const [incomeDatePickerVisible, setIncomeDatePickerVisible] = useState(false);
 
   const filteredItems = receivables.filter((r) => r.type === activeTab);
@@ -56,6 +56,21 @@ export default function LentBorrowedScreen() {
   const totalBorrowed = receivables
     .filter((r) => r.type === 'borrowed')
     .reduce((sum, r) => sum + r.amount, 0);
+
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, { personName: string; type: string; total: number; latestDue: Date; items: typeof filteredItems }> = {};
+    for (const item of filteredItems) {
+      const key = `${item.personName}__${item.type}`;
+      if (!groups[key]) {
+        groups[key] = { personName: item.personName, type: item.type, total: 0, latestDue: new Date(item.dueDate), items: [] };
+      }
+      groups[key].total += item.amount;
+      const d = new Date(item.dueDate);
+      if (d < groups[key].latestDue) groups[key].latestDue = d;
+      groups[key].items.push(item);
+    }
+    return Object.values(groups).sort((a, b) => a.latestDue.getTime() - b.latestDue.getTime());
+  }, [filteredItems]);
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', {
@@ -70,7 +85,6 @@ export default function LentBorrowedScreen() {
     setAmount('');
     setNotes('');
     setSelectedDate(new Date());
-    setCalendarMonth(new Date());
     setEntryType(activeTab);
     setModalVisible(true);
   };
@@ -84,7 +98,6 @@ export default function LentBorrowedScreen() {
     
     const parsedDate = new Date(item.dueDate);
     setSelectedDate(parsedDate);
-    setCalendarMonth(parsedDate);
     
     setModalVisible(true);
   };
@@ -138,7 +151,6 @@ export default function LentBorrowedScreen() {
     setIncomeAmount('');
     setIncomeNotes('');
     setIncomeDate(new Date());
-    setIncomeCalMonth(new Date());
     setIncomeModalVisible(true);
   };
 
@@ -148,7 +160,6 @@ export default function LentBorrowedScreen() {
     setIncomeAmount((item.amount / 100).toString());
     setIncomeNotes(item.notes || '');
     setIncomeDate(new Date(item.date));
-    setIncomeCalMonth(new Date(item.date));
     setIncomeModalVisible(true);
   };
 
@@ -182,37 +193,6 @@ export default function LentBorrowedScreen() {
       setIncomeModalVisible(false);
     }
   };
-
-  // Custom Calendar generation logic
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0 Sunday
-    const totalDays = new Date(year, month + 1, 0).getDate();
-
-    const days = [];
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-    for (let i = 1; i <= totalDays; i++) {
-      days.push(new Date(year, month, i));
-    }
-    return days;
-  };
-
-  const incomeDaysGrid = getDaysInMonth(incomeCalMonth);
-
-  const changeMonth = (offset: number) => {
-    const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
-    setCalendarMonth(next);
-  };
-
-  const handleSelectDay = (day: Date) => {
-    setSelectedDate(day);
-    setDatePickerVisible(false);
-  };
-
-  const daysGrid = getDaysInMonth(calendarMonth);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -260,38 +240,86 @@ export default function LentBorrowedScreen() {
                 <Text style={styles.emptyText}>No records logged</Text>
               </View>
             ) : (
-              filteredItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.rowItem}
-                  onPress={() => openEditModal(item)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.itemLeft}>
-                    <View
-                      style={[
-                        styles.iconWrapper,
-                        { backgroundColor: item.type === 'lent' ? `${colors.success}15` : `${colors.error}15` },
-                      ]}
+              groupedItems.map((group) => {
+                const groupKey = `${group.personName}__${group.type}`;
+                const isExpanded = expandedGroup === groupKey;
+                const pendingCount = group.items.filter(i => i.status !== 'paid').length;
+                return (
+                  <View key={groupKey}>
+                    <TouchableOpacity
+                      style={styles.rowItem}
+                      onPress={() => setExpandedGroup(isExpanded ? null : groupKey)}
+                      activeOpacity={0.7}
                     >
-                      <Ionicons
-                        name={item.type === 'lent' ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
-                        size={20}
-                        color={item.type === 'lent' ? colors.success : colors.error}
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.itemTitle}>{item.personName}</Text>
-                      <Text style={styles.itemSubtitle}>
-                        {item.note || `Due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
-                      </Text>
-                    </View>
+                      <View style={styles.itemLeft}>
+                        <View
+                          style={[
+                            styles.iconWrapper,
+                            { backgroundColor: group.type === 'lent' ? `${colors.success}15` : `${colors.error}15` },
+                          ]}
+                        >
+                          <Ionicons
+                            name={group.type === 'lent' ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
+                            size={20}
+                            color={group.type === 'lent' ? colors.success : colors.error}
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.itemTitle}>{group.personName}</Text>
+                          <Text style={styles.itemSubtitle}>
+                            {group.items.length} txns · Due {group.latestDue.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            {pendingCount > 0 ? ` · ${pendingCount} pending` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.itemAmount, { color: group.type === 'lent' ? colors.success : colors.error }]}>
+                          {group.type === 'lent' ? '+' : '-'}{formatCurrency(group.total)}
+                        </Text>
+                        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.onSurfaceVariant} />
+                      </View>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={styles.expandedSection}>
+                        {group.items.map((item) => (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={styles.subItem}
+                            onPress={() => openEditModal(item)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.subItemLeft}>
+                              <Text style={styles.subItemAmount}>
+                                {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
+                              </Text>
+                              <Text style={styles.subItemDate}>
+                                {new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              </Text>
+                            </View>
+                            <View style={styles.subItemRight}>
+                              {item.note ? <Text style={styles.subItemNote} numberOfLines={1}>{item.note}</Text> : null}
+                              <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity
+                          style={styles.addSubBtn}
+                          onPress={() => {
+                            openAddModal();
+                            setPersonName(group.personName);
+                            setEntryType(group.type as 'lent' | 'borrowed');
+                            setExpandedGroup(null);
+                          }}
+                        >
+                          <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                          <Text style={styles.addSubBtnText}>Add another transaction for {group.personName}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                  <Text style={[styles.itemAmount, { color: item.type === 'lent' ? colors.success : colors.error }]}>
-                    {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
-                  </Text>
-                </TouchableOpacity>
-              ))
+                );
+              })
             )}
           </View>
         </View>
@@ -447,67 +475,12 @@ export default function LentBorrowedScreen() {
       </Modal>
 
       {/* Date Picker Custom Modal */}
-      <Modal
+      <CalendarPicker
         visible={datePickerVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDatePickerVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.calendarCard}>
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => changeMonth(-1)}>
-                <Ionicons name="chevron-back" size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <Text style={styles.calendarMonthLabel}>
-                {calendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </Text>
-              <TouchableOpacity onPress={() => changeMonth(1)}>
-                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Week Labels */}
-            <View style={styles.weekLabelsRow}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <Text key={i} style={styles.weekLabel}>{day}</Text>
-              ))}
-            </View>
-
-            {/* Days Grid */}
-            <View style={styles.daysGridContainer}>
-              {daysGrid.map((day, index) => {
-                if (!day) {
-                  return <View key={index} style={styles.emptyDay} />;
-                }
-
-                const isSelected = selectedDate.getDate() === day.getDate() &&
-                                   selectedDate.getMonth() === day.getMonth() &&
-                                   selectedDate.getFullYear() === day.getFullYear();
-
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[styles.dayButton, isSelected && styles.dayButtonSelected]}
-                    onPress={() => handleSelectDay(day)}
-                  >
-                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
-                      {day.getDate()}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              style={styles.calendarCloseBtn}
-              onPress={() => setDatePickerVisible(false)}
-            >
-              <Text style={styles.calendarCloseText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        selected={selectedDate}
+        onSelect={(d) => { setSelectedDate(d); setDatePickerVisible(false); }}
+        onClose={() => setDatePickerVisible(false)}
+      />
 
       {/* Expected Income Modal */}
       <Modal visible={incomeModalVisible} transparent animationType="fade" onRequestClose={() => setIncomeModalVisible(false)}>
@@ -557,45 +530,12 @@ export default function LentBorrowedScreen() {
         </View>
       </Modal>
 
-      {/* Income Date Picker */}
-      <Modal visible={incomeDatePickerVisible} transparent animationType="fade" onRequestClose={() => setIncomeDatePickerVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.calendarCard}>
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => { const next = new Date(incomeCalMonth.getFullYear(), incomeCalMonth.getMonth() - 1, 1); setIncomeCalMonth(next); }}>
-                <Ionicons name="chevron-back" size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <Text style={styles.calendarMonthLabel}>
-                {incomeCalMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </Text>
-              <TouchableOpacity onPress={() => { const next = new Date(incomeCalMonth.getFullYear(), incomeCalMonth.getMonth() + 1, 1); setIncomeCalMonth(next); }}>
-                <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.weekLabelsRow}>
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <Text key={i} style={styles.weekLabel}>{day}</Text>
-              ))}
-            </View>
-            <View style={styles.daysGridContainer}>
-              {incomeDaysGrid.map((day, index) => {
-                if (!day) return <View key={index} style={styles.emptyDay} />;
-                const isSelected = incomeDate.getDate() === day.getDate() &&
-                  incomeDate.getMonth() === day.getMonth() &&
-                  incomeDate.getFullYear() === day.getFullYear();
-                return (
-                  <TouchableOpacity key={index} style={[styles.dayButton, isSelected && styles.dayButtonSelected]} onPress={() => { setIncomeDate(day); setIncomeDatePickerVisible(false); }}>
-                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>{day.getDate()}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TouchableOpacity style={styles.calendarCloseBtn} onPress={() => setIncomeDatePickerVisible(false)}>
-              <Text style={styles.calendarCloseText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <CalendarPicker
+        visible={incomeDatePickerVisible}
+        selected={incomeDate}
+        onSelect={(d) => { setIncomeDate(d); setIncomeDatePickerVisible(false); }}
+        onClose={() => setIncomeDatePickerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -839,77 +779,61 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  /* Calendar Modal Specifics */
-  calendarCard: {
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderRadius: rounded.lg,
-    padding: 20,
-    gap: 14,
-  },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  expandedSection: {
+    backgroundColor: colors.surfaceContainer,
+    borderBottomLeftRadius: rounded.DEFAULT,
+    borderBottomRightRadius: rounded.DEFAULT,
+    borderTopWidth: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    marginTop: -4,
     marginBottom: 8,
   },
-  calendarMonthLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  weekLabelsRow: {
+  subItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
-  weekLabel: {
-    width: 32,
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-  },
-  daysGridContainer: {
+  subItemLeft: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 2,
-  },
-  emptyDay: {
-    width: 32,
-    height: 32,
-  },
-  dayButton: {
-    width: 32,
-    height: 32,
-    borderRadius: rounded.full,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    gap: 10,
   },
-  dayButtonSelected: {
-    backgroundColor: colors.primary,
-  },
-  dayText: {
-    fontSize: 12,
+  subItemAmount: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.onSurface,
-    fontWeight: '600',
   },
-  dayTextSelected: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  calendarCloseBtn: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  calendarCloseText: {
+  subItemDate: {
+    fontSize: 11,
     color: colors.onSurfaceVariant,
+  },
+  subItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  subItemNote: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    maxWidth: 120,
+  },
+  addSubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  addSubBtnText: {
+    fontSize: 12,
+    color: colors.primary,
     fontWeight: '600',
-    fontSize: 14,
   },
 });
