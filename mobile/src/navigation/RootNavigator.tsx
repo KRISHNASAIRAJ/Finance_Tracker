@@ -59,11 +59,14 @@ import PersonalNotesScreen from '../modules/personal/screens/PersonalNotesScreen
 import CombinedReportScreen from '../modules/personal/screens/CombinedReportScreen';
 import GoalsTrackerScreen from '../modules/personal/screens/GoalsTrackerScreen';
 import RecipesLibraryScreen from '../modules/personal/screens/RecipesLibraryScreen';
-import DietPlanTrackerScreen from '../modules/personal/screens/DietPlanTrackerScreen';
 import CareerTrackerScreen from '../modules/career/screens/CareerTrackerScreen';
 import AddCareerEventScreen from '../modules/career/screens/AddCareerEventScreen';
 import MealLoggerScreen from '../modules/meals/screens/MealLoggerScreen';
 import MealAISuggestionsScreen from '../modules/meals/screens/MealAISuggestionsScreen';
+import MealAIConfirmScreen from '../modules/meals/screens/MealAIConfirmScreen';
+import MealEditScreen from '../modules/meals/screens/MealEditScreen';
+import WeightTrackerScreen from '../modules/meals/screens/WeightTrackerScreen';
+import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -118,11 +121,14 @@ export type MoreStackParamList = {
   PersonalNotes: undefined;
   GoalsTracker: undefined;
   RecipesLibrary: undefined;
-  DietPlanTracker: undefined;
   CareerTracker: undefined;
   AddCareerEvent: { eventId?: string } | undefined;
   MealLogger: undefined;
   MealAISuggestions: undefined;
+  MealAIConfirm: { imageBase64?: string; textDescription?: string; mealType?: string } | undefined;
+  MealEdit: { entryId?: string; date?: string; mealType?: string } | undefined;
+  WeightTracker: undefined;
+  DietViewer: undefined;
 };
 
 export type RootTabParamList = {
@@ -233,11 +239,14 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="PersonalNotes" component={PersonalNotesScreen} />
       <MoreStack.Screen name="GoalsTracker" component={GoalsTrackerScreen} />
       <MoreStack.Screen name="RecipesLibrary" component={RecipesLibraryScreen} />
-      <MoreStack.Screen name="DietPlanTracker" component={DietPlanTrackerScreen} />
       <MoreStack.Screen name="CareerTracker" component={CareerTrackerScreen} />
       <MoreStack.Screen name="AddCareerEvent" component={AddCareerEventScreen} options={modalScreenOptions} />
       <MoreStack.Screen name="MealLogger" component={MealLoggerScreen} />
       <MoreStack.Screen name="MealAISuggestions" component={MealAISuggestionsScreen} />
+      <MoreStack.Screen name="MealAIConfirm" component={MealAIConfirmScreen} />
+      <MoreStack.Screen name="MealEdit" component={MealEditScreen} />
+      <MoreStack.Screen name="WeightTracker" component={WeightTrackerScreen} />
+      <MoreStack.Screen name="DietViewer" component={DietViewerScreen} />
     </MoreStack.Navigator>
   );
 }

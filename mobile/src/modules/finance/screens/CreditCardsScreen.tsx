@@ -143,6 +143,16 @@ export default function CreditCardsScreen() {
           );
           const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? '#f59e0b' : colors.success;
 
+          const billingDay = card.billingDay || 15;
+          const now = new Date();
+          const currentMonth = now.getMonth();
+          const currentYear = now.getFullYear();
+          const lastBilling = new Date(currentYear, currentMonth, Math.min(billingDay, new Date(currentYear, currentMonth + 1, 0).getDate()));
+          if (lastBilling > now) lastBilling.setMonth(lastBilling.getMonth() - 1);
+          const cycleLength = Math.ceil((new Date(card.dueDate).getTime() - lastBilling.getTime()) / (1000 * 60 * 60 * 24));
+          const daysElapsed = Math.max(0, cycleLength - daysUntilDue);
+          const progressPct = cycleLength > 0 ? Math.max(0, Math.min(100, (daysElapsed / cycleLength) * 100)) : 0;
+
           return (
             <TouchableOpacity
               key={card.id}
@@ -169,9 +179,9 @@ export default function CreditCardsScreen() {
 
                 <View style={styles.cardBottomRow}>
                   <View>
-                    <Text style={styles.balanceLabel}>OUTSTANDING</Text>
+                    <Text style={styles.balanceLabel}>{card.billAmount ? 'BILL LEFT' : 'OUTSTANDING'}</Text>
                     <Text style={[styles.balanceValue, { color: accent }]}>
-                      {formatCurrency(card.balance)}
+                      {formatCurrency(card.billAmount ? Math.max(0, card.billAmount - (card.paidAmount || 0)) : card.balance)}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -195,7 +205,7 @@ export default function CreditCardsScreen() {
                       styles.progressFill,
                       {
                         backgroundColor: urgency,
-                        width: `${Math.max(0, Math.min(100, (1 - daysUntilDue / card.billingDay) * 100))}%`,
+                        width: `${progressPct}%`,
                       },
                     ]}
                   />

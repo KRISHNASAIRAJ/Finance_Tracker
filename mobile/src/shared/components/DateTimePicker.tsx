@@ -19,10 +19,8 @@ interface DateTimePickerProps {
   onClose: () => void;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
 export default function DateTimePicker({ visible, selected, onSelect, onClose }: DateTimePickerProps) {
   const [viewMonth, setViewMonth] = useState(() => new Date(selected));
@@ -40,11 +38,6 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     [tempDate]
   );
 
-  const isToday = useCallback((d: Date) => {
-    const today = new Date();
-    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-  }, []);
-
   const changeMonth = (offset: number) => {
     const d = new Date(viewMonth);
     d.setMonth(d.getMonth() + offset);
@@ -54,15 +47,10 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
   const getDays = () => {
     const firstDay = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).getDay();
     const totalDays = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
-    const today = new Date();
     const days: (Date | null)[] = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let i = 1; i <= totalDays; i++) {
-      const d = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i);
-      if (d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() < today.getDate()) {
-        d.setHours(0, 0, 0, -1);
-      }
-      days.push(d);
+      days.push(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), i));
     }
     return days;
   };
@@ -89,36 +77,32 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     onClose();
   };
 
-  const headerDateStr = tempDate.toLocaleDateString('en-IN', {
+  const formattedDate = tempDate.toLocaleDateString('en-IN', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
   });
 
   const headerTimeStr = `${hour}:${String(minute).padStart(2, '0')} ${period}`;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCancel}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          {/* Header */}
+        <View style={styles.card}>
+          {/* Material Design 3 style header */}
           <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              {mode === 'date' ? (
-                <>
-                  <Ionicons name="calendar-outline" size={48} color="#fff" />
-                  <Text style={styles.headerTitle}>Select Date</Text>
-                  <Text style={styles.headerSub}>{headerDateStr}</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="time-outline" size={48} color="#fff" />
-                  <Text style={styles.headerTitle}>Select Time</Text>
-                  <Text style={styles.headerSub}>{headerTimeStr}</Text>
-                </>
-              )}
-            </View>
+            {mode === 'date' ? (
+              <>
+                <Text style={styles.headerYear}>{tempDate.getFullYear()}</Text>
+                <Text style={styles.headerDate}>{formattedDate}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.headerYear}>{tempDate.getFullYear()}</Text>
+                <Text style={styles.headerTime}>{headerTimeStr}</Text>
+                <Text style={styles.headerDateSmall}>{formattedDate}</Text>
+              </>
+            )}
           </View>
 
           {mode === 'date' ? (
@@ -147,27 +131,24 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
               <View style={styles.daysGrid}>
                 {getDays().map((day, i) => {
                   if (!day) return <View key={i} style={styles.dayCell} />;
-                  const disabled = day.getHours() === -1;
-                  const selected = isSelected(day);
-                  const today = isToday(day);
+                  const sel = isSelected(day);
+                  const isTodayDate = day.toDateString() === new Date().toDateString();
                   return (
                     <TouchableOpacity
                       key={i}
                       style={[
                         styles.dayCell,
-                        selected && styles.dayCellSelected,
-                        today && !selected && styles.dayCellToday,
+                        sel && styles.dayCellSelected,
+                        isTodayDate && !sel && styles.dayCellToday,
                       ]}
-                      onPress={() => !disabled && handleDateSelect(day)}
-                      disabled={disabled}
+                      onPress={() => handleDateSelect(day)}
                       activeOpacity={0.6}
                     >
                       <Text
                         style={[
                           styles.dayText,
-                          disabled && styles.dayTextDisabled,
-                          selected && styles.dayTextSelected,
-                          today && !selected && styles.dayTextToday,
+                          sel && styles.dayTextSelected,
+                          isTodayDate && !sel && styles.dayTextToday,
                         ]}
                       >
                         {day.getDate()}
@@ -177,22 +158,26 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                 })}
               </View>
 
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.footerRow}>
+                <TouchableOpacity style={styles.footerBtn} onPress={handleCancel}>
+                  <Text style={styles.footerCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.footerBtn} onPress={() => setMode('time')}>
+                  <Text style={styles.footerOkText}>Next: Time</Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
             <>
               {/* Time Picker */}
               <View style={styles.timeContainer}>
                 <View style={styles.timeColumn}>
-                  <Text style={styles.timeColLabel}>HOUR</Text>
+                  <Text style={styles.timeColLabel}>Hour</Text>
                   <ScrollView
                     style={styles.timeScroll}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.timeScrollContent}
                   >
-                    {HOURS.map((h) => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
                       <TouchableOpacity
                         key={h}
                         style={[styles.timeItem, hour === h && styles.timeItemActive]}
@@ -209,13 +194,12 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                 <Text style={styles.timeColon}>:</Text>
 
                 <View style={styles.timeColumn}>
-                  <Text style={styles.timeColLabel}>MIN</Text>
+                  <Text style={styles.timeColLabel}>Min</Text>
                   <ScrollView
                     style={styles.timeScroll}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.timeScrollContent}
                   >
-                    {MINUTES.map((m) => (
+                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
                       <TouchableOpacity
                         key={m}
                         style={[styles.timeItem, minute === m && styles.timeItemActive]}
@@ -229,30 +213,34 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                   </ScrollView>
                 </View>
 
-                <View style={styles.periodColumn}>
-                  <TouchableOpacity
-                    style={[styles.periodBtn, period === 'AM' && styles.periodBtnActive]}
-                    onPress={() => setPeriod('AM')}
-                  >
-                    <Text style={[styles.periodBtnText, period === 'AM' && styles.periodBtnTextActive]}>AM</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.periodBtn, period === 'PM' && styles.periodBtnActive]}
-                    onPress={() => setPeriod('PM')}
-                  >
-                    <Text style={[styles.periodBtnText, period === 'PM' && styles.periodBtnTextActive]}>PM</Text>
-                  </TouchableOpacity>
+                {/* AM/PM */}
+                <View style={styles.periodCol}>
+                  {(['AM', 'PM'] as const).map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[styles.periodBtn, period === p && styles.periodBtnActive]}
+                      onPress={() => setPeriod(p)}
+                    >
+                      <Text style={[styles.periodBtnText, period === p && styles.periodBtnTextActive]}>
+                        {p}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
 
-              <View style={styles.timeActions}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setMode('date')}>
-                  <Ionicons name="arrow-back" size={18} color={colors.onSurfaceVariant} />
-                  <Text style={styles.backText}>Back to Date</Text>
+              <TouchableOpacity style={styles.backToDateBtn} onPress={() => setMode('date')}>
+                <Ionicons name="arrow-back" size={16} color={colors.onSurfaceVariant} />
+                <Text style={styles.backToDateText}>Back to Date</Text>
+              </TouchableOpacity>
+
+              <View style={styles.footerRow}>
+                <TouchableOpacity style={styles.footerBtn} onPress={handleCancel}>
+                  <Text style={styles.footerCancelText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-                  <Ionicons name="checkmark" size={20} color="#fff" />
-                  <Text style={styles.confirmText}>Confirm</Text>
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                  <Text style={styles.footerOkText}>OK</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -266,45 +254,52 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: 20,
   },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '90%',
+  card: {
+    backgroundColor: '#1e1b2e',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   header: {
     backgroundColor: colors.primaryContainer,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: 20,
+    paddingTop: 28,
+    gap: 4,
+    alignItems: 'flex-start',
   },
-  headerLeft: {
-    alignItems: 'center',
-    gap: 8,
+  headerYear: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 0.5,
   },
-  headerTitle: {
-    fontSize: 20,
+  headerDate: {
+    fontSize: 32,
     fontWeight: '700',
     color: '#fff',
   },
-  headerSub: {
+  headerDateSmall: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
     fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+  },
+  headerTime: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#fff',
   },
   monthNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   navBtn: {
     width: 40,
@@ -314,33 +309,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.onSurface,
   },
   weekRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   weekLabel: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
   },
   dayCell: {
     width: '14.28%',
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rounded.full,
+    borderRadius: 100,
   },
   dayCellSelected: {
     backgroundColor: colors.primary,
@@ -350,12 +346,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   dayText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.onSurface,
-  },
-  dayTextDisabled: {
-    color: 'rgba(255,255,255,0.15)',
   },
   dayTextSelected: {
     color: '#fff',
@@ -365,50 +358,62 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-  cancelBtn: {
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 8,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.04)',
   },
-  cancelText: {
-    fontSize: 15,
-    color: colors.onSurfaceVariant,
+  footerBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: rounded.DEFAULT,
+  },
+  footerCancelText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  footerOkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-start',
     gap: 8,
-    paddingVertical: 20,
+    paddingVertical: 16,
     paddingHorizontal: 20,
   },
   timeColumn: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   timeColLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   timeScroll: {
     height: 180,
   },
-  timeScrollContent: {
-    alignItems: 'center',
-  },
   timeItem: {
-    width: 64,
+    width: 60,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: rounded.DEFAULT,
-    marginVertical: 2,
+    marginVertical: 1,
   },
   timeItemActive: {
-    backgroundColor: `${colors.primary}25`,
+    backgroundColor: `${colors.primary}20`,
   },
   timeItemText: {
     fontSize: 22,
@@ -425,9 +430,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginTop: 28,
   },
-  periodColumn: {
+  periodCol: {
     marginTop: 28,
-    gap: 8,
+    gap: 6,
   },
   periodBtn: {
     width: 52,
@@ -450,38 +455,25 @@ const styles = StyleSheet.create({
   periodBtnTextActive: {
     color: '#fff',
   },
-  timeActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-  },
-  backBtn: {
+  backToDateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
-  backText: {
-    fontSize: 14,
+  backToDateText: {
+    fontSize: 13,
     color: colors.onSurfaceVariant,
     fontWeight: '500',
   },
   confirmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     backgroundColor: colors.primaryContainer,
-    paddingVertical: 10,
     paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: rounded.DEFAULT,
-  },
-  confirmText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '700',
   },
 });

@@ -31,13 +31,16 @@ interface MealState {
   aiMessages: MealAIMessage[];
   dailyCalorieTarget: number;
   dailyProteinTarget: number;
-  setTargets: (calories: number, protein: number) => void;
+  dailyCarbsTarget: number;
+  dailyFatTarget: number;
+  dailyWaterTarget: number;
+  setTargets: (calories: number, protein: number, carbs: number, fat: number, water: number) => void;
   addEntry: (entry: Omit<MealLogEntry, 'id'>, userId?: string) => string;
   editEntry: (id: string, data: Partial<MealLogEntry>, userId?: string) => void;
   deleteEntry: (id: string, userId?: string) => void;
   addAIMessage: (role: 'user' | 'assistant', text: string) => void;
   clearAIChat: () => void;
-  getTodayTotals: () => { calories: number; protein: number; carbs: number; fat: number };
+  getTodayTotals: () => { calories: number; protein: number; carbs: number; fat: number; water: number };
 }
 
 function flush() {
@@ -62,9 +65,12 @@ export const useMealStore = create<MealState>()(
     (set, get) => ({
       entries: [],
       aiMessages: [],
-      dailyCalorieTarget: 2800,
-      dailyProteinTarget: 100,
-      setTargets: (calories, protein) => set({ dailyCalorieTarget: calories, dailyProteinTarget: protein }),
+      dailyCalorieTarget: 2650,
+      dailyProteinTarget: 140,
+      dailyCarbsTarget: 340,
+      dailyFatTarget: 85,
+      dailyWaterTarget: 2.8,
+      setTargets: (calories, protein, carbs, fat, water) => set({ dailyCalorieTarget: calories, dailyProteinTarget: protein, dailyCarbsTarget: carbs, dailyFatTarget: fat, dailyWaterTarget: water }),
       addEntry: (entry, userId) => {
         const id = Math.random().toString(36).substring(2, 9);
         const newEntry: MealLogEntry = { ...entry, id };
@@ -114,7 +120,7 @@ export const useMealStore = create<MealState>()(
             }
             return acc;
           },
-          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+          { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 }
         );
       },
     }),

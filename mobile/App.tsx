@@ -13,6 +13,7 @@ import AuthGate from './src/shared/components/AuthGate';
 import { exportAllData, TASK_NAME, cleanOldBackups } from './src/services/backupService';
 import { scheduleNextBackup, registerBackupTask } from './src/services/backupScheduler';
 import { scheduleAllReminders, requestNotificationPermission } from './src/services/notificationService';
+import { setupNotificationHandler } from './src/services/pushNotifications';
 import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask, triggerSyncNow } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
@@ -44,6 +45,27 @@ export default function App() {
     requestNotificationPermission().then(() => {
       scheduleAllReminders();
       setTimeout(() => promptBatteryOptimization(), 3000);
+    });
+
+    setupNotificationHandler((data: Record<string, string>) => {
+      const tryNavigate = () => {
+        if (!navigationRef.isReady()) {
+          setTimeout(tryNavigate, 300);
+          return;
+        }
+        const nav = navigationRef as any;
+
+        if (data.screen === 'TaskDetail' && data.taskId) {
+          nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TaskDetail', params: { taskId: data.taskId } } });
+        } else if (data.screen === 'LentBorrowed') {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'LentBorrowed' } });
+        } else if (data.screen === 'MealLogger') {
+          nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'MealLogger' } });
+        } else if (data.type === 'PORTFOLIO_REPORT') {
+          nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
+        }
+      };
+      tryNavigate();
     });
 
     const handleDeepLink = (url: string | null) => {

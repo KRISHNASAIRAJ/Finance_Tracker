@@ -23,89 +23,16 @@ import { useFinanceStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../../shared/categoryMap';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type EditTransactionRouteProp = RouteProp<FinanceStackParamList, 'EditTransaction'>;
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'EditTransaction'>;
-
-// ─── Minimal calendar picker ───────────────────────────────────────────────
-interface CalPickerProps {
-  visible: boolean;
-  selected: Date;
-  onSelect: (d: Date) => void;
-  onClose: () => void;
-}
-
-function CalPicker({ visible, selected, onSelect, onClose }: CalPickerProps) {
-  const [month, setMonth] = useState(new Date(selected));
-
-  const moveMonth = (offset: number) =>
-    setMonth(new Date(month.getFullYear(), month.getMonth() + offset, 1));
-
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-
-  const isSelected = (d: number) =>
-    d === selected.getDate() &&
-    month.getMonth() === selected.getMonth() &&
-    month.getFullYear() === selected.getFullYear();
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={cal.overlay}>
-        <View style={cal.card}>
-          <View style={cal.header}>
-            <TouchableOpacity onPress={() => moveMonth(-1)}>
-              <Ionicons name="chevron-back" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={cal.monthLabel}>
-              {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </Text>
-            <TouchableOpacity onPress={() => moveMonth(1)}>
-              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <View style={cal.weekRow}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <Text key={i} style={cal.weekLabel}>{d}</Text>
-            ))}
-          </View>
-          <View style={cal.daysGrid}>
-            {Array.from({ length: firstDay }, (_, i) => (
-              <View key={`e-${i}`} style={cal.dayBtn} />
-            ))}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = i + 1;
-              const sel = isSelected(day);
-              return (
-                <TouchableOpacity
-                  key={day}
-                  style={[cal.dayBtn, sel && cal.dayBtnSel]}
-                  onPress={() => {
-                    onSelect(new Date(month.getFullYear(), month.getMonth(), day));
-                    onClose();
-                  }}
-                >
-                  <Text style={[cal.dayText, sel && cal.dayTextSel]}>{day}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity style={cal.closeBtn} onPress={onClose}>
-            <Text style={cal.closeText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ─── Main Screen ───────────────────────────────────────────────────────────
 export default function EditTransactionScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<EditTransactionRouteProp>();
   const { transactionId } = route.params;
 
-  const { transactions, editTransaction, deleteTransaction } = useFinanceStore();
+  const { transactions, editTransaction, deleteTransaction, accounts, cards } = useFinanceStore();
   const { user } = useAuth();
   const tx = transactions.find((t) => t.id === transactionId);
 
@@ -134,6 +61,18 @@ export default function EditTransactionScreen() {
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
+  const parsePaymentMode = () => {
+    const pm = tx.paymentMode || 'bank';
+    if (pm === 'cash') return { mode: 'cash' as const, account: '' };
+    if (pm.startsWith('upi:')) return { mode: 'upi' as const, account: pm.replace('upi:', '') };
+    if (pm.startsWith('card:')) return { mode: 'card' as const, account: pm.replace('card:', '') };
+    return { mode: 'bank' as const, account: '' };
+  };
+  const initialPayment = parsePaymentMode();
+  const [paymentMode, setPaymentMode] = useState<'upi' | 'card' | 'cash' | 'bank'>(initialPayment.mode);
+  const [selectedPaymentAccount, setSelectedPaymentAccount] = useState(initialPayment.account);
+  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
+
   const handleDelete = () => {
     Alert.alert('Delete Transaction', 'Are you sure you want to delete this transaction?', [
       { text: 'Cancel', style: 'cancel' },
@@ -153,12 +92,17 @@ export default function EditTransactionScreen() {
     if (isNaN(rawVal) || rawVal <= 0) { alert('Please enter a valid amount'); return; }
     if (!description.trim()) { alert('Please enter a description'); return; }
 
+    const accountName = paymentMode === 'upi' ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'UPI') :
+      paymentMode === 'card' ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Card') : '';
+    const pmValue = paymentMode === 'cash' ? 'cash' : paymentMode === 'bank' ? 'bank' : `${paymentMode}:${accountName}`;
+
     editTransaction(tx.id, {
       type: transactionType,
       amount: Math.round(rawVal * 100),
       category: selectedCategory,
       notes: description.trim(),
       date: txDate.toISOString(),
+      paymentMode: pmValue,
     }, user?.id);
     navigation.goBack();
   };
@@ -222,6 +166,91 @@ export default function EditTransactionScreen() {
             />
           </View>
 
+          {/* Payment Mode (for expenses) */}
+          {transactionType === 'expense' && (
+            <View style={styles.formSection}>
+              <Text style={styles.inputLabel}>PAYMENT MODE</Text>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'upi' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('upi'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'upi' && styles.toggleTextActive]}>UPI</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'card' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('card'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'card' && styles.toggleTextActive]}>Card</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'cash' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('cash'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'cash' && styles.toggleTextActive]}>Cash</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, paymentMode === 'bank' && styles.toggleActiveExpense]}
+                  onPress={() => { setPaymentMode('bank'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                >
+                  <Text style={[styles.toggleText, paymentMode === 'bank' && styles.toggleTextActive]}>Bank</Text>
+                </TouchableOpacity>
+              </View>
+
+              {paymentMode === 'upi' && (
+                <TouchableOpacity style={styles.dateTrigger} onPress={() => setShowPaymentDropdown(!showPaymentDropdown)} activeOpacity={0.8}>
+                  <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                  <Text style={styles.dateText}>
+                    {selectedPaymentAccount ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'Select Account') : 'Select Account'}
+                  </Text>
+                  <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              )}
+
+              {paymentMode === 'card' && (
+                <TouchableOpacity style={styles.dateTrigger} onPress={() => setShowPaymentDropdown(!showPaymentDropdown)} activeOpacity={0.8}>
+                  <Ionicons name="card-outline" size={18} color={colors.primary} />
+                  <Text style={styles.dateText}>
+                    {selectedPaymentAccount ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Select Card') : 'Select Card'}
+                  </Text>
+                  <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
+              )}
+
+              {showPaymentDropdown && paymentMode === 'upi' && (
+                <View style={styles.dropdownList}>
+                  {accounts.map((acc) => (
+                    <TouchableOpacity
+                      key={acc.id}
+                      style={[styles.dropdownItem, selectedPaymentAccount === acc.id && styles.dropdownItemActive]}
+                      onPress={() => { setSelectedPaymentAccount(acc.id); setShowPaymentDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, selectedPaymentAccount === acc.id && styles.dropdownItemTextActive]}>
+                        {acc.title}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {showPaymentDropdown && paymentMode === 'card' && (
+                <View style={styles.dropdownList}>
+                  {cards.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.dropdownItem, selectedPaymentAccount === c.id && styles.dropdownItemActive]}
+                      onPress={() => { setSelectedPaymentAccount(c.id); setShowPaymentDropdown(false); }}
+                    >
+                      <Text style={[styles.dropdownItemText, selectedPaymentAccount === c.id && styles.dropdownItemTextActive]}>
+                        {c.name} (•• {c.endingWith})
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Date Picker */}
           <View style={styles.formSection}>
             <Text style={styles.inputLabel}>DATE</Text>
@@ -276,7 +305,7 @@ export default function EditTransactionScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <CalPicker
+      <CalendarPicker
         visible={calendarVisible}
         selected={txDate}
         onSelect={setTxDate}
@@ -392,28 +421,31 @@ const styles = StyleSheet.create({
   cancelButtonText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
   // Category chip styles (legacy — kept for old chip-scroll layout)
   categoryScroll: { gap: 8, paddingVertical: 4 },
+  dropdownList: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  dropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  dropdownItemActive: {
+    backgroundColor: `${colors.primary}15`,
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: colors.onSurface,
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
 });
 
-// Calendar styles
-const cal = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 20,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  monthLabel: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  weekLabel: { width: 36, textAlign: 'center', fontSize: 11, color: colors.onSurfaceVariant, fontWeight: '600' },
-  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
-  dayBtn: { width: 36, height: 36, borderRadius: rounded.full, alignItems: 'center', justifyContent: 'center' },
-  dayBtnSel: { backgroundColor: colors.primary },
-  dayText: { fontSize: 13, color: colors.onSurface, fontWeight: '500' },
-  dayTextSel: { color: '#fff', fontWeight: '700' },
-  closeBtn: { alignItems: 'center', paddingVertical: 10 },
-  closeText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-});

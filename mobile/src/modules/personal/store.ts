@@ -79,7 +79,15 @@ export const usePersonalStore = create<PersonalState>()(
       goals: [],
       notes: [],
       recipes: [],
-      meals: [],
+      meals: [
+        { day: 'Monday', breakfast: 'Overnight oats: Greek yoghurt, fruit, walnuts, peanut butter, seed dose', lunch: 'Rice + rasam + airfryer chicken (double batch) + sautéed cabbage (tiffin)', dinner: 'Reheat chicken + 2 ragi dosa with chutney', snack: 'Roasted chana + nuts (10:45) | Peanuts + seeds (5:30pm)' },
+        { day: 'Tuesday', breakfast: 'Dosa + tomato chutney + 1 boiled egg, seed dose', lunch: 'Rice + sambar + airfryer chicken + carrot poriyal (tiffin)', dinner: 'Reheat chicken + fresh chapati', snack: 'Protein smoothie (10:45) | Makhana in ghee + seeds (5:30pm)' },
+        { day: 'Wednesday', breakfast: 'Overnight oats: Greek yoghurt, fruit, almonds, peanut butter, seed dose', lunch: 'Rice + dal tadka (double batch) + sautéed cabbage (tiffin)', dinner: 'Reheat dal + ragi dosa with chutney', snack: 'Fruit chaat + peanuts (10:45) | Chana + nuts + yoghurt (5:30pm)' },
+        { day: 'Thursday', breakfast: 'Sourdough toast + avocado + peanut butter, seed dose', lunch: 'Rice + tomato pappu + paneer/mushroom curry + beetroot poriyal (tiffin)', dinner: 'Reheat paneer/mushroom curry + aloo-paneer paratha', snack: 'Protein smoothie (10:45) | Chana + nuts + fruit (5:30pm)' },
+        { day: 'Friday', breakfast: 'Dosa + chutney + 1 boiled egg, seed dose', lunch: 'Rice + rasam + airfryer chicken + bhindi fry (tiffin)', dinner: 'Reheat chicken + fresh chapati', snack: 'Makhana + nuts (10:45) | Peanuts + seeds (5:30pm)' },
+        { day: 'Saturday', breakfast: 'Overnight oats: Greek yoghurt, banana/avocado, walnuts, peanut butter, seed dose', lunch: 'Rice + veg kurma + fish/prawns or chicken + cabbage (tiffin)', dinner: 'Reheat protein + ragi dosa', snack: 'Protein smoothie (10:45) | Chana + nuts + fruit (5:30pm)' },
+        { day: 'Sunday', breakfast: 'Sourdough/milk bread + peanut butter + banana, seed dose', lunch: 'Rice + sambar + veg curry + chicken curry (bigger meal)', dinner: 'Reheat chicken + fresh chapati', snack: 'Nuts + seeds trail mix (10:45) | Fruit chaat + yoghurt + prep (5:30pm)' },
+      ],
       toggleGoal: (id, userId) => {
         set((state) => {
           const updated = state.goals.map((g) => (g.id === id ? { ...g, completed: !g.completed } : g));

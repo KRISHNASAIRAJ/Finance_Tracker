@@ -17,6 +17,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -30,8 +31,9 @@ import { syncNow } from '../../finance/hooks/useFinanceSync';
 import { usePersonalSync, syncPersonalNow } from '../hooks/usePersonalSync';
 import { useEquitySync, syncEquityNow } from '../../equity/hooks/useEquitySync';
 import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
-import { supabase } from '../../../services/supabaseClient';
+import { supabase, SUPABASE_URL } from '../../../services/supabaseClient';
 import { processSyncQueue } from '../../../services/syncQueue';
+import { generateMonthlyReport } from '../../../services/reportService';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
@@ -105,6 +107,12 @@ export default function MoreMenuScreen() {
     }
   };
 
+  const handleMonthlyReport = async () => {
+    setBackupState('backing');
+    await generateMonthlyReport();
+    setBackupState('idle');
+  };
+
   const NAV_ITEMS = [
     {
       id: 'finance',
@@ -151,14 +159,6 @@ export default function MoreMenuScreen() {
 
   const MENU_ITEMS = [
     {
-      id: 'reports',
-      title: 'Combined Report',
-      subtitle: 'Net worth, allocation & spend overview',
-      icon: 'bar-chart-outline',
-      color: '#8b5cf6',
-      route: 'CombinedReport' as const,
-    },
-    {
       id: 'notes',
       title: 'Personal Notes',
       subtitle: 'Markdown logs, drafts & records',
@@ -175,20 +175,44 @@ export default function MoreMenuScreen() {
       route: 'GoalsTracker' as const,
     },
     {
+      id: 'meals',
+      title: 'Meal Logger',
+      subtitle: 'Daily protein & calorie tracking',
+      icon: 'fitness-outline',
+      color: '#f59e0b',
+      route: 'MealLogger' as const,
+    },
+    {
+      id: 'weight',
+      title: 'Weight Tracker',
+      subtitle: 'Track weight trends with graph',
+      icon: 'scale-outline',
+      color: colors.primary,
+      route: 'WeightTracker' as const,
+    },
+    {
+      id: 'dietview',
+      title: 'Project 65 Diet',
+      subtitle: 'Full body recomposition protocol',
+      icon: 'document-text-outline',
+      color: '#33512E',
+      route: 'DietViewer' as const,
+    },
+    {
+      id: 'reports',
+      title: 'Combined Report',
+      subtitle: 'Net worth, allocation & spend overview',
+      icon: 'bar-chart-outline',
+      color: '#8b5cf6',
+      route: 'CombinedReport' as const,
+    },
+    {
       id: 'recipes',
       title: 'Recipes Library',
       subtitle: 'High-protein diet card sheets',
       icon: 'restaurant-outline',
       color: colors.tertiary,
       route: 'RecipesLibrary' as const,
-    },
-    {
-      id: 'diet',
-      title: 'Diet Plan Tracker',
-      subtitle: 'Weekly calorie and meal mapping',
-      icon: 'nutrition-outline',
-      color: '#f59e0b',
-      route: 'DietPlanTracker' as const,
     },
     {
       id: 'career',
@@ -198,27 +222,21 @@ export default function MoreMenuScreen() {
       color: '#ec4899',
       route: 'CareerTracker' as const,
     },
-    {
-      id: 'meals',
-      title: 'Meal Logger',
-      subtitle: 'Daily protein & calorie tracking',
-      icon: 'fitness-outline',
-      color: '#f59e0b',
-      route: 'MealLogger' as const,
-    },
   ];
 
   const handleConnectKite = () => {
-    const apiKey = process.env.EXPO_PUBLIC_KITE_API_KEY;
-    console.log('[KiteConnect] apiKey:', apiKey ? apiKey.substring(0, 5) + '...' : 'EMPTY');
+    const apiKey = (Constants.expoConfig?.extra as any)?.kiteApiKey || process.env.EXPO_PUBLIC_KITE_API_KEY || '';
+    console.log('[KiteConnect] apiKey:', apiKey ? apiKey.substring(0, 6) + '...' : 'EMPTY');
     if (!apiKey || apiKey === 'YOUR_KITE_API_KEY_HERE') {
-      setKiteSyncResult('Set KITE_API_KEY in .env first');
+      setKiteSyncResult('Set EXPO_PUBLIC_KITE_API_KEY in .env');
       setTimeout(() => setKiteSyncResult(null), 3000);
       return;
     }
-    const redirectUri = 'https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-callback';
+    const supabaseFnUrl = `${SUPABASE_URL}/functions/v1`;
+    const redirectUri = `${supabaseFnUrl}/kite-callback`;
     const stateParam = user ? encodeURIComponent(user.id) : 'unknown';
     const loginUrl = `https://kite.zerodha.com/connect/login?v=3&api_key=${apiKey}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${stateParam}`;
+    console.log('[KiteConnect] Opening:', loginUrl.substring(0, 80) + '...');
     Linking.openURL(loginUrl);
   };
 
@@ -227,10 +245,11 @@ export default function MoreMenuScreen() {
     setKiteSyncing(true);
     setKiteSyncResult(null);
     try {
+      const supabaseFnUrl = `${SUPABASE_URL}/functions/v1`;
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
       const res = await fetch(
-        'https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/kite-holdings-sync',
+        `${supabaseFnUrl}/kite-holdings-sync`,
         {
           method: 'POST',
           headers: {
@@ -279,36 +298,8 @@ export default function MoreMenuScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Quick Navigation */}
-        <Text style={styles.sectionTitle}>QUICK NAVIGATION</Text>
-        <View style={styles.navGrid}>
-          {NAV_ITEMS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.navCard}
-              onPress={item.onPress}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.navIconWrap, { backgroundColor: `${item.color}18` }]}>
-                <Ionicons name={item.icon as any} size={22} color={item.color} />
-              </View>
-              <View style={styles.navDetails}>
-                <Text style={styles.navTitle}>{item.title}</Text>
-                <Text style={styles.navSubtitle}>{item.subtitle}</Text>
-              </View>
-              {item.badge ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
-                </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={16} color={colors.outline} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {/* Content Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CONTENT</Text>
+        <Text style={[styles.sectionTitle]}>CONTENT</Text>
         <View style={styles.menuGrid}>
           {MENU_ITEMS.map((item) => (
             <TouchableOpacity
@@ -331,6 +322,22 @@ export default function MoreMenuScreen() {
 
         {/* Tools Section */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>TOOLS</Text>
+
+        <TouchableOpacity
+          style={styles.menuCard}
+          onPress={handleMonthlyReport}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(245,158,11,0.12)' }]}>
+            <Ionicons name="document-text-outline" size={24} color="#f59e0b" />
+          </View>
+          <View style={styles.cardDetails}>
+            <Text style={styles.cardTitle}>Monthly Report (PDF)</Text>
+            <Text style={styles.cardSubtitle}>Download expenses, cards & lent summary</Text>
+          </View>
+          <Ionicons name="download-outline" size={16} color={colors.outline} style={styles.arrow} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuCard}
           onPress={handleBackupNow}
@@ -447,6 +454,34 @@ export default function MoreMenuScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Cloud Sync */}
+        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>QUICK NAVIGATION</Text>
+        <View style={styles.navGrid}>
+          {NAV_ITEMS.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.navCard}
+              onPress={item.onPress}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.navIconWrap, { backgroundColor: `${item.color}18` }]}>
+                <Ionicons name={item.icon as any} size={22} color={item.color} />
+              </View>
+              <View style={styles.navDetails}>
+                <Text style={styles.navTitle}>{item.title}</Text>
+                <Text style={styles.navSubtitle}>{item.subtitle}</Text>
+              </View>
+              {item.badge ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.badge}</Text>
+                </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Cloud Sync */}
         <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CLOUD SYNC</Text>

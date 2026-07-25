@@ -38,9 +38,8 @@ export default function TasksDashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      pullFromCloud();
       processSyncQueue();
-    }, [pullFromCloud])
+    }, [])
   );
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'upcoming' | 'done'>('all');
@@ -102,7 +101,7 @@ export default function TasksDashboardScreen() {
         <View style={styles.taskCardRow}>
           <TouchableOpacity
             style={[styles.checkbox, item.completed && styles.checkboxCompleted]}
-            onPress={() => toggleTaskCompleted(item.id, user?.id)}
+            onPress={(e) => { e.stopPropagation(); toggleTaskCompleted(item.id, user?.id); }}
           >
             {item.completed && <Ionicons name="checkmark" size={14} color="#ffffff" />}
           </TouchableOpacity>

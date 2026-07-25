@@ -90,16 +90,18 @@ export function autoDetectCategory(text: string, type: "expense" | "income"): st
     return "Others";
   }
 
+  if (n.includes("instamart") || n.includes("zepto") || n.includes("blinkit") || n.includes("bigbasket") ||
+    n.includes("amazonnow") || n.includes("grocery") || n.includes("kirana") ||
+    n.includes("vegetables") || n.includes("market"))
+    return "Grocery";
+
   if (
     n.includes("swiggy") || n.includes("zomato") || n.includes("restaurant") || n.includes("food") ||
     n.includes("pizza") || n.includes("burger") || n.includes("cafe") || n.includes("tiffin") ||
-    n.includes("lunch") || n.includes("dinner") || n.includes("breakfast")
+    n.includes("lunch") || n.includes("dinner") || n.includes("breakfast") ||
+    n.includes("dosa") || n.includes("biryani") || n.includes("idly") || n.includes("chapati") || n.includes("rice")
   )
     return "Food & Dining";
-
-  if (n.includes("zepto") || n.includes("blinkit") || n.includes("grocery") || n.includes("kirana") ||
-    n.includes("vegetables") || n.includes("market"))
-    return "Grocery";
 
   if (n.includes("petrol") || n.includes("fuel") || n.includes("diesel") || n.includes("hp") ||
     n.includes("bpcl") || n.includes("ioc"))
@@ -164,6 +166,9 @@ export function autoDetectCategory(text: string, type: "expense" | "income"): st
 
   if (n.includes("paytm") || n.includes("phonepe") || n.includes("gpay") || n.includes("wallet") || n.includes("payzapp") || n.includes("pazapp"))
     return "Wallet Loads";
+
+  if (n.includes("cleaning") || n.includes("plumbing") || n.includes("electrician") || n.includes("repair"))
+    return "Professional Service";
 
   return "Others";
 }

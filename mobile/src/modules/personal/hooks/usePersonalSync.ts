@@ -155,6 +155,59 @@ async function doPull(userId: string) {
     await seedDietPlans(userId);
   }
 
+  // --- MEAL LOGS ---
+  const { data: mealData, error: mealErr } = await supabase
+    .from("meal_logs")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!mealErr && mealData && mealData.length > 0) {
+    try {
+      const { useMealStore } = require("../../meals/store");
+      const mealStore = useMealStore;
+      const existingIds = new Set(mealStore.getState().entries.map((e: any) => e.id));
+      const newEntries: any[] = (mealData as Array<Record<string, unknown>>)
+        .filter((r) => !existingIds.has(r.id as string))
+        .map((r) => ({
+          id: r.id as string,
+          date: r.date as string,
+          mealType: r.meal_type as string,
+          items: safeJSON(r.items as string, []),
+          notes: (r.notes as string) ?? "",
+        }));
+      if (newEntries.length > 0) {
+        mealStore.setState({ entries: [...newEntries, ...mealStore.getState().entries] });
+      }
+    } catch (_e) {}
+  }
+
+  // --- WEIGHT LOGS ---
+  const { data: weightData, error: weightErr } = await supabase
+    .from("weight_logs")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!weightErr && weightData && weightData.length > 0) {
+    try {
+      const { useWeightStore } = require("../../meals/weightStore");
+      const weightStore = useWeightStore;
+      const existingIds = new Set(weightStore.getState().entries.map((e: any) => e.id));
+      const newEntries: any[] = (weightData as Array<Record<string, unknown>>)
+        .filter((r) => !existingIds.has(r.id as string))
+        .map((r) => ({
+          id: r.id as string,
+          date: r.date as string,
+          weightKg: r.weight_kg as number,
+          notes: (r.notes as string) ?? "",
+        }));
+      if (newEntries.length > 0) {
+        const merged = [...newEntries, ...weightStore.getState().entries];
+        merged.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        weightStore.setState({ entries: merged });
+      }
+    } catch (_e) {}
+  }
+
   store.getState().setLastPersonalSyncedAt(new Date().toISOString());
 }
 

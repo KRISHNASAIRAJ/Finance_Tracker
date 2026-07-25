@@ -32,6 +32,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
+      "kiteApiKey": "REDACTED_KITE_KEY",
       "eas": {
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
       }

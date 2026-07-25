@@ -86,6 +86,99 @@ interface PortfolioGoal {
   dueDate?: string;
 }
 
+export interface MealFoodItem {
+  name: string;
+  quantity: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface MealAnalysisResult {
+  items: MealFoodItem[];
+  message: string;
+  hasQuestions: boolean;
+  isComplete: boolean;
+  error?: string;
+}
+
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+const RATE_LIMIT_KEY_MEAL = 'meridian_ai_meal_calls';
+const DAILY_LIMIT_MEAL = 50;
+
+export async function analyzeMealImage(
+  base64Image: string,
+  conversation?: ConversationTurn[],
+  healthProfile?: string,
+  todayContext?: string,
+): Promise<MealAnalysisResult> {
+  const allowed = await checkDailyLimit(RATE_LIMIT_KEY_MEAL, DAILY_LIMIT_MEAL);
+  if (!allowed) {
+    return { items: [], message: 'Daily AI query limit reached (50/day). Try again tomorrow.', hasQuestions: false, isComplete: true };
+  }
+
+  try {
+    const body: Record<string, unknown> = {
+      image: base64Image,
+      healthProfile: healthProfile || '',
+      todayContext: todayContext || '',
+    };
+    if (conversation && conversation.length > 0) {
+      body.conversation = conversation;
+    }
+
+    const { data, error } = await supabase.functions.invoke('ai-meal-log', { body });
+
+    if (error || !data) {
+      const errMsg = error?.message || 'No data returned';
+      return { items: [], message: `AI analysis failed: ${errMsg}`, hasQuestions: false, isComplete: true, error: errMsg };
+    }
+
+    return data as MealAnalysisResult;
+  } catch (e: any) {
+    return { items: [], message: `AI service error: ${e?.message || 'Unknown error'}`, hasQuestions: false, isComplete: true, error: e?.message };
+  }
+}
+
+export async function analyzeMealText(
+  description: string,
+  conversation?: ConversationTurn[],
+  healthProfile?: string,
+  todayContext?: string,
+): Promise<MealAnalysisResult> {
+  const allowed = await checkDailyLimit(RATE_LIMIT_KEY_MEAL, DAILY_LIMIT_MEAL);
+  if (!allowed) {
+    return { items: [], message: 'Daily AI query limit reached (50/day). Try again tomorrow.', hasQuestions: false, isComplete: true };
+  }
+
+  try {
+    const body: Record<string, unknown> = {
+      text: description,
+      healthProfile: healthProfile || '',
+      todayContext: todayContext || '',
+    };
+    if (conversation && conversation.length > 0) {
+      body.conversation = conversation;
+    }
+
+    const { data, error } = await supabase.functions.invoke('ai-meal-log', { body });
+
+    if (error || !data) {
+      const errMsg = error?.message || 'No data returned';
+      return { items: [], message: `AI analysis failed: ${errMsg}`, hasQuestions: false, isComplete: true, error: errMsg };
+    }
+
+    return data as MealAnalysisResult;
+  } catch (e: any) {
+    return { items: [], message: `AI service error: ${e?.message || 'Unknown error'}`, hasQuestions: false, isComplete: true, error: e?.message };
+  }
+}
+
 export interface PortfolioRecResponse {
   summary: string;
   recommendations: Array<{

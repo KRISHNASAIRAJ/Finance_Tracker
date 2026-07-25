@@ -72,7 +72,9 @@ export default function RecurringExpensesScreen() {
                   </View>
                 </View>
                 <View style={styles.itemRight}>
-                  <Text style={styles.itemAmount}>{formatCurrency(card.balance)}</Text>
+                  <Text style={styles.itemAmount}>
+                    {formatCurrency(card.billAmount ? Math.max(0, card.billAmount - (card.paidAmount || 0)) : card.balance)}
+                  </Text>
                   <Text style={styles.dueDateText}>
                     Due {new Date(card.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                   </Text>

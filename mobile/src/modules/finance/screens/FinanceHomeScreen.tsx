@@ -27,80 +27,9 @@ import { useAuth } from '../../../services/AuthProvider';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
-
-// Calendar Picker
-interface CalendarPickerProps {
-  visible: boolean;
-  selected: Date;
-  onSelect: (d: Date) => void;
-  onClose: () => void;
-}
-
-function CalendarPicker({ visible, selected, onSelect, onClose }: CalendarPickerProps) {
-  const [month, setMonth] = useState(new Date(selected));
-
-  const changeMonth = (offset: number) => {
-    setMonth(new Date(month.getFullYear(), month.getMonth() + offset, 1));
-  };
-
-  const getDays = () => {
-    const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
-    const totalDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const days: (Date | null)[] = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= totalDays; i++) {
-      days.push(new Date(month.getFullYear(), month.getMonth(), i));
-    }
-    return days;
-  };
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={styles.calOverlay}>
-        <View style={styles.calCard}>
-          <View style={styles.calHeader}>
-            <TouchableOpacity onPress={() => changeMonth(-1)}>
-              <Ionicons name="chevron-back" size={20} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={styles.calMonthText}>
-              {month.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
-            </Text>
-            <TouchableOpacity onPress={() => changeMonth(1)}>
-              <Ionicons name="chevron-forward" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.calWeekdays}>
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-              <Text key={d} style={styles.calWeekdayText}>{d}</Text>
-            ))}
-          </View>
-          <View style={styles.calGrid}>
-            {getDays().map((day, idx) => {
-              if (!day) return <View key={`empty-${idx}`} style={styles.calDayCell} />;
-              const isSelected = day.toDateString() === selected.toDateString();
-              return (
-                <TouchableOpacity
-                  key={day.toISOString()}
-                  style={[styles.calDayCell, isSelected && styles.calDaySelected]}
-                  onPress={() => { onSelect(day); onClose(); }}
-                >
-                  <Text style={[styles.calDayText, isSelected && styles.calDayTextSelected]}>
-                    {day.getDate()}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity style={styles.calCloseBtn} onPress={onClose}>
-            <Text style={styles.calCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -116,6 +45,7 @@ export default function FinanceHomeScreen() {
     getTotalBalance,
     getMonthlyExpenses,
     editCard,
+    markCardBillPaid,
   } = useFinanceStore();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -153,12 +83,21 @@ export default function FinanceHomeScreen() {
     if (isNaN(billAmount)) { alert('Enter a valid bill amount'); return; }
     if (isNaN(paidAmount)) { alert('Enter a valid paid amount'); return; }
 
-    const updated: Partial<CreditCard> = { dueDate: dueDate.toISOString(), billAmount, paidAmount };
-    if (typeof editCard === 'function') {
-      editCard(editingCard.id, updated);
-    }
-    if (user) {
-      queueCardSync(user.id, 'update', { id: editingCard.id, ...updated });
+    const existingPaid = editingCard.paidAmount ?? 0;
+    const paymentAmount = Math.max(0, paidAmount - existingPaid);
+    const billLeft = Math.max(0, billAmount - paidAmount);
+
+    if (billLeft <= 0 && paymentAmount > 0 && typeof markCardBillPaid === 'function') {
+      markCardBillPaid(editingCard.id, paymentAmount, user?.id);
+    } else {
+      const balance = billAmount > 0 ? Math.max(0, billAmount - paidAmount) : editingCard.balance;
+      const updated: Partial<CreditCard> = { dueDate: dueDate.toISOString(), billAmount, paidAmount, balance };
+      if (typeof editCard === 'function') {
+        editCard(editingCard.id, updated);
+      }
+      if (user) {
+        queueCardSync(user.id, 'update', { id: editingCard.id, ...updated });
+      }
     }
     setEditingCard(null);
     scheduleAllReminders();
@@ -167,8 +106,17 @@ export default function FinanceHomeScreen() {
   const handleMarkFullyPaid = () => {
     if (!editingCard) return;
     const billAmount = Math.round(parseFloat(billAmountInput) * 100);
-    if (isNaN(billAmount)) { alert('Enter a valid bill amount'); return; }
-    setPaidAmountInput((billAmount / 100).toString());
+    if (isNaN(billAmount) || billAmount <= 0) { alert('Enter a valid bill amount'); return; }
+    const existingPaid = editingCard.paidAmount ?? 0;
+    const paymentAmount = Math.max(0, billAmount - existingPaid);
+    if (typeof editCard === 'function') {
+      editCard(editingCard.id, { dueDate: dueDate.toISOString() });
+    }
+    if (typeof markCardBillPaid === 'function') {
+      markCardBillPaid(editingCard.id, paymentAmount, user?.id);
+    }
+    setEditingCard(null);
+    scheduleAllReminders();
   };
 
   const billLeft = editingCard
@@ -1178,27 +1126,6 @@ const styles = StyleSheet.create({
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
-  // Calendar styles integrated into styles
-  calOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  calCard: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 20,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  calHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  calMonthText: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  calWeekdays: { flexDirection: 'row', justifyContent: 'space-around' },
-  calWeekdayText: { width: 36, textAlign: 'center', fontSize: 11, color: colors.onSurfaceVariant, fontWeight: '600' },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  calDayCell: { width: 36, height: 36, borderRadius: rounded.full, alignItems: 'center', justifyContent: 'center' },
-  calDaySelected: { backgroundColor: colors.primary },
-  calDayText: { fontSize: 13, color: colors.onSurface, fontWeight: '500' },
-  calDayTextSelected: { color: '#fff', fontWeight: '700' },
-  calCloseBtn: { alignItems: 'center', paddingVertical: 10 },
-  calCloseBtnText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   billLeftRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
