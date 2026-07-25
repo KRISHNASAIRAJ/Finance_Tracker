@@ -392,7 +392,7 @@ export default function MealLoggerScreen() {
               <Text style={styles.legendText}>Calories</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: tc.carbs }]} />
+              <View style={[styles.legendDot, { backgroundColor: tc.action }]} />
               <Text style={styles.legendText}>Protein</Text>
             </View>
           </View>
@@ -448,7 +448,7 @@ export default function MealLoggerScreen() {
                 </Defs>
                 {calFill ? <Path d={calFill} fill="url(#calGrad)" /> : null}
                 {calPath ? <Path d={calPath} stroke="#f59e0b" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
-                {protPath ? <Path d={protPath} stroke={tc.carbs} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4,3" /> : null}
+                {protPath ? <Path d={protPath} stroke={tc.action} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4,3" /> : null}
                 {data.map((d, i) => (
                   <SvgText
                     key={d.date}
