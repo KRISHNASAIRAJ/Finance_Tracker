@@ -18,6 +18,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useMealStore, MealAIMessage } from '../store';
 import { supabase } from '../../../services/supabaseClient';
+import { saveAIChatToFile } from '../../../services/chatExportService';
 
 const HEALTH_PROFILE = `Project 65 — Body Recomposition Protocol
 * Current: 54kg, 170.6cm, BMI 18.5 (underweight). Target: 65kg at ~0.4 kg/week. Age 23 Male.
@@ -70,11 +71,15 @@ export default function MealAISuggestionsScreen() {
     setLoading(true);
     try {
       const ctx = buildTodayContext();
+      const recentMessages = aiMessages
+        .slice(-8)
+        .map((m) => ({ role: m.role, content: m.text }));
       const { data, error } = await supabase.functions.invoke('ai-meal-suggest', {
         body: {
           query: text,
           healthProfile: HEALTH_PROFILE,
           todayContext: ctx,
+          conversation: recentMessages,
         },
       });
 
@@ -107,7 +112,19 @@ export default function MealAISuggestionsScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle}>Meal AI</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 40 }}>
+          {aiMessages.length > 0 && (
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => saveAIChatToFile(
+                aiMessages.map((m) => ({ role: m.role, text: m.text, date: m.date })),
+                'Meal AI Chat'
+              )}
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -122,21 +139,6 @@ export default function MealAISuggestionsScreen() {
             <Text style={styles.emptySub}>
               Ask for meal suggestions, recipes, or nutrition advice based on your health profile and today's food log.
             </Text>
-            <View style={styles.quickActions}>
-              {[
-                'What should I eat for dinner to hit my protein target?',
-                'Suggest a high-protein breakfast',
-                'Give me meal ideas for weight gain',
-              ].map((q, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.quickChip}
-                  onPress={() => { setInput(q); }}
-                >
-                  <Text style={styles.quickChipText}>{q}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         ) : (
           <FlatList
@@ -148,6 +150,38 @@ export default function MealAISuggestionsScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           />
         )}
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          {(() => {
+            const remaining = dailyProteinTarget - todayTotals.protein;
+            const remainingCal = dailyCalorieTarget - todayTotals.calories;
+            const prompts: string[] = [];
+            if (todayEntries.length === 0) {
+              prompts.push('Suggest a high-protein breakfast for today');
+              prompts.push('What should I eat for lunch to start my day right?');
+              prompts.push('Give me meal ideas for weight gain');
+            } else {
+              if (remaining > 0) {
+                prompts.push(`How can I get ${remaining.toFixed(0)}g more protein today?`);
+              }
+              if (remainingCal > 200) {
+                prompts.push(`Suggest a ${remainingCal.toFixed(0)}cal meal for my remaining intake`);
+              }
+              prompts.push('Suggest a high-protein dinner');
+              prompts.push('What snacks can I have to hit my targets?');
+            }
+            return prompts.map((q, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.quickChip}
+                onPress={() => { setInput(q); }}
+              >
+                <Text style={styles.quickChipText}>{q}</Text>
+              </TouchableOpacity>
+            ));
+          })()}
+        </View>
 
         {loading && (
           <View style={styles.loadingRow}>

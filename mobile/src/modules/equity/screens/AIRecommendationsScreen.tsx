@@ -19,6 +19,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
 import { askPortfolioRecommend } from '../../../services/aiServices';
+import { saveAIChatToFile } from '../../../services/chatExportService';
 
 export default function AIRecommendationsScreen() {
   const navigation = useNavigation();
@@ -92,7 +93,19 @@ export default function AIRecommendationsScreen() {
           <Text style={styles.headerTitle}>AI Portfolio Advisor</Text>
           <Text style={styles.headerSubtitle}>Goal-aware allocations · Groq Llama 3.3</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 40 }}>
+          {chatHistory.length > 0 && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => saveAIChatToFile(
+                chatHistory.map((m) => ({ role: m.sender, text: m.text, date: m.date })),
+                'Portfolio AI Chat'
+              )}
+            >
+              <Ionicons name="download-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -109,6 +122,25 @@ export default function AIRecommendationsScreen() {
               Ask about rebalancing, diversification, or goal progress.{'\n'}
               Your holdings and goals will be analyzed.
             </Text>
+          </View>
+        )}
+
+        {chatHistory.length === 0 && (
+          <View style={styles.quickActions}>
+            {[
+              'Review my portfolio and suggest rebalancing',
+              'What stocks should I add next to diversify?',
+              'Am I on track with my investment goals?',
+              'Any stocks I should consider selling?',
+            ].map((q, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.quickChip}
+                onPress={() => { setInputText(q); }}
+              >
+                <Text style={styles.quickChipText}>{q}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
         {chatHistory.map((msg) => {
@@ -141,7 +173,7 @@ export default function AIRecommendationsScreen() {
       </ScrollView>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <View style={styles.inputContainer}>
@@ -301,5 +333,22 @@ const styles = StyleSheet.create({
   },
   sendDisabled: {
     opacity: 0.5,
+  },
+  quickActions: {
+    paddingHorizontal: 16,
+    gap: 6,
+    marginBottom: 8,
+  },
+  quickChip: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.DEFAULT,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  quickChipText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '500',
   },
 });

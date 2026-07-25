@@ -33,6 +33,15 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const today = new Date().toISOString().split("T")[0];
+
+    const dayOfWeek = new Date().getUTCDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return new Response(
+        JSON.stringify({ ok: true, date: today, skipped: "weekend", message: "Markets closed on Saturday and Sunday" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
     const { data: holdings, error: holdingsErr } = await supabase
