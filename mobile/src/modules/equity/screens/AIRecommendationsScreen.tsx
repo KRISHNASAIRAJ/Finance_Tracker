@@ -191,9 +191,9 @@ export default function AIRecommendationsScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.onPrimaryContainer} />
             ) : (
-              <Ionicons name="send" size={18} color="#ffffff" />
+              <Ionicons name="send" size={18} color={colors.onPrimaryContainer} />
             )}
           </TouchableOpacity>
         </View>
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   headerTitle: {
     fontSize: 16,
@@ -283,9 +283,9 @@ const styles = StyleSheet.create({
   },
   assistantBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderBottomLeftRadius: 2,
   },
   messageText: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   userText: {
-    color: '#ffffff',
+    color: colors.onPrimaryContainer,
   },
   assistantText: {
     color: colors.onSurface,
@@ -307,16 +307,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: colors.border,
     backgroundColor: colors.surface,
     alignItems: 'center',
     gap: 12,
   },
   inputField: {
     flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -340,11 +340,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   quickChip: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
     padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   quickChipText: {
     fontSize: 12,

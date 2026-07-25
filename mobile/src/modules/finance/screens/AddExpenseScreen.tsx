@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -306,7 +306,7 @@ export default function AddExpenseScreen() {
           {/* Submit */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.8}>
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
               <Text style={styles.submitButtonText}>Log Transaction</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
@@ -372,14 +372,14 @@ const styles = StyleSheet.create({
   toggleActiveExpense: { backgroundColor: colors.errorContainer },
   toggleActiveIncome: { backgroundColor: colors.successContainer },
   toggleText: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant },
-  toggleTextActive: { color: '#fff' },
+  toggleTextActive: { color: colors.textPrimary },
   formSection: { gap: 10 },
   inputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 48,
     paddingHorizontal: 14,
     color: colors.onSurface,
@@ -402,8 +402,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: rounded.full,
     backgroundColor: colors.surfaceContainer,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   categoryText: { fontSize: 12, fontWeight: '500', color: colors.onSurfaceVariant },
   dateTimeRow: { flexDirection: 'row', gap: 10 },
@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 14,
   },
@@ -434,14 +434,14 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  submitButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  submitButtonText: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   cancelButton: { alignItems: 'center', paddingVertical: 12 },
   cancelButtonText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
   dropdownList: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     overflow: 'hidden',
     marginTop: 4,
   },
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: colors.border,
   },
   dropdownItemActive: {
     backgroundColor: `${colors.primary}15`,

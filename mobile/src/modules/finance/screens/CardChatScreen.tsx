@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -243,9 +243,9 @@ export default function CardChatScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.textPrimary} />
             ) : (
-              <Ionicons name="send" size={18} color="#ffffff" />
+              <Ionicons name="send" size={18} color={colors.textPrimary} />
             )}
           </TouchableOpacity>
         </View>
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   appBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     height: 56, paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   quickQueries: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 8 },
   quickPill: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: rounded.DEFAULT,
-    backgroundColor: `${colors.primary}12`, borderWidth: 1, borderColor: `${colors.primary}20`,
+    backgroundColor: `${colors.primary}12`, borderWidth: StyleSheet.hairlineWidth, borderColor: `${colors.primary}20`,
   },
   quickPillText: { fontSize: 12, color: colors.primary, fontWeight: '500' },
   messageBubble: { maxWidth: '82%', padding: 14, borderRadius: rounded.lg, gap: 6 },
@@ -285,20 +285,20 @@ const styles = StyleSheet.create({
   },
   assistantBubble: {
     alignSelf: 'flex-start', backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderBottomLeftRadius: 2,
+    borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth, borderBottomLeftRadius: 2,
   },
   messageText: { fontSize: 14, lineHeight: 20 },
-  userText: { color: '#ffffff' },
+  userText: { color: colors.textPrimary },
   assistantText: { color: colors.onSurface },
   messageTime: { fontSize: 9, color: colors.onSurfaceVariant, alignSelf: 'flex-end' },
   inputContainer: {
     flexDirection: 'row', padding: 12, borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: colors.surface,
+    borderTopColor: colors.border, backgroundColor: colors.surface,
     alignItems: 'center', gap: 12,
   },
   inputField: {
     flex: 1, backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1,
+    borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full, paddingHorizontal: 16, paddingVertical: 10,
     color: colors.onSurface, fontSize: 14,
   },

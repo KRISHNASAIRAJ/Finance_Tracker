@@ -59,7 +59,7 @@ export default function WelcomeSplashScreen() {
             style={StyleSheet.absoluteFillObject}
           />
           <Text style={styles.buttonText}>Get Started</Text>
-          <Ionicons name="arrow-forward" size={18} color="#ffffff" style={styles.buttonIcon} />
+          <Ionicons name="arrow-forward" size={18} color={colors.onSurface} style={styles.buttonIcon} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -69,7 +69,7 @@ export default function WelcomeSplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#15121b', // Deep Obsidian background matching Stitch
+    backgroundColor: colors.background,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
@@ -93,8 +93,8 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 32,
     backgroundColor: 'rgba(55, 51, 62, 0.3)',
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: colors.primary,
@@ -108,13 +108,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 40,
     fontWeight: '800',
-    color: '#e8dfee', // Stitch light violet/grey text
+    color: colors.onSurface,
     letterSpacing: -1,
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
-    color: '#ccc3d8',
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     lineHeight: 24,
     opacity: 0.9,
@@ -127,25 +127,25 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 56,
-    backgroundColor: '#7c3aed', // Stitch primary container violet
+    backgroundColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     overflow: 'hidden',
     position: 'relative',
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   buttonIcon: {
     marginLeft: 8,

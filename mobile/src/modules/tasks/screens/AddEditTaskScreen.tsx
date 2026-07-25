@@ -111,7 +111,7 @@ export default function AddEditTaskScreen() {
       case 'urgent':
         return colors.error;
       case 'high':
-        return '#f59e0b';
+        return colors.warning;
       case 'medium':
         return colors.primary;
       default:
@@ -138,7 +138,7 @@ export default function AddEditTaskScreen() {
             <TextInput
               style={styles.textInput}
               placeholder="e.g. Clean the garage, Fix bug #42"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
             />
@@ -150,7 +150,7 @@ export default function AddEditTaskScreen() {
             <TextInput
               style={[styles.textInput, styles.textArea]}
               placeholder="Add details, notes, links..."
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={colors.textSecondary}
               multiline
               numberOfLines={3}
               value={description}
@@ -175,7 +175,7 @@ export default function AddEditTaskScreen() {
                     onPress={() => setPriority(p)}
                   >
                     <View style={[styles.priorityDot, { backgroundColor: dotColor }]} />
-                    <Text style={[styles.chipText, isSelected && { color: '#ffffff', fontWeight: 'bold' }]}>
+                    <Text style={[styles.chipText, isSelected && { color: colors.onSurface, fontWeight: 'bold' }]}>
                       {p.toUpperCase()}
                     </Text>
                   </TouchableOpacity>
@@ -199,7 +199,7 @@ export default function AddEditTaskScreen() {
                     <Ionicons
                       name={r.icon as any}
                       size={14}
-                      color={isSelected ? colors.primary : colors.onSurfaceVariant}
+                      color={isSelected ? colors.primary : colors.textSecondary}
                     />
                     <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
                       {r.label}
@@ -259,13 +259,13 @@ export default function AddEditTaskScreen() {
               <TextInput
                 style={[styles.textInput, { flex: 1 }]}
                 placeholder="Add subtask details..."
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={colors.textSecondary}
                 value={subtaskInput}
                 onChangeText={setSubtaskInput}
                 onSubmitEditing={handleAddSubtask}
               />
               <TouchableOpacity style={styles.addButton} onPress={handleAddSubtask}>
-                <Ionicons name="add" size={24} color="#ffffff" />
+                <Ionicons name="add" size={24} color={colors.onSurface} />
               </TouchableOpacity>
             </View>
 
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   formSection: {
@@ -341,13 +341,13 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     letterSpacing: 0.6,
   },
   textInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -367,9 +367,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: rounded.full,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   chipTextActive: {
     color: colors.primary,
@@ -405,10 +405,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   subtaskList: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     marginTop: 4,
   },
   subtaskRow: {
@@ -416,8 +416,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   subtaskLeft: {
     flexDirection: 'row',
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -450,17 +450,17 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 14,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 48,
     paddingHorizontal: 14,
   },

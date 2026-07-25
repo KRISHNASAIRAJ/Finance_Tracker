@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -141,7 +141,13 @@ export default function FinanceHomeScreen() {
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
 
-  const payzappMonthlyLoad = payzappLoads.reduce((sum, load) => sum + load.amount, 0);
+  const payzappMonthlyLoad = transactions
+    .filter((tx: any) =>
+      tx.type === 'expense' &&
+      (tx.category?.toLowerCase() === 'wallet loads' || tx.category?.toLowerCase() === 'wallet load' ||
+       tx.notes?.toLowerCase().includes('payzapp wallet'))
+    )
+    .reduce((sum: number, tx: any) => sum + tx.amount, 0);
   const PAYZAPP_MONTHLY_CAP = 40_000 * 100;
 
   // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
@@ -251,8 +257,8 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('CreditCards')}
             activeOpacity={0.8}
           >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: '#f59e0b20' }]}>
-              <Ionicons name="card-outline" size={18} color="#f59e0b" />
+            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.amberDim }]}>
+              <Ionicons name="card-outline" size={18} color={colors.amber} />
             </View>
             <View>
               <Text style={styles.bentoLabel}>Credit Card Bills</Text>
@@ -266,8 +272,8 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('BankAccounts')}
             activeOpacity={0.8}
           >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: '#10b98120' }]}>
-              <Ionicons name="business-outline" size={18} color="#10b981" />
+            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.stableDim }]}>
+              <Ionicons name="business-outline" size={18} color={colors.stable} />
             </View>
             <View>
               <Text style={styles.bentoLabel}>Bank Balances</Text>
@@ -281,8 +287,8 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('LentBorrowed')}
             activeOpacity={0.8}
           >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: '#3b82f620' }]}>
-              <Ionicons name="arrow-up-circle-outline" size={18} color="#3b82f6" />
+            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.actionDim }]}>
+              <Ionicons name="arrow-up-circle-outline" size={18} color={colors.action} />
             </View>
             <View>
               <Text style={styles.bentoLabel}>Net Lent</Text>
@@ -296,8 +302,8 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('FixedExpenses')}
             activeOpacity={0.85}
           >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: '#6366f120' }]}>
-              <Ionicons name="lock-closed-outline" size={18} color="#6366f1" />
+            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.actionDim }]}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.action} />
             </View>
             <View>
               <Text style={styles.bentoLabel}>Fixed Expenses</Text>
@@ -314,8 +320,8 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('PayzappWallet')}
             activeOpacity={0.8}
           >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: 'rgba(132, 204, 22, 0.12)' }]}>
-              <Ionicons name="wallet" size={18} color="#84CC16" />
+            <View style={[styles.bentoIconWrapper, { backgroundColor: 'rgba(188, 232, 93, 0.12)' }]}>
+              <Ionicons name="wallet" size={18} color={colors.chartreuse} />
             </View>
             <View>
               <Text style={styles.bentoLabel}>Payzapp</Text>
@@ -416,23 +422,23 @@ export default function FinanceHomeScreen() {
               .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
               .map((card: any) => {
               // Set border accent color based on network/bank name
-              let borderColor = 'rgba(255, 255, 255, 0.05)';
-              let decorColor = 'rgba(255, 255, 255, 0.02)';
+              let borderColor: string = colors.border;
+              let decorColor: string = 'rgba(198, 197, 215, 0.04)';
               if (card.name.toLowerCase().includes('cashback')) {
-                borderColor = 'rgba(59, 130, 246, 0.2)'; // Blue
-                decorColor = 'rgba(59, 130, 246, 0.05)';
+                borderColor = 'rgba(155, 165, 255, 0.25)';
+                decorColor = 'rgba(155, 165, 255, 0.06)';
               } else if (card.name.toLowerCase().includes('power')) {
-                borderColor = 'rgba(16, 185, 129, 0.2)'; // Green
-                decorColor = 'rgba(16, 185, 129, 0.05)';
+                borderColor = 'rgba(89, 214, 199, 0.25)';
+                decorColor = 'rgba(89, 214, 199, 0.06)';
               } else if (card.name.toLowerCase().includes('simplysave')) {
-                borderColor = 'rgba(245, 158, 11, 0.2)'; // Orange
-                decorColor = 'rgba(245, 158, 11, 0.05)';
+                borderColor = 'rgba(226, 164, 92, 0.25)';
+                decorColor = 'rgba(226, 164, 92, 0.06)';
               } else if (card.name.toLowerCase().includes('hsbc')) {
-                borderColor = 'rgba(239, 68, 68, 0.2)'; // Red
-                decorColor = 'rgba(239, 68, 68, 0.05)';
+                borderColor = 'rgba(255, 136, 125, 0.25)';
+                decorColor = 'rgba(255, 136, 125, 0.06)';
               } else if (card.name.toLowerCase().includes('amazon')) {
-                borderColor = 'rgba(139, 92, 246, 0.2)'; // Purple
-                decorColor = 'rgba(139, 92, 246, 0.05)';
+                borderColor = 'rgba(155, 165, 255, 0.25)';
+                decorColor = 'rgba(155, 165, 255, 0.06)';
               }
 
               return (
@@ -550,7 +556,7 @@ export default function FinanceHomeScreen() {
         onPress={() => navigation.navigate('CardChat')}
         activeOpacity={0.85}
       >
-        <Ionicons name="sparkles" size={24} color="#fff" />
+        <Ionicons name="sparkles" size={24} color={colors.textPrimary} />
       </TouchableOpacity>
 
       {/* Bill Payment Modal */}
@@ -599,7 +605,7 @@ export default function FinanceHomeScreen() {
                 onPress={handleMarkFullyPaid}
                 activeOpacity={0.8}
               >
-                <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                <Ionicons name="checkmark-circle" size={18} color={colors.textPrimary} />
                 <Text style={styles.markPaidBtnText}>Mark as Fully Paid</Text>
               </TouchableOpacity>
 
@@ -660,7 +666,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.03)',
+    borderTopColor: colors.border,
   },
   showMoreText: {
     color: colors.primary,
@@ -674,7 +680,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -708,7 +714,7 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.textPrimary,
   },
   appBarLeft: {
     flexDirection: 'row',
@@ -766,7 +772,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: 'rgba(74, 222, 128, 0.1)',
     borderColor: 'rgba(74, 222, 128, 0.2)',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rounded.full,
@@ -786,8 +792,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 16,
@@ -802,8 +808,8 @@ const styles = StyleSheet.create({
   bentoCardHalf: {
     flex: 1,
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 14,
     gap: 10,
@@ -843,7 +849,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: rounded.full,
     backgroundColor: `${colors.error}14`,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.error}28`,
   },
   statusPillText: {
@@ -858,8 +864,8 @@ const styles = StyleSheet.create({
   },
   distributionCard: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
   },
@@ -905,7 +911,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
     paddingBottom: 4,
   },
   row: {
@@ -943,8 +949,8 @@ const styles = StyleSheet.create({
     width: 280,
     height: 160,
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     justifyContent: 'space-between',
@@ -1001,8 +1007,8 @@ const styles = StyleSheet.create({
   },
   activityList: {
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
   },
   activityRow: {
@@ -1011,7 +1017,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   activityIcon: {
     width: 32,
@@ -1055,8 +1061,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   recentHeader: {
     flexDirection: 'row',
@@ -1072,7 +1078,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: `${colors.primary}18`,
     borderRadius: rounded.full,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.primary}30`,
   },
   viewAllText: {
@@ -1092,8 +1098,8 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: 24,
     gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   modalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
@@ -1102,8 +1108,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -1116,8 +1122,8 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
   },
@@ -1127,7 +1133,7 @@ const styles = StyleSheet.create({
   modalBtnCancel: { backgroundColor: 'transparent' },
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
   billLeftRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1136,8 +1142,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   billLeftLabel: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   billLeftValue: { fontSize: 20, fontWeight: '800', color: colors.success },
@@ -1150,7 +1156,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: rounded.DEFAULT,
     backgroundColor: `${colors.success}25`,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.success}40`,
   },
   markPaidBtnText: { fontSize: 14, fontWeight: '700', color: colors.success },
@@ -1162,8 +1168,8 @@ const styles = StyleSheet.create({
   toolBentoCard: {
     flex: 1,
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 10,

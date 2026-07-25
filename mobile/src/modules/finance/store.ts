@@ -495,7 +495,6 @@ export const useFinanceStore = create<FinanceState>()(
           (tx) =>
             new Date(tx.date) >= startOfMonth &&
             (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service') &&
-            tx.type !== 'fixed_expense' &&
             !excluded.has(tx.category.toLowerCase())
         );
         let total = monthTxs.reduce((acc, tx) => acc + tx.amount, 0);

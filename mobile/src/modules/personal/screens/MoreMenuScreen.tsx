@@ -127,7 +127,7 @@ export default function MoreMenuScreen() {
       title: 'Garage',
       subtitle: 'Fuel logs & vehicle spend',
       icon: 'speedometer-outline',
-      color: '#10b981',
+      color: '#E2A45C',
       onPress: () => navigation.getParent()?.navigate('GarageTab'),
     },
     {
@@ -135,7 +135,7 @@ export default function MoreMenuScreen() {
       title: 'Task Manager',
       subtitle: 'Tasks, reminders & subtasks',
       icon: 'checkbox-outline',
-      color: '#f59e0b',
+      color: colors.warning,
       onPress: () => navigation.getParent()?.navigate('TasksTab'),
     },
     {
@@ -143,7 +143,7 @@ export default function MoreMenuScreen() {
       title: 'Kite Holdings',
       subtitle: 'Portfolio & equity tracker',
       icon: 'trending-up-outline',
-      color: '#3b82f6',
+      color: colors.primary,
       onPress: () => navigation.getParent()?.navigate('InvestmentsTab'),
     },
     {
@@ -151,7 +151,7 @@ export default function MoreMenuScreen() {
       title: 'Notifications',
       subtitle: unreadCount > 0 ? `${unreadCount} unread` : 'All caught up',
       icon: 'notifications-outline',
-      color: '#ef4444',
+      color: colors.error,
       badge: unreadCount,
       onPress: () => (navigation as any).navigate('Notifications'),
     },
@@ -179,7 +179,7 @@ export default function MoreMenuScreen() {
       title: 'Meal Logger',
       subtitle: 'Daily protein & calorie tracking',
       icon: 'fitness-outline',
-      color: '#f59e0b',
+      color: colors.warning,
       route: 'MealLogger' as const,
     },
     {
@@ -195,7 +195,7 @@ export default function MoreMenuScreen() {
       title: 'Project 65 Diet',
       subtitle: 'Full body recomposition protocol',
       icon: 'document-text-outline',
-      color: '#33512E',
+      color: colors.success,
       route: 'DietViewer' as const,
     },
     {
@@ -203,7 +203,7 @@ export default function MoreMenuScreen() {
       title: 'Combined Report',
       subtitle: 'Net worth, allocation & spend overview',
       icon: 'bar-chart-outline',
-      color: '#8b5cf6',
+      color: colors.primary,
       route: 'CombinedReport' as const,
     },
     {
@@ -219,7 +219,7 @@ export default function MoreMenuScreen() {
       title: 'Career Track',
       subtitle: 'Ups & downs timeline chart',
       icon: 'analytics-outline',
-      color: '#ec4899',
+      color: colors.tertiary,
       route: 'CareerTracker' as const,
     },
   ];
@@ -329,7 +329,7 @@ export default function MoreMenuScreen() {
           activeOpacity={0.8}
         >
           <View style={[styles.iconWrapper, { backgroundColor: 'rgba(245,158,11,0.12)' }]}>
-            <Ionicons name="document-text-outline" size={24} color="#f59e0b" />
+            <Ionicons name="document-text-outline" size={24} color={colors.warning} />
           </View>
           <View style={styles.cardDetails}>
             <Text style={styles.cardTitle}>Monthly Report (PDF)</Text>
@@ -346,12 +346,12 @@ export default function MoreMenuScreen() {
         >
           <View style={[styles.iconWrapper, { backgroundColor: 'rgba(124, 58, 237, 0.12)' }]}>
             {backupState === 'backing' ? (
-              <ActivityIndicator color="#7c3aed" size="small" />
+              <ActivityIndicator color={colors.primary} size="small" />
             ) : (
               <Ionicons
                 name={backupState === 'done' ? 'checkmark-circle' : backupState === 'error' ? 'alert-circle' : 'cloud-upload-outline'}
                 size={24}
-                color={backupState === 'done' ? '#10b981' : backupState === 'error' ? '#ef4444' : '#7c3aed'}
+                color={backupState === 'done' ? colors.success : backupState === 'error' ? colors.error : colors.primary}
               />
             )}
           </View>
@@ -371,7 +371,7 @@ export default function MoreMenuScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-                <Ionicons name={kiteConnected ? 'checkmark-circle-outline' : 'link-outline'} size={24} color={kiteConnected ? '#10b981' : '#ef4444'} />
+                <Ionicons name={kiteConnected ? 'checkmark-circle-outline' : 'link-outline'} size={24} color={kiteConnected ? colors.success : colors.error} />
               </View>
               <View style={styles.cardDetails}>
                 <Text style={styles.cardTitle}>
@@ -392,12 +392,12 @@ export default function MoreMenuScreen() {
             >
               <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)' }]}>
                 {kiteSyncing ? (
-                  <ActivityIndicator color="#3b82f6" size="small" />
+                  <ActivityIndicator color={colors.primary} size="small" />
                 ) : (
                   <Ionicons
                     name={kiteSyncResult && !kiteSyncResult.includes('failed') ? 'checkmark-circle' : 'sync-outline'}
                     size={24}
-                    color={kiteSyncResult && !kiteSyncResult.includes('failed') ? '#10b981' : '#3b82f6'}
+                    color={kiteSyncResult && !kiteSyncResult.includes('failed') ? colors.success : colors.primary}
                   />
                 )}
               </View>
@@ -421,7 +421,7 @@ export default function MoreMenuScreen() {
           activeOpacity={0.8}
         >
           <View style={[styles.iconWrapper, { backgroundColor: 'rgba(132,204,22,0.12)' }]}>
-            <Ionicons name="wallet-outline" size={24} color="#84CC16" />
+            <Ionicons name="wallet-outline" size={24} color={colors.chartreuse} />
           </View>
           <View style={styles.cardDetails}>
             <Text style={styles.cardTitle}>Monthly Budget</Text>
@@ -490,7 +490,7 @@ export default function MoreMenuScreen() {
             <Ionicons
               name={user ? 'cloud-done-outline' : 'cloud-offline-outline'}
               size={24}
-              color={user ? '#10b981' : '#ef4444'}
+              color={user ? colors.success : colors.error}
             />
           </View>
           <View style={styles.cardDetails}>
@@ -581,7 +581,7 @@ export default function MoreMenuScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+            <Ionicons name="log-out-outline" size={18} color={colors.error} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         )}
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
   bellBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   scrollContent: {
     padding: spacing.containerPadding,
@@ -653,9 +653,9 @@ const styles = StyleSheet.create({
   navCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 14,
     gap: 14,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   menuGrid: {
     gap: 12,
@@ -700,9 +700,9 @@ const styles = StyleSheet.create({
   menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
   },
@@ -731,9 +731,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   authCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 10,
@@ -741,8 +741,8 @@ const styles = StyleSheet.create({
   authInput: {
     backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
   authButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   syncNowBtn: {
     flexDirection: 'row',
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
     backgroundColor: `${colors.primary}12`,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.primary}20`,
   },
   syncNowText: {
@@ -777,16 +777,16 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   inpGrp: { gap: 6 },
   inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  inp: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
+  inp: { backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
   modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
   modalCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
   modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  modalSaveTxt: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalSaveTxt: { fontSize: 14, color: colors.onSurface, fontWeight: '700' },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -796,13 +796,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(239,68,68,0.25)',
     backgroundColor: 'rgba(239,68,68,0.08)',
   },
   logoutText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ef4444',
+    color: colors.error,
   },
 });

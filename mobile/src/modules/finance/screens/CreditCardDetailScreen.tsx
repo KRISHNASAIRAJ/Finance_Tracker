@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -24,13 +24,13 @@ type DetailRouteProp = RouteProp<FinanceStackParamList, 'CreditCardDetail'>;
 
 function getCardAccent(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes('cashback') || n.includes('sbi')) return '#3b82f6';
-  if (n.includes('power') || n.includes('idfc')) return '#10b981';
-  if (n.includes('simplysave')) return '#f59e0b';
-  if (n.includes('hsbc')) return '#ef4444';
-  if (n.includes('amazon') || n.includes('icici')) return '#a855f7';
-  if (n.includes('slice')) return '#f97316';
-  if (n.includes('cred') || n.includes('indusind')) return '#ec4899';
+  if (n.includes('cashback') || n.includes('sbi')) return colors.action;
+  if (n.includes('power') || n.includes('idfc')) return colors.stable;
+  if (n.includes('simplysave')) return colors.amber;
+  if (n.includes('hsbc')) return colors.attention;
+  if (n.includes('amazon') || n.includes('icici')) return colors.action;
+  if (n.includes('slice')) return colors.amber;
+  if (n.includes('cred') || n.includes('indusind')) return colors.attention;
   return colors.primary;
 }
 
@@ -64,7 +64,7 @@ export default function CreditCardDetailScreen() {
   const daysUntilDue = Math.ceil(
     (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? '#f59e0b' : colors.success;
+  const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? colors.amber : colors.success;
 
   const cardTransactions = transactions.filter(
     (tx: any) => tx.linkedCardId === cardId || (tx.category === 'Credit Card Bill' && tx.notes?.includes(card.name))
@@ -134,7 +134,7 @@ export default function CreditCardDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Limit Utilization</Text>
-              <Text style={[styles.sectionValue, { color: utilization > 80 ? colors.error : utilization > 50 ? '#f59e0b' : colors.success }]}>
+              <Text style={[styles.sectionValue, { color: utilization > 80 ? colors.error : utilization > 50 ? colors.amber : colors.success }]}>
                 {utilization.toFixed(0)}%
               </Text>
             </View>
@@ -143,7 +143,7 @@ export default function CreditCardDetailScreen() {
                 style={[
                   styles.progressFill,
                   {
-                    backgroundColor: utilization > 80 ? colors.error : utilization > 50 ? '#f59e0b' : colors.success,
+                    backgroundColor: utilization > 80 ? colors.error : utilization > 50 ? colors.amber : colors.success,
                     width: `${Math.min(100, utilization)}%`,
                   },
                 ]}
@@ -218,7 +218,7 @@ export default function CreditCardDetailScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="card-outline" size={18} color="#fff" />
+            <Ionicons name="card-outline" size={18} color={colors.textPrimary} />
             <Text style={styles.payButtonText}>Pay Bill</Text>
           </TouchableOpacity>
         </View>
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, flex: 1, textAlign: 'center' },
   iconButton: { padding: 8, borderRadius: rounded.full },
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   heroAccent: { height: 4 },
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   heroNumber: { fontSize: 13, color: colors.onSurfaceVariant, marginTop: 2 },
   heroBank: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2, textTransform: 'uppercase' },
   networkBadge: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 13, fontWeight: '600', color: colors.onSurface, marginTop: 1 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 12 },
   txItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  txBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
+  txBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   txIcon: { width: 36, height: 36, borderRadius: rounded.DEFAULT, alignItems: 'center', justifyContent: 'center' },
   txInfo: { flex: 1 },
   txName: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
@@ -393,15 +393,15 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     marginTop: 8,
   },
-  payButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  payButtonText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   payModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
   payModalContent: {
     backgroundColor: colors.surface,
     borderRadius: rounded.lg,
     padding: 24,
     gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   payModalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   payModalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
@@ -410,8 +410,8 @@ const styles = StyleSheet.create({
   payTextInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 48,
     paddingHorizontal: 14,
     color: colors.onSurface,
@@ -424,5 +424,5 @@ const styles = StyleSheet.create({
   payModalBtnCancel: { backgroundColor: 'transparent' },
   payModalBtnSave: { backgroundColor: colors.primaryContainer },
   payModalBtnCancelText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  payModalBtnSaveText: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  payModalBtnSaveText: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
 });

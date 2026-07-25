@@ -172,8 +172,8 @@ export default function VehicleSpendScreen() {
             vehicleMaint.map((log) => (
               <View key={log.id} style={styles.logRow}>
                 <View style={styles.logLeft}>
-                  <View style={[styles.iconContainer, { backgroundColor: '#f59e0b18' }]}>
-                    <Ionicons name="construct-outline" size={16} color="#f59e0b" />
+                  <View style={[styles.iconContainer, { backgroundColor: `${colors.amber}18` }]}>
+                    <Ionicons name="construct-outline" size={16} color={colors.amber} />
                   </View>
                   <View style={{ flex: 1, flexShrink: 1 }}>
                     <Text style={styles.logTitle}>{log.serviceType}</Text>
@@ -193,7 +193,7 @@ export default function VehicleSpendScreen() {
       {/* FAB */}
       {!showForm && (
         <TouchableOpacity style={styles.fab} onPress={() => setShowForm(true)} activeOpacity={0.85}>
-          <Ionicons name="add" size={28} color="#ffffff" />
+          <Ionicons name="add" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -227,8 +227,8 @@ const styles = StyleSheet.create({
   tabContainer: {
     backgroundColor: colors.surface,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   tabScroll: {
     paddingHorizontal: spacing.containerPadding,
@@ -238,9 +238,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -267,9 +267,9 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   heroCard: {
-    backgroundColor: '#0f0f1a',
-    borderColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: `${colors.amber}26`,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     gap: 4,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#f59e0b',
+    color: colors.amber,
     letterSpacing: -1,
   },
   heroSub: {
@@ -292,9 +292,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   formCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 16,
     gap: 14,
@@ -315,8 +315,8 @@ const styles = StyleSheet.create({
   },
   textInput: {
     backgroundColor: colors.background,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: colors.background,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: {
-    color: '#ffffff',
+    color: colors.textPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -371,8 +371,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   cancelBtnText: {
     color: colors.onSurfaceVariant,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.cardPadding,
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
     marginBottom: 8,
   },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

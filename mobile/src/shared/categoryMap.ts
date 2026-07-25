@@ -50,11 +50,11 @@ export function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMa
 }
 
 const PALETTE = [
-  '#f87171', '#fb923c', '#fbbf24', '#facc15', '#a3e635',
-  '#4ade80', '#34d399', '#2dd4bf', '#22d3ee', '#38bdf8',
-  '#60a5fa', '#818cf8', '#a78bfa', '#c084fc', '#e879f9',
-  '#f472b6', '#fb7185', '#ef4444', '#d97706', '#f97316',
-  '#0ea5e9', '#06b6d4', '#14b8a6', '#8b5cf6', '#d946ef',
+  '#9BA5FF', '#B8BFFF', '#7C89E8', '#6B7ADD', '#5A6BD1',
+  '#59D6C7', '#7DE0D5', '#3EC2B3', '#2DAEA0', '#1C9A8E',
+  '#FF887D', '#FFA69D', '#FF6B5E', '#E87065', '#D1584E',
+  '#E2A45C', '#ECB87A', '#D4903E', '#E8C590', '#F0D4A8',
+  '#BCE85D', '#CCF07A', '#A8D440', '#94C028', '#80A814',
 ];
 
 function hashString(s: string): number {

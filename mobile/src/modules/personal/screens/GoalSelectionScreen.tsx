@@ -49,7 +49,7 @@ export default function GoalSelectionScreen() {
           style={styles.iconButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#ccc3d8" />
+          <Ionicons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Your Goals</Text>
         <View style={{ width: 40 }} />
@@ -85,7 +85,7 @@ export default function GoalSelectionScreen() {
                   <Ionicons
                     name={item.icon as any}
                     size={32}
-                    color={isSelected ? '#ffffff' : '#ccc3d8'}
+                    color={isSelected ? colors.onSurface : colors.onSurfaceVariant}
                   />
                 </View>
                 <Text style={[styles.cardLabel, isSelected && styles.cardLabelSelected]}>
@@ -93,7 +93,7 @@ export default function GoalSelectionScreen() {
                 </Text>
                 {isSelected && (
                   <View style={styles.checkBadge}>
-                    <Ionicons name="checkmark-circle" size={20} color="#7c3aed" />
+                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -114,7 +114,7 @@ export default function GoalSelectionScreen() {
           <Ionicons
             name="arrow-forward"
             size={18}
-            color={isEnabled ? '#ffffff' : 'rgba(204, 195, 216, 0.4)'}
+            color={isEnabled ? colors.onSurface : colors.outline}
             style={styles.buttonIcon}
           />
         </TouchableOpacity>
@@ -126,7 +126,7 @@ export default function GoalSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#15121b',
+    backgroundColor: colors.background,
   },
   header: {
     height: 64,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   body: {
     flex: 1,
@@ -155,13 +155,13 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 6,
-    backgroundColor: '#37333e',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 999,
   },
   titleSection: {
@@ -171,14 +171,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: '#ccc3d8',
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     opacity: 0.8,
   },
@@ -191,38 +191,38 @@ const styles = StyleSheet.create({
   card: {
     width: '47%',
     aspectRatio: 1,
-    backgroundColor: '#1d1a24',
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(74, 68, 85, 0.4)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
     position: 'relative',
   },
   cardSelected: {
-    borderColor: '#7c3aed',
+    borderColor: colors.primary,
     backgroundColor: 'rgba(124, 58, 237, 0.1)',
   },
   iconWrapper: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#221e28',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   iconWrapperSelected: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
   },
   cardLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   cardLabelSelected: {
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   checkBadge: {
     position: 'absolute',
@@ -231,29 +231,29 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 56,
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#221e28',
+    backgroundColor: colors.surface,
     shadowOpacity: 0,
     elevation: 0,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   buttonTextDisabled: {
-    color: 'rgba(204, 195, 216, 0.4)',
+    color: colors.outline,
   },
   buttonIcon: {
     marginLeft: 8,

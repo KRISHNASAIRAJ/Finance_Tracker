@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -45,8 +45,10 @@ export default function CombinedReportScreen() {
     .reduce((sum, f) => sum + f.amount, 0);
   const cardOutstanding = cards.reduce((sum, c) => sum + c.balance, 0);
 
-  const netWorth =
-    effectiveBalance + portfolioValue + totalLent + totalExpectedIncome - totalBorrowed - unpaidFixed - cardOutstanding;
+  const position =
+    totalLent + totalExpectedIncome - totalBorrowed - cardOutstanding - unpaidFixed + effectiveBalance;
+
+  const netWorth = position + portfolioValue;
 
   // ---- Monthly spend ----
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -99,18 +101,18 @@ export default function CombinedReportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Net Worth Hero */}
+        {/* Position & Net Worth Hero */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>NET WORTH</Text>
-          <Text style={styles.heroValue}>{formatCurrency(netWorth)}</Text>
+          <Text style={styles.heroLabel}>POSITION</Text>
+          <Text style={[styles.heroValue, { color: position >= 0 ? colors.stable : colors.attention }]}>{formatCurrency(position)}</Text>
           <View style={styles.heroRow}>
+            <View style={styles.heroStat}>
+              <Text style={styles.heroStatLabel}>Net Worth</Text>
+              <Text style={[styles.heroStatValue, { color: netWorth >= 0 ? colors.stable : colors.attention }]}>{formatCurrency(netWorth)}</Text>
+            </View>
             <View style={styles.heroStat}>
               <Text style={styles.heroStatLabel}>Portfolio</Text>
               <Text style={styles.heroStatValue}>{formatCurrency(portfolioValue)}</Text>
-            </View>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatLabel}>Card Bills</Text>
-              <Text style={styles.heroStatValue}>{formatCurrency(cardOutstanding)}</Text>
             </View>
           </View>
         </View>
@@ -156,35 +158,47 @@ export default function CombinedReportScreen() {
           )}
         </View>
 
-        {/* Financial Position */}
+        {/* Financial Position Breakdown */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>POSITION</Text>
+          <Text style={styles.sectionTitle}>BREAKDOWN</Text>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Lent</Text>
-            <Text style={[styles.posValue, { color: '#3b82f6' }]}>{formatCurrency(totalLent)}</Text>
+            <Text style={[styles.posValue, { color: colors.action }]}>{formatCurrency(totalLent)}</Text>
           </View>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Expected Income</Text>
-            <Text style={[styles.posValue, { color: '#84CC16' }]}>{formatCurrency(totalExpectedIncome)}</Text>
+            <Text style={[styles.posValue, { color: colors.chartreuse }]}>{formatCurrency(totalExpectedIncome)}</Text>
           </View>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Borrowed</Text>
-            <Text style={[styles.posValue, { color: '#f59e0b' }]}>{formatCurrency(totalBorrowed)}</Text>
+            <Text style={[styles.posValue, { color: colors.amber }]}>{formatCurrency(totalBorrowed)}</Text>
           </View>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Credit Card Outstanding</Text>
-            <Text style={[styles.posValue, { color: '#ef4444' }]}>{formatCurrency(cardOutstanding)}</Text>
+            <Text style={[styles.posValue, { color: colors.attention }]}>{formatCurrency(cardOutstanding)}</Text>
           </View>
           <View style={styles.posRow}>
             <Text style={styles.posLabel}>Unpaid Fixed Expenses</Text>
-            <Text style={[styles.posValue, { color: '#6366f1' }]}>{formatCurrency(unpaidFixed)}</Text>
+            <Text style={[styles.posValue, { color: colors.action }]}>{formatCurrency(unpaidFixed)}</Text>
+          </View>
+          <View style={styles.posRow}>
+            <Text style={styles.posLabel}>Usable Bank Balance</Text>
+            <Text style={[styles.posValue, { color: colors.stable }]}>{formatCurrency(effectiveBalance)}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.posRow}>
             <Text style={[styles.posLabel, { fontWeight: '700', color: colors.onSurface }]}>
+              Position
+            </Text>
+            <Text style={[styles.posValue, { fontWeight: '800', fontSize: 16, color: position >= 0 ? colors.stable : colors.attention }]}>
+              {formatCurrency(position)}
+            </Text>
+          </View>
+          <View style={styles.posRow}>
+            <Text style={[styles.posLabel, { fontWeight: '700', color: colors.onSurface }]}>
               Net Worth
             </Text>
-            <Text style={[styles.posValue, { fontWeight: '800', fontSize: 18, color: netWorth >= 0 ? '#10b981' : '#ef4444' }]}>
+            <Text style={[styles.posValue, { fontWeight: '800', fontSize: 16, color: netWorth >= 0 ? colors.stable : colors.attention }]}>
               {formatCurrency(netWorth)}
             </Text>
           </View>
@@ -207,7 +221,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   backBtn: { padding: 8, borderRadius: rounded.full },
   appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
@@ -216,8 +230,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
     padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     gap: 12,
   },
   heroLabel: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 1 },
@@ -230,8 +244,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
     padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     gap: 12,
   },
   sectionTitle: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.8 },

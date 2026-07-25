@@ -49,7 +49,7 @@ export default function TasksDashboardScreen() {
       case 'urgent':
         return colors.error;
       case 'high':
-        return '#f59e0b';
+        return colors.warning;
       case 'medium':
         return colors.primary;
       default:
@@ -103,7 +103,7 @@ export default function TasksDashboardScreen() {
             style={[styles.checkbox, item.completed && styles.checkboxCompleted]}
             onPress={(e) => { e.stopPropagation(); toggleTaskCompleted(item.id, user?.id); }}
           >
-            {item.completed && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+            {item.completed && <Ionicons name="checkmark" size={14} color={colors.onSurface} />}
           </TouchableOpacity>
           <View style={styles.taskDetails}>
             <Text style={[styles.taskName, item.completed && styles.taskNameCompleted]}>
@@ -117,7 +117,7 @@ export default function TasksDashboardScreen() {
             <View style={styles.metaRow}>
               {item.completed && item.completedAt ? (
                 <>
-                  <Ionicons name="trash-outline" size={12} color={colors.onSurfaceVariant} />
+                  <Ionicons name="trash-outline" size={12} color={colors.textSecondary} />
                   <Text style={styles.trashDays}>
                     {(() => {
                       const daysLeft = Math.ceil(7 - (Date.now() - new Date(item.completedAt).getTime()) / 86400000);
@@ -210,7 +210,7 @@ export default function TasksDashboardScreen() {
         onPress={() => navigation.navigate('AddEditTask', {})}
         activeOpacity={0.85}
       >
-        <Ionicons name="add" size={28} color="#ffffff" />
+        <Ionicons name="add" size={28} color={colors.onSurface} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.lg,
     padding: 4,
     marginHorizontal: spacing.containerPadding,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   tabTextActive: {
     color: colors.onSurface,
@@ -256,9 +256,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
   },
@@ -293,11 +293,11 @@ const styles = StyleSheet.create({
   },
   taskNameCompleted: {
     textDecorationLine: 'line-through',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   taskDesc: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   metaRow: {
     flexDirection: 'row',
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   metaDivider: {
     fontSize: 10,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   trashDays: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
   },
   emptyState: {
     padding: 64,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyText: {
-    color: colors.onSurfaceVariant,
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });

@@ -74,7 +74,7 @@ export default function IdentityDetailsScreen() {
               style={styles.iconButton}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="arrow-back" size={24} color="#ccc3d8" />
+              <Ionicons name="arrow-back" size={24} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Your Details</Text>
             <View style={{ width: 40 }} />
@@ -101,11 +101,11 @@ export default function IdentityDetailsScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Date of Birth</Text>
                 <View style={styles.inputWrapper}>
-                  <Ionicons name="calendar-outline" size={20} color="#ccc3d8" style={styles.inputIcon} />
+                  <Ionicons name="calendar-outline" size={20} color={colors.onSurfaceVariant} style={styles.inputIcon} />
                   <TextInput
                     style={styles.textInput}
                     placeholder="DD/MM/YYYY"
-                    placeholderTextColor="rgba(204, 195, 216, 0.3)"
+                    placeholderTextColor={colors.outline}
                     keyboardType="number-pad"
                     maxLength={10}
                     value={dob}
@@ -162,7 +162,7 @@ export default function IdentityDetailsScreen() {
               <Ionicons
                 name="checkmark-circle-outline"
                 size={18}
-                color={isEnabled ? '#ffffff' : 'rgba(204, 195, 216, 0.4)'}
+                color={isEnabled ? colors.onSurface : colors.outline}
                 style={styles.buttonIcon}
               />
             </TouchableOpacity>
@@ -176,7 +176,7 @@ export default function IdentityDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#15121b',
+    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   body: {
     flex: 1,
@@ -208,13 +208,13 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 6,
-    backgroundColor: '#37333e',
+    backgroundColor: colors.surface,
     borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 999,
   },
   titleSection: {
@@ -224,21 +224,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#e8dfee',
+    color: colors.onSurface,
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: '#ccc3d8',
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
     opacity: 0.8,
   },
   formCard: {
     backgroundColor: 'rgba(30, 41, 59, 0.3)',
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 24,
     padding: 24,
     gap: 24,
@@ -249,15 +249,15 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#e8dfee',
+    color: colors.onSurface,
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1d1a24',
-    borderWidth: 1,
-    borderColor: 'rgba(74, 68, 85, 0.4)',
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 52,
@@ -268,15 +268,15 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#e8dfee',
+    color: colors.onSurface,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#1d1a24',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(74, 68, 85, 0.4)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   segmentButton: {
     flex: 1,
@@ -286,41 +286,41 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentButtonActive: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
   },
   segmentText: {
     fontSize: 14,
-    color: '#ccc3d8',
+    color: colors.onSurfaceVariant,
     fontWeight: '600',
   },
   segmentTextActive: {
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   button: {
     height: 56,
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#221e28',
+    backgroundColor: colors.surface,
     shadowOpacity: 0,
     elevation: 0,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onSurface,
   },
   buttonTextDisabled: {
-    color: 'rgba(204, 195, 216, 0.4)',
+    color: colors.outline,
   },
   buttonIcon: {
     marginLeft: 8,

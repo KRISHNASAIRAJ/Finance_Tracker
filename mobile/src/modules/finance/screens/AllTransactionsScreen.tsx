@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 4,
     backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.DEFAULT,
   },
   txLeft: {

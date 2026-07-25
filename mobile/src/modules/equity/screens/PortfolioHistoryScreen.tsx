@@ -112,12 +112,12 @@ export default function PortfolioHistoryScreen() {
   const [selectedIndex, setSelectedIndex] = useState(points.length - 1);
 
   const ALLOC_COLORS: Record<string, string> = {
-    Equity: '#60a5fa',
-    'Mutual Funds': '#a78bfa',
-    Gold: '#fbbf24',
-    Realty: '#34d399',
-    ETF: '#f472b6',
-    Other: '#94a3b8',
+    Equity: '#9BA5FF',
+    'Mutual Funds': '#8894A8',
+    Gold: '#E2A45C',
+    Realty: '#59D6C7',
+    ETF: '#FF887D',
+    Other: '#8894A8',
   };
 
   return (
@@ -155,15 +155,15 @@ export default function PortfolioHistoryScreen() {
             <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
               <Defs>
                 <LinearGradient id="hGrad" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                  <Stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+              <Stop offset="0%" stopColor={colors.stable} stopOpacity="0.3" />
+              <Stop offset="100%" stopColor={colors.stable} stopOpacity="0.0" />
                 </LinearGradient>
               </Defs>
-              <Line x1="0" y1={CHART_H * 0.5} x2={CHART_W} y2={CHART_H * 0.5} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+              <Line x1="0" y1={CHART_H * 0.5} x2={CHART_W} y2={CHART_H * 0.5} stroke={colors.border} strokeWidth="1" />
               <Path d={fillD} fill="url(#hGrad)" />
-              <Path d={pathD} stroke="#10b981" strokeWidth="2" fill="none" />
+              <Path d={pathD} stroke={colors.stable} strokeWidth="2" fill="none" />
               {selectedIndex >= 0 && selectedIndex < points.length && (
-                <Circle cx={points[selectedIndex].x} cy={points[selectedIndex].y} r="4" fill="#10b981" />
+                <Circle cx={points[selectedIndex].x} cy={points[selectedIndex].y} r="4" fill={colors.stable} />
               )}
             </Svg>
           </View>
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -272,9 +272,9 @@ const styles = StyleSheet.create({
     color: colors.outline,
   },
   heroCard: {
-    backgroundColor: '#0f0f1a',
-    borderColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.stableDim,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 4,
@@ -305,9 +305,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   chartCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
     gap: 12,
@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: colors.border,
   },
   pointRowActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: colors.stableDim,
     borderRadius: rounded.DEFAULT,
   },
   pointDate: {
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   allocBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
     borderRadius: 3,
     overflow: 'hidden',
   },

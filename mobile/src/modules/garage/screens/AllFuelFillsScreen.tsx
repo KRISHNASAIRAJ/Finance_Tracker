@@ -137,7 +137,7 @@ export default function AllFuelFillsScreen() {
             onPress={() => navigation.navigate('AddFuelFill')}
             activeOpacity={0.8}
           >
-            <Ionicons name="water-outline" size={18} color="#fff" />
+            <Ionicons name="water-outline" size={18} color={colors.textPrimary} />
             <Text style={styles.addFillBtnText}>Add Fill</Text>
           </TouchableOpacity>
         </View>
@@ -152,7 +152,7 @@ export default function AllFuelFillsScreen() {
               onPress={() => navigation.navigate('AddFuelFill')}
               activeOpacity={0.8}
             >
-              <Ionicons name="add-circle" size={18} color="#000" />
+              <Ionicons name="add-circle" size={18} color={colors.textInverse} />
               <Text style={styles.emptyAddBtnText}>Add First Fuel Fill</Text>
             </TouchableOpacity>
           </View>
@@ -207,8 +207,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   logoText: {
     fontSize: 18,
@@ -226,8 +226,8 @@ const styles = StyleSheet.create({
   tabContainer: {
     backgroundColor: colors.surface,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   tabScroll: {
     paddingHorizontal: spacing.containerPadding,
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -254,17 +254,17 @@ const styles = StyleSheet.create({
   scrollContent: { padding: spacing.containerPadding, gap: 14, paddingBottom: 60 },
   summaryRow: { flexDirection: 'row', gap: 10 },
   summaryCard: {
-    flex: 1, backgroundColor: colors.surfaceContainer,
-    borderColor: 'rgba(255,255,255,0.05)', borderWidth: 1,
+    flex: 1, backgroundColor: colors.surface,
+    borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg, padding: 14, alignItems: 'center', gap: 2,
   },
   summaryLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  summaryValue: { fontSize: 22, fontWeight: '800', color: '#c084fc' },
+  summaryValue: { fontSize: 22, fontWeight: '800', color: colors.action },
   summaryUnit: { fontSize: 11, color: colors.onSurfaceVariant },
   spendRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: colors.surfaceContainer, borderRadius: rounded.lg,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.surface, borderRadius: rounded.lg,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
     padding: 16, gap: 12,
   },
   spendLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
@@ -275,11 +275,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
     borderRadius: rounded.full, backgroundColor: colors.primaryContainer,
   },
-  addFillBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  addFillBtnText: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
   logRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing.cardPadding, backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
+    padding: spacing.cardPadding, backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
   logLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   iconContainer: { width: 36, height: 36, borderRadius: rounded.full, alignItems: 'center', justifyContent: 'center' },
@@ -299,5 +299,5 @@ const styles = StyleSheet.create({
     borderRadius: rounded.full, backgroundColor: colors.primary,
     marginTop: 4,
   },
-  emptyAddBtnText: { fontSize: 13, fontWeight: '700', color: '#000' },
+  emptyAddBtnText: { fontSize: 13, fontWeight: '700', color: colors.textInverse },
 });

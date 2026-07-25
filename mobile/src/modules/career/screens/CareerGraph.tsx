@@ -86,8 +86,8 @@ export default function CareerGraph({ events }: Props) {
           y1={baselineY}
           x2={PAD.left + CHART_W}
           y2={baselineY}
-          stroke="rgba(255,255,255,0.15)"
-          strokeWidth={1}
+          stroke={colors.border}
+          strokeWidth={StyleSheet.hairlineWidth}
           strokeDasharray="4,4"
         />
 
@@ -101,7 +101,7 @@ export default function CareerGraph({ events }: Props) {
           const y2 = yScale(prevV);
           const isUp = v > prevV || (v === prevV && v > 0);
           const isDown = v < prevV || (v === prevV && v < 0);
-          const fillColor = isUp ? colors.success : isDown ? colors.error : 'rgba(255,255,255,0.06)';
+          const fillColor = isUp ? colors.success : isDown ? colors.error : colors.border;
 
           return (
             <Path

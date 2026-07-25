@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -38,13 +38,13 @@ const CARD_TEMPLATES = CARD_DEFINITIONS.map(c => ({
 // Card brand-specific colors
 function getCardAccent(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes('cashback') || n.includes('sbi')) return '#3b82f6';
-  if (n.includes('power') || n.includes('idfc')) return '#10b981';
-  if (n.includes('simplysave')) return '#f59e0b';
-  if (n.includes('hsbc')) return '#ef4444';
-  if (n.includes('amazon') || n.includes('icici')) return '#a855f7';
-  if (n.includes('slice')) return '#f97316';
-  if (n.includes('cred') || n.includes('indusind')) return '#ec4899';
+  if (n.includes('cashback') || n.includes('sbi')) return colors.action;
+  if (n.includes('power') || n.includes('idfc')) return colors.stable;
+  if (n.includes('simplysave')) return colors.amber;
+  if (n.includes('hsbc')) return colors.attention;
+  if (n.includes('amazon') || n.includes('icici')) return colors.action;
+  if (n.includes('slice')) return colors.amber;
+  if (n.includes('cred') || n.includes('indusind')) return colors.attention;
   return colors.primary;
 }
 
@@ -141,7 +141,7 @@ export default function CreditCardsScreen() {
           const daysUntilDue = Math.ceil(
             (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
           );
-          const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? '#f59e0b' : colors.success;
+          const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? colors.amber : colors.success;
 
           const billingDay = card.billingDay || 15;
           const now = new Date();
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   logoText: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   logoSub: { fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 1 },
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   cardAccentBar: { width: 4, borderRadius: 0 },
@@ -456,8 +456,8 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: 24,
     gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
   modalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
@@ -466,8 +466,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
     color: colors.onSurface,
@@ -480,8 +480,8 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 12,
   },
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   modalBtnCancel: { backgroundColor: 'transparent' },
   modalBtnSave: { backgroundColor: colors.primaryContainer },
   modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: '#fff', fontWeight: '700' },
+  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
   deleteCardBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -505,13 +505,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rounded.full,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     backgroundColor: colors.surfaceContainer,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
-  chipTextActive: { color: '#fff' },
+  chipTextActive: { color: colors.textPrimary },
   rowFields: { flexDirection: 'row', gap: 10 },
   templatePill: {
     flexDirection: 'row',
@@ -521,8 +521,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: rounded.full,
     backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     marginRight: 8,
   },
   templateText: {

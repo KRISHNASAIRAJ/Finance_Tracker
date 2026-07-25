@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -295,7 +295,7 @@ export default function EditTransactionScreen() {
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.8}>
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
               <Text style={styles.submitButtonText}>Save Changes</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: rounded.DEFAULT,
   },
-  backButtonText: { color: '#fff', fontWeight: '600' },
+  backButtonText: { color: colors.textPrimary, fontWeight: '600' },
   scrollContent: { padding: spacing.containerPadding, gap: spacing.stackGapLg, paddingBottom: 40 },
   formHeader: { marginBottom: 4 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -362,14 +362,14 @@ const styles = StyleSheet.create({
   toggleActiveExpense: { backgroundColor: colors.errorContainer },
   toggleActiveIncome: { backgroundColor: colors.successContainer },
   toggleText: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant },
-  toggleTextActive: { color: '#fff' },
+  toggleTextActive: { color: colors.textPrimary },
   formSection: { gap: 10 },
   inputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   textInput: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 48,
     paddingHorizontal: 14,
     color: colors.onSurface,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: `${colors.primary}30`,
     height: 48,
     paddingHorizontal: 14,
@@ -397,8 +397,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: rounded.full,
     backgroundColor: colors.surfaceContainer,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   categoryText: { fontSize: 12, fontWeight: '500', color: colors.onSurfaceVariant },
   buttonContainer: { gap: 10, paddingTop: 8 },
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
   },
-  submitButtonText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  submitButtonText: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   cancelButton: { alignItems: 'center', paddingVertical: 12 },
   cancelButtonText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
   // Category chip styles (legacy — kept for old chip-scroll layout)
@@ -424,8 +424,8 @@ const styles = StyleSheet.create({
   dropdownList: {
     backgroundColor: colors.surfaceContainer,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     overflow: 'hidden',
     marginTop: 4,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: colors.border,
   },
   dropdownItemActive: {
     backgroundColor: `${colors.primary}15`,

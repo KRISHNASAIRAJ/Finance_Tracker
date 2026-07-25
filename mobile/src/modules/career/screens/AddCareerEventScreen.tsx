@@ -82,7 +82,7 @@ export default function AddCareerEventScreen() {
             value={name}
             onChangeText={setName}
             placeholder="e.g. Got Promotion, Lost Job..."
-            placeholderTextColor={colors.onSurfaceVariant}
+            placeholderTextColor={colors.textSecondary}
             autoFocus={!existing}
           />
         </View>
@@ -99,7 +99,7 @@ export default function AddCareerEventScreen() {
                 ]}
                 onPress={() => setType(t.key)}
               >
-                <Ionicons name={t.icon as any} size={16} color={type === t.key ? t.color : colors.onSurfaceVariant} />
+                <Ionicons name={t.icon as any} size={16} color={type === t.key ? t.color : colors.textSecondary} />
                 <Text style={[styles.typeText, type === t.key && { color: t.color, fontWeight: '700' }]}>
                   {t.label}
                 </Text>
@@ -129,7 +129,7 @@ export default function AddCareerEventScreen() {
             value={notes}
             onChangeText={setNotes}
             placeholder="Add any extra context..."
-            placeholderTextColor={colors.onSurfaceVariant}
+            placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -137,7 +137,7 @@ export default function AddCareerEventScreen() {
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+          <Ionicons name="checkmark-circle" size={20} color={colors.onSurface} />
           <Text style={styles.saveText}>{existing ? 'Update Event' : 'Save Event'}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -164,19 +164,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 64,
     paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   title: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
   iconBtn: { padding: 8, borderRadius: rounded.full },
   scroll: { padding: spacing.containerPadding, gap: 20, paddingBottom: 40 },
   field: { gap: 8 },
-  label: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  label: { fontSize: 10, fontWeight: '600', color: colors.textSecondary, letterSpacing: 0.6 },
   input: {
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 48,
     paddingHorizontal: 14,
     color: colors.onSurface,
@@ -193,19 +193,19 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     borderRadius: rounded.DEFAULT,
-    backgroundColor: colors.surfaceContainer,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  typeText: { fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant },
+  typeText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.surfaceContainer,
+    backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     height: 44,
     paddingHorizontal: 14,
   },
@@ -220,5 +220,5 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     marginTop: 8,
   },
-  saveText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  saveText: { fontSize: 16, fontWeight: '700', color: colors.onSurface },
 });
