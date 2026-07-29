@@ -1,0 +1,470 @@
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+
+import { colors } from '../../../shared/theme/colors';
+import { spacing, rounded } from '../../../shared/theme/spacing';
+import { useTasksStore, RecurrenceType } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
+import { TasksStackParamList } from '../../../navigation/RootNavigator';
+import { scheduleAllReminders } from '../../../services/notificationService';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
+import TimePicker from '../../../shared/components/TimePicker';
+
+type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'AddEditTask'>;
+type RouteProps = RouteProp<TasksStackParamList, 'AddEditTask'>;
+
+const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
+const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
+  { value: 'none', label: 'None', icon: 'close-circle-outline' },
+  { value: 'daily', label: 'Daily', icon: 'sunny-outline' },
+  { value: 'weekdays', label: 'Mon-Fri', icon: 'briefcase-outline' },
+  { value: 'weekly', label: 'Weekly', icon: 'calendar-outline' },
+  { value: 'monthly', label: 'Monthly', icon: 'calendar-number-outline' },
+];
+
+export default function AddEditTaskScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<RouteProps>();
+  const { user } = useAuth();
+  const { tasks, addTask, editTask } = useTasksStore();
+  const taskId = route.params?.taskId;
+  const isEditing = !!taskId;
+
+  const existingTask = isEditing ? tasks.find((t) => t.id === taskId) : null;
+
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<typeof PRIORITIES[number]>('medium');
+  const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
+  const [subtaskInput, setSubtaskInput] = useState('');
+  const [localSubtasks, setLocalSubtasks] = useState<string[]>([]);
+  const [dueDate, setDueDate] = useState(new Date(Date.now() + 86400000));
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [timeVisible, setTimeVisible] = useState(false);
+
+  useEffect(() => {
+    if (existingTask) {
+      setName(existingTask.name);
+      setDescription(existingTask.description || '');
+      setPriority(existingTask.priority);
+      setRecurrence(existingTask.recurrence);
+      setLocalSubtasks(existingTask.subtasks.map((s) => s.name));
+      setDueDate(new Date(existingTask.dueDate));
+    }
+  }, [existingTask]);
+
+  const handleAddSubtask = () => {
+    if (!subtaskInput.trim()) return;
+    setLocalSubtasks([...localSubtasks, subtaskInput.trim()]);
+    setSubtaskInput('');
+  };
+
+  const handleRemoveSubtask = (index: number) => {
+    setLocalSubtasks(localSubtasks.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      alert('Please enter a task name');
+      return;
+    }
+
+    if (isEditing && taskId) {
+      editTask(taskId, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        priority,
+        dueDate: dueDate.toISOString(),
+        subtasks: localSubtasks,
+        recurrence,
+      }, user?.id);
+    } else {
+      addTask({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        priority,
+        dueDate: dueDate.toISOString(),
+        subtasks: localSubtasks,
+        recurrence,
+      }, user?.id);
+    }
+
+    scheduleAllReminders();
+    navigation.goBack();
+  };
+
+  const getPriorityColor = (p: string) => {
+    switch (p) {
+      case 'urgent':
+        return colors.error;
+      case 'high':
+        return colors.warning;
+      case 'medium':
+        return colors.primary;
+      default:
+        return colors.outline;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.formHeader}>
+            <Text style={styles.headerTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
+            <Text style={styles.headerSubtitle}>Set priorities, milestones, and recurrence</Text>
+          </View>
+
+          {/* Name */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>TASK NAME</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Clean the garage, Fix bug #42"
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
+
+          {/* Description */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>DESCRIPTION</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              placeholder="Add details, notes, links..."
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={3}
+              value={description}
+              onChangeText={setDescription}
+            />
+          </View>
+
+          {/* Priority Select */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>PRIORITY LEVEL</Text>
+            <View style={styles.chipRow}>
+              {PRIORITIES.map((p) => {
+                const isSelected = priority === p;
+                const dotColor = getPriorityColor(p);
+                return (
+                  <TouchableOpacity
+                    key={p}
+                    style={[
+                      styles.chip,
+                      isSelected && { backgroundColor: `${dotColor}25`, borderColor: dotColor },
+                    ]}
+                    onPress={() => setPriority(p)}
+                  >
+                    <View style={[styles.priorityDot, { backgroundColor: dotColor }]} />
+                    <Text style={[styles.chipText, isSelected && { color: colors.onSurface, fontWeight: 'bold' }]}>
+                      {p.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Recurrence Picker */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>RECURRENCE</Text>
+            <View style={styles.chipRow}>
+              {RECURRENCES.map((r) => {
+                const isSelected = recurrence === r.value;
+                return (
+                  <TouchableOpacity
+                    key={r.value}
+                    style={[styles.chip, isSelected && styles.chipActive]}
+                    onPress={() => setRecurrence(r.value)}
+                  >
+                    <Ionicons
+                      name={r.icon as any}
+                      size={14}
+                      color={isSelected ? colors.primary : colors.textSecondary}
+                    />
+                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                      {r.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Due date + time */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>DUE DATE & TIME</Text>
+            <View style={styles.dateTimeRow}>
+              <TouchableOpacity
+                style={[styles.datePickerTrigger, { flex: 1 }]}
+                onPress={() => setCalendarVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.datePickerTrigger, { width: 130 }]}
+                onPress={() => setTimeVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {dueDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Calendar Picker */}
+          <CalendarPicker
+            visible={calendarVisible}
+            selected={dueDate}
+            onSelect={setDueDate}
+            onClose={() => setCalendarVisible(false)}
+          />
+          {/* Time Picker */}
+          <TimePicker
+            visible={timeVisible}
+            selected={dueDate}
+            onSelect={setDueDate}
+            onClose={() => setTimeVisible(false)}
+          />
+
+          {/* Subtasks Builder */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>SUBTASKS (CHECKLIST)</Text>
+            <View style={styles.subtaskBuilderRow}>
+              <TextInput
+                style={[styles.textInput, { flex: 1 }]}
+                placeholder="Add subtask details..."
+                placeholderTextColor={colors.textSecondary}
+                value={subtaskInput}
+                onChangeText={setSubtaskInput}
+                onSubmitEditing={handleAddSubtask}
+              />
+              <TouchableOpacity style={styles.addButton} onPress={handleAddSubtask}>
+                <Ionicons name="add" size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+            </View>
+
+            {localSubtasks.length > 0 && (
+              <View style={styles.subtaskList}>
+                {localSubtasks.map((st, index) => (
+                  <View key={index} style={styles.subtaskRow}>
+                    <View style={styles.subtaskLeft}>
+                      <Ionicons name="ellipse-outline" size={12} color={colors.primary} />
+                      <Text style={styles.subtaskText}>{st}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleRemoveSubtask(index)}>
+                      <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.submitButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.containerPadding,
+    gap: spacing.stackGapLg,
+  },
+  formHeader: {
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  formSection: {
+    gap: spacing.stackGapSm,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.6,
+  },
+  textInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: colors.onSurface,
+    fontSize: 15,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: rounded.full,
+  },
+  chipActive: {
+    backgroundColor: `${colors.primary}25`,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  chipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: rounded.full,
+  },
+  subtaskBuilderRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  addButton: {
+    backgroundColor: colors.primaryContainer,
+    width: 48,
+    height: 48,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subtaskList: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 4,
+  },
+  subtaskRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  subtaskLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  subtaskText: {
+    fontSize: 13,
+    color: colors.onSurface,
+  },
+  buttonContainer: {
+    gap: spacing.stackGapSm,
+    marginTop: 16,
+  },
+  submitButton: {
+    backgroundColor: colors.primaryContainer,
+    borderRadius: rounded.DEFAULT,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  cancelButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  datePickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    height: 48,
+    paddingHorizontal: 14,
+  },
+  datePickerText: { fontSize: 16, color: colors.onSurface, fontWeight: '600' },
+  dateTimeRow: { flexDirection: 'row', gap: 10 },
+});

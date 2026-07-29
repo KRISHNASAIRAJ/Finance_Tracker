@@ -1,1 +1,164 @@
-# Finance_Tracker
+# Meridian — Personal Life Tracker
+
+Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across seven modules. Built with React Native (Expo) and Supabase, featuring offline-first sync, AI-powered insights, and Android home screen widgets.
+
+## Modules
+
+| Module | Description |
+|---|---|
+| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, bill payment tracking, PayZapp wallet, combined reports |
+| **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
+| **Task Manager** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
+| **Equity/MF Tracker** | Holdings, Kite Connect sync, allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron |
+| **Personal** | Goals, notes, recipes, diet plans with onboarding flow, diet notifications |
+| **Career Tracker** (NEW) | Career ups & downs with area chart visualization, event timeline |
+| **Meal Logger** (NEW) | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
+
+## Cross-Module Integration
+
+- **Fuel → Finance:** Fuel fill expenses flow from Garage into Finance dashboards (donut charts, monthly spends, reports). Editing a fuel entry from any Finance screen opens the Garage EditFuelFill screen.
+- **Garage sync:** Fills sync from Supabase on app startup via `GarageSyncInitializer` in RootNavigator.
+- **Card bill payment:** Mark credit card bills as paid from the card detail screen; re-sorts cards by due date.
+- **Recurrence auto-create:** Checking off a recurring task auto-creates the next occurrence.
+
+## Android Home Screen Widgets (NEW)
+
+Four 2×2 home screen widgets for one-tap access:
+
+| Widget | Deep Link | Opens |
+|---|---|---|
+| Add Expense | `meridian://add-expense` | Finance → Add Expense screen |
+| Add Fuel | `meridian://add-fuel` | Garage → Add Fuel Fill screen |
+| Add Task | `meridian://add-task` | Tasks → Add Task screen |
+| Combined Report | `meridian://combined-report` | More → Combined Report screen |
+
+## Tech Stack
+
+- **Mobile:** React Native (Expo) + TypeScript
+- **State:** Zustand + AsyncStorage (persistent)
+- **Navigation:** React Navigation (Native Stack + Bottom Tabs)
+- **Backend:** Supabase (PostgreSQL + Edge Functions in Deno/TypeScript)
+- **Auth:** Supabase Auth (JWT)
+- **AI:** Groq API (Llama 3.3 70B + Llama 3.1 8B)
+- **Notifications:** Expo Push Notifications + local scheduling
+- **Design:** Dark mode first, Glassmorphism UI, custom DateTimePicker (Fold Money style)
+
+## Project Structure
+
+```
+meridian/
+├── AGENTS.md              ← AI agent governance (read first)
+├── PRD.md                 ← Product requirements
+├── ARCHITECTURE.md        ← System design & data models
+├── DESIGN.md              ← UI design system & screen specs
+├── SAFETY.md              ← AI safety & data privacy
+├── BOUNDARIES.md          ← Hard constraints
+├── ADR/                   ← Architecture Decision Records
+├── docs/                  ← API contracts, DB schema, notification flows
+├── mobile/                ← React Native app
+│   ├── src/
+│   │   ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal, career, meals)
+│   │   ├── shared/        ← Shared components, hooks, utilities
+│   │   ├── navigation/    ← Navigator setup
+│   │   ├── store/         ← Zustand global state
+│   │   └── services/      ← API clients, local DB, sync queue, notifications
+│   └── android/           ← Android native layer (widgets)
+└── supabase/
+    ├── config.toml         ← Supabase project config
+    ├── migrations/        ← SQL migration files (19 migrations)
+    └── functions/         ← Deno Edge Functions
+```
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- Supabase CLI (optional, for edge function development)
+
+### Install & Run
+
+```bash
+# Clone and install
+cd mobile
+npm install
+
+# Copy environment template (fill in your Supabase URL + anon key)
+cp ../.env.example .env
+
+# Start Expo dev server
+npx expo start
+
+# Run on Android
+npx expo run:android
+```
+
+Alternatively, use the install script:
+
+```powershell
+.\scripts\install-dev.ps1
+```
+
+## Available Commands
+
+```bash
+cd mobile
+npm run android        # Run on connected device/emulator
+npm run ios            # Run on iOS simulator
+npm test               # Jest test suite
+npm run lint           # ESLint check
+npm run typecheck      # TypeScript type check
+
+# Supabase
+supabase link --project-ref rkmouoglorsnijmemmcd
+supabase db push       # Push migrations
+supabase functions deploy <fn>  # Deploy edge function
+```
+
+## Environment Variables
+
+Copy `.env.example` to `mobile/.env` and configure:
+
+| Variable | Description |
+|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous (publishable) key |
+| `EXPO_PUBLIC_KITE_API_KEY` | Kite Connect API key (for equity sync) |
+
+## Data Sync Architecture
+
+Meridian uses an offline-first bidirectional sync pattern:
+
+- **App → Cloud:** Every mutation (create/edit/delete) writes to local Zustand store, then enqueues a sync operation. Data is always enqueued regardless of auth state; `processSyncQueue` resolves `user_id` from the current session at flush time.
+- **Cloud → App:** On every screen focus, the latest data is pulled from Supabase and merged into the local store.
+- **Auto-sync on sign-in:** `AuthProvider` triggers `processSyncQueue` immediately after login, flushing all offline-queued data.
+- **Background sync:** Expo BackgroundFetch runs periodically to flush pending offline changes.
+
+All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) with retry and exponential backoff (max 5 retries).
+
+## Conventions
+
+- **TypeScript only** — no plain JS
+- Dates stored as UTC, displayed in IST (Asia/Kolkata)
+- Monetary values in paise (integers) — never floats in DB
+- DB tables: `snake_case`, migrations: numbered, edge functions: `kebab-case`
+- Screens: `PascalCaseScreen`, components: `PascalCase`, stores: `camelCaseStore`
+- All financial events route through the unified `transactions` table
+- No dummy/seed data in stores — all data is user-generated
+
+## Documentation
+
+| Area | Document |
+|---|---|
+| Full product spec | `PRD.md` |
+| System design | `ARCHITECTURE.md` |
+| DB schema | `docs/db-schema.md` |
+| UI design system | `DESIGN.md` |
+| API contracts | `docs/api-contracts.md` |
+| Notification flows | `docs/notification-flows.md` |
+| AI safety rules | `SAFETY.md` |
+
+## License
+
+Private — personal use only.
