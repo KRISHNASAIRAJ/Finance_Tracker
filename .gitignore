@@ -1,0 +1,72 @@
+# .gitignore — Meridian App
+
+# MCP / AI agent config (contains API keys)
+opencode.json
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+
+# Node
+node_modules/
+npm-debug.*
+*.jsbundle
+
+# macOS
+.DS_Store
+
+# Environment secrets — NEVER COMMIT THESE
+.env
+.env.*
+!.env.example
+
+# Android build artifacts
+android/app/build/
+android/build/
+*.keystore
+!debug.keystore
+
+# iOS build artifacts
+ios/Pods/
+ios/build/
+
+# Log files
+*.log
+build.log
+
+# TypeScript cache
+tsconfig.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.so
+
+# Backend (archived — see backend-fastapi-archived branch, ADR-008)
+backend/
+
+# Test scripts
+verifyAuth.js
+
+# Mobile AI agent configs (per-submodule)
+mobile/.claude/
+mobile/AGENTS.md
+mobile/CLAUDE.md
+mobile/old_data/
+
+# SMS native module build cache (paths too long for Git on Windows)
+mobile/modules/sms-native/android/build/
+
+# Supabase local CLI metadata (contains org/project refs)
+supabase/.temp/
+
+# Reference T&C docs (banks' PDFs — don't commit)
+docs/TnC\ Docs/
