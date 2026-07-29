@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   backBtn: { padding: 6, borderRadius: rounded.full },
   appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
@@ -227,9 +227,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: colors.onSurfaceVariant },
   donutCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
   },
   donutRow: {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: rounded.DEFAULT,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderLeftWidth: 3,
     padding: 14,
     gap: 10,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   allocBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 3,
     overflow: 'hidden',
   },

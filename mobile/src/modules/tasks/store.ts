@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly';
+export type RecurrenceType = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly';
 
 export interface Subtask {
   id: string;
@@ -37,6 +37,11 @@ function getNextDueDate(currentDue: string, recurrence: RecurrenceType): string 
   const d = new Date(currentDue);
   switch (recurrence) {
     case 'daily': d.setDate(d.getDate() + 1); break;
+    case 'weekdays': {
+      d.setDate(d.getDate() + 1);
+      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+      break;
+    }
     case 'weekly': d.setDate(d.getDate() + 7); break;
     case 'monthly': d.setMonth(d.getMonth() + 1); break;
     default: return currentDue;

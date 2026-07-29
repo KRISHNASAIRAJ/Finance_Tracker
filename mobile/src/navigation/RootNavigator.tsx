@@ -67,6 +67,7 @@ import MealAIConfirmScreen from '../modules/meals/screens/MealAIConfirmScreen';
 import MealEditScreen from '../modules/meals/screens/MealEditScreen';
 import WeightTrackerScreen from '../modules/meals/screens/WeightTrackerScreen';
 import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
+import WeeklyDiaryScreen from '../modules/diary/screens/WeeklyDiaryScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -129,6 +130,7 @@ export type MoreStackParamList = {
   MealEdit: { entryId?: string; date?: string; mealType?: string } | undefined;
   WeightTracker: undefined;
   DietViewer: undefined;
+  WeeklyDiary: undefined;
 };
 
 export type RootTabParamList = {
@@ -247,6 +249,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MealEdit" component={MealEditScreen} />
       <MoreStack.Screen name="WeightTracker" component={WeightTrackerScreen} />
       <MoreStack.Screen name="DietViewer" component={DietViewerScreen} />
+      <MoreStack.Screen name="WeeklyDiary" component={WeeklyDiaryScreen} />
     </MoreStack.Navigator>
   );
 }

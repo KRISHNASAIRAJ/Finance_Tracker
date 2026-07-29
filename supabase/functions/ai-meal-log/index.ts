@@ -2,14 +2,16 @@
  * ai-meal-log Edge Function
  *
  * AI-powered meal detection and nutrition estimation.
- * Supports image analysis (Qwen 3.6 27B vision) and text descriptions (Llama 3.3 70B).
+ * Images: Hugging Face Qwen2.5-VL-7B-Instruct (free).
+ * Text/Conversation: Groq Llama 3.3 70B (free).
  * Multi-turn conversation for clarifying uncertain items.
  *
  * Deploy: supabase functions deploy ai-meal-log
- * Secrets: GROQ_API_KEY
+ * Secrets: GROQ_API_KEY, HF_API_KEY
  */
 
 import { createGroqClient } from "../_shared/groq.ts";
+import { createHFClient } from "../_shared/huggingface.ts";
 
 const SYSTEM_PROMPT = `You are a nutritionist AI assistant for Meridian, a personal life tracker app.
 You analyze meal photos or text descriptions and return structured food items with nutritional estimates.
@@ -141,6 +143,72 @@ function sanitizeBase64(base64: string): string {
   return cleaned;
 }
 
+async function analyzeWithVision(
+  imageBase64: string,
+  mimeType: string,
+  dataUri: string,
+  promptText: string,
+): Promise<string> {
+  // Attempt 1: Hugging Face free serverless inference
+  try {
+    console.log("ai-meal-log: Trying HF Qwen VL...");
+    const hf = createHFClient();
+    const result = await hf.completeVision({
+      systemPrompt: SYSTEM_PROMPT,
+      imageBase64,
+      imageMime: mimeType,
+      userText: promptText,
+      maxTokens: 1500,
+      temperature: 0.3,
+    });
+    console.log("ai-meal-log: HF success —", result.content.length, "chars");
+    return result.content;
+  } catch (hfErr: any) {
+    console.warn("ai-meal-log: HF failed —", hfErr?.message);
+  }
+
+  // Attempt 2: Groq — two-step: vision describes, text model structures
+  console.log("ai-meal-log: Falling back to Groq 2-step...");
+
+  // Step A: Vision model describes the food in natural language
+  const groq = createGroqClient();
+  const visionResult = await groq.completeVision({
+    systemPrompt: "You are a nutritionist. Describe every food item visible in this meal photo in detail: what dish, estimated portion size, and visible ingredients. Be specific and factual. Do NOT output JSON — just plain natural language.",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Describe every food item in this meal photo in detail — what each dish is, estimated portion size, and visible ingredients." },
+          { type: "image_url", image_url: { url: dataUri } },
+        ],
+      },
+    ],
+    maxTokens: 800,
+    temperature: 0.3,
+  });
+
+  const foodDescription = visionResult.content;
+  console.log("ai-meal-log: Vision description:", foodDescription.substring(0, 150), "...");
+
+  // Step B: Text model parses the description into structured JSON
+  const jsonPrompt = `${SYSTEM_PROMPT}
+
+The user provided this description of their meal:
+"${foodDescription}"
+
+Parse this into the JSON format. Estimate nutrition for each item based on the description. Output ONLY the JSON object.`;
+
+  const jsonResult = await groq.complete({
+    systemPrompt: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: jsonPrompt }],
+    maxTokens: 1200,
+    temperature: 0.2,
+  });
+
+  console.log("ai-meal-log: JSON parser output length:", jsonResult.length);
+  return jsonResult;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -182,27 +250,7 @@ Deno.serve(async (req: Request) => {
       const mimeType = detectImageMime(image);
       const dataUri = `data:${mimeType};base64,${image}`;
 
-      console.log("ai-meal-log: calling Groq vision API with mime:", mimeType);
-
-      const groq = createGroqClient();
-      const result = await groq.completeVision({
-        systemPrompt: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: promptText },
-              { type: "image_url", image_url: { url: dataUri } },
-            ],
-          },
-        ],
-        maxTokens: 1500,
-        temperature: 0.3,
-        jsonMode: false,
-      });
-
-      response = result.content;
-      console.log("ai-meal-log: Groq vision response length:", response.length);
+      response = await analyzeWithVision(image, mimeType, dataUri, promptText);
     } else if (hasConversation) {
       const groqText = createGroqClient();
       const messages = conversation.map((m) => ({
@@ -254,12 +302,12 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         items: [],
-        message: `AI error: ${errorMessage}`,
+        message: `${errorMessage}`,
         hasQuestions: false,
         isComplete: true,
         error: errorMessage,
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
   }
 });

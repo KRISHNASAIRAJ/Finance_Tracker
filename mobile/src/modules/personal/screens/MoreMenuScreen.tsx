@@ -32,7 +32,7 @@ import { usePersonalSync, syncPersonalNow } from '../hooks/usePersonalSync';
 import { useEquitySync, syncEquityNow } from '../../equity/hooks/useEquitySync';
 import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
 import { supabase, SUPABASE_URL } from '../../../services/supabaseClient';
-import { processSyncQueue } from '../../../services/syncQueue';
+import { processSyncQueue, getSyncStatus, onSyncStatusChange, type SyncStatus } from '../../../services/syncQueue';
 import { generateMonthlyReport } from '../../../services/reportService';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
@@ -66,6 +66,13 @@ export default function MoreMenuScreen() {
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
+  const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const unsub = onSyncStatusChange(setSyncStatus);
+    return unsub;
+  }, []);
 
   const monthlyBudget = useFinanceStore((s) => s.monthlyBudget);
   const setMonthlyBudget = useFinanceStore((s) => s.setMonthlyBudget);
@@ -76,11 +83,24 @@ export default function MoreMenuScreen() {
   const handleSyncNow = async () => {
     if (!user || syncing) return;
     setSyncing(true);
+    setSyncResultMsg(null);
+    const pqResult = await processSyncQueue();
     await syncNow(user.id);
     await syncPersonalNow(user.id);
     await syncEquityNow(user.id);
     await syncTasksNow(user.id);
+    const status = getSyncStatus();
+    if (pqResult.error) {
+      setSyncResultMsg(pqResult.error);
+    } else if (pqResult.succeeded > 0) {
+      setSyncResultMsg(`Synced ${pqResult.succeeded} items${pqResult.failed > 0 ? `, ${pqResult.failed} failed` : ''}${status.queueCount > 0 ? `, ${status.queueCount} pending` : ''}`);
+    } else if (status.queueCount > 0) {
+      setSyncResultMsg(`${status.queueCount} items pending`);
+    } else {
+      setSyncResultMsg('Up to date');
+    }
     setSyncing(false);
+    setTimeout(() => setSyncResultMsg(null), 5000);
   };
 
   const timeAgo = (isoStr: string | null): string => {
@@ -222,6 +242,14 @@ export default function MoreMenuScreen() {
       color: colors.tertiary,
       route: 'CareerTracker' as const,
     },
+    {
+      id: 'diary',
+      title: 'Weekly Diary',
+      subtitle: 'Weekly reflections & journal',
+      icon: 'journal-outline',
+      color: '#E2A45C',
+      route: 'WeeklyDiary' as const,
+    },
   ];
 
   const handleConnectKite = () => {
@@ -261,7 +289,12 @@ export default function MoreMenuScreen() {
       );
       const data = await res.json();
       if (data.error) {
-        setKiteSyncResult(data.error);
+        const err = data.error.toLowerCase();
+        if (err.includes('incorrect') || err.includes('api_key') || err.includes('access_token')) {
+          setKiteSyncResult('Token expired — tap "Connect Kite" to re-authenticate');
+        } else {
+          setKiteSyncResult(data.error);
+        }
       } else if (!res.ok) {
         setKiteSyncResult('Server error');
       } else {
@@ -274,8 +307,38 @@ export default function MoreMenuScreen() {
       setKiteSyncResult(e.message || 'Sync failed');
     } finally {
       setKiteSyncing(false);
-      setTimeout(() => setKiteSyncResult(null), 3000);
+      setTimeout(() => setKiteSyncResult(null), 6000);
     }
+  };
+
+  const handleDisconnectKite = async () => {
+    if (!user) return;
+    Alert.alert(
+      'Disconnect Kite',
+      'This will remove your Zerodha connection. You can reconnect anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('kite_tokens').delete().or(`user_id.eq.${user.id},user_id.eq.default`);
+              if (error) {
+                Alert.alert('Error', 'Failed to disconnect: ' + error.message);
+              } else {
+                setKiteConnected(false);
+                setKiteLastSynced(null);
+                setKiteSyncResult('Disconnected');
+                setTimeout(() => setKiteSyncResult(null), 3000);
+              }
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Disconnect failed');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -378,7 +441,7 @@ export default function MoreMenuScreen() {
                   {kiteConnected ? 'Kite Connected' : 'Connect Kite'}
                 </Text>
                 <Text style={styles.cardSubtitle}>
-                  {kiteConnected ? 'Zerodha account linked' : 'Re-authenticate with Zerodha Kite'}
+                  {kiteConnected ? 'Zerodha account linked' : 'Authenticate with Zerodha Kite'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
@@ -411,6 +474,23 @@ export default function MoreMenuScreen() {
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
             </TouchableOpacity>
+
+            {kiteConnected && (
+              <TouchableOpacity
+                style={[styles.menuCard, { borderColor: 'rgba(239,68,68,0.3)', borderWidth: 1 }]}
+                onPress={handleDisconnectKite}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.iconWrapper, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                  <Ionicons name="unlink-outline" size={24} color={colors.error} />
+                </View>
+                <View style={styles.cardDetails}>
+                  <Text style={[styles.cardTitle, { color: colors.error }]}>Disconnect Kite</Text>
+                  <Text style={styles.cardSubtitle}>Remove Zerodha connection</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.error} style={styles.arrow} />
+              </TouchableOpacity>
+            )}
           </>
         )}
 
@@ -497,28 +577,43 @@ export default function MoreMenuScreen() {
             <Text style={styles.cardTitle}>{user ? 'Cloud Synced' : 'Sign In to Sync'}</Text>
             <Text style={styles.cardSubtitle}>
               {user
-                ? `Signed in as ${user.email}`
+                ? `Signed in as ${user.email}${syncStatus.queueCount > 0 ? ` — ${syncStatus.queueCount} pending` : ''}`
                 : 'Sync expenses, cards, and data across devices'}
             </Text>
+            {syncStatus.lastError && (
+              <Text style={styles.syncError} numberOfLines={2}>
+                {syncStatus.lastError}
+              </Text>
+            )}
           </View>
         </View>
 
         {user && (
-          <TouchableOpacity
-            style={styles.syncNowBtn}
-            onPress={handleSyncNow}
-            disabled={syncing}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={syncing ? 'sync-outline' : 'sync-outline'}
-              size={16}
-              color={colors.primary}
-            />
-            <Text style={styles.syncNowText}>
-              {syncing ? 'Syncing...' : 'Sync Now'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.syncNowBtn}
+              onPress={handleSyncNow}
+              disabled={syncing}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={syncing ? 'sync-outline' : 'sync-outline'}
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={styles.syncNowText}>
+                {syncing ? 'Syncing...' : syncResultMsg || 'Sync Now'}
+              </Text>
+            </TouchableOpacity>
+            {syncStatus.queueCount > 0 && !syncResultMsg && (
+              <View style={styles.pendingBar}>
+                <Ionicons name="hourglass-outline" size={14} color={colors.warning} />
+                <Text style={styles.pendingText}>
+                  {syncStatus.queueCount} item{syncStatus.queueCount > 1 ? 's' : ''} waiting to sync
+                </Text>
+              </View>
+            )}
+          </>
         )}
 
         {!user && (
@@ -804,5 +899,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.error,
+  },
+  syncError: {
+    fontSize: 11,
+    color: colors.error,
+    marginTop: 3,
+    fontWeight: '500',
+  },
+  pendingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 4,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: `${colors.warning}12`,
+    alignSelf: 'center',
+  },
+  pendingText: {
+    fontSize: 11,
+    color: colors.warning,
+    fontWeight: '600',
   },
 });

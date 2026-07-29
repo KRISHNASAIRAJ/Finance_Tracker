@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   iconButton: {
     padding: 8,
@@ -149,21 +149,21 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
+    borderRadius: rounded.xl,
+    padding: 20,
     alignItems: 'center',
     gap: 4,
   },
   heroLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    letterSpacing: 1,
   },
   heroValue: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: colors.onSurface,
   },
@@ -182,9 +182,9 @@ const styles = StyleSheet.create({
   },
   listCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     overflow: 'hidden',
   },
   holdingRow: {
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.cardPadding,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   holdingLeft: {
     flex: 1,

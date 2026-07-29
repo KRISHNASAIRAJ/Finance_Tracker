@@ -76,8 +76,25 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    console.log(`[kite-holdings-sync] Querying kite_tokens for user_id: ${userId.substring(0, 12)}...`);
+
+    // List ALL rows in kite_tokens for diagnostic purposes
+    const { data: allRows, error: countErr } = await supabase
+      .from("kite_tokens")
+      .select("user_id, access_token")
+      .limit(10);
+    console.log(`[kite-holdings-sync] Total kite_tokens rows in DB: ${allRows?.length ?? 0}`);
+    if (allRows && allRows.length > 0) {
+      for (const r of allRows) {
+        const uid = (r.user_id ?? "").substring(0, 12);
+        const tok = (r.access_token ?? "").substring(0, 4) + "..." + (r.access_token ?? "").slice(-4);
+        console.log(`[kite-holdings-sync]   DB row: user_id=${uid}, token=${tok}, len=${r.access_token?.length}`);
+      }
+    }
+
     // Fetch access token — prefer matching user_id, fallback to first available (legacy tokens)
     let accessToken: string | null = null;
+    let tokenSource = "unknown";
 
     const { data: matchedRows, error: matchErr } = await supabase
       .from("kite_tokens")
@@ -90,6 +107,8 @@ Deno.serve(async (req: Request) => {
 
     if (matchedRows && matchedRows.length > 0) {
       accessToken = matchedRows[0].access_token;
+      tokenSource = "exact_match";
+      console.log(`[kite-holdings-sync] Token found by exact user_id match`);
     } else {
       // Legacy fallback: old tokens stored with Kite internal ID as user_id
       const { data: legacyRows, error: legacyErr } = await supabase
@@ -105,8 +124,10 @@ Deno.serve(async (req: Request) => {
       }
 
       accessToken = legacyRows[0].access_token;
+      tokenSource = "legacy_fallback";
       // Migrate: update the legacy token's user_id to match the requesting user
       const legacyUserId = legacyRows[0].user_id;
+      console.log(`[kite-holdings-sync] Token found by LEGACY FALLBACK — stored user_id="${legacyUserId?.substring(0, 12)}...", request user_id="${userId.substring(0, 12)}..."`);
       if (legacyUserId !== userId) {
         await supabase
           .from("kite_tokens")
@@ -123,10 +144,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const tokPreview = accessToken.substring(0, 4) + "..." + accessToken.slice(-4);
+    console.log(`[kite-holdings-sync] Token preview: ${tokPreview}, length: ${accessToken.length}, source: ${tokenSource}`);
+    console.log(`[kite-holdings-sync] Auth header key prefix: ${KITE_API_KEY.substring(0, 5)}...`);
+
+    const authHeader = `token ${KITE_API_KEY}:${accessToken}`;
+
+    // Verify token validity via lightweight Kite profile endpoint first
+    try {
+      const profileRes = await fetch("https://api.kite.trade/user/profile", {
+        headers: { Authorization: authHeader },
+      });
+      const profileData = await profileRes.json();
+      if (profileData.status !== "success") {
+        console.error(`[kite-holdings-sync] Token verification FAILED — message: ${profileData.message || 'unknown'}, code: ${profileData.error_code || 'none'}`);
+        return new Response(
+          JSON.stringify({
+            error: `Kite token invalid — please tap "Connect Kite" to re-authenticate. (${profileData.message || 'token rejected'})`,
+            synced: 0,
+            needsReconnect: true,
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      console.log(`[kite-holdings-sync] Token verified — user: ${profileData.data?.user_name || 'unknown'}`);
+    } catch (profileErr: any) {
+      console.warn(`[kite-holdings-sync] Profile check network error: ${profileErr?.message ?? profileErr}`);
+    }
+
     // Fetch equity holdings from Kite Connect
     const kiteRes = await fetch("https://api.kite.trade/portfolio/holdings", {
       headers: {
-        Authorization: `token ${KITE_API_KEY}:${accessToken}`,
+        Authorization: authHeader,
       },
     });
 
@@ -137,8 +186,9 @@ Deno.serve(async (req: Request) => {
       console.error(`[kite-holdings-sync] Kite API error — message: ${errMsg}, code: ${kiteData.error_code || 'none'}`);
       return new Response(
         JSON.stringify({
-          error: `Kite API: ${errMsg} (code: ${kiteData.error_code || 'none'}). Check that KITE_API_KEY="${apiKeyPreview}" matches your Kite Connect app.`,
-          synced: 0
+          error: `Kite API: ${errMsg}. Try tapping "Connect Kite" to re-authenticate.`,
+          synced: 0,
+          needsReconnect: true,
         }),
         { status: 502, headers: { "Content-Type": "application/json" } }
       );
@@ -186,7 +236,7 @@ Deno.serve(async (req: Request) => {
     try {
       const mfRes = await fetch("https://api.kite.trade/mf/holdings", {
         headers: {
-          Authorization: `token ${KITE_API_KEY}:${accessToken}`,
+          Authorization: authHeader,
         },
       });
 

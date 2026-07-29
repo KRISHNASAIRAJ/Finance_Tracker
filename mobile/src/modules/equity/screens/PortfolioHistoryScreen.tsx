@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   logoText: {
     fontSize: 18,
@@ -273,20 +273,20 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.stableDim,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 4,
   },
   heroLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    letterSpacing: 1,
   },
   heroValue: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: colors.onSurface,
   },
@@ -306,9 +306,9 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 12,
   },
@@ -325,10 +325,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   pointRowActive: {
-    backgroundColor: colors.stableDim,
+    backgroundColor: 'rgba(155,165,255,0.08)',
     borderRadius: rounded.DEFAULT,
   },
   pointDate: {
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   allocBarTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 3,
     overflow: 'hidden',
   },

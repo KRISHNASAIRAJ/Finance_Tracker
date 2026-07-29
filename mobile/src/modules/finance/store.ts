@@ -33,10 +33,11 @@ export interface Receivable {
   id: string;
   personName: string;
   amount: number;   // in paise
+  paidAmount: number; // in paise (0 = unpaid)
   dueDate: string;  // ISO date string
   note?: string;
   type: 'lent' | 'borrowed';
-  status?: 'pending' | 'paid';
+  status?: 'pending' | 'partial' | 'paid';
 }
 
 export interface BankAccount {
@@ -97,6 +98,7 @@ interface FinanceState {
   editAccountBalance: (id: string, amount: number, userId?: string) => void;
   addReceivable: (item: Omit<Receivable, 'id'>, userId?: string) => void;
   editReceivable: (id: string, updated: Partial<Receivable>, userId?: string) => void;
+  markReceivablePayment: (id: string, paymentAmount: number, userId?: string) => void;
   deleteReceivable: (id: string, userId?: string) => void;
   editCard: (id: string, updated: Partial<CreditCard>, userId?: string) => void;
   addCard: (card: Omit<CreditCard, 'id'>, userId?: string) => void;
@@ -191,6 +193,7 @@ export const useFinanceStore = create<FinanceState>()(
         const newItem: Receivable = {
           ...item,
           id: Math.random().toString(36).substring(2, 9),
+          paidAmount: item.paidAmount ?? 0,
           status: item.status ?? 'pending',
         };
         set((state) => ({
@@ -199,7 +202,8 @@ export const useFinanceStore = create<FinanceState>()(
         try {
           enqFlush("receivables", "create", {
             id: newItem.id, person_name: newItem.personName,
-            amount: newItem.amount, due_date: newItem.dueDate,
+            amount: newItem.amount, paid_amount: newItem.paidAmount,
+            due_date: newItem.dueDate,
             note: newItem.note ?? null, type: newItem.type,
             status: newItem.status ?? 'pending', user_id: userId || null,
           });
@@ -215,11 +219,29 @@ export const useFinanceStore = create<FinanceState>()(
           const payload: Record<string, unknown> = { id, user_id: userId || null };
           if (updated.personName !== undefined) payload.person_name = updated.personName;
           if (updated.amount !== undefined) payload.amount = updated.amount;
+          if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
           if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
           if (updated.note !== undefined) payload.note = updated.note;
           if (updated.type !== undefined) payload.type = updated.type;
           if (updated.status !== undefined) payload.status = updated.status;
           enqFlush("receivables", "update", payload);
+        } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
+      },
+      markReceivablePayment: (id, paymentAmount, userId) => {
+        const rec = get().receivables.find((r) => r.id === id);
+        if (!rec) return;
+        const newPaid = (rec.paidAmount || 0) + paymentAmount;
+        const newStatus = newPaid >= rec.amount ? 'paid' : 'partial';
+        set((state) => ({
+          receivables: state.receivables.map((r) =>
+            r.id === id ? { ...r, paidAmount: newPaid, status: newStatus } : r
+          ),
+        }));
+        try {
+          enqFlush("receivables", "update", {
+            id, user_id: userId || null,
+            paid_amount: newPaid, status: newStatus,
+          });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
       deleteReceivable: (id, userId) => {
