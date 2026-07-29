@@ -31,6 +31,7 @@ const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
   { value: 'none', label: 'None', icon: 'close-circle-outline' },
   { value: 'daily', label: 'Daily', icon: 'sunny-outline' },
+  { value: 'weekdays', label: 'Mon-Fri', icon: 'briefcase-outline' },
   { value: 'weekly', label: 'Weekly', icon: 'calendar-outline' },
   { value: 'monthly', label: 'Monthly', icon: 'calendar-number-outline' },
 ];

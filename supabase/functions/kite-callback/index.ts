@@ -23,9 +23,13 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const requestToken = url.searchParams.get("request_token");
   const status = url.searchParams.get("status");
-  const stateUserId = url.searchParams.get("state") || "";
+  const rawState = url.searchParams.get("state") || "";
+  const stateUserId = rawState;
 
-  console.log('[kite-callback] Request received. State:', stateUserId?.substring(0, 12) || 'empty', 'Token:', requestToken ? 'present' : 'missing');
+  console.log('[kite-callback] === REQUEST RECEIVED ===');
+  console.log(`[kite-callback] State param (raw): "${rawState.substring(0, 24)}${rawState.length > 24 ? '...' : ''}" (len=${rawState.length})`);
+  console.log(`[kite-callback] Request token: ${requestToken ? 'present (len=' + requestToken.length + ')' : 'MISSING'}`);
+  console.log(`[kite-callback] Status: ${status || 'none'}`);
 
   if (status === "error") {
     return new Response(`<html><body><h2>Authorization failed</h2><p>Kite Connect authorization was denied.</p></body></html>`, {
@@ -57,6 +61,10 @@ Deno.serve(async (req: Request) => {
 
     const kiteData = await kiteRes.json();
 
+    console.log('[kite-callback] Token exchange response status:', kiteData.status);
+    const kiteUserId = kiteData.data?.user_id || 'unknown';
+    const kiteUserName = kiteData.data?.user_name || 'unknown';
+
     if (kiteData.status !== "success") {
       console.error('[kite-callback] Token exchange FAILED:', JSON.stringify(kiteData));
       return new Response(
@@ -67,6 +75,8 @@ Deno.serve(async (req: Request) => {
 
     const accessToken = kiteData.data.access_token;
     const publicToken = kiteData.data.public_token || "";
+
+    console.log(`[kite-callback] Token received — preview: ${accessToken.substring(0, 4)}...${accessToken.slice(-4)}, length: ${accessToken.length}, Kite user: ${kiteUserId}`);
 
     if (!accessToken) {
       console.error('[kite-callback] No access_token in Kite response');
@@ -81,8 +91,34 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const tokenUserId = stateUserId || "default";
-    console.log('[kite-callback] Storing token for user_id:', tokenUserId.substring(0, 12) + '...');
+    console.log(`[kite-callback] Kite account: ${kiteUserName} (id: ${kiteUserId})`);
+
+    // Look for an existing row with a real user_id (not "default" placeholder)
+    // Kite v3 often drops the state param, so we reuse the existing Supabase UUID
+    const { data: existingRows } = await supabase
+      .from("kite_tokens")
+      .select("user_id, updated_at")
+      .neq("user_id", "default")
+      .order("updated_at", { ascending: false })
+      .limit(5);
+
+    let tokenUserId: string;
+    if (existingRows && existingRows.length > 0) {
+      tokenUserId = existingRows[0].user_id;
+      console.log(`[kite-callback] Found existing Supabase user_id: "${tokenUserId.substring(0, 12)}..." — will update this row`);
+    } else if (stateUserId && stateUserId.length > 5 && stateUserId !== "unknown") {
+      tokenUserId = stateUserId;
+      console.log(`[kite-callback] Using state param as user_id: "${tokenUserId.substring(0, 12)}..."`);
+    } else {
+      tokenUserId = "default";
+      console.warn(`[kite-callback] No valid user_id found. State="${stateUserId || 'EMPTY'}". Storing under "default". This will NOT be found on sync!`);
+    }
+
+    // Clean up any stale "default" row to prevent conflicts
+    if (tokenUserId !== "default") {
+      await supabase.from("kite_tokens").delete().eq("user_id", "default");
+      console.log('[kite-callback] Cleaned up stale "default" row');
+    }
 
     const { error: upsertErr, status: upsertStatus } = await supabase
       .from("kite_tokens")
@@ -96,7 +132,7 @@ Deno.serve(async (req: Request) => {
     if (upsertErr) {
       console.error('[kite-callback] Upsert FAILED:', upsertErr.message, 'code:', upsertErr.code, 'status:', upsertStatus);
     } else {
-      console.log('[kite-callback] Token stored successfully for user:', tokenUserId.substring(0, 12) + '...');
+      console.log('[kite-callback] Token stored SUCCESSFULLY. user_id:', tokenUserId.substring(0, 12) + '..., access_token preview:', accessToken.substring(0, 4) + '...' + accessToken.slice(-4));
     }
 
     return new Response(

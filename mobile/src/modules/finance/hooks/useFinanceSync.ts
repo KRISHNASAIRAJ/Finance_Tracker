@@ -205,10 +205,11 @@ const TABLE_MAP = [
           id: r.id as string,
           personName: r.person_name as string ?? "",
           amount: r.amount as number ?? 0,
+          paidAmount: (r.paid_amount as number) ?? 0,
           dueDate: r.due_date as string ?? "",
           note: r.note as string ?? undefined,
           type: (r.type as "lent" | "borrowed") ?? "lent",
-          status: (r.status as "pending" | "paid") ?? "pending",
+          status: (r.status as "pending" | "partial" | "paid") ?? "pending",
         }));
       if (newRecvs.length > 0) {
         store.setState({ receivables: [...newRecvs, ...state.receivables] });

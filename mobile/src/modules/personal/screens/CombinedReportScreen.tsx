@@ -32,8 +32,8 @@ export default function CombinedReportScreen() {
   const totalBankBalance = accounts.reduce((sum, a) => sum + a.amount, 0);
   const totalMinBalance = accounts.reduce((sum, a) => sum + getMinBalanceForAccount(a.title), 0);
   const effectiveBalance = totalBankBalance - totalMinBalance;
-  const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + r.amount, 0);
-  const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + r.amount, 0);
+  const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
+  const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
 
   // ---- Expected incomes ----
   const totalExpectedIncome = expectedIncomes.reduce((sum, ei) => sum + ei.amount, 0);

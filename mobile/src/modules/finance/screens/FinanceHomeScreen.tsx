@@ -28,6 +28,7 @@ import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
+import GlowingCard from '../../../shared/components/ui/glowing-card';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -133,8 +134,8 @@ export default function FinanceHomeScreen() {
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   // Dynamic calculations from user backup lists
-  const totalLent = receivables.filter((r: any) => r.type === 'lent').reduce((acc: number, r: any) => acc + r.amount, 0);
-  const totalBorrowed = receivables.filter((r: any) => r.type === 'borrowed').reduce((acc: number, r: any) => acc + r.amount, 0);
+  const totalLent = receivables.filter((r: any) => r.type === 'lent').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
+  const totalBorrowed = receivables.filter((r: any) => r.type === 'borrowed').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
   const cardOutstandingTotal = cards.reduce((acc: number, c: any) => acc + c.balance, 0);
   const fixedExpensesTotal = fixedExpenses.reduce((sum: number, f: any) => sum + f.amount, 0);
   const unpaidFixedExpensesTotal = fixedExpenses
@@ -235,100 +236,57 @@ export default function FinanceHomeScreen() {
         </TouchableOpacity>
 
         {/* Bento Grid Summaries */}
-        <View style={styles.bentoGrid}>
-          {/* Monthly Spend (Links to MonthlySpendScreen) */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+        <View style={styles.glowingGrid}>
+          <GlowingCard
+            icon="wallet-outline"
+            label="MONTHLY SPEND"
+            value={formatCurrency(monthlyExpenses)}
+            color={colors.primary}
             onPress={() => navigation.navigate('MonthlySpend')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: `${colors.primaryContainer}20` }]}>
-              <Ionicons name="wallet-outline" size={18} color={colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Monthly Spend</Text>
-              <Text style={styles.bentoValue}>{formatCurrency(monthlyExpenses)}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Credit Card Bills (Links to CreditCards) */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+            style={{ flex: 1, minWidth: '45%' }}
+          />
+          <GlowingCard
+            icon="card-outline"
+            label="CREDIT CARD BILLS"
+            value={formatCurrency(cardOutstandingTotal)}
+            color={colors.amber}
             onPress={() => navigation.navigate('CreditCards')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.amberDim }]}>
-              <Ionicons name="card-outline" size={18} color={colors.amber} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Credit Card Bills</Text>
-              <Text style={styles.bentoValue}>{formatCurrency(cardOutstandingTotal)}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Bank Balances (Links to BankAccounts) */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+            style={{ flex: 1, minWidth: '45%' }}
+          />
+          <GlowingCard
+            icon="business-outline"
+            label="BANK BALANCES"
+            value={formatCurrency(totalBalance)}
+            color={colors.stable}
             onPress={() => navigation.navigate('BankAccounts')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.stableDim }]}>
-              <Ionicons name="business-outline" size={18} color={colors.stable} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Bank Balances</Text>
-              <Text style={styles.bentoValue}>{formatCurrency(totalBalance)}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Net Lent (Links to LentBorrowed) */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+            style={{ flex: 1, minWidth: '45%' }}
+          />
+          <GlowingCard
+            icon="arrow-up-circle-outline"
+            label="NET LENT"
+            value={`+${formatCurrency(totalLent)}`}
+            color={colors.success}
             onPress={() => navigation.navigate('LentBorrowed')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.actionDim }]}>
-              <Ionicons name="arrow-up-circle-outline" size={18} color={colors.action} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Net Lent</Text>
-              <Text style={[styles.bentoValue, { color: colors.success }]}>+{formatCurrency(totalLent)}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Fixed Expenses (Links to FixedExpensesScreen) */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+            style={{ flex: 1, minWidth: '45%' }}
+          />
+          <GlowingCard
+            icon="lock-closed-outline"
+            label="FIXED EXPENSES"
+            value={formatCurrency(unpaidFixedExpensesTotal)}
+            subtitle={`of ${formatCurrency(fixedExpensesTotal)} · ${fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} of ${fixedExpenses.length} paid`}
+            color={colors.action}
             onPress={() => navigation.navigate('FixedExpenses')}
-            activeOpacity={0.85}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: colors.actionDim }]}>
-              <Ionicons name="lock-closed-outline" size={18} color={colors.action} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Fixed Expenses</Text>
-              <Text style={styles.bentoValue}>{formatCurrency(unpaidFixedExpensesTotal)}</Text>
-              <Text style={styles.bentoValueSecondary}>
-                of {formatCurrency(fixedExpensesTotal)} · {fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} of {fixedExpenses.length} paid
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Payzapp */}
-          <TouchableOpacity
-            style={styles.bentoCard}
+            style={{ flex: 1, minWidth: '45%' }}
+          />
+          <GlowingCard
+            icon="wallet"
+            label="PAYZAPP"
+            value={formatCurrency(payzappMonthlyLoad)}
+            subtitle={`of ${formatCurrency(PAYZAPP_MONTHLY_CAP)} max`}
+            color={colors.chartreuse}
             onPress={() => navigation.navigate('PayzappWallet')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoIconWrapper, { backgroundColor: 'rgba(188, 232, 93, 0.12)' }]}>
-              <Ionicons name="wallet" size={18} color={colors.chartreuse} />
-            </View>
-            <View>
-              <Text style={styles.bentoLabel}>Payzapp</Text>
-              <Text style={styles.bentoValue}>{formatCurrency(payzappMonthlyLoad)}</Text>
-              <Text style={styles.bentoValueSecondary}>of {formatCurrency(PAYZAPP_MONTHLY_CAP)} max</Text>
-            </View>
-          </TouchableOpacity>
+            style={{ flex: 1, minWidth: '45%' }}
+          />
         </View>
 
         {/* Expense Distribution Card (Clickable) */}
@@ -784,6 +742,11 @@ const styles = StyleSheet.create({
     color: colors.success,
   },
   bentoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  glowingGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,

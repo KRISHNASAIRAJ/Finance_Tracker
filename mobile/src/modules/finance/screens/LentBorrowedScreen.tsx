@@ -22,7 +22,7 @@ import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
-  const { receivables, addReceivable, editReceivable, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome } = useFinanceStore();
+  const { receivables, addReceivable, editReceivable, markReceivablePayment, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome } = useFinanceStore();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'lent' | 'borrowed'>('lent');
@@ -40,7 +40,10 @@ export default function LentBorrowedScreen() {
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
-  // Optional Income state
+  // Payment Modal
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentItem, setPaymentItem] = useState<Receivable | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
   const [incomeModalVisible, setIncomeModalVisible] = useState(false);
   const [incomeEditItem, setIncomeEditItem] = useState<ExpectedIncome | null>(null);
   const [incomeName, setIncomeName] = useState('');
@@ -52,10 +55,10 @@ export default function LentBorrowedScreen() {
   const filteredItems = receivables.filter((r) => r.type === activeTab);
   const totalLent = receivables
     .filter((r) => r.type === 'lent')
-    .reduce((sum, r) => sum + r.amount, 0);
+    .reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
   const totalBorrowed = receivables
     .filter((r) => r.type === 'borrowed')
-    .reduce((sum, r) => sum + r.amount, 0);
+    .reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
 
   const groupedItems = useMemo(() => {
     const groups: Record<string, { personName: string; type: string; total: number; latestDue: Date; items: typeof filteredItems }> = {};
@@ -64,7 +67,7 @@ export default function LentBorrowedScreen() {
       if (!groups[key]) {
         groups[key] = { personName: item.personName, type: item.type, total: 0, latestDue: new Date(item.dueDate), items: [] };
       }
-      groups[key].total += item.amount;
+      groups[key].total += (item.amount - (item.paidAmount || 0));
       const d = new Date(item.dueDate);
       if (d < groups[key].latestDue) groups[key].latestDue = d;
       groups[key].items.push(item);
@@ -127,6 +130,7 @@ export default function LentBorrowedScreen() {
       addReceivable({
         personName: personName.trim(),
         amount: paiseAmount,
+        paidAmount: 0,
         note: notes.trim(),
         dueDate: selectedDate.toISOString(),
         type: entryType,
@@ -141,6 +145,24 @@ export default function LentBorrowedScreen() {
       deleteReceivable(selectedItem.id, user?.id);
       setModalVisible(false);
     }
+  };
+
+  const handleMarkPayment = () => {
+    if (!paymentItem) return;
+    const rawAmount = parseFloat(paymentAmount);
+    if (isNaN(rawAmount) || rawAmount <= 0) {
+      alert('Please enter a valid payment amount');
+      return;
+    }
+    const paiseAmount = Math.round(rawAmount * 100);
+    markReceivablePayment(paymentItem.id, paiseAmount, user?.id);
+    setPaymentModalVisible(false);
+  };
+
+  const openPaymentModal = (item: Receivable) => {
+    setPaymentItem(item);
+    setPaymentAmount('');
+    setPaymentModalVisible(true);
   };
 
   const expectedTotal = expectedIncomes.reduce((sum, ei) => sum + ei.amount, 0);
@@ -282,27 +304,49 @@ export default function LentBorrowedScreen() {
 
                     {isExpanded && (
                       <View style={styles.expandedSection}>
-                        {group.items.map((item) => (
-                          <TouchableOpacity
-                            key={item.id}
-                            style={styles.subItem}
-                            onPress={() => openEditModal(item)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.subItemLeft}>
-                              <Text style={styles.subItemAmount}>
-                                {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
-                              </Text>
-                              <Text style={styles.subItemDate}>
-                                {new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                              </Text>
-                            </View>
-                            <View style={styles.subItemRight}>
-                              {item.note ? <Text style={styles.subItemNote} numberOfLines={1}>{item.note}</Text> : null}
-                              <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
-                            </View>
-                          </TouchableOpacity>
-                        ))}
+                        {group.items.map((item) => {
+                          const remaining = item.amount - (item.paidAmount || 0);
+                          const isFullyPaid = item.status === 'paid';
+                          return (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={[styles.subItem, isFullyPaid && { opacity: 0.5 }]}
+                              onPress={() => openEditModal(item)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.subItemLeft}>
+                                <Text style={styles.subItemAmount}>
+                                  {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
+                                </Text>
+                                {(item.paidAmount || 0) > 0 && (
+                                  <Text style={styles.subItemRemaining}>
+                                    Rem: {formatCurrency(remaining)}
+                                  </Text>
+                                )}
+                                <Text style={styles.subItemDate}>
+                                  {new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                </Text>
+                              </View>
+                              <View style={styles.subItemRight}>
+                                {item.note ? <Text style={styles.subItemNote} numberOfLines={1}>{item.note}</Text> : null}
+                                {item.status === 'paid' ? (
+                                  <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                                ) : item.status === 'partial' ? (
+                                  <Ionicons name="time-outline" size={14} color={colors.warning} />
+                                ) : null}
+                                {!isFullyPaid && (
+                                  <TouchableOpacity
+                                    style={styles.payBtn}
+                                    onPress={(e) => { e.stopPropagation(); openPaymentModal(item); }}
+                                  >
+                                    <Text style={styles.payBtnText}>Pay</Text>
+                                  </TouchableOpacity>
+                                )}
+                                <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
                         <TouchableOpacity
                           style={styles.addSubBtn}
                           onPress={() => {
@@ -536,6 +580,47 @@ export default function LentBorrowedScreen() {
         onSelect={(d) => { setIncomeDate(d); setIncomeDatePickerVisible(false); }}
         onClose={() => setIncomeDatePickerVisible(false)}
       />
+
+      {/* Mark Payment Modal */}
+      <Modal visible={paymentModalVisible} transparent animationType="fade" onRequestClose={() => setPaymentModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Mark Payment</Text>
+            {paymentItem && (
+              <>
+                <Text style={styles.paymentInfo}>
+                  {paymentItem.personName} · Total: {formatCurrency(paymentItem.amount)}
+                </Text>
+                {(paymentItem.paidAmount || 0) > 0 && (
+                  <Text style={styles.paymentInfo}>
+                    Already paid: {formatCurrency(paymentItem.paidAmount || 0)} · Remaining: {formatCurrency(paymentItem.amount - (paymentItem.paidAmount || 0))}
+                  </Text>
+                )}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>PAYMENT RECEIVED (₹)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.outline}
+                    keyboardType="numeric"
+                    value={paymentAmount}
+                    onChangeText={setPaymentAmount}
+                    autoFocus
+                  />
+                </View>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setPaymentModalVisible(false)}>
+                    <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleMarkPayment}>
+                    <Text style={styles.modalBtnTextSave}>Mark Paid</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -835,5 +920,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
+  },
+  subItemRemaining: {
+    fontSize: 10,
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  payBtn: {
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: rounded.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.success,
+  },
+  payBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  paymentInfo: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

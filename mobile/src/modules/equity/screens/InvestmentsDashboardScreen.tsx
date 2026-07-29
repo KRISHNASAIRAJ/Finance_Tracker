@@ -14,7 +14,8 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -91,20 +92,44 @@ export default function InvestmentsDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Portfolio Value Hero */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>PORTFOLIO VALUE</Text>
+        {/* Portfolio Value Hero with gradient background */}
+        <ExpoLinearGradient
+          colors={['#1E2246', '#12152A', colors.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroGlow} />
+          <Text style={styles.heroLabel}>TOTAL PORTFOLIO VALUE</Text>
           <Text style={styles.heroValue}>{formatCurrency(portfolioValue)}</Text>
           <View style={styles.heroSubRow}>
-            <View style={[styles.trendBadge, { backgroundColor: isPositive ? colors.successContainer : colors.errorContainer }]}> 
+            <View style={[styles.trendBadge, { backgroundColor: isPositive ? `${colors.success}20` : `${colors.error}20` }]}> 
               <Ionicons name={isPositive ? 'trending-up' : 'trending-down'} size={12} color={isPositive ? colors.success : colors.error} />
               <Text style={[styles.trendText, { color: isPositive ? colors.success : colors.error }]}>
-                {isPositive ? '+' : ''}{pnlPct}% P&amp;L
+                {isPositive ? '+' : ''}{pnlPct}%
               </Text>
             </View>
-            <Text style={styles.heroSubText}>All-time unrealized gains</Text>
+            <Text style={styles.heroSubText}>All-time unrealized P&amp;L</Text>
           </View>
-        </View>
+          <View style={styles.heroMetaRow}>
+            <View style={styles.heroMetaItem}>
+              <Text style={styles.heroMetaValue}>{holdings.length}</Text>
+              <Text style={styles.heroMetaLabel}>Holdings</Text>
+            </View>
+            <View style={styles.heroMetaDivider} />
+            <View style={styles.heroMetaItem}>
+              <Text style={styles.heroMetaValue}>{formatCurrency(totalCost)}</Text>
+              <Text style={styles.heroMetaLabel}>Invested</Text>
+            </View>
+            <View style={styles.heroMetaDivider} />
+            <View style={styles.heroMetaItem}>
+              <Text style={[styles.heroMetaValue, { color: isPositive ? colors.success : colors.error }]}>
+                {isPositive ? '+' : ''}{formatCurrency(totalPnL)}
+              </Text>
+              <Text style={styles.heroMetaLabel}>Returns</Text>
+            </View>
+          </View>
+        </ExpoLinearGradient>
 
         {/* Snapshot Summary */}
         {snapshots.length > 0 && (() => {
@@ -462,54 +487,90 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heroCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: 24,
-    alignItems: 'center',
-    gap: 4,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(155,165,255,0.12)',
+    gap: 6,
+  },
+  heroGlow: {
+    position: 'absolute',
+    top: -60,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(155,165,255,0.06)',
   },
   heroLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(244,247,251,0.5)',
+    letterSpacing: 1.5,
   },
   heroValue: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '800',
     color: colors.onSurface,
+    letterSpacing: -0.5,
   },
   heroSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
+    marginTop: 4,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: colors.successContainer,
-    paddingHorizontal: 8,
+    gap: 4,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: rounded.full,
   },
   trendText: {
     fontSize: 11,
-    color: colors.success,
     fontWeight: '700',
   },
   heroSubText: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
   },
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  heroMetaItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  heroMetaDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  heroMetaValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  heroMetaLabel: {
+    fontSize: 10,
+    color: 'rgba(244,247,251,0.45)',
+    letterSpacing: 0.5,
+  },
   snapshotCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 12,
   },
@@ -524,7 +585,7 @@ const styles = StyleSheet.create({
   snapshotDivider: {
     width: 1,
     height: 32,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   snapshotLabel: {
     fontSize: 10,
@@ -533,7 +594,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   snapshotValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.onSurface,
     marginTop: 4,
@@ -549,9 +610,9 @@ const styles = StyleSheet.create({
   },
   donutCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 14,
   },
@@ -602,7 +663,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.actionDim,
     borderColor: colors.actionStrong,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: 16,
   },
   aiLeft: {
@@ -623,9 +684,9 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 16,
   },
@@ -658,13 +719,13 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: rounded.full,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: colors.primary,
     borderRadius: rounded.full,
   },
   goalProgressDetails: {
@@ -678,9 +739,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 12,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   holdingLeft: {
     gap: 3,
@@ -725,7 +786,7 @@ const styles = StyleSheet.create({
   },
   segmentedRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: rounded.DEFAULT,
     padding: 3,
     gap: 3,
@@ -738,8 +799,6 @@ const styles = StyleSheet.create({
   },
   segmentedBtnActive: {
     backgroundColor: `${colors.primary}25`,
-    borderColor: colors.primary,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   segmentedText: {
     fontSize: 13,
@@ -798,7 +857,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: 'rgba(255,255,255,0.04)',
   },
   viewAllText: {
     fontSize: 13,
@@ -807,9 +866,9 @@ const styles = StyleSheet.create({
   },
   planCard: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    borderRadius: rounded.xl,
     padding: spacing.cardPadding,
     gap: 10,
   },
@@ -852,14 +911,16 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   planInput: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: rounded.DEFAULT,
     padding: 12,
     color: colors.onSurface,
     fontSize: 12,
     lineHeight: 18,
     minHeight: 300,
     maxHeight: 400,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   planEditActions: {
     flexDirection: 'row',
@@ -882,12 +943,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: rounded.DEFAULT,
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: colors.primary,
   },
   planSaveText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.onPrimaryContainer,
+    color: colors.background,
   },
   fab: {
     position: 'absolute',
@@ -896,15 +957,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 8,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 10,
   },
 });

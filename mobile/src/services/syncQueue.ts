@@ -72,6 +72,39 @@ export async function clearQueue(): Promise<void> {
 
 let _processing = false;
 
+export interface SyncStatus {
+  lastResult: { succeeded: number; failed: number; dropped: number } | null;
+  lastError: string | null;
+  lastAttemptAt: string | null;
+  queueCount: number;
+  isProcessing: boolean;
+}
+
+const _status: SyncStatus = {
+  lastResult: null,
+  lastError: null,
+  lastAttemptAt: null,
+  queueCount: 0,
+  isProcessing: false,
+};
+
+const _statusListeners: Set<(s: SyncStatus) => void> = new Set();
+
+export function onSyncStatusChange(cb: (s: SyncStatus) => void): () => void {
+  _statusListeners.add(cb);
+  return () => _statusListeners.delete(cb);
+}
+
+function emitStatus() {
+  _statusListeners.forEach((cb) => {
+    try { cb({ ..._status }); } catch (_) {}
+  });
+}
+
+export function getSyncStatus(): SyncStatus {
+  return { ..._status };
+}
+
 async function saveQueue(queue: SyncQueueItem[]): Promise<void> {
   const storage = getStorage();
   if (storage) {
@@ -83,13 +116,30 @@ async function saveQueue(queue: SyncQueueItem[]): Promise<void> {
   }
 }
 
-export async function processSyncQueue(): Promise<{ succeeded: number; failed: number; dropped: number }> {
-  if (_processing) return { succeeded: 0, failed: 0, dropped: 0 };
+async function refreshQueueCount() {
+  const items = await getQueue();
+  _status.queueCount = items.length;
+  emitStatus();
+}
+
+export async function processSyncQueue(): Promise<{ succeeded: number; failed: number; dropped: number; error?: string }> {
+  if (_processing) return { succeeded: 0, failed: 0, dropped: 0, error: 'Sync already in progress' };
   _processing = true;
+  _status.isProcessing = true;
+  _status.lastAttemptAt = new Date().toISOString();
+  emitStatus();
 
   try {
     const items = await getQueue();
-    if (items.length === 0) return { succeeded: 0, failed: 0, dropped: 0 };
+    _status.queueCount = items.length;
+
+    if (items.length === 0) {
+      _status.lastResult = { succeeded: 0, failed: 0, dropped: 0 };
+      _status.lastError = null;
+      _status.isProcessing = false;
+      emitStatus();
+      return { succeeded: 0, failed: 0, dropped: 0 };
+    }
 
     const { supabase } = require("./supabaseClient");
 
@@ -100,15 +150,30 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
     } catch (_) {}
 
     if (!sessionUser) {
+      try {
+        const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+        sessionUser = refreshedSession?.user ?? null;
+      } catch (refreshErr: any) {
+        console.warn('[SyncQueue] Session refresh failed:', refreshErr?.message ?? refreshErr);
+      }
+    }
+
+    if (!sessionUser) {
+      const errMsg = 'Not signed in — sync requires authentication. Please sign in to sync your data.';
+      _status.lastError = errMsg;
+      _status.lastResult = { succeeded: 0, failed: items.length, dropped: 0 };
+      _status.isProcessing = false;
       _processing = false;
-      console.warn('[SyncQueue] No authenticated session — keeping items in queue until sign-in');
-      return { succeeded: 0, failed: items.length, dropped: 0 };
+      emitStatus();
+      console.warn('[SyncQueue]', errMsg);
+      return { succeeded: 0, failed: items.length, dropped: 0, error: errMsg };
     }
 
     let succeeded = 0;
     let failed = 0;
     let dropped = 0;
     const remaining: SyncQueueItem[] = [];
+    const errorMessages: string[] = [];
 
     for (const item of items) {
       if (item.retryCount >= MAX_RETRIES) {
@@ -129,12 +194,18 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
             .from(item.entity)
             .delete()
             .eq("id", item.data.id as string);
-          if (error) throw error;
+          if (error) {
+            errorMessages.push(`delete ${item.entity}/${item.data.id}: ${error.message}`);
+            throw error;
+          }
         } else {
           const { error } = await supabase
             .from(item.entity)
             .upsert(resolvedData, { onConflict: "id" });
-          if (error) throw error;
+          if (error) {
+            errorMessages.push(`${item.action} ${item.entity}/${item.data.id}: ${error.message}`);
+            throw error;
+          }
         }
         succeeded++;
       } catch (e: any) {
@@ -145,8 +216,23 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
     }
 
     await saveQueue(remaining);
-    return { succeeded, failed, dropped };
+    _status.lastResult = { succeeded, failed, dropped };
+    _status.lastError = errorMessages.length > 0 ? errorMessages.join('; ') : null;
+    _status.queueCount = remaining.length;
+    _status.isProcessing = false;
+    emitStatus();
+
+    return { succeeded, failed, dropped, error: errorMessages.length > 0 ? errorMessages.join('; ') : undefined };
+  } catch (fatalErr: any) {
+    const fatalMsg = fatalErr?.message ?? String(fatalErr);
+    _status.lastError = `Sync crashed: ${fatalMsg}`;
+    _status.lastResult = null;
+    _status.isProcessing = false;
+    emitStatus();
+    return { succeeded: 0, failed: 0, dropped: 0, error: fatalMsg };
   } finally {
     _processing = false;
   }
 }
+
+refreshQueueCount();
