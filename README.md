@@ -168,6 +168,15 @@ Wealth holdings get live prices automatically:
 | Notification flows | `docs/notification-flows.md` |
 | AI safety rules | `SAFETY.md` |
 
+## Roadmap
+
+| Phase | Status |
+|---|---|
+| Phase 0–9 (mobile: finance, garage, tasks, wealth, AI, personal, polish) | 🟢 100% |
+| **Phase 10 — Web App** | 🟡 Planned |
+
+**Phase 10 — Web App (planned):** A full-featured website mirroring the mobile app — same Supabase data, same modules, same functionality. Reuses the existing Supabase backend (tables, RLS, edge functions) with no new backend. Email + password login via Supabase Auth (same accounts as the app). All free resources only (free hosting on Vercel/Netlify/Cloudflare Pages, existing Supabase free tier, existing Groq AI). Candidate stack: React + Vite or Next.js, TypeScript, deployed free. Mobile app keeps working unchanged. Details in `AGENTS.md` § Phase 10.
+
 ## License
 
 Private — personal use only.
