@@ -19,7 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
-import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { getCategoryColor } from '../../../shared/categoryMap';
+import CategoryIcon from '../../../shared/CategoryIcon';
 import { useGarageStore } from '../../garage/store';
 import MonthPickerModal from '../components/MonthPickerModal';
 
@@ -223,11 +224,7 @@ export default function FinanceReportsScreen() {
                   <View key={tx.id} style={styles.txRow}>
                     <View style={styles.txLeft}>
                       <View style={[styles.txIcon, { backgroundColor: `${catColor}15` }]}>
-                        <Ionicons
-                          name={getCategoryIcon(tx.category)}
-                          size={16}
-                          color={catColor}
-                        />
+                        <CategoryIcon category={tx.category} size={16} color={catColor} />
                       </View>
                       <View>
                         <Text style={styles.txTitle}>{tx.notes || tx.category}</Text>

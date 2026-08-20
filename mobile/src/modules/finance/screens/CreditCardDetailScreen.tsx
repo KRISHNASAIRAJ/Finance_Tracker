@@ -22,7 +22,8 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { getCategoryColor } from '../../../shared/categoryMap';
+import CategoryIcon from '../../../shared/CategoryIcon';
 
 type DetailRouteProp = RouteProp<FinanceStackParamList, 'CreditCardDetail'>;
 
@@ -244,11 +245,7 @@ export default function CreditCardDetailScreen() {
                 ]}
               >
                 <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
-                  <Ionicons
-                    name={getCategoryIcon(tx.category)}
-                    size={18}
-                    color={getCategoryColor(tx.category)}
-                  />
+                  <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
                 </View>
                 <View style={styles.txInfo}>
                   <Text style={styles.txName} numberOfLines={1}>

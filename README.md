@@ -9,7 +9,7 @@ Meridian is a personal-use mobile app (Android-first) that unifies daily life tr
 | **Home (Finance)** | Net-worth hero, monthly spends, bank balances, credit cards, lending/borrowing, PayZapp wallet, expense-distribution donut, recent transactions |
 | **Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
 | **Tasks** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
-| **Wealth (Equity/MF)** | Holdings, Kite Connect sync, allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron |
+| **Wealth (Equity/MF)** | Holdings, Kite Connect sync, segmented allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron, live price refresh (Yahoo Finance + AMFI) with today's P&L |
 | **Personal** | Goals, notes, recipes, diet plans with onboarding flow, diet notifications |
 | **Career** | Career ups & downs with area chart visualization, event timeline |
 | **Meals** | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
@@ -39,9 +39,10 @@ Four 2×2 home screen widgets for one-tap access:
 - **Navigation:** React Navigation (Native Stack + Bottom Tabs)
 - **Backend:** Supabase (PostgreSQL + Edge Functions in Deno/TypeScript)
 - **Auth:** Supabase Auth (JWT)
-- **AI:** Groq API (Llama 3.3 70B + Llama 3.1 8B)
+- **AI:** Groq API (GPT-OSS 120B text + Qwen3.6-27B vision, via edge functions)
 - **Notifications:** Expo Push Notifications + local scheduling
-- **Design:** Dark mode first — Glass Noir design system (pure-black canvas, white-translucent glass panels), centered around a monochrome brand mark
+- **Design:** Dark mode first — Glass Noir design system (pure-black canvas, white-translucent glass panels, floating glassy tab bar), centered around a monochrome brand mark
+- **UX:** Draggable AI assistant FABs with per-screen position persistence; segmented gradient donut charts
 
 ## Project Structure
 
@@ -64,7 +65,7 @@ meridian/
 │   └── android/           ← Android native layer (widgets)
 └── supabase/
     ├── config.toml         ← Supabase project config
-    ├── migrations/        ← SQL migration files (25 migrations)
+    ├── migrations/        ← SQL migration files (26 migrations)
     └── functions/         ← Deno Edge Functions
 ```
 
@@ -135,6 +136,14 @@ Meridian uses an offline-first bidirectional sync pattern:
 - **Background sync:** Expo BackgroundFetch runs periodically to flush pending offline changes.
 
 All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) with retry and exponential backoff (max 5 retries).
+
+## Live Portfolio Prices
+
+Wealth holdings get live prices automatically:
+
+- **`refresh-portfolio-prices` edge function** fetches live quotes from Yahoo Finance (equities/ETFs) and AMFI (mutual fund NAVs), updating `current_price` and `prev_close` per holding.
+- Called before the daily 8:30 PM snapshot and manually via the refresh button on the portfolio hero card.
+- Today's P&L is computed live as `Σ quantity × (current_price − prev_close)`; unchanged snapshot values slide the snapshot date forward instead of duplicating rows.
 
 ## Conventions
 

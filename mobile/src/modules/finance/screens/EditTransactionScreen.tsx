@@ -28,6 +28,7 @@ import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../../shared/categoryMap';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
+import CategoryIcon from '../../../shared/CategoryIcon';
 
 type EditTransactionRouteProp = RouteProp<FinanceStackParamList, 'EditTransaction'>;
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'EditTransaction'>;
@@ -286,7 +287,7 @@ export default function EditTransactionScreen() {
                     ]}
                     onPress={() => setSelectedCategory(cat.name)}
                   >
-                    <Ionicons name={cat.icon} size={13} color={isSelected ? cat.color : colors.onSurfaceVariant} />
+                    <CategoryIcon category={cat.name} size={13} color={isSelected ? cat.color : colors.onSurfaceVariant} />
                     <Text style={[styles.categoryText, isSelected && { color: cat.color, fontWeight: '700' }]}>
                       {cat.name}
                     </Text>

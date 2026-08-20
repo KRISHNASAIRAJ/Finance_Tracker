@@ -25,7 +25,8 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, Transaction } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { getCategoryColor } from '../../../shared/categoryMap';
+import CategoryIcon from '../../../shared/CategoryIcon';
 import { useAuth } from '../../../services/AuthProvider';
 import { useGarageStore } from '../../garage/store';
 
@@ -168,7 +169,7 @@ export default function MonthlySpendScreen() {
         {/* Total Spend + Budget */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>TOTAL MONTH SPEND</Text>
-          <Text style={[styles.summaryValue, { color: budgetExceeded ? colors.attention : colors.error }]}>
+          <Text style={[styles.summaryValue, { color: budgetExceeded ? '#ea6479' : '#ffb2b9' }]}>
             {formatCurrency(totalSpend)}
           </Text>
 
@@ -179,11 +180,11 @@ export default function MonthlySpendScreen() {
                 <Text style={styles.budgetVal}>{formatCurrency(budgetPaise)}</Text>
               </View>
               <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${Math.min(100, (totalSpend / budgetPaise) * 100)}%`, backgroundColor: budgetExceeded ? colors.attention : colors.chartreuse }]} />
+                <View style={[styles.barFill, { width: `${Math.min(100, (totalSpend / budgetPaise) * 100)}%`, backgroundColor: budgetExceeded ? '#ea6479' : '#5ee6ff' }]} />
               </View>
               {budgetExceeded ? (
                 <View style={styles.budgetWarning}>
-                  <Ionicons name="warning" size={14} color={colors.attention} />
+                  <Ionicons name="warning" size={14} color="#ea6479" />
                   <Text style={styles.budgetWarningText}>Budget crossed by {formatCurrency(totalSpend - budgetPaise)}</Text>
                 
                 </View>
@@ -214,20 +215,20 @@ export default function MonthlySpendScreen() {
               <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} pointerEvents="none">
                 <Defs>
                   <LinearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={colors.attention} stopOpacity="0.3" />
-                    <Stop offset="1" stopColor={colors.attention} stopOpacity="0" />
+                    <Stop offset="0" stopColor="#ffb2b9" stopOpacity="0.35" />
+                    <Stop offset="1" stopColor="#d0bcff" stopOpacity="0" />
                   </LinearGradient>
                 </Defs>
                 {fillD ? <Path d={fillD} fill="url(#spendGrad)" /> : null}
-                {pathD ? <Path d={pathD} stroke={colors.attention} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
+                {pathD ? <Path d={pathD} stroke="#ffb2b9" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
                 {selectedDay !== null && selectedDay < points.length && (
                   <>
                     <Line
                       x1={points[selectedDay].x} y1={points[selectedDay].y}
                       x2={points[selectedDay].x} y2={CHART_H - padY}
-                      stroke={colors.attention} strokeWidth={1} strokeDasharray="3,3"
+                      stroke="#ffb2b9" strokeWidth={1} strokeDasharray="3,3"
                     />
-                    <Circle cx={points[selectedDay].x} cy={points[selectedDay].y} r={4} fill={colors.attention} />
+                    <Circle cx={points[selectedDay].x} cy={points[selectedDay].y} r={4} fill="#ffb2b9" />
                   </>
                 )}
               </Svg>
@@ -303,7 +304,7 @@ export default function MonthlySpendScreen() {
                   >
                     <View style={styles.itemLeft}>
                       <View style={[styles.iconWrapper, { backgroundColor: `${catColor}15` }]}>
-                        <Ionicons name={getCategoryIcon(tx.category)} size={18} color={catColor} />
+                        <CategoryIcon category={tx.category} size={18} color={catColor} />
                       </View>
                       <View>
                         <Text style={styles.itemTitle}>{tx.notes || tx.category}</Text>
@@ -379,10 +380,10 @@ const styles = StyleSheet.create({
   barBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: 6, borderRadius: 3 },
   budgetWarning: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  budgetWarningText: { fontSize: 12, fontWeight: '600', color: colors.attention },
+  budgetWarningText: { fontSize: 12, fontWeight: '600', color: '#ea6479' },
   safeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   safeLabel: { fontSize: 11, color: colors.onSurfaceVariant },
-  safeVal: { fontSize: 14, fontWeight: '700', color: colors.chartreuse },
+  safeVal: { fontSize: 14, fontWeight: '700', color: '#5ee6ff' },
   editBudgetBtn: { alignItems: 'center', paddingVertical: 6 },
   editBudgetText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
   setBudgetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 8 },
@@ -398,7 +399,7 @@ const styles = StyleSheet.create({
   },
   tooltip: {
     position: 'absolute',
-    backgroundColor: colors.attention,
+    backgroundColor: '#ffb2b9',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
   viewAllText: { fontSize: 13, fontWeight: '600', color: colors.primary },
   fab: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 110,
     right: 24,
     width: 56,
     height: 56,

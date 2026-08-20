@@ -29,6 +29,7 @@ import {
 } from '../../../shared/categoryMap';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import DateTimePicker from '../../../shared/components/DateTimePicker';
+import CategoryIcon from '../../../shared/CategoryIcon';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AddExpense'>;
 
@@ -179,7 +180,7 @@ export default function AddExpenseScreen() {
                     ]}
                     onPress={() => handleCategorySelect(cat.name)}
                   >
-                    <Ionicons name={cat.icon} size={14} color={isSelected ? cat.color : colors.onSurfaceVariant} />
+                    <CategoryIcon category={cat.name} size={14} color={isSelected ? cat.color : colors.onSurfaceVariant} />
                     <Text style={[styles.categoryText, isSelected && { color: cat.color, fontWeight: '700' }]}>
                       {cat.name}
                     </Text>
