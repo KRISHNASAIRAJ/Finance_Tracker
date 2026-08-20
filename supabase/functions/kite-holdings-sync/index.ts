@@ -198,6 +198,16 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     let synced = 0;
 
+    // Load existing prev_close values so a Kite re-sync doesn't wipe today's P&L anchor.
+    const { data: existingRows } = await supabase
+      .from("holdings")
+      .select("symbol, prev_close")
+      .eq("user_id", userId);
+    const existingPrevClose: Record<string, number | null> = {};
+    for (const row of (existingRows as Array<{ symbol: string; prev_close: number | null }>) || []) {
+      existingPrevClose[row.symbol] = row.prev_close;
+    }
+
     for (const h of equityHoldings) {
       const symbol = h.tradingsymbol as string;
       const quantity = Number(h.quantity) || 0;
@@ -221,6 +231,7 @@ Deno.serve(async (req: Request) => {
           quantity,
           avg_buy_price: avgBuyPrice,
           current_price: currentPrice,
+          prev_close: existingPrevClose[symbol] ?? currentPrice,
           current_value: currentValue,
           source: "kite_sync",
           last_synced_at: now,

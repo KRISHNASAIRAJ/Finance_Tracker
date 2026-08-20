@@ -1,3 +1,7 @@
+/**
+ * TaskDetailScreen — full task view with subtasks, completion toggle, delete,
+ * and notification scheduling.
+ */
 import React from 'react';
 import {
   StyleSheet,
@@ -134,7 +138,9 @@ export default function TaskDetailScreen() {
               <Text style={styles.infoText}>
                 Recurrence:{' '}
                 <Text style={styles.infoHighlight}>
-                  {task.recurrence.charAt(0).toUpperCase() + task.recurrence.slice(1)}
+                  {task.recurrence === 'weekdays'
+                    ? 'Mon-Fri'
+                    : task.recurrence.charAt(0).toUpperCase() + task.recurrence.slice(1)}
                 </Text>
               </Text>
             </View>

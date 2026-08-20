@@ -6,13 +6,13 @@ Meridian is a personal-use mobile app (Android-first) that unifies daily life tr
 
 | Module | Description |
 |---|---|
-| **Finance Tracker** | Credit cards, bank balances, lending/borrowing, daily expenses, bill payment tracking, PayZapp wallet, combined reports |
-| **Vehicle Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
-| **Task Manager** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
-| **Equity/MF Tracker** | Holdings, Kite Connect sync, allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron |
+| **Home (Finance)** | Net-worth hero, monthly spends, bank balances, credit cards, lending/borrowing, PayZapp wallet, expense-distribution donut, recent transactions |
+| **Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
+| **Tasks** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
+| **Wealth (Equity/MF)** | Holdings, Kite Connect sync, allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron |
 | **Personal** | Goals, notes, recipes, diet plans with onboarding flow, diet notifications |
-| **Career Tracker** (NEW) | Career ups & downs with area chart visualization, event timeline |
-| **Meal Logger** (NEW) | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
+| **Career** | Career ups & downs with area chart visualization, event timeline |
+| **Meals** | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
 
 ## Cross-Module Integration
 
@@ -21,7 +21,7 @@ Meridian is a personal-use mobile app (Android-first) that unifies daily life tr
 - **Card bill payment:** Mark credit card bills as paid from the card detail screen; re-sorts cards by due date.
 - **Recurrence auto-create:** Checking off a recurring task auto-creates the next occurrence.
 
-## Android Home Screen Widgets (NEW)
+## Android Home Screen Widgets
 
 Four 2×2 home screen widgets for one-tap access:
 
@@ -41,7 +41,7 @@ Four 2×2 home screen widgets for one-tap access:
 - **Auth:** Supabase Auth (JWT)
 - **AI:** Groq API (Llama 3.3 70B + Llama 3.1 8B)
 - **Notifications:** Expo Push Notifications + local scheduling
-- **Design:** Dark mode first, Glassmorphism UI, custom DateTimePicker (Fold Money style)
+- **Design:** Dark mode first — Glass Noir design system (pure-black canvas, white-translucent glass panels), centered around a monochrome brand mark
 
 ## Project Structure
 
@@ -57,15 +57,14 @@ meridian/
 ├── docs/                  ← API contracts, DB schema, notification flows
 ├── mobile/                ← React Native app
 │   ├── src/
-│   │   ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal, career, meals)
-│   │   ├── shared/        ← Shared components, hooks, utilities
+│   │   ├── modules/       ← Feature modules (finance, garage, equity, tasks, personal, career, meals, diary)
+│   │   ├── shared/        ← Shared components, theme, utilities
 │   │   ├── navigation/    ← Navigator setup
-│   │   ├── store/         ← Zustand global state
-│   │   └── services/      ← API clients, local DB, sync queue, notifications
+│   │   └── services/      ← API clients, sync queue, notifications, backups
 │   └── android/           ← Android native layer (widgets)
 └── supabase/
     ├── config.toml         ← Supabase project config
-    ├── migrations/        ← SQL migration files (19 migrations)
+    ├── migrations/        ← SQL migration files (25 migrations)
     └── functions/         ← Deno Edge Functions
 ```
 
@@ -146,6 +145,7 @@ All modules share a common sync queue (`meridian_sync_queue` in AsyncStorage) wi
 - Screens: `PascalCaseScreen`, components: `PascalCase`, stores: `camelCaseStore`
 - All financial events route through the unified `transactions` table
 - No dummy/seed data in stores — all data is user-generated
+- Every source file carries a JSDoc header describing its role
 
 ## Documentation
 

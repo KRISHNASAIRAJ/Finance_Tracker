@@ -1,3 +1,6 @@
+/**
+ * backupService — Full data export/import to JSON files with backup management and cleanup.
+ */
 import { Paths, File, Directory } from 'expo-file-system';
 import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
@@ -118,7 +121,9 @@ export async function deleteBackup(uri: string): Promise<void> {
   try {
     const file = new File(uri);
     if (file.exists) file.delete();
-  } catch {}
+  } catch {
+    // Non-fatal — stale backup file may remain
+  }
 }
 
 export async function cleanOldBackups(keepDays: number = 30): Promise<void> {

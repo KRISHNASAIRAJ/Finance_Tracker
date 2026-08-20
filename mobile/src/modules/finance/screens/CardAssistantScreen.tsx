@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * CardAssistantScreen — spend-based credit-card recommender UI that drives the
+ * cardEngine and explains the best card for a transaction.
+ */
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';

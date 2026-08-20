@@ -1,3 +1,6 @@
+/**
+ * supabaseClient — Central Supabase client initialized with AsyncStorage for session persistence.
+ */
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 

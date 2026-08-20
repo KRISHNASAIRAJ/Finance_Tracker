@@ -1,3 +1,7 @@
+/**
+ * DietViewerScreen — Static weekly diet plan viewer with per-day meal timings.
+ */
+
 import React from 'react';
 import {
   StyleSheet,

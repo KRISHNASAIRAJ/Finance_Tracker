@@ -1,7 +1,12 @@
-import React, { useState, useCallback } from 'react';
+/**
+ * MoreMenuScreen — Settings hub with backup, sync, notifications, and module shortcuts.
+ */
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Linking,
   Modal,
   StyleSheet,
@@ -22,8 +27,6 @@ import Constants from 'expo-constants';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../../finance/store';
-import { usePersonalStore } from '../store';
-import { useInvestmentsStore } from '../../equity/store';
 import { triggerBackupNow } from '../../../services/backupScheduler';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
 import { useAuth } from '../../../services/AuthProvider';
@@ -37,12 +40,16 @@ import { generateMonthlyReport } from '../../../services/reportService';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
+const ICON_COLOR = '#FFFFFF';
+
 export default function MoreMenuScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user, signIn, signOut } = useAuth();
   const { pullFromCloud: pullPersonal } = usePersonalSync();
   const { pullFromCloud: pullEquity } = useEquitySync();
   const { pullFromCloud: pullTasks } = useTasksSync();
+  const scrollRef = useRef<ScrollView>(null);
+  const modalAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -53,16 +60,12 @@ export default function MoreMenuScreen() {
     }, [pullPersonal, pullEquity, pullTasks])
   );
   const notifications = useFinanceStore((state) => state.notifications);
-  const lastSyncedAt = useFinanceStore((state) => state.lastSyncedAt);
-  const lastPersonalSync = usePersonalStore((state) => state.lastPersonalSyncedAt);
-  const lastEquitySync = useInvestmentsStore((state) => state.lastEquitySyncedAt);
   const unreadCount = notifications.filter((n) => !n.read).length;
   const [backupState, setBackupState] = useState<'idle' | 'backing' | 'done' | 'error'>('idle');
   const [showAuth, setShowAuth] = useState(false);
   const [kiteSyncing, setKiteSyncing] = useState(false);
   const [kiteSyncResult, setKiteSyncResult] = useState<string | null>(null);
   const [kiteConnected, setKiteConnected] = useState(false);
-  const [kiteLastSynced, setKiteLastSynced] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -76,9 +79,17 @@ export default function MoreMenuScreen() {
 
   const monthlyBudget = useFinanceStore((s) => s.monthlyBudget);
   const setMonthlyBudget = useFinanceStore((s) => s.setMonthlyBudget);
-  const monthlyExpenses = useFinanceStore((s) => s.getMonthlyExpenses());
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
+
+  useEffect(() => {
+    if (budgetModalVisible) {
+      modalAnim.setValue(0);
+      Animated.spring(modalAnim, { toValue: 1, useNativeDriver: true, damping: 20, stiffness: 200 }).start();
+    } else {
+      Animated.timing(modalAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+    }
+  }, [budgetModalVisible, modalAnim]);
 
   const handleSyncNow = async () => {
     if (!user || syncing) return;
@@ -103,18 +114,6 @@ export default function MoreMenuScreen() {
     setTimeout(() => setSyncResultMsg(null), 5000);
   };
 
-  const timeAgo = (isoStr: string | null): string => {
-    if (!isoStr) return 'Never';
-    const diff = Date.now() - new Date(isoStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    return `${days}d ago`;
-  };
-
   const handleBackupNow = async () => {
     setBackupState('backing');
     try {
@@ -133,122 +132,77 @@ export default function MoreMenuScreen() {
     setBackupState('idle');
   };
 
-  const NAV_ITEMS = [
+  const GRID_SECTIONS: {
+    title: string;
+    items: {
+      id: string;
+      label: string;
+      icon: string;
+      onPress: () => void;
+    }[];
+  }[] = [
     {
-      id: 'finance',
-      title: 'Finance Tracker',
-      subtitle: 'Expenses, cards & accounts',
-      icon: 'wallet-outline',
-      color: colors.primary,
-      onPress: () => navigation.getParent()?.navigate('FinanceTab'),
+      title: 'UTILITIES',
+      items: [
+        {
+          id: 'notes',
+          label: 'Personal Notes',
+          icon: 'document-text-outline',
+          onPress: () => navigation.navigate('PersonalNotes'),
+        },
+        {
+          id: 'diary',
+          label: 'Weekly Diary',
+          icon: 'journal-outline',
+          onPress: () => navigation.navigate('WeeklyDiary'),
+        },
+      ],
     },
     {
-      id: 'garage',
-      title: 'Garage',
-      subtitle: 'Fuel logs & vehicle spend',
-      icon: 'speedometer-outline',
-      color: '#E2A45C',
-      onPress: () => navigation.getParent()?.navigate('GarageTab'),
+      title: 'GOALS & GROWTH',
+      items: [
+        {
+          id: 'goals',
+          label: '2026 Goal Tracker',
+          icon: 'ribbon-outline',
+          onPress: () => navigation.navigate('GoalsTracker'),
+        },
+        {
+          id: 'career',
+          label: 'Career Track',
+          icon: 'trending-up-outline',
+          onPress: () => navigation.navigate('CareerTracker'),
+        },
+      ],
     },
     {
-      id: 'tasks',
-      title: 'Task Manager',
-      subtitle: 'Tasks, reminders & subtasks',
-      icon: 'checkbox-outline',
-      color: colors.warning,
-      onPress: () => navigation.getParent()?.navigate('TasksTab'),
-    },
-    {
-      id: 'investments',
-      title: 'Kite Holdings',
-      subtitle: 'Portfolio & equity tracker',
-      icon: 'trending-up-outline',
-      color: colors.primary,
-      onPress: () => navigation.getParent()?.navigate('InvestmentsTab'),
-    },
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      subtitle: unreadCount > 0 ? `${unreadCount} unread` : 'All caught up',
-      icon: 'notifications-outline',
-      color: colors.error,
-      badge: unreadCount,
-      onPress: () => (navigation as any).navigate('Notifications'),
-    },
-  ];
-
-  const MENU_ITEMS = [
-    {
-      id: 'notes',
-      title: 'Personal Notes',
-      subtitle: 'Markdown logs, drafts & records',
-      icon: 'document-text-outline',
-      color: colors.primary,
-      route: 'PersonalNotes' as const,
-    },
-    {
-      id: 'goals',
-      title: '2026 Goals Tracker',
-      subtitle: 'Core life milestones & objectives',
-      icon: 'ribbon-outline',
-      color: colors.success,
-      route: 'GoalsTracker' as const,
-    },
-    {
-      id: 'meals',
-      title: 'Meal Logger',
-      subtitle: 'Daily protein & calorie tracking',
-      icon: 'fitness-outline',
-      color: colors.warning,
-      route: 'MealLogger' as const,
-    },
-    {
-      id: 'weight',
-      title: 'Weight Tracker',
-      subtitle: 'Track weight trends with graph',
-      icon: 'scale-outline',
-      color: colors.primary,
-      route: 'WeightTracker' as const,
-    },
-    {
-      id: 'dietview',
-      title: 'Project 65 Diet',
-      subtitle: 'Full body recomposition protocol',
-      icon: 'document-text-outline',
-      color: colors.success,
-      route: 'DietViewer' as const,
-    },
-    {
-      id: 'reports',
-      title: 'Combined Report',
-      subtitle: 'Net worth, allocation & spend overview',
-      icon: 'bar-chart-outline',
-      color: colors.primary,
-      route: 'CombinedReport' as const,
-    },
-    {
-      id: 'recipes',
-      title: 'Recipes Library',
-      subtitle: 'High-protein diet card sheets',
-      icon: 'restaurant-outline',
-      color: colors.tertiary,
-      route: 'RecipesLibrary' as const,
-    },
-    {
-      id: 'career',
-      title: 'Career Track',
-      subtitle: 'Ups & downs timeline chart',
-      icon: 'analytics-outline',
-      color: colors.tertiary,
-      route: 'CareerTracker' as const,
-    },
-    {
-      id: 'diary',
-      title: 'Weekly Diary',
-      subtitle: 'Weekly reflections & journal',
-      icon: 'journal-outline',
-      color: '#E2A45C',
-      route: 'WeeklyDiary' as const,
+      title: 'HEALTH',
+      items: [
+        {
+          id: 'meals',
+          label: 'Meal Logger',
+          icon: 'restaurant-outline',
+          onPress: () => navigation.navigate('MealLogger'),
+        },
+        {
+          id: 'weight',
+          label: 'Weight Tracker',
+          icon: 'scale-outline',
+          onPress: () => navigation.navigate('WeightTracker'),
+        },
+        {
+          id: 'dietview',
+          label: 'Project 65 Diet',
+          icon: 'fitness-outline',
+          onPress: () => navigation.navigate('DietViewer'),
+        },
+        {
+          id: 'recipes',
+          label: 'Recipes Library',
+          icon: 'book-outline',
+          onPress: () => navigation.navigate('RecipesLibrary'),
+        },
+      ],
     },
   ];
 
@@ -300,7 +254,6 @@ export default function MoreMenuScreen() {
       } else {
         setKiteSyncResult(`${data.synced} equity + ${data.mfSynced} MF synced`);
         setKiteConnected(true);
-        setKiteLastSynced(new Date().toISOString());
         await syncEquityNow(user.id);
       }
     } catch (e: any) {
@@ -328,7 +281,6 @@ export default function MoreMenuScreen() {
                 Alert.alert('Error', 'Failed to disconnect: ' + error.message);
               } else {
                 setKiteConnected(false);
-                setKiteLastSynced(null);
                 setKiteSyncResult('Disconnected');
                 setTimeout(() => setKiteSyncResult(null), 3000);
               }
@@ -341,347 +293,310 @@ export default function MoreMenuScreen() {
     );
   };
 
+  const TOOL_ITEMS: {
+    id: string;
+    label: string;
+    icon?: string;
+    iconColor?: string;
+    spinner?: boolean;
+    disabled?: boolean;
+    onPress: () => void;
+  }[] = [
+    {
+      id: 'report',
+      label: 'Monthly Report',
+      icon: 'document-text-outline',
+      iconColor: ICON_COLOR,
+      onPress: handleMonthlyReport,
+    },
+    {
+      id: 'combined-report',
+      label: 'Combined Report',
+      icon: 'bar-chart-outline',
+      iconColor: ICON_COLOR,
+      onPress: () => navigation.navigate('CombinedReport'),
+    },
+    {
+      id: 'backup',
+      label:
+        backupState === 'backing' ? 'Backing up...' :
+        backupState === 'done' ? 'Backup saved' :
+        backupState === 'error' ? 'Backup failed' : 'Backup Now',
+      icon:
+        backupState === 'done' ? 'checkmark-circle' :
+        backupState === 'error' ? 'alert-circle' : 'cloud-upload-outline',
+      iconColor:
+        backupState === 'done' ? colors.success :
+        backupState === 'error' ? colors.error : ICON_COLOR,
+      spinner: backupState === 'backing',
+      disabled: backupState === 'backing',
+      onPress: handleBackupNow,
+    },
+    {
+      id: 'budget',
+      label: 'Monthly Budget',
+      icon: 'wallet-outline',
+      iconColor: ICON_COLOR,
+      onPress: () => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); },
+    },
+  ];
+
+  if (user) {
+    TOOL_ITEMS.push(
+      {
+        id: 'kite-connect',
+        label: kiteConnected ? 'Kite Connected' : 'Connect Kite',
+        icon: kiteConnected ? 'checkmark-circle-outline' : 'link-outline',
+        iconColor: ICON_COLOR,
+        onPress: handleConnectKite,
+      },
+      {
+        id: 'kite-sync',
+        label:
+          kiteSyncing ? 'Syncing...' :
+          kiteSyncResult && !kiteSyncResult.includes('failed') ? kiteSyncResult : 'Sync Kite',
+        icon: 'sync-outline',
+        iconColor: kiteSyncResult && !kiteSyncResult.includes('failed') ? colors.success : ICON_COLOR,
+        spinner: kiteSyncing,
+        disabled: kiteSyncing,
+        onPress: handleKiteSync,
+      }
+    );
+    if (kiteConnected) {
+      TOOL_ITEMS.push({
+        id: 'kite-disconnect',
+        label: 'Disconnect Kite',
+        icon: 'unlink-outline',
+        iconColor: colors.error,
+        onPress: handleDisconnectKite,
+      });
+    }
+  }
+
+  const modalScale = modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
+  const modalOpacity = modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with bell */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Hub</Text>
-        <TouchableOpacity
-          style={styles.bellBtn}
-          onPress={() => (navigation as any).navigate('Notifications')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
-          {unreadCount > 0 && (
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Content Section */}
-        <Text style={[styles.sectionTitle]}>CONTENT</Text>
-        <View style={styles.menuGrid}>
-          {MENU_ITEMS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuCard}
-              onPress={() => navigation.navigate(item.route)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: `${item.color}15` }]}>
-                <Ionicons name={item.icon as any} size={24} color={item.color} />
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.bellRow}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => (navigation as any).navigate('Notifications')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
               </View>
-              <View style={styles.cardDetails}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-            </TouchableOpacity>
-          ))}
+            )}
+          </TouchableOpacity>
         </View>
+
+        {/* Grid Sections */}
+        {GRID_SECTIONS.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={styles.sectionLabel}>{section.title}</Text>
+            <View style={styles.grid}>
+              {section.items.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridItem}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.gridCircle}>
+                    <Ionicons name={item.icon as any} size={28} color={ICON_COLOR} />
+                  </View>
+                  <Text style={styles.gridLabel} numberOfLines={2}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
 
         {/* Tools Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>TOOLS</Text>
-
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={handleMonthlyReport}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(245,158,11,0.12)' }]}>
-            <Ionicons name="document-text-outline" size={24} color={colors.warning} />
-          </View>
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>Monthly Report (PDF)</Text>
-            <Text style={styles.cardSubtitle}>Download expenses, cards & lent summary</Text>
-          </View>
-          <Ionicons name="download-outline" size={16} color={colors.outline} style={styles.arrow} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={handleBackupNow}
-          activeOpacity={0.8}
-          disabled={backupState === 'backing'}
-        >
-          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(124, 58, 237, 0.12)' }]}>
-            {backupState === 'backing' ? (
-              <ActivityIndicator color={colors.primary} size="small" />
-            ) : (
-              <Ionicons
-                name={backupState === 'done' ? 'checkmark-circle' : backupState === 'error' ? 'alert-circle' : 'cloud-upload-outline'}
-                size={24}
-                color={backupState === 'done' ? colors.success : backupState === 'error' ? colors.error : colors.primary}
-              />
-            )}
-          </View>
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>Backup Now</Text>
-            <Text style={styles.cardSubtitle}>
-              {backupState === 'backing' ? 'Saving backup...' : backupState === 'done' ? 'Backup saved!' : backupState === 'error' ? 'Backup failed' : 'Export all data to file'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {user && (
-          <>
-            <TouchableOpacity
-              style={styles.menuCard}
-              onPress={handleConnectKite}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-                <Ionicons name={kiteConnected ? 'checkmark-circle-outline' : 'link-outline'} size={24} color={kiteConnected ? colors.success : colors.error} />
-              </View>
-              <View style={styles.cardDetails}>
-                <Text style={styles.cardTitle}>
-                  {kiteConnected ? 'Kite Connected' : 'Connect Kite'}
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  {kiteConnected ? 'Zerodha account linked' : 'Authenticate with Zerodha Kite'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuCard}
-              onPress={handleKiteSync}
-              activeOpacity={0.8}
-              disabled={kiteSyncing}
-            >
-              <View style={[styles.iconWrapper, { backgroundColor: kiteConnected ? 'rgba(16,185,129,0.12)' : 'rgba(59,130,246,0.12)' }]}>
-                {kiteSyncing ? (
-                  <ActivityIndicator color={colors.primary} size="small" />
-                ) : (
-                  <Ionicons
-                    name={kiteSyncResult && !kiteSyncResult.includes('failed') ? 'checkmark-circle' : 'sync-outline'}
-                    size={24}
-                    color={kiteSyncResult && !kiteSyncResult.includes('failed') ? colors.success : colors.primary}
-                  />
-                )}
-              </View>
-              <View style={styles.cardDetails}>
-                <Text style={styles.cardTitle}>
-                  {kiteSyncing ? 'Syncing...' : kiteSyncResult || 'Sync Zerodha Kite'}
-                </Text>
-                <Text style={styles.cardSubtitle}>
-                  {kiteLastSynced ? `Last synced ${timeAgo(kiteLastSynced)}` : 'Pull equity & mutual fund holdings from Kite'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-            </TouchableOpacity>
-
-            {kiteConnected && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TOOLS</Text>
+          <View style={styles.grid}>
+            {TOOL_ITEMS.map((item) => (
               <TouchableOpacity
-                style={[styles.menuCard, { borderColor: 'rgba(239,68,68,0.3)', borderWidth: 1 }]}
-                onPress={handleDisconnectKite}
-                activeOpacity={0.8}
+                key={item.id}
+                style={styles.gridItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+                disabled={item.disabled}
               >
-                <View style={[styles.iconWrapper, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
-                  <Ionicons name="unlink-outline" size={24} color={colors.error} />
+                <View style={styles.gridCircle}>
+                  {item.spinner ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Ionicons name={item.icon as any} size={28} color={item.iconColor} />
+                  )}
                 </View>
-                <View style={styles.cardDetails}>
-                  <Text style={[styles.cardTitle, { color: colors.error }]}>Disconnect Kite</Text>
-                  <Text style={styles.cardSubtitle}>Remove Zerodha connection</Text>
+                <Text style={styles.gridLabel} numberOfLines={2}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Cloud Sync */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>CLOUD SYNC</Text>
+          <View style={styles.grid}>
+            <View style={styles.gridItem}>
+              <View style={[styles.gridCircle, { borderColor: user ? 'rgba(89,214,199,0.35)' : 'rgba(255,136,125,0.35)' }]}>
+                <Ionicons
+                  name={user ? 'cloud-done-outline' : 'cloud-offline-outline'}
+                  size={28}
+                  color={user ? colors.success : colors.error}
+                />
+              </View>
+              <Text style={styles.gridLabel} numberOfLines={2}>
+                {user ? 'Cloud Synced' : 'Sign In to Sync'}
+              </Text>
+            </View>
+
+            {user ? (
+              <TouchableOpacity
+                style={styles.gridItem}
+                onPress={handleSyncNow}
+                disabled={syncing}
+                activeOpacity={0.7}
+              >
+                <View style={styles.gridCircle}>
+                  {syncing ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Ionicons
+                      name="sync-outline"
+                      size={28}
+                      color={syncStatus.lastError ? colors.error : ICON_COLOR}
+                    />
+                  )}
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.error} style={styles.arrow} />
+                <Text style={styles.gridLabel} numberOfLines={2}>
+                  {syncing ? 'Syncing...' : syncResultMsg || 'Sync Now'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.gridItem}
+                onPress={() => setShowAuth(!showAuth)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.gridCircle}>
+                  <Ionicons name="log-in-outline" size={28} color={ICON_COLOR} />
+                </View>
+                <Text style={styles.gridLabel} numberOfLines={2}>Sign In</Text>
               </TouchableOpacity>
             )}
-          </>
-        )}
 
-        {/* Monthly Budget */}
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={() => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); }}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.iconWrapper, { backgroundColor: 'rgba(132,204,22,0.12)' }]}>
-            <Ionicons name="wallet-outline" size={24} color={colors.chartreuse} />
-          </View>
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>Monthly Budget</Text>
-            <Text style={styles.cardSubtitle}>
-              {monthlyBudget > 0
-                ? `₹${monthlyBudget.toLocaleString('en-IN')} · Spent ₹${Math.round(monthlyExpenses / 100).toLocaleString('en-IN')}`
-                : 'Set a monthly spending limit'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.outline} style={styles.arrow} />
-        </TouchableOpacity>
-
-        {/* Budget Modal */}
-        <Modal visible={budgetModalVisible} transparent animationType="fade" onRequestClose={() => setBudgetModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Monthly Budget</Text>
-              <View style={styles.inpGrp}>
-                <Text style={styles.inpLabel}>BUDGET (₹)</Text>
-                <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} autoFocus />
-              </View>
-              <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.modalCancel} onPress={() => setBudgetModalVisible(false)}>
-                  <Text style={styles.modalCancelTxt}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalSave} onPress={() => { const v = parseFloat(budgetInput); setMonthlyBudget(isNaN(v) ? 0 : Math.max(0, Math.round(v)), user?.id); setBudgetModalVisible(false); }}>
-                  <Text style={styles.modalSaveTxt}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Cloud Sync */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>QUICK NAVIGATION</Text>
-        <View style={styles.navGrid}>
-          {NAV_ITEMS.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.navCard}
-              onPress={item.onPress}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.navIconWrap, { backgroundColor: `${item.color}18` }]}>
-                <Ionicons name={item.icon as any} size={22} color={item.color} />
-              </View>
-              <View style={styles.navDetails}>
-                <Text style={styles.navTitle}>{item.title}</Text>
-                <Text style={styles.navSubtitle}>{item.subtitle}</Text>
-              </View>
-              {item.badge ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
+            {user && (
+              <TouchableOpacity
+                style={styles.gridItem}
+                onPress={() => {
+                  Alert.alert(
+                    'Logout',
+                    'Are you sure you want to sign out? Your local data will remain on device.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Logout', style: 'destructive', onPress: () => signOut() },
+                    ]
+                  );
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.gridCircle, { borderColor: 'rgba(255,136,125,0.35)' }]}>
+                  <Ionicons name="power-outline" size={28} color={colors.error} />
                 </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={16} color={colors.outline} />
+                <Text style={[styles.gridLabel, { color: colors.error }]}>Logout</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {user && (
+            <>
+              {syncStatus.queueCount > 0 && !syncResultMsg && (
+                <View style={styles.pendingBar}>
+                  <Ionicons name="hourglass-outline" size={14} color={colors.warning} />
+                  <Text style={styles.pendingText}>
+                    {syncStatus.queueCount} item{syncStatus.queueCount > 1 ? 's' : ''} waiting to sync
+                  </Text>
+                </View>
               )}
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Cloud Sync */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>CLOUD SYNC</Text>
-        <View style={styles.menuCard}>
-          <View style={[styles.iconWrapper, { backgroundColor: user ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-            <Ionicons
-              name={user ? 'cloud-done-outline' : 'cloud-offline-outline'}
-              size={24}
-              color={user ? colors.success : colors.error}
-            />
-          </View>
-          <View style={styles.cardDetails}>
-            <Text style={styles.cardTitle}>{user ? 'Cloud Synced' : 'Sign In to Sync'}</Text>
-            <Text style={styles.cardSubtitle}>
-              {user
-                ? `Signed in as ${user.email}${syncStatus.queueCount > 0 ? ` — ${syncStatus.queueCount} pending` : ''}`
-                : 'Sync expenses, cards, and data across devices'}
-            </Text>
-            {syncStatus.lastError && (
-              <Text style={styles.syncError} numberOfLines={2}>
-                {syncStatus.lastError}
-              </Text>
-            )}
-          </View>
-        </View>
-
-        {user && (
-          <>
-            <TouchableOpacity
-              style={styles.syncNowBtn}
-              onPress={handleSyncNow}
-              disabled={syncing}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={syncing ? 'sync-outline' : 'sync-outline'}
-                size={16}
-                color={colors.primary}
-              />
-              <Text style={styles.syncNowText}>
-                {syncing ? 'Syncing...' : syncResultMsg || 'Sync Now'}
-              </Text>
-            </TouchableOpacity>
-            {syncStatus.queueCount > 0 && !syncResultMsg && (
-              <View style={styles.pendingBar}>
-                <Ionicons name="hourglass-outline" size={14} color={colors.warning} />
-                <Text style={styles.pendingText}>
-                  {syncStatus.queueCount} item{syncStatus.queueCount > 1 ? 's' : ''} waiting to sync
+              {syncStatus.lastError && (
+                <Text style={styles.syncError} numberOfLines={2}>
+                  {syncStatus.lastError}
                 </Text>
-              </View>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
 
-        {!user && (
-          <TouchableOpacity
-            style={styles.syncNowBtn}
-            onPress={() => setShowAuth(!showAuth)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="log-in-outline" size={16} color={colors.primary} />
-            <Text style={styles.syncNowText}>Sign In</Text>
-          </TouchableOpacity>
-        )}
-
-        {showAuth && !user && (
-          <View style={styles.authCard}>
-            <TextInput
-              style={styles.authInput}
-              placeholder="Email"
-              placeholderTextColor={colors.outline}
-              value={emailInput}
-              onChangeText={setEmailInput}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.authInput}
-              placeholder="Password"
-              placeholderTextColor={colors.outline}
-              value={passwordInput}
-              onChangeText={setPasswordInput}
-              secureTextEntry
-            />
-            <TouchableOpacity
-              style={styles.authButton}
-              onPress={async () => {
-                const { error } = await signIn(emailInput, passwordInput);
-                if (error) alert(error);
-                else setShowAuth(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.authButtonText}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Logout Button */}
-        {user && (
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            onPress={() => {
-              Alert.alert(
-                'Logout',
-                'Are you sure you want to sign out? Your local data will remain on device.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Logout', style: 'destructive', onPress: () => signOut() },
-                ]
-              );
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="log-out-outline" size={18} color={colors.error} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        )}
-
+          {showAuth && !user && (
+            <View style={styles.authCard}>
+              <TextInput
+                style={styles.authInput}
+                placeholder="Email"
+                placeholderTextColor={colors.outline}
+                value={emailInput}
+                onChangeText={setEmailInput}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextInput
+                style={styles.authInput}
+                placeholder="Password"
+                placeholderTextColor={colors.outline}
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                secureTextEntry
+              />
+              <TouchableOpacity
+                style={styles.authButton}
+                onPress={async () => {
+                  const { error } = await signIn(emailInput, passwordInput);
+                  if (error) alert(error);
+                  else setShowAuth(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.authButtonText}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
+
+      {/* Budget Modal */}
+      <Modal visible={budgetModalVisible} transparent animationType="none" onRequestClose={() => setBudgetModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <Animated.View style={[styles.modalCard, { opacity: modalOpacity, transform: [{ scale: modalScale }] }]}>
+            <Text style={styles.modalTitle}>Monthly Budget</Text>
+            <View style={styles.inpGrp}>
+              <Text style={styles.inpLabel}>BUDGET (₹)</Text>
+              <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} autoFocus />
+            </View>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setBudgetModalVisible(false)}>
+                <Text style={styles.modalCancelTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSave} onPress={() => { const v = parseFloat(budgetInput); setMonthlyBudget(isNaN(v) ? 0 : Math.max(0, Math.round(v)), user?.id); setBudgetModalVisible(false); }}>
+                <Text style={styles.modalSaveTxt}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -692,19 +607,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
-  header: {
+  bellRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.containerPadding,
-    paddingVertical: 12,
+    justifyContent: 'flex-end',
+    marginBottom: 4,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  bellBtn: {
+  headerBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -731,99 +639,46 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.containerPadding,
-    paddingBottom: 40,
+    paddingBottom: 130,
     gap: 12,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
-    marginBottom: 4,
-    marginTop: 8,
+  section: {
+    marginTop: 16,
+    gap: 16,
   },
-  navGrid: {
-    gap: 10,
-  },
-  navCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 14,
-    gap: 14,
-  },
-  navIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navDetails: {
-    flex: 1,
-    gap: 2,
-  },
-  navTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  navSubtitle: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  menuGrid: {
-    gap: 12,
-  },
-  menuCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-  },
-  iconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: rounded.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  cardDetails: {
-    flex: 1,
-    gap: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  cardSubtitle: {
+  sectionLabel: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
-  arrow: {
-    marginLeft: 8,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  gridItem: {
+    width: '25%',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  gridCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  gridLabel: {
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '400',
   },
   authCard: {
     backgroundColor: colors.surface,
@@ -882,29 +737,13 @@ const styles = StyleSheet.create({
   modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
   modalSaveTxt: { fontSize: 14, color: colors.onSurface, fontWeight: '700' },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 8,
-    marginBottom: 16,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(239,68,68,0.25)',
-    backgroundColor: 'rgba(239,68,68,0.08)',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.error,
-  },
   syncError: {
     fontSize: 11,
     color: colors.error,
-    marginTop: 3,
+    marginTop: 6,
     fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   pendingBar: {
     flexDirection: 'row',

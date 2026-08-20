@@ -1,3 +1,7 @@
+/**
+ * HoldingsListScreen — filtered list of all holdings grouped by type (equity/MF/ETF)
+ * with current value, P&L, and navigation to edit.
+ */
 import React from 'react';
 import {
   StyleSheet,

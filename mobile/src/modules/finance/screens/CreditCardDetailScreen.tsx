@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * CreditCardDetailScreen — per-card detail: bills, spend, due dates and
+ * usage breakdown with edit actions.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,

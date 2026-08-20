@@ -1,3 +1,6 @@
+/**
+ * syncScheduler — Expo background-fetch task that periodically triggers the sync queue processor.
+ */
 import { processSyncQueue } from "./syncQueue";
 
 const SYNC_TASK = "meridian-sync-task";
@@ -8,7 +11,10 @@ let TaskManager: any = null;
 function ensure() {
   if (BackgroundFetch) return true;
   try {
+    // Dynamic requires — optional native modules unavailable in Expo Go
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     BackgroundFetch = require("expo-background-fetch");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     TaskManager = require("expo-task-manager");
     return true;
   } catch {
@@ -29,7 +35,9 @@ function initTask() {
         return BackgroundFetch.BackgroundFetchResult.Failed;
       }
     });
-  } catch {}
+  } catch {
+    // Background fetch unavailable in this environment
+  }
 }
 
 export async function registerSyncTask(): Promise<boolean> {
@@ -53,7 +61,9 @@ export async function unregisterSyncTask(): Promise<void> {
   if (!ensure()) return;
   try {
     await BackgroundFetch.unregisterTaskAsync(SYNC_TASK);
-  } catch {}
+  } catch {
+    // Task may already be unregistered
+  }
 }
 
 export async function triggerSyncNow(): Promise<void> {

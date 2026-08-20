@@ -1,3 +1,7 @@
+/**
+ * AllMaintenanceScreen — complete list of all maintenance records across vehicles
+ * with filter by vehicle and navigation to add/edit.
+ */
 import React from 'react';
 import {
   StyleSheet,

@@ -1,3 +1,7 @@
+/**
+ * CardEngine — credit-card recommendation engine: picks the best card for a
+ * spend based on category, MCC, reward rates and caps.
+ */
 import {
   CardDefinition,
   CARD_DEFINITIONS,

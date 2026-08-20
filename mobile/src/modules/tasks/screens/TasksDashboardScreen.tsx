@@ -1,3 +1,7 @@
+/**
+ * TasksDashboardScreen — task manager root. Task list with priority grouping,
+ * completion toggle, swipe actions, and quick-add FAB.
+ */
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,

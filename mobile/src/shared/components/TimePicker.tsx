@@ -1,3 +1,6 @@
+/**
+ * TimePicker — Time-only picker modal with hour/minute/period scroll wheels.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

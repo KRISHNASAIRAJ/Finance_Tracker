@@ -1,3 +1,6 @@
+/**
+ * DateTimePicker — Combined date-and-time picker modal with scrollable wheels.
+ */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,

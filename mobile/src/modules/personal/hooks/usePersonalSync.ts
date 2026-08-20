@@ -1,3 +1,7 @@
+/**
+ * usePersonalSync — Supabase pull/push sync hook and queue helpers for the personal module.
+ */
+
 import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";

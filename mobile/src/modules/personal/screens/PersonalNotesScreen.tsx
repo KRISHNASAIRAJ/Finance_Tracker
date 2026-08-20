@@ -1,3 +1,7 @@
+/**
+ * PersonalNotesScreen — Personal notes list with add, edit, and delete.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

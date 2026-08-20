@@ -1,3 +1,7 @@
+/**
+ * AddFuelFillScreen — form to log a new fuel fill with amount, liters, odometer,
+ * station, and automatic transaction creation.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

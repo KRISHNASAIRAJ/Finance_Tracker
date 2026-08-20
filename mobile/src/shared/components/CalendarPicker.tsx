@@ -1,3 +1,6 @@
+/**
+ * CalendarPicker — Full-screen calendar date picker modal with month/year navigation.
+ */
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

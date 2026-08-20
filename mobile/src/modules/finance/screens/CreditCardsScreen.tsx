@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * CreditCardsScreen — credit-card management: add/edit/delete cards with
+ * network, billing day, balance and limit fields.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,7 +20,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, CreditCard } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
@@ -25,28 +28,6 @@ import CalendarPicker from '../../../shared/components/CalendarPicker';
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'CreditCards'>;
 
 const NETWORKS = ['VISA', 'Mastercard', 'RuPay', 'Amex'] as const;
-
-import { CARD_DEFINITIONS } from '../cardData';
-
-const CARD_TEMPLATES = CARD_DEFINITIONS.map(c => ({
-  id: c.id,
-  name: c.name,
-  network: c.network,
-  bank: c.bank,
-}));
-
-// Card brand-specific colors
-function getCardAccent(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('cashback') || n.includes('sbi')) return colors.action;
-  if (n.includes('power') || n.includes('idfc')) return colors.stable;
-  if (n.includes('simplysave')) return colors.amber;
-  if (n.includes('hsbc')) return colors.attention;
-  if (n.includes('amazon') || n.includes('icici')) return colors.action;
-  if (n.includes('slice')) return colors.amber;
-  if (n.includes('cred') || n.includes('indusind')) return colors.attention;
-  return colors.primary;
-}
 
 export default function CreditCardsScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -71,8 +52,6 @@ export default function CreditCardsScreen() {
   const [addBalance, setAddBalance] = useState('');
   const [addDueDate, setAddDueDate] = useState(new Date());
   const [addCalendarVisible, setAddCalendarVisible] = useState(false);
-
-  const totalOutstanding = cards.reduce((sum: number, c: CreditCard) => sum + c.balance, 0);
 
   const formatCurrency = (paise: number) =>
     `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -114,16 +93,19 @@ export default function CreditCardsScreen() {
     setShowAddModal(false);
   };
 
+  const sortedCards = [...cards].sort(
+    (a: CreditCard, b: CreditCard) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* AppBar */}
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.logoText}>Credit Cards</Text>
-          <Text style={styles.logoSub}>Total: {formatCurrency(totalOutstanding)}</Text>
+          <Text style={styles.appBarLabel}>manage</Text>
+          <Text style={styles.appBarTitle}>Cards</Text>
         </View>
         <TouchableOpacity style={styles.iconButton} onPress={() => {
           setAddName(''); setAddNetwork('VISA'); setAddEndingWith('');
@@ -136,87 +118,95 @@ export default function CreditCardsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {[...cards].sort((a: CreditCard, b: CreditCard) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).map((card: CreditCard) => {
-          const accent = getCardAccent(card.name);
+        {/* Vertical Card Stack */}
+        {sortedCards.map((card: CreditCard, i: number) => {
+          const initial = (card.name || 'M').trim().charAt(0).toUpperCase();
           const daysUntilDue = Math.ceil(
             (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
           );
-          const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? colors.amber : colors.success;
-
-          const billingDay = card.billingDay || 15;
-          const now = new Date();
-          const currentMonth = now.getMonth();
-          const currentYear = now.getFullYear();
-          const lastBilling = new Date(currentYear, currentMonth, Math.min(billingDay, new Date(currentYear, currentMonth + 1, 0).getDate()));
-          if (lastBilling > now) lastBilling.setMonth(lastBilling.getMonth() - 1);
-          const cycleLength = Math.ceil((new Date(card.dueDate).getTime() - lastBilling.getTime()) / (1000 * 60 * 60 * 24));
-          const daysElapsed = Math.max(0, cycleLength - daysUntilDue);
-          const progressPct = cycleLength > 0 ? Math.max(0, Math.min(100, (daysElapsed / cycleLength) * 100)) : 0;
-
+          const dueText = daysUntilDue <= 0 ? 'Due today' : daysUntilDue === 1 ? 'Due tomorrow' : `Due in ${daysUntilDue} days`;
           return (
             <TouchableOpacity
               key={card.id}
-              style={[styles.cardItem, { borderColor: `${accent}30` }]}
+              style={[
+                styles.stackCard,
+                { backgroundColor: `rgba(255,255,255,${(0.15 - i * 0.04).toFixed(2)})` },
+              ]}
               onPress={() => navigation.navigate('CreditCardDetail', { cardId: card.id })}
-              activeOpacity={0.8}
+              activeOpacity={0.9}
             >
-              <View style={[styles.cardAccentBar, { backgroundColor: accent }]} />
-              <View style={styles.cardBody}>
-                <View style={styles.cardTopRow}>
-                  <View style={styles.cardNameBlock}>
-                    <Text style={styles.cardName}>{card.name}</Text>
-                    <Text style={styles.cardNumber}>•••• {card.endingWith} · {card.network}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.cardEditBadge}
-                    onPress={(e) => { e.stopPropagation(); openEdit(card); }}
-                    activeOpacity={0.6}
-                  >
-                    <Ionicons name="create-outline" size={14} color={accent} />
-                    <Text style={[styles.cardEditText, { color: accent }]}>Edit</Text>
+              <View style={styles.stackTop}>
+                <Ionicons name="radio-outline" size={26} color="rgba(255,255,255,0.8)" />
+                <View style={styles.stackTopRight}>
+                  <Text style={styles.stackName}>{card.name}</Text>
+                  <TouchableOpacity onPress={() => openEdit(card)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="create-outline" size={14} color="rgba(255,255,255,0.5)" />
                   </TouchableOpacity>
                 </View>
-
-                <View style={styles.cardBottomRow}>
-                  <View>
-                    <Text style={styles.balanceLabel}>{card.billAmount ? 'BILL LEFT' : 'OUTSTANDING'}</Text>
-                    <Text style={[styles.balanceValue, { color: accent }]}>
-                      {formatCurrency(card.billAmount ? Math.max(0, card.billAmount - (card.paidAmount || 0)) : card.balance)}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.balanceLabel}>DUE DATE</Text>
-                    <Text style={[styles.dueValue, { color: urgency }]}>
-                      {new Date(card.dueDate).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </Text>
-                    <Text style={[styles.dueDays, { color: urgency }]}>
-                      {daysUntilDue > 0 ? `${daysUntilDue}d left` : 'Overdue!'}
-                    </Text>
-                  </View>
+              </View>
+              <View style={styles.stackChipRow}>
+                <Ionicons name="hardware-chip-outline" size={26} color="rgba(255,255,255,0.5)" />
+              </View>
+              <Text style={styles.stackNumber}>•••• •••• •••• {card.endingWith}</Text>
+              <View style={styles.stackBottom}>
+                <View>
+                  <Text style={styles.stackHolderLabel}>CARD HOLDER</Text>
+                  <Text style={styles.stackHolderValue}>{card.network || card.name}</Text>
                 </View>
-
-                {/* Due-date progress bar */}
-                <View style={styles.progressBg}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        backgroundColor: urgency,
-                        width: `${progressPct}%`,
-                      },
-                    ]}
-                  />
+                <View style={styles.stackBadge}>
+                  <Text style={styles.stackBadgeText}>{initial}</Text>
                 </View>
-                <Text style={styles.billingCycleNote}>
-                  Billing date: {card.billingDay}th of every month
-                </Text>
+              </View>
+              <View style={styles.stackDueBadge}>
+                <Text style={styles.stackDueText}>{dueText}</Text>
               </View>
             </TouchableOpacity>
           );
         })}
+        {cards.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="card-outline" size={40} color={colors.outline} />
+            <Text style={styles.emptyText}>No cards added yet</Text>
+          </View>
+        )}
+
+        {/* Active Cards List */}
+        {cards.length > 0 && (
+          <View>
+            <View style={styles.listHeader}>
+              <Text style={styles.listTitle}>Active Cards</Text>
+            </View>
+            <View style={styles.listContainer}>
+              {sortedCards.map((card: CreditCard) => {
+                const initial = (card.name || 'M').trim().charAt(0).toUpperCase();
+                return (
+                  <TouchableOpacity
+                    key={card.id}
+                    style={styles.listRow}
+                    onPress={() => navigation.navigate('CreditCardDetail', { cardId: card.id })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.listRowLeft}>
+                      <View style={styles.listAvatar}>
+                        <Text style={styles.listAvatarText}>{initial}</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.listRowName}>{card.name}</Text>
+                        <Text style={styles.listRowMeta}>•••• {card.endingWith}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.listRowRight}>
+                      <Text style={styles.listRowAmount}>{formatCurrency(card.balance)}</Text>
+                      <Text style={styles.listRowDue}>
+                        Due {new Date(card.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Edit Modal */}
@@ -286,86 +276,67 @@ export default function CreditCardsScreen() {
       {/* Add Card Modal */}
       <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Credit Card</Text>
-            {/* Quick-add card templates */}
-            <View style={{ gap: 8 }}>
-              <Text style={styles.inputLabel}>QUICK ADD</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-                {CARD_TEMPLATES.map((t) => (
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Card</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>CARD NAME</Text>
+              <TextInput style={styles.textInput} value={addName} onChangeText={setAddName} placeholder="e.g. HDFC Millennia" placeholderTextColor={colors.outline} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>NETWORK</Text>
+              <View style={styles.networkRow}>
+                {NETWORKS.map((n) => (
                   <TouchableOpacity
-                    key={t.id}
-                    style={styles.templatePill}
-                    onPress={() => {
-                      setAddName(t.name);
-                      setAddNetwork(t.network);
-                      setAddBank(t.bank);
-                      setAddEndingWith('');
-                      setAddBillingDay('');
-                      setAddLimit('');
-                      setAddBalance('');
-                    }}
-                    activeOpacity={0.8}
+                    key={n}
+                    style={[styles.networkChip, addNetwork === n && styles.networkChipActive]}
+                    onPress={() => setAddNetwork(n)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="add-circle" size={14} color={colors.primary} />
-                    <Text style={styles.templateText}>{t.name}</Text>
+                    <Text style={[styles.networkChipText, addNetwork === n && styles.networkChipTextActive]}>{n}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             </View>
-            <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ gap: 12 }}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>CARD NAME</Text>
-                <TextInput style={styles.textInput} value={addName} onChangeText={setAddName} placeholder="e.g. HDFC Millennia" placeholderTextColor={colors.outline} />
+
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>LAST 4 DIGITS</Text>
+                <TextInput style={styles.textInput} value={addEndingWith} onChangeText={setAddEndingWith} keyboardType="number-pad" maxLength={4} placeholder="1234" placeholderTextColor={colors.outline} />
               </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>NETWORK</Text>
-                <View style={styles.chipRow}>
-                  {NETWORKS.map((n) => (
-                    <TouchableOpacity key={n} style={[styles.chip, addNetwork === n && styles.chipActive]} onPress={() => setAddNetwork(n)}>
-                      <Text style={[styles.chipText, addNetwork === n && styles.chipTextActive]}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>BILLING DAY</Text>
+                <TextInput style={styles.textInput} value={addBillingDay} onChangeText={setAddBillingDay} keyboardType="number-pad" maxLength={2} placeholder="15" placeholderTextColor={colors.outline} />
               </View>
-              <View style={styles.rowFields}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>LAST 4 DIGITS</Text>
-                  <TextInput style={styles.textInput} value={addEndingWith} onChangeText={setAddEndingWith} keyboardType="number-pad" maxLength={4} placeholder="1234" placeholderTextColor={colors.outline} />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>BILLING DAY</Text>
-                  <TextInput style={styles.textInput} value={addBillingDay} onChangeText={setAddBillingDay} keyboardType="number-pad" maxLength={2} placeholder="15" placeholderTextColor={colors.outline} />
-                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>BANK (optional)</Text>
+              <TextInput style={styles.textInput} value={addBank} onChangeText={setAddBank} placeholder="e.g. HDFC" placeholderTextColor={colors.outline} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>DUE DATE</Text>
+              <TouchableOpacity style={styles.datePickerTrigger} onPress={() => setAddCalendarVisible(true)} activeOpacity={0.8}>
+                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Text style={styles.datePickerText}>
+                  {addDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>LIMIT (₹, optional)</Text>
+                <TextInput style={styles.textInput} value={addLimit} onChangeText={setAddLimit} keyboardType="decimal-pad" placeholder="50000" placeholderTextColor={colors.outline} />
               </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>BANK (OPTIONAL)</Text>
-                <TextInput style={styles.textInput} value={addBank} onChangeText={setAddBank} placeholder="e.g. HDFC" placeholderTextColor={colors.outline} />
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>BALANCE (₹)</Text>
+                <TextInput style={styles.textInput} value={addBalance} onChangeText={setAddBalance} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} />
               </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>FIRST DUE DATE</Text>
-                <TouchableOpacity
-                  style={styles.datePickerTrigger}
-                  onPress={() => setAddCalendarVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                  <Text style={styles.datePickerText}>
-                    {addDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.rowFields}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>CREDIT LIMIT (₹)</Text>
-                  <TextInput style={styles.textInput} value={addLimit} onChangeText={setAddLimit} keyboardType="decimal-pad" placeholder="50000" placeholderTextColor={colors.outline} />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>OUTSTANDING (₹)</Text>
-                  <TextInput style={styles.textInput} value={addBalance} onChangeText={setAddBalance} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} />
-                </View>
-              </View>
-            </ScrollView>
+            </View>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setShowAddModal(false)}>
                 <Text style={styles.modalBtnTextCancel}>Cancel</Text>
@@ -374,22 +345,12 @@ export default function CreditCardsScreen() {
                 <Text style={styles.modalBtnTextSave}>Add Card</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
-        </Modal>
+      </Modal>
 
-      <CalendarPicker
-        visible={calendarVisible}
-        selected={dueDate}
-        onSelect={setDueDate}
-        onClose={() => setCalendarVisible(false)}
-      />
-      <CalendarPicker
-        visible={addCalendarVisible}
-        selected={addDueDate}
-        onSelect={setAddDueDate}
-        onClose={() => setAddCalendarVisible(false)}
-      />
+      <CalendarPicker visible={calendarVisible} selected={dueDate} onSelect={setDueDate} onClose={() => setCalendarVisible(false)} />
+      <CalendarPicker visible={addCalendarVisible} selected={addDueDate} onSelect={setAddDueDate} onClose={() => setAddCalendarVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -397,137 +358,83 @@ export default function CreditCardsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   appBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
-  logoText: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  logoSub: { fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 1 },
-  iconButton: { padding: 8, borderRadius: rounded.full },
-  scrollContent: { padding: spacing.containerPadding, gap: 14, paddingBottom: 40 },
-  cardItem: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
+  iconButton: { padding: 8, borderRadius: 20 },
+  appBarLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1.5 },
+  appBarTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.5 },
+  scrollContent: { padding: 24, gap: 16, paddingBottom: 120 },
+  stackCard: {
+    height: 200,
+    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.3)',
+    padding: 24,
+    justifyContent: 'space-between',
     overflow: 'hidden',
+    position: 'relative',
   },
-  cardAccentBar: { width: 4, borderRadius: 0 },
-  cardBody: { flex: 1, padding: spacing.cardPadding, gap: 12 },
-  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardNameBlock: { gap: 2 },
-  cardName: { fontSize: 15, fontWeight: '700', color: colors.onSurface },
-  cardNumber: { fontSize: 11, color: colors.onSurfaceVariant },
-  cardEditBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: rounded.full,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  stackTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  stackTopRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stackName: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1.5 },
+  stackChipRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stackNumber: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', letterSpacing: 3 },
+  stackBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  stackHolderLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
+  stackHolderValue: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase' },
+  stackBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  stackBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  stackDueBadge: { position: 'absolute', bottom: 8, right: 24 },
+  stackDueText: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
+  emptyState: { alignItems: 'center', gap: 12, paddingVertical: 48 },
+  emptyText: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
+  listHeader: { marginBottom: 8 },
+  listTitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1 },
+  listContainer: { gap: 8 },
+  listRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 16,
   },
-  cardEditText: { fontSize: 11, fontWeight: '600' },
-  cardBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  balanceLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  balanceValue: { fontSize: 20, fontWeight: '800' },
-  dueValue: { fontSize: 15, fontWeight: '700' },
-  dueDays: { fontSize: 11, fontWeight: '500', marginTop: 2 },
-  progressBg: { height: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2 },
-  progressFill: { height: 3, borderRadius: 2 },
-  billingCycleNote: { fontSize: 10, color: colors.onSurfaceVariant },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 24,
-    gap: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  modalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
+  listRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  listAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  listAvatarText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  listRowName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  listRowMeta: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
+  listRowRight: { alignItems: 'flex-end' },
+  listRowAmount: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  listRowDue: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
+  modalContent: { backgroundColor: '#101010', borderRadius: 32, padding: 24, gap: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  modalSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: -8 },
   inputGroup: { gap: 6 },
-  inputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  textInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  datePickerTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-  },
-  datePickerText: { fontSize: 14, color: colors.onSurface, fontWeight: '600' },
+  inputLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.6 },
+  textInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)', height: 44, paddingHorizontal: 12, color: '#FFFFFF', fontSize: 14, fontWeight: '500' },
+  datePickerTrigger: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)', height: 44, paddingHorizontal: 12 },
+  datePickerText: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
   modalButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 16, alignItems: 'center' },
   modalBtnCancel: { backgroundColor: 'transparent' },
-  modalBtnSave: { backgroundColor: colors.primaryContainer },
-  modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
-  deleteCardBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-  },
-  deleteCardText: { fontSize: 12, color: colors.error, fontWeight: '600' },
-  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceContainer,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
-  chipTextActive: { color: colors.textPrimary },
-  rowFields: { flexDirection: 'row', gap: 10 },
-  templatePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: rounded.full,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    marginRight: 8,
-  },
-  templateText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
+  modalBtnSave: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  modalBtnTextCancel: { fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  modalBtnTextSave: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
+  deleteCardBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+  deleteCardText: { fontSize: 12, color: '#FF887D', fontWeight: '600' },
+  inputRow: { flexDirection: 'row', gap: 12 },
+  networkRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  networkChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.1)' },
+  networkChipActive: { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.3)' },
+  networkChipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  networkChipTextActive: { color: '#FFFFFF' },
 });

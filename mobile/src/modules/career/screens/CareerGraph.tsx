@@ -1,3 +1,7 @@
+/**
+ * CareerGraph — SVG line chart rendering career event trends over time.
+ */
+
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Path, Line, Circle, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';

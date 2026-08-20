@@ -1,3 +1,7 @@
+/**
+ * AddEditTaskScreen — form to create or edit a task with name, description,
+ * priority, due date/time, recurrence, and subtasks.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,

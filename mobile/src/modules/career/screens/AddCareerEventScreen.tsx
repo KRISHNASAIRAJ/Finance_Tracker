@@ -1,3 +1,7 @@
+/**
+ * AddCareerEventScreen — Add/edit career events with type (up/down/flat) and date picker.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

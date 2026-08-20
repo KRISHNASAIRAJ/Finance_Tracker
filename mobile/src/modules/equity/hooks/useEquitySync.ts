@@ -1,3 +1,7 @@
+/**
+ * Equity sync hook — pushes/pulls holdings, goals and snapshots to/from Supabase
+ * with offline seed data and bidirectional queue integration.
+ */
 import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
@@ -77,6 +81,7 @@ async function doPull(userId: string) {
       quantity: Number(r.quantity) || 0,
       avgPrice: (r.avg_buy_price as number) ?? 0,
       currentPrice: (r.current_price as number) ?? 0,
+      prevClose: (r.prev_close as number) ?? undefined,
       source: (r.source as Holding["source"]) ?? "manual",
       folio: (r.folio_number as string) ?? undefined,
       amc: (r.amc as string) ?? undefined,
@@ -151,6 +156,7 @@ async function seedHoldings(userId: string) {
     id: h.id, user_id: userId, symbol: h.symbol,
     fund_name: h.name, type: h.type, quantity: h.quantity,
     avg_buy_price: h.avgPrice, current_price: h.currentPrice,
+    prev_close: h.prevClose ?? null,
     current_value: h.quantity * h.currentPrice, source: h.source,
     updated_at: new Date().toISOString(),
     folio_number: h.folio || null,

@@ -1,3 +1,7 @@
+/**
+ * NotificationsScreen — In-app notification inbox with relative timestamps and read state.
+ */
+
 import React from 'react';
 import {
   StyleSheet,

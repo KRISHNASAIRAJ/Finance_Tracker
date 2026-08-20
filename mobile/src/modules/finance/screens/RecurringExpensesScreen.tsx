@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * RecurringExpensesScreen — lists monthly recurring expenses with day-of-month,
+ * variable vs fixed handling and next-due information.
+ */
+import React from 'react';
 import {
   StyleSheet,
   Text,

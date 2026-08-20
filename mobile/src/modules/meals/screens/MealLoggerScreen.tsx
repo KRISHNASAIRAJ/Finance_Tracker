@@ -1,3 +1,7 @@
+/**
+ * MealLoggerScreen — Daily meal logging with macro tracking, calendar picker, and AI suggestions.
+ */
+
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
@@ -25,6 +29,7 @@ import { scheduleMealReminders, checkMealReminderNotifications, requestNotificat
 import { useFinanceStore } from '../../finance/store';
 import { tc, ts, tr, card, sectionTitle, dataLarge, dataBase, labelMuted, progressTrack, macroDot } from '../../../shared/theme/tracend';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
+import DraggableFab from '../../../shared/components/DraggableFab';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
@@ -673,14 +678,13 @@ export default function MealLoggerScreen() {
         </View>
       </Modal>
 
-      {/* Floating AI Button */}
-      <TouchableOpacity
-        style={styles.fab}
+      {/* Floating AI Button — draggable */}
+      <DraggableFab
+        icon="sparkles"
+        color={tc.canvas}
+        storageKey="meridian-fab-meals"
         onPress={() => (navigation as any).navigate('MealAISuggestions')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="sparkles" size={22} color={tc.canvas} />
-      </TouchableOpacity>
+      />
     </SafeAreaView>
   );
 }
@@ -1239,23 +1243,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tc.textSecondary,
     lineHeight: 18,
-  },
-
-  // ── FAB ──
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: tr.full,
-    backgroundColor: tc.action,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: tc.action,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 8,
   },
 });

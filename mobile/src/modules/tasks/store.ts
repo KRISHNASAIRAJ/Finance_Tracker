@@ -1,3 +1,7 @@
+/**
+ * Tasks module Zustand store — tasks with subtasks, recurrence, priority, and
+ * sync queue integration for offline-first CRUD.
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';

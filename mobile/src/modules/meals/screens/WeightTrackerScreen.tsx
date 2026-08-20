@@ -1,3 +1,7 @@
+/**
+ * WeightTrackerScreen — Weight logging with SVG trend chart and CRUD entries.
+ */
+
 import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,

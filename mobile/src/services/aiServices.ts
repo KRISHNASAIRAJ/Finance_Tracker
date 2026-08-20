@@ -1,3 +1,6 @@
+/**
+ * aiServices — Groq-backed AI assistants: Card T&C Q&A and portfolio recommendations with rate limiting.
+ */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 

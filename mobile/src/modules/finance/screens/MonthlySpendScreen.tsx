@@ -1,4 +1,8 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿/**
+ * MonthlySpendScreen — month-by-month spend breakdown with SVG charts,
+ * category drill-down and garage fuel expenses included.
+ */
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -307,7 +311,7 @@ export default function MonthlySpendScreen() {
                       </View>
                     </View>
                     <View style={styles.itemRight}>
-                      <Text style={[styles.itemAmount, { color: catColor }]}>
+                      <Text style={styles.itemAmount}>
                         {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
                       </Text>
                       <Text style={styles.itemDate}>
@@ -438,7 +442,7 @@ const styles = StyleSheet.create({
   itemTitle: { fontSize: 14, fontWeight: '600', color: colors.onSurface },
   itemSubtitle: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
   itemRight: { alignItems: 'flex-end' },
-  itemAmount: { fontSize: 14, fontWeight: '700' },
+  itemAmount: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
   itemDate: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 2 },
   emptyState: { padding: 32, alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, fontWeight: '500' },

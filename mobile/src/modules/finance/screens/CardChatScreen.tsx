@@ -1,4 +1,8 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+﻿/**
+ * CardChatScreen — AI chat over card terms & conditions via the Groq-backed
+ * ai-tnc-query edge function, with chat export support.
+ */
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,

@@ -1,5 +1,8 @@
+/**
+ * RootNavigator — Root React Navigation setup: bottom tab navigator and all stack screens.
+ */
 import React from 'react';
-import { Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -267,7 +270,7 @@ function TabNavigator() {
           if (route.name === 'FinanceTab') {
             iconName = 'wallet-outline';
           } else if (route.name === 'GarageTab') {
-            iconName = 'speedometer-outline';
+            iconName = 'bicycle-outline';
           } else if (route.name === 'TasksTab') {
             iconName = 'checkbox-outline';
           } else if (route.name === 'InvestmentsTab') {
@@ -281,11 +284,24 @@ function TabNavigator() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.outline,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: 'rgba(255, 255, 255, 0.05)',
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 12,
+          position: 'absolute',
+          left: 12,
+          right: 12,
+          bottom: 10,
+          height: 76,
+          paddingBottom: 12,
+          paddingTop: 10,
+          borderRadius: 28,
+          backgroundColor: 'rgba(15, 15, 17, 0.85)',
+          borderTopColor: 'rgba(255, 255, 255, 0.12)',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: 'rgba(255, 255, 255, 0.12)',
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 12 },
+          shadowOpacity: 0.5,
+          shadowRadius: 24,
+          elevation: 12,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -298,7 +314,7 @@ function TabNavigator() {
       <Tab.Screen
         name="FinanceTab"
         component={FinanceStackNavigator}
-        options={{ tabBarLabel: 'Finance' }}
+        options={{ tabBarLabel: 'Home' }}
       />
       <Tab.Screen
         name="GarageTab"
@@ -313,7 +329,7 @@ function TabNavigator() {
       <Tab.Screen
         name="InvestmentsTab"
         component={InvestmentsStackNavigator}
-        options={{ tabBarLabel: 'Investments' }}
+        options={{ tabBarLabel: 'Wealth' }}
       />
       <Tab.Screen
         name="MoreTab"

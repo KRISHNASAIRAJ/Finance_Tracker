@@ -1,4 +1,8 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿/**
+ * LentBorrowedScreen — tracks money lent and borrowed (receivables, expected
+ * income) with add/edit and mark-as-paid actions.
+ */
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,

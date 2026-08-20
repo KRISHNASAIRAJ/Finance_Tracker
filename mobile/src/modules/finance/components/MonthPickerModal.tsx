@@ -1,3 +1,6 @@
+/**
+ * MonthPickerModal — modal list picker for selecting a month (used by reports).
+ */
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

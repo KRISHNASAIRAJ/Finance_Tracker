@@ -1,3 +1,6 @@
+/**
+ * syncQueue — Offline-first write queue with retry/backoff, persisted to AsyncStorage.
+ */
 const SYNC_QUEUE_KEY = "meridian_sync_queue";
 
 const MAX_RETRIES = 5;
@@ -20,6 +23,8 @@ let AsyncStorage: {
 const getStorage = () => {
   if (AsyncStorage) return AsyncStorage;
   try {
+    // Dynamic require avoids a circular dependency (stores import syncQueue)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     AsyncStorage = require("@react-native-async-storage/async-storage").default;
   } catch {
     AsyncStorage = null;
@@ -97,7 +102,11 @@ export function onSyncStatusChange(cb: (s: SyncStatus) => void): () => void {
 
 function emitStatus() {
   _statusListeners.forEach((cb) => {
-    try { cb({ ..._status }); } catch (_) {}
+    try {
+      cb({ ..._status });
+    } catch {
+      // Listener errors must not break the sync pipeline
+    }
   });
 }
 
@@ -141,13 +150,17 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
       return { succeeded: 0, failed: 0, dropped: 0 };
     }
 
+    // Dynamic require avoids a circular dependency with supabaseClient
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { supabase } = require("./supabaseClient");
 
     let sessionUser: { id: string } | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       sessionUser = session?.user ?? null;
-    } catch (_) {}
+    } catch {
+      // Session read failed — try refreshing below
+    }
 
     if (!sessionUser) {
       try {

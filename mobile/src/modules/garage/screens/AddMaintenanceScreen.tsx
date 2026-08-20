@@ -1,3 +1,7 @@
+/**
+ * AddMaintenanceScreen — form to log a vehicle service record with service type,
+ * odometer, amount, and notes.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,

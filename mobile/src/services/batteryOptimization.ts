@@ -1,3 +1,6 @@
+/**
+ * batteryOptimization — Prompts user to disable battery optimization for reliable background notifications.
+ */
 import { Platform, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -9,9 +12,12 @@ export async function promptBatteryOptimization(): Promise<void> {
   try {
     const prompted = await AsyncStorage.getItem(BATTERY_PROMPT_KEY);
     if (prompted === 'true') return;
-  } catch {}
+  } catch {
+    // Storage unavailable — continue with the prompt
+  }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const IntentLauncher = require('expo-intent-launcher');
     Alert.alert(
       'Keep Notifications Reliable',
@@ -44,5 +50,7 @@ export async function promptBatteryOptimization(): Promise<void> {
 
   try {
     await AsyncStorage.setItem(BATTERY_PROMPT_KEY, 'true');
-  } catch {}
+  } catch {
+    // Non-fatal — prompt may show again next launch
+  }
 }

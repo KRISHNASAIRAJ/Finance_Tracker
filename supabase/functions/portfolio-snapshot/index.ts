@@ -20,6 +20,7 @@ interface Holding {
   quantity: number;
   current_price: number | null;
   current_value: number | null;
+  prev_close: number | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -31,6 +32,19 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Refresh live prices first so the snapshot reflects today's market moves.
+    try {
+      const refreshResp = await fetch(`${supabaseUrl}/functions/v1/refresh-portfolio-prices`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const refreshBody = await refreshResp.json();
+      console.log("refresh-portfolio-prices:", JSON.stringify(refreshBody).substring(0, 300));
+    } catch (refreshErr) {
+      console.warn("refresh-portfolio-prices failed (snapshot continues with existing prices):", (refreshErr as Error).message);
+    }
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -46,7 +60,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: holdings, error: holdingsErr } = await supabase
       .from("holdings")
-      .select("id, user_id, symbol, fund_name, type, allocation_category, quantity, current_price, current_value");
+      .select("id, user_id, symbol, fund_name, type, allocation_category, quantity, current_price, current_value, prev_close");
 
     if (holdingsErr || !holdings || holdings.length === 0) {
       return new Response(
@@ -66,6 +80,8 @@ Deno.serve(async (req: Request) => {
 
     for (const [userId, userHoldings] of byUser) {
       let totalValue = 0;
+      let prevCloseValue = 0;
+      let hasPrevClose = false;
       const allocation: Record<string, number> = {};
 
       for (const h of userHoldings) {
@@ -74,23 +90,58 @@ Deno.serve(async (req: Request) => {
         totalValue += Math.round(value);
         const cat = (h.allocation_category as string) || h.type || 'Other';
         allocation[cat] = (allocation[cat] || 0) + Math.round(value);
+        if (Number(h.prev_close) > 0) {
+          hasPrevClose = true;
+          prevCloseValue += Number(h.quantity) * Number(h.prev_close);
+        }
       }
-
-      const { data: prevSnapshot } = await supabase
-        .from("portfolio_snapshots")
-        .select("total_value")
-        .eq("user_id", userId)
-        .eq("date", yesterday)
-        .single();
 
       let dayChange = 0;
       let dayChangePct = 0;
-      if (prevSnapshot?.total_value) {
-        const prevVal = Number(prevSnapshot.total_value);
-        dayChange = totalValue - prevVal;
-        dayChangePct = prevVal > 0
-          ? (dayChange / prevVal) * 100
-          : 0;
+
+      // Fetch the latest snapshot for comparison
+      const { data: latestSnap } = await supabase
+        .from("portfolio_snapshots")
+        .select("total_value, date")
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const latestValue = latestSnap?.total_value ? Number(latestSnap.total_value) : null;
+
+      // Prefer per-holding prev_close (true market move for the day).
+      if (hasPrevClose) {
+        dayChange = Math.round(totalValue - prevCloseValue);
+        dayChangePct = prevCloseValue > 0 ? (dayChange / prevCloseValue) * 100 : 0;
+      } else if (latestValue) {
+        dayChange = totalValue - latestValue;
+        dayChangePct = latestValue > 0 ? (dayChange / latestValue) * 100 : 0;
+      }
+
+      // If the value hasn't changed, don't add a new snapshot row —
+      // slide the latest snapshot's date forward instead so the history
+      // doesn't accumulate duplicate-value entries.
+      if (latestValue !== null && latestValue === totalValue && latestSnap.date !== today) {
+        const { error: slideErr } = await supabase
+          .from("portfolio_snapshots")
+          .update({ date: today, updated_at: new Date().toISOString() })
+          .eq("user_id", userId)
+          .eq("date", latestSnap.date);
+
+        if (slideErr) {
+          console.error(`Failed to slide snapshot date for ${userId}:`, slideErr.message);
+        } else {
+          results.push({
+            user_id: userId,
+            total_value: totalValue,
+            day_change: 0,
+            day_change_pct: 0,
+            holdings_count: userHoldings.length,
+            unchanged: true,
+          });
+          continue;
+        }
       }
 
       const { error: upsertErr } = await supabase

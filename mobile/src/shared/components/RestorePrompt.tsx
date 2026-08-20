@@ -1,3 +1,6 @@
+/**
+ * RestorePrompt — Modal prompting to restore from latest backup on first launch (unonboarded).
+ */
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +30,9 @@ export default function RestorePrompt() {
         setBackupDate(latest.date);
         setVisible(true);
       }
-    } catch {}
+    } catch {
+      // No backup available or FS unreadable — skip restore prompt
+    }
   };
 
   const handleRestore = async () => {

@@ -1,3 +1,7 @@
+/**
+ * CareerTrackerScreen — Career milestone timeline with graph, event list, and delete confirm.
+ */
+
 import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,

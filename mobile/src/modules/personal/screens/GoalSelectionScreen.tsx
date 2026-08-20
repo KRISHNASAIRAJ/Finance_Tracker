@@ -1,3 +1,7 @@
+/**
+ * GoalSelectionScreen — Onboarding step to pick app focus areas from preset options.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -15,7 +19,7 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 
 const GOAL_OPTIONS = [
   { id: 'Finance', label: 'Finance', icon: 'wallet-outline' },
-  { id: 'Garage', label: 'Garage', icon: 'speedometer-outline' },
+  { id: 'Garage', label: 'Garage', icon: 'bicycle-outline' },
   { id: 'Health', label: 'Health', icon: 'heart-outline' },
   { id: 'Tasks', label: 'Tasks', icon: 'checkbox-outline' },
 ];

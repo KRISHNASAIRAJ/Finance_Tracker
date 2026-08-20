@@ -1,3 +1,6 @@
+/**
+ * dietNotifications — Meal reminder scheduling with per-day tracking via AsyncStorage.
+ */
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isExpoGo } from '../shared/isExpoGo';
@@ -39,7 +42,9 @@ async function saveRemindedCache(cache: Record<string, boolean | string>): Promi
   remindedCache = cache;
   try {
     await AsyncStorage.setItem(REMINDED_KEY, JSON.stringify(cache));
-  } catch {}
+  } catch {
+    // Non-fatal — reminder cache kept in memory for this session
+  }
 }
 
 export async function resetDailyReminders(): Promise<void> {
@@ -50,6 +55,7 @@ export async function resetDailyReminders(): Promise<void> {
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (isExpoGo()) return false;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Notifications = require('expo-notifications');
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -80,6 +86,7 @@ export async function scheduleMealReminders(): Promise<void> {
   if (isExpoGo()) return;
   // Delegate to the single unified scheduler so it doesn't cancel other notifications.
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { scheduleAllReminders } = require('./notificationService');
     await scheduleAllReminders();
   } catch {

@@ -1,3 +1,7 @@
+/**
+ * MealEditScreen — Add/edit meal entries by date and meal type with food item editing.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

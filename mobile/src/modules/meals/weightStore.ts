@@ -1,3 +1,7 @@
+/**
+ * WeightStore — Zustand store for weight entries with offline sync queue support.
+ */
+
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
