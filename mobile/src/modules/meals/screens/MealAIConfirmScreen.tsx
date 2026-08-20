@@ -27,6 +27,7 @@ type RouteParams = {
     imageBase64?: string;
     textDescription?: string;
     mealType?: MealType;
+    date?: string;
   };
 };
 
@@ -40,7 +41,7 @@ const MEAL_META: Record<MealType, { label: string; icon: string; color: string; 
 export default function MealAIConfirmScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RouteParams, 'MealAIConfirm'>>();
-  const { imageBase64, textDescription, mealType: initialMealType } = route.params || {};
+  const { imageBase64, textDescription, mealType: initialMealType, date: paramDate } = route.params || {};
   const { user } = useAuth();
   const addEntry = useMealStore((s) => s.addEntry);
 
@@ -197,7 +198,7 @@ Estimate realistic nutrition values for this specific item.`;
     }
 
     const entry: Omit<MealLogEntry, 'id'> = {
-      date: new Date().toISOString(),
+      date: paramDate ? new Date(paramDate + 'T12:00:00+05:30').toISOString() : new Date().toISOString(),
       mealType,
       items: validItems,
       notes: notes.trim(),

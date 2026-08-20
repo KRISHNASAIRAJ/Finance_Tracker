@@ -59,6 +59,13 @@ export default function MealLoggerScreen() {
 
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [showLogOptions, setShowLogOptions] = useState(false);
+  const [logMealType, setLogMealType] = useState<MealType>(() => {
+    const h = new Date().getHours();
+    if (h < 11) return 'breakfast';
+    if (h < 17) return 'lunch';
+    if (h < 20) return 'snack';
+    return 'dinner';
+  });
   const [showTargets, setShowTargets] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [reportGenerating, setReportGenerating] = useState(false);
@@ -126,7 +133,7 @@ export default function MealLoggerScreen() {
     try {
       const result = await ImagePicker.launchCameraAsync({ quality: 0.4, base64: true });
       if (!result.canceled && result.assets[0]?.base64) {
-        (navigation as any).navigate('MealAIConfirm', { imageBase64: result.assets[0].base64, mealType: 'lunch' });
+        (navigation as any).navigate('MealAIConfirm', { imageBase64: result.assets[0].base64, mealType: logMealType, date: selectedDate });
       }
     } catch (e: any) { Alert.alert('Camera Error', e?.message || 'Could not capture photo'); }
   };
@@ -138,19 +145,19 @@ export default function MealLoggerScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.4, base64: true });
       if (!result.canceled && result.assets[0]?.base64) {
-        (navigation as any).navigate('MealAIConfirm', { imageBase64: result.assets[0].base64, mealType: 'lunch' });
+        (navigation as any).navigate('MealAIConfirm', { imageBase64: result.assets[0].base64, mealType: logMealType, date: selectedDate });
       }
     } catch (e: any) { Alert.alert('Gallery Error', e?.message || 'Could not select photo'); }
   };
 
   const handleDescribeMeal = () => {
     setShowLogOptions(false);
-    (navigation as any).navigate('MealAIConfirm', { mealType: 'lunch' });
+    (navigation as any).navigate('MealAIConfirm', { mealType: logMealType, date: selectedDate });
   };
 
   const handleManualEntry = () => {
     setShowLogOptions(false);
-    (navigation as any).navigate('MealEdit', { date: selectedDate });
+    (navigation as any).navigate('MealEdit', { date: selectedDate, mealType: logMealType });
   };
 
   const openEdit = (entry: MealLogEntry) => {
@@ -554,53 +561,66 @@ export default function MealLoggerScreen() {
         <View style={styles.sheetOverlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Log Meal</Text>
+            <View style={styles.sheetTitleRow}>
+              <Text style={styles.sheetTitle}>Log Meal</Text>
+              <TouchableOpacity onPress={() => setShowLogOptions(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={20} color={tc.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity style={styles.sheetOption} onPress={handleTakePhoto} activeOpacity={0.7}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: tc.actionDim }]}>
-                <Ionicons name="camera-outline" size={20} color={tc.action} />
-              </View>
-              <View style={styles.sheetOptionInfo}>
-                <Text style={styles.sheetOptionTitle}>Take Photo</Text>
-                <Text style={styles.sheetOptionSub}>AI will analyze your meal photo</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-            </TouchableOpacity>
+            <Text style={styles.sheetSectionLabel}>MEAL TYPE</Text>
+            <View style={styles.mealTypeLogRow}>
+              {(Object.keys(MEAL_META) as MealType[]).map((type) => {
+                const m = MEAL_META[type];
+                const selected = logMealType === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[styles.mealTypeLogChip, selected && { backgroundColor: m.bg, borderColor: m.color }]}
+                    onPress={() => setLogMealType(type)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={m.icon as any} size={13} color={selected ? m.color : tc.textMuted} />
+                    <Text style={[styles.mealTypeLogText, selected && { color: m.color }]}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-            <TouchableOpacity style={styles.sheetOption} onPress={handlePickGallery} activeOpacity={0.7}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
-                <Ionicons name="images-outline" size={20} color="#60a5fa" />
-              </View>
-              <View style={styles.sheetOptionInfo}>
-                <Text style={styles.sheetOptionTitle}>Pick from Gallery</Text>
-                <Text style={styles.sheetOptionSub}>Choose an existing meal photo</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-            </TouchableOpacity>
+            <Text style={[styles.sheetSectionLabel, { marginTop: 4 }]}>HOW WOULD YOU LIKE TO LOG IT?</Text>
+            <View style={styles.sheetGrid}>
+              <TouchableOpacity style={styles.sheetTile} onPress={handleTakePhoto} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: tc.actionDim }]}>
+                  <Ionicons name="camera-outline" size={22} color={tc.action} />
+                </View>
+                <Text style={styles.sheetTileTitle}>Take Photo</Text>
+                <Text style={styles.sheetTileSub}>AI analyzes your meal</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetOption} onPress={handleDescribeMeal} activeOpacity={0.7}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: 'rgba(226,164,92,0.12)' }]}>
-                <Ionicons name="text-outline" size={20} color={tc.amber} />
-              </View>
-              <View style={styles.sheetOptionInfo}>
-                <Text style={styles.sheetOptionTitle}>Describe Meal</Text>
-                <Text style={styles.sheetOptionSub}>Type what you ate, AI estimates macros</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetTile} onPress={handlePickGallery} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: 'rgba(96,165,250,0.12)' }]}>
+                  <Ionicons name="images-outline" size={22} color="#60a5fa" />
+                </View>
+                <Text style={styles.sheetTileTitle}>From Gallery</Text>
+                <Text style={styles.sheetTileSub}>Pick an existing photo</Text>
+              </TouchableOpacity>
 
-            <View style={styles.sheetDivider} />
+              <TouchableOpacity style={styles.sheetTile} onPress={handleDescribeMeal} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: 'rgba(226,164,92,0.12)' }]}>
+                  <Ionicons name="text-outline" size={22} color={tc.amber} />
+                </View>
+                <Text style={styles.sheetTileTitle}>Describe Meal</Text>
+                <Text style={styles.sheetTileSub}>AI estimates macros</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetOption} onPress={handleManualEntry} activeOpacity={0.7}>
-              <View style={[styles.sheetOptionIcon, { backgroundColor: 'rgba(244,247,251,0.06)' }]}>
-                <Ionicons name="create-outline" size={20} color={tc.textSecondary} />
-              </View>
-              <View style={styles.sheetOptionInfo}>
-                <Text style={styles.sheetOptionTitle}>Enter Manually</Text>
-                <Text style={styles.sheetOptionSub}>Add food items and nutrition by hand</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetTile} onPress={handleManualEntry} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: 'rgba(244,247,251,0.06)' }]}>
+                  <Ionicons name="create-outline" size={22} color={tc.textSecondary} />
+                </View>
+                <Text style={styles.sheetTileTitle}>Enter Manually</Text>
+                <Text style={styles.sheetTileSub}>Add items by hand</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.sheetCancel} onPress={() => setShowLogOptions(false)}>
               <Text style={styles.sheetCancelText}>Cancel</Text>
@@ -1034,48 +1054,75 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(198,197,215,0.2)',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sheetTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: tc.textPrimary,
-    textAlign: 'center',
-    marginBottom: 18,
   },
-  sheetOption: {
+  sheetSectionLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: tc.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  mealTypeLogRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 14,
+  },
+  mealTypeLogChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: tc.surface,
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 9,
     borderRadius: tr.DEFAULT,
-    padding: 14,
-    marginBottom: 8,
+    backgroundColor: tc.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tc.border,
   },
-  sheetOptionIcon: {
-    width: 42,
-    height: 42,
+  mealTypeLogText: { fontSize: 10, fontWeight: '600', color: tc.textMuted },
+  sheetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  sheetTile: {
+    width: '48.5%',
+    backgroundColor: tc.surface,
+    borderRadius: tr.lg,
+    padding: 14,
+    gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  sheetTileIcon: {
+    width: 40,
+    height: 40,
     borderRadius: tr.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
   },
-  sheetOptionInfo: { flex: 1 },
-  sheetOptionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  sheetTileTitle: {
+    fontSize: 13,
+    fontWeight: '700',
     color: tc.textPrimary,
   },
-  sheetOptionSub: {
-    fontSize: 11,
+  sheetTileSub: {
+    fontSize: 10,
     color: tc.textSecondary,
-    marginTop: 2,
-  },
-  sheetDivider: {
-    height: 1,
-    backgroundColor: tc.border,
-    marginVertical: 8,
+    lineHeight: 13,
   },
   sheetCancel: {
     alignItems: 'center',

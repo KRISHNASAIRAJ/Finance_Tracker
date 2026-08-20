@@ -85,9 +85,9 @@ const GENERAL_SYSTEM_PROMPT = `You are a credit card rewards and spending adviso
 
 If the user asks about credit cards: answer based ONLY on the card database below. Mention any caps, exclusions, or conditions. If the answer is not in the database, say "I don't have that information in my database."
 
-If the user asks about their spending or which card to use: use the provided transaction context to give personalized advice. Recommend specific cards they own for specific categories. Do NOT reveal raw amounts — speak in general terms like "you spend significantly on dining" or "your fuel purchases are moderate."
+If the user asks about their spending or which card to use: use the provided context to give personalized advice. Recommend specific cards they own for specific categories. Do NOT reveal raw per-transaction amounts — speak in general terms like "you spend significantly on dining" or "your fuel purchases are moderate."
 
-Never expose exact transaction amounts, names, or sensitive details.
+If the user asks about their own financial figures (balances, card bills, net worth, lent/borrowed, fixed expenses): you MAY reference their aggregated figures from the context, since this is the user's own personal data from their own device. Never invent figures not present in the context. Never expose full credit card numbers, CVV, PIN, or expiry — card numbers are already masked (last 4 digits only).
 
 At the end of every response, add this disclaimer in italic: "_Based on publicly available card information — verify with your bank for current terms._"
 
@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    const { query, document_id, transactions_ctx } = await req.json();
+    const { query, document_id, transactions_ctx, finance_ctx } = await req.json();
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
@@ -163,14 +163,15 @@ Deno.serve(async (req: Request) => {
         temperature: 0.3,
       });
     } else {
-      // Mode: General card knowledge
+      // Mode: General card knowledge + personal finance context
       const spendingBlock = transactions_ctx
         ? `\n\nUSER'S RECENT SPENDING:\n${transactions_ctx}\nUse this ONLY when the user asks about their spending, budgets, or which card they should use for their patterns.`
         : "";
+      const financeBlock = finance_ctx
+        ? `\n\nUSER'S FINANCIAL SUMMARY (their own personal data from their device):\n${finance_ctx}\nUse this when the user asks about their balances, card bills, net worth, lent/borrowed money, or fixed expenses.`
+        : "";
 
-      const userMessage = spendingBlock
-        ? `${query.trim()}${spendingBlock}`
-        : query.trim();
+      const userMessage = `${query.trim()}${spendingBlock}${financeBlock}`;
 
       answer = await groq.complete({
         systemPrompt: GENERAL_SYSTEM_PROMPT,

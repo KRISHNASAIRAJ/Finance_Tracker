@@ -18,6 +18,8 @@ import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask, triggerSyncNow } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
+import { seedGarageData } from './src/modules/garage/store';
+import { seedFixedExpenseFixes } from './src/modules/finance/store';
 
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
@@ -42,6 +44,8 @@ export default function App() {
     registerBackupTask();
     scheduleNextBackup();
     registerSyncTask();
+    seedGarageData();
+    seedFixedExpenseFixes();
     requestNotificationPermission().then(() => {
       scheduleAllReminders();
       setTimeout(() => promptBatteryOptimization(), 3000);
@@ -55,13 +59,15 @@ export default function App() {
         }
         const nav = navigationRef as any;
 
-        if (data.screen === 'TaskDetail' && data.taskId) {
-          nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TaskDetail', params: { taskId: data.taskId } } });
-        } else if (data.screen === 'LentBorrowed') {
-          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'LentBorrowed' } });
-        } else if (data.screen === 'MealLogger') {
-          nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'MealLogger' } });
-        } else if (data.type === 'PORTFOLIO_REPORT') {
+if (data.screen === 'TaskDetail' && data.taskId) {
+            nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TaskDetail', params: { taskId: data.taskId } } });
+          } else if (data.screen === 'LentBorrowed') {
+            nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'LentBorrowed' } });
+          } else if (data.screen === 'MealLogger') {
+            nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'MealLogger' } });
+          } else if (data.screen === 'AllMaintenance') {
+            nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AllMaintenance' } });
+          } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }
       };

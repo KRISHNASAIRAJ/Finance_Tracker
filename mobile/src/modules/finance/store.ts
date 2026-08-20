@@ -105,6 +105,7 @@ interface FinanceState {
   deleteCard: (id: string, userId?: string) => void;
   markCardBillPaid: (id: string, paymentAmount: number, userId?: string) => void;
   markFixedExpensePaid: (id: string, userId?: string) => void;
+  payFixedExpenseWithAmount: (id: string, amountPaise: number, userId?: string) => void;
   unmarkFixedExpensePaid: (id: string, userId?: string) => void;
   getTotalBalance: () => number;
   getMonthlyExpenses: () => number;
@@ -253,11 +254,18 @@ export const useFinanceStore = create<FinanceState>()(
       markFixedExpensePaid: (id, userId) => {
         const currentExp = get().fixedExpenses.find((f) => f.id === id);
         if (!currentExp) return;
+        get().payFixedExpenseWithAmount(id, currentExp.amount, userId);
+      },
+      payFixedExpenseWithAmount: (id, amountPaise, userId) => {
+        const currentExp = get().fixedExpenses.find((f) => f.id === id);
+        if (!currentExp) return;
 
         const now = new Date();
         const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        if (currentExp.lastPaidMonth === currentMonthStr) return;
 
-        if (currentExp.lastPaidMonth === currentMonthStr) return; // already paid this month
+        const paidAmount = Math.max(0, Math.round(amountPaise || 0));
+        if (paidAmount <= 0) return;
 
         const currentDueDate = new Date(currentExp.dueDate);
         const nextDueDate = new Date(
@@ -270,7 +278,7 @@ export const useFinanceStore = create<FinanceState>()(
         const newTransaction: Transaction = {
           id: generatedTxId,
           type: 'fixed_expense',
-          amount: currentExp.amount,
+          amount: paidAmount,
           currency: 'INR',
           date: new Date().toISOString(),
           category: currentExp.category,
@@ -284,6 +292,7 @@ export const useFinanceStore = create<FinanceState>()(
             f.id === id
               ? {
                   ...f,
+                  amount: paidAmount,
                   lastPaidMonth: currentMonthStr,
                   dueDate: nextDueDate.toISOString(),
                 }
@@ -294,7 +303,8 @@ export const useFinanceStore = create<FinanceState>()(
         try {
           enqFlush('transactions', 'create', { ...newTransaction, user_id: userId || null });
           enqFlush('fixed_expenses', 'update', {
-            id, user_id: userId || null, last_paid_month: currentMonthStr,
+            id, user_id: userId || null, amount: paidAmount,
+            last_paid_month: currentMonthStr,
             due_date: nextDueDate.toISOString(),
           });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
@@ -619,3 +629,62 @@ export const useFinanceStore = create<FinanceState>()(
     }
   )
 );
+
+const FIXED_EXPENSES_FIX_FLAG = 'meridian-fixed-expense-fixes-v1';
+
+/**
+ * One-time data fixes + default additions for fixed expenses:
+ * - "Flat Rent" amount -> ₹10,400 (10.4k)
+ * - All SIPs (Investments category) -> due on the 1st of the month
+ * - Add "Electricity Bill" (variable amount, default ₹500) if missing
+ * Changes stay local; the existing login sync (seedSupabase) pushes them to
+ * the cloud via upsert. Guarded by an AsyncStorage flag so it runs once.
+ */
+export async function seedFixedExpenseFixes(): Promise<void> {
+  try {
+    const flag = await AsyncStorage.getItem(FIXED_EXPENSES_FIX_FLAG);
+    if (flag === 'done') return;
+
+    const state = useFinanceStore.getState();
+    let changed = false;
+
+    let fixedExpenses = state.fixedExpenses.map((f) => {
+      let updated = f;
+      const name = (f.name || '').toLowerCase();
+      if ((name === 'flat rent' || name === 'rent') && f.amount !== 1040000) {
+        updated = { ...updated, amount: 1040000 };
+        changed = true;
+      }
+      if (f.category === 'Investments' && f.billingDay !== 1) {
+        updated = { ...updated, billingDay: 1 };
+        changed = true;
+      }
+      return updated;
+    });
+
+    const hasElectricity = fixedExpenses.some((f) => (f.name || '').toLowerCase().includes('electricity'));
+    if (!hasElectricity) {
+      const now = new Date();
+      const due = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const newFix: FixedExpense = {
+        id: `fx_elec_${Math.random().toString(36).substring(2, 8)}`,
+        name: 'Electricity Bill',
+        amount: 50000,
+        billingDay: 1,
+        category: 'Utilities',
+        lastPaidMonth: '',
+        dueDate: due.toISOString(),
+      };
+      fixedExpenses = [newFix, ...fixedExpenses];
+      changed = true;
+    }
+
+    if (changed) {
+      useFinanceStore.setState({ fixedExpenses });
+      console.log('[FinanceStore] Applied fixed expense fixes (rent 10.4k, SIPs due 1st, Electricity Bill added)');
+    }
+    await AsyncStorage.setItem(FIXED_EXPENSES_FIX_FLAG, 'done');
+  } catch (e) {
+    console.warn('[FinanceStore] seedFixedExpenseFixes failed:', e);
+  }
+}

@@ -1,6 +1,8 @@
 import { Platform, PermissionsAndroid } from 'react-native';
 import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
+import { useMealStore } from '../modules/meals/store';
+import { useGarageStore } from '../modules/garage/store';
 import { isExpoGo } from '../shared/isExpoGo';
 
 const WALLET_TARGET = 4000000;
@@ -179,39 +181,43 @@ function getNextBillingDate(billingDay: number): Date {
 
 export async function scheduleAllReminders() {
   if (isScheduling) return;
-  if (!ensureInit()) {
-    console.warn('[notificationService] scheduleAllReminders: ensureInit failed. isExpoGo:', isExpoGo());
-    return;
-  }
-  const granted = await requestNotificationPermission();
-  if (!granted) {
-    console.warn('[notificationService] scheduleAllReminders: permission not granted');
-    return;
-  }
-
   isScheduling = true;
   try {
+    if (!ensureInit()) {
+      console.warn('[notificationService] scheduleAllReminders: ensureInit failed. isExpoGo:', isExpoGo());
+      return;
+    }
+    const granted = await requestNotificationPermission();
+    if (!granted) {
+      console.warn('[notificationService] scheduleAllReminders: permission not granted');
+      return;
+    }
+
     if (!Notifications) return;
     console.log('[notificationService] Cancelling all + rescheduling...');
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    // Meal reminders — recurring daily at fixed times (DBG 9:00, lunch 14:15, snack 18:30, dinner 21:30)
+    // Meal reminders — ONE per slot per day, only for slots not yet logged today.
+    // No recurring daily triggers (that caused notification spam).
+    const nowIst = istNow();
+    const todayKey = `${nowIst.getFullYear()}-${String(nowIst.getMonth() + 1).padStart(2, '0')}-${String(nowIst.getDate()).padStart(2, '0')}`;
+    const { entries: mealEntries } = useMealStore.getState();
+    const loggedMealTypes = new Set(
+      (mealEntries || [])
+        .filter((e: any) => e.date.slice(0, 10) === todayKey)
+        .map((e: any) => e.mealType)
+    );
     for (const { slot, hour, minute, label } of MEAL_SLOTS) {
-      try {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: `${label} Time`,
-            body: `Time to log your ${slot === 'lunch' ? 'lunch' : slot} meal!`,
-            data: { screen: 'MealLogger', slot },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour,
-            minute,
-            channelId: 'diet-reminders',
-          },
-        });
-      } catch (e) { console.warn('[notificationService] Meal reminder schedule failed:', slot, e); }
+      if (loggedMealTypes.has(slot)) continue;
+      const triggerTime = new Date(nowIst.getFullYear(), nowIst.getMonth(), nowIst.getDate(), hour, minute, 0);
+      if (triggerTime <= nowIst) continue;
+      await scheduleLocal(
+        `${label} Time`,
+        `Time to log your ${slot === 'lunch' ? 'lunch' : slot} meal!`,
+        triggerTime,
+        'diet-reminders',
+        { screen: 'MealLogger', slot }
+      );
     }
 
     const { cards, receivables } = useFinanceStore.getState();
@@ -359,6 +365,59 @@ export async function scheduleAllReminders() {
         'task_reminders',
         { screen: 'TaskDetail', taskId: task.id }
       );
+    }
+
+    // Vehicle service reminders — next service at lastServiceKm + 3000 km OR lastServiceDate + 3 months
+    // (whichever comes first). Alert when within 200 km or 14 days of the due window.
+    const { vehicles, fills, maintenance } = useGarageStore.getState();
+    const SERVICE_INTERVAL_KM = 3000;
+    const SERVICE_INTERVAL_MONTHS = 3;
+    const WARN_KM_LEFT = 200;
+    const WARN_DAYS_LEFT = 14;
+    for (const vehicle of (vehicles || [])) {
+      const vMaint = (maintenance || []).filter((m) => m.vehicle === vehicle);
+      if (vMaint.length === 0) continue;
+      const lastService = [...vMaint].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      const lastKm = typeof lastService.odometer === 'number' ? lastService.odometer : null;
+      const lastDate = new Date(lastService.date);
+      if (isNaN(lastDate.getTime())) continue;
+
+      const vFills = (fills || []).filter((f) => f.vehicle === vehicle);
+      const currentKm = vFills.length > 0 ? Math.max(...vFills.map((f) => f.odometer || 0)) : 0;
+
+      let dueKm: number | null = null;
+      if (typeof lastKm === 'number' && lastKm > 0) dueKm = lastKm + SERVICE_INTERVAL_KM;
+
+      const dueDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + SERVICE_INTERVAL_MONTHS, lastDate.getDate());
+
+      let title: string | null = null;
+      let body: string | null = null;
+
+      const kmWindow = dueKm !== null && dueKm - currentKm <= WARN_KM_LEFT;
+      const dateWindow = now >= new Date(dueDate.getTime() - WARN_DAYS_LEFT * 86400000);
+
+      if (dueKm !== null && kmWindow) {
+        title = `\u{1F6F5} ${vehicle} Service Due Soon`;
+        const kmLeft = Math.max(0, dueKm - currentKm);
+        body = kmLeft <= 0
+          ? `Next service due at ${dueKm.toLocaleString('en-IN')} km. You're due now!`
+          : `${kmLeft.toLocaleString('en-IN')} km left until the ${dueKm.toLocaleString('en-IN')} km service mark.`;
+      } else if (dateWindow) {
+        title = `\u{1F6F5} ${vehicle} Service Due by ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+        body = `Last service was ${lastDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Book the ${SERVICE_INTERVAL_MONTHS}-month service soon.`;
+      }
+
+      if (title && body) {
+        const trigger = new Date(now.getTime() + 30 * 60000);
+        trigger.setMinutes(trigger.getMinutes() + 30, 0, 0);
+        await scheduleLocal(
+          title,
+          body,
+          trigger,
+          'bills_due',
+          { screen: 'AllMaintenance' }
+        );
+      }
     }
   } finally {
     isScheduling = false;

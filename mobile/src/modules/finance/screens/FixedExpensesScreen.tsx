@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -17,16 +18,38 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 
+function ordinal(n: number): string {
+  if (n >= 11 && n <= 13) return `${n}th`;
+  const r = n % 10;
+  if (r === 1) return `${n}st`;
+  if (r === 2) return `${n}nd`;
+  if (r === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+function isVariable(name: string): boolean {
+  return name.toLowerCase().includes('electricity');
+}
+
+function getIcon(name: string, category: string): keyof typeof Ionicons.glyphMap {
+  if (category === 'Housing') return 'home-outline';
+  if (category === 'Investments') return 'trending-up-outline';
+  if (isVariable(name)) return 'flash-outline';
+  return 'receipt-outline';
+}
+
 export default function FixedExpensesScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { fixedExpenses, markFixedExpensePaid, unmarkFixedExpensePaid } = useFinanceStore();
+  const { fixedExpenses, payFixedExpenseWithAmount, unmarkFixedExpensePaid } = useFinanceStore();
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const pendingExpenses = fixedExpenses.filter((item) => item.lastPaidMonth !== currentMonthStr);
   const totalPending = pendingExpenses.reduce((sum, item) => sum + item.amount, 0);
+
+  const [amountInputs, setAmountInputs] = React.useState<Record<string, string>>({});
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', {
@@ -61,6 +84,9 @@ export default function FixedExpensesScreen() {
           <View style={styles.listContainer}>
             {fixedExpenses.map((item) => {
               const isPaid = item.lastPaidMonth === currentMonthStr;
+              const variable = isVariable(item.name);
+              const inputKey = `amt_${item.id}`;
+              const inputVal = amountInputs[inputKey] ?? (item.amount / 100).toString();
 
               return (
                 <View key={item.id} style={styles.rowItem}>
@@ -72,39 +98,67 @@ export default function FixedExpensesScreen() {
                       ]}
                     >
                       <Ionicons
-                        name={item.category === 'Housing' ? 'home-outline' : 'trending-up-outline'}
+                        name={getIcon(item.name, item.category)}
                         size={18}
                         color={isPaid ? colors.success : colors.error}
                       />
                     </View>
-                    <View>
+                    <View style={{ flex: 1 }}>
                       <Text style={styles.itemTitle}>{item.name}</Text>
                       <Text style={styles.itemSubtitle}>
-                        {isPaid
-                          ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
-                          : `Due on ${item.billingDay}th of month`}
+                        {variable
+                          ? 'Variable amount — enter this month\'s bill'
+                          : isPaid
+                            ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                            : `Due on ${ordinal(item.billingDay)} of every month`}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.itemRight}>
-                    <Text style={styles.itemAmount}>{formatCurrency(item.amount)}</Text>
-                    {isPaid ? (
-                      <TouchableOpacity
-                        style={styles.paidBadge}
-                        onPress={() => unmarkFixedExpensePaid(item.id, user?.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="checkmark-circle" size={12} color={colors.textPrimary} />
-                        <Text style={styles.paidBadgeText}>Paid</Text>
-                      </TouchableOpacity>
+                    {variable && !isPaid ? (
+                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                        <TextInput
+                          style={styles.amountInput}
+                          value={inputVal}
+                          onChangeText={(v) => setAmountInputs((prev) => ({ ...prev, [inputKey]: v }))}
+                          keyboardType="decimal-pad"
+                          placeholder="0"
+                          placeholderTextColor={colors.outline}
+                        />
+                        <TouchableOpacity
+                          style={styles.payButton}
+                          onPress={() => {
+                            const val = parseFloat(inputVal);
+                            if (isNaN(val) || val <= 0) { alert('Enter a valid amount'); return; }
+                            payFixedExpenseWithAmount(item.id, Math.round(val * 100), user?.id);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.payButtonText}>Pay</Text>
+                        </TouchableOpacity>
+                      </View>
                     ) : (
-                      <TouchableOpacity
-                        style={styles.payButton}
-                        onPress={() => markFixedExpensePaid(item.id, user?.id)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.payButtonText}>Pay</Text>
-                      </TouchableOpacity>
+                      <>
+                        <Text style={styles.itemAmount}>{formatCurrency(item.amount)}</Text>
+                        {isPaid ? (
+                          <TouchableOpacity
+                            style={styles.paidBadge}
+                            onPress={() => unmarkFixedExpensePaid(item.id, user?.id)}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="checkmark-circle" size={12} color={colors.textPrimary} />
+                            <Text style={styles.paidBadgeText}>Paid</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.payButton}
+                            onPress={() => payFixedExpenseWithAmount(item.id, item.amount, user?.id)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.payButtonText}>Pay</Text>
+                          </TouchableOpacity>
+                        )}
+                      </>
                     )}
                   </View>
                 </View>
@@ -225,6 +279,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: rounded.DEFAULT,
+  },
+  amountInput: {
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: rounded.DEFAULT,
+    height: 36,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'right',
   },
   payButtonText: {
     color: colors.textPrimary,

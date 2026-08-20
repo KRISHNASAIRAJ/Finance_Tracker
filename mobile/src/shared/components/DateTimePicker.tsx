@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,11 +6,8 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
-import { rounded } from '../theme/spacing';
 
 interface DateTimePickerProps {
   visible: boolean;
@@ -19,16 +16,62 @@ interface DateTimePickerProps {
   onClose: () => void;
 }
 
+// Meridian design tokens (from Stitch "Date & Time Picker" screen)
+const C = {
+  surface: '#15121b',
+  surfaceLow: '#1d1a24',
+  surfaceContainer: '#221e28',
+  surfaceBright: '#3c3742',
+  onSurface: '#e8dfee',
+  onSurfaceVariant: '#ccc3d8',
+  primary: '#d2bbff',
+  primaryContainer: '#7c3aed',
+  onPrimary: '#ffffff',
+  outlineVariant: '#4a4455',
+  border: 'rgba(255,255,255,0.05)',
+  dim: 'rgba(204,195,216,0.4)',
+  overlay: 'rgba(0,0,0,0.7)',
+};
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
+
+const SPIN_ITEM_H = 42;
+const SPIN_PAD = 49;
+const SPIN_H = 140;
 
 export default function DateTimePicker({ visible, selected, onSelect, onClose }: DateTimePickerProps) {
   const [viewMonth, setViewMonth] = useState(() => new Date(selected));
   const [tempDate, setTempDate] = useState<Date>(() => new Date(selected));
-  const [mode, setMode] = useState<'date' | 'time'>('date');
   const [period, setPeriod] = useState<'AM' | 'PM'>(selected.getHours() >= 12 ? 'PM' : 'AM');
   const [hour, setHour] = useState(selected.getHours() % 12 || 12);
-  const [minute, setMinute] = useState(selected.getMinutes());
+  const [minute, setMinute] = useState(Math.round(selected.getMinutes() / 5) * 5);
+  const hourScrollRef = useRef<ScrollView>(null);
+  const minuteScrollRef = useRef<ScrollView>(null);
+
+  const scrollToHour = (h: number) => {
+    hourScrollRef.current?.scrollTo({ y: Math.max(0, (h - 1) * SPIN_ITEM_H), animated: false });
+  };
+  const scrollToMinute = (m: number) => {
+    minuteScrollRef.current?.scrollTo({ y: (m / 5) * SPIN_ITEM_H, animated: false });
+  };
+
+  useEffect(() => {
+    if (visible) {
+      const s = selected;
+      setViewMonth(new Date(s));
+      setTempDate(new Date(s));
+      setPeriod(s.getHours() >= 12 ? 'PM' : 'AM');
+      setHour(s.getHours() % 12 || 12);
+      setMinute(Math.round(s.getMinutes() / 5) * 5);
+      setTimeout(() => {
+        scrollToHour(s.getHours() % 12 || 12);
+        scrollToMinute(Math.round(s.getMinutes() / 5) * 5);
+      }, 120);
+    }
+  }, [visible, selected]);
 
   const isSelected = useCallback(
     (d: Date) =>
@@ -59,7 +102,6 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     const updated = new Date(tempDate);
     updated.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
     setTempDate(updated);
-    setMode('time');
   };
 
   const handleConfirm = () => {
@@ -68,66 +110,60 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     const result = new Date(tempDate);
     result.setHours(h, minute, 0, 0);
     onSelect(result);
-    setMode('date');
     onClose();
   };
 
-  const handleCancel = () => {
-    setMode('date');
-    onClose();
-  };
-
-  const formattedDate = tempDate.toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-
-  const headerTimeStr = `${hour}:${String(minute).padStart(2, '0')} ${period}`;
+  const fmtTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ${period}`;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleCancel}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          {/* Material Design 3 style header */}
+        <View style={styles.sheet}>
+          {/* Header */}
           <View style={styles.header}>
-            {mode === 'date' ? (
-              <>
-                <Text style={styles.headerYear}>{tempDate.getFullYear()}</Text>
-                <Text style={styles.headerDate}>{formattedDate}</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.headerYear}>{tempDate.getFullYear()}</Text>
-                <Text style={styles.headerTime}>{headerTimeStr}</Text>
-                <Text style={styles.headerDateSmall}>{formattedDate}</Text>
-              </>
-            )}
+            <TouchableOpacity style={styles.iconBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={22} color={C.onSurfaceVariant} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Select Date & Time</Text>
+            <View style={styles.iconBtn} />
           </View>
 
-          {mode === 'date' ? (
-            <>
-              {/* Month Navigator */}
-              <View style={styles.monthNav}>
-                <TouchableOpacity style={styles.navBtn} onPress={() => changeMonth(-1)}>
-                  <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
-                </TouchableOpacity>
-                <Text style={styles.monthLabel}>
-                  {MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Selection Summary Card */}
+            <View style={styles.summaryCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.summaryLabel}>SELECTED DATE</Text>
+                <Text style={styles.summaryValue}>
+                  {tempDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </Text>
-                <TouchableOpacity style={styles.navBtn} onPress={() => changeMonth(1)}>
-                  <Ionicons name="chevron-forward" size={22} color={colors.onSurface} />
-                </TouchableOpacity>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.summaryLabel}>TIME</Text>
+                <Text style={styles.summaryValue}>{fmtTime}</Text>
+              </View>
+            </View>
+
+            {/* Calendar Card */}
+            <View style={styles.card}>
+              <View style={styles.calHeader}>
+                <Text style={styles.calTitle}>{MONTHS[viewMonth.getMonth()].toUpperCase()} {viewMonth.getFullYear()}</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity style={styles.calNavBtn} onPress={() => changeMonth(-1)} activeOpacity={0.7}>
+                    <Ionicons name="chevron-back" size={16} color={C.onSurfaceVariant} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.calNavBtn} onPress={() => changeMonth(1)} activeOpacity={0.7}>
+                    <Ionicons name="chevron-forward" size={16} color={C.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Day headers */}
               <View style={styles.weekRow}>
                 {DAYS.map((d, i) => (
                   <Text key={i} style={styles.weekLabel}>{d}</Text>
                 ))}
               </View>
 
-              {/* Days grid */}
               <View style={styles.daysGrid}>
                 {getDays().map((day, i) => {
                   if (!day) return <View key={i} style={styles.dayCell} />;
@@ -136,115 +172,113 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                   return (
                     <TouchableOpacity
                       key={i}
-                      style={[
-                        styles.dayCell,
-                        sel && styles.dayCellSelected,
-                        isTodayDate && !sel && styles.dayCellToday,
-                      ]}
+                      style={[styles.dayCell, sel && styles.dayCellSelected, isTodayDate && !sel && styles.dayCellToday]}
                       onPress={() => handleDateSelect(day)}
                       activeOpacity={0.6}
                     >
-                      <Text
-                        style={[
-                          styles.dayText,
-                          sel && styles.dayTextSelected,
-                          isTodayDate && !sel && styles.dayTextToday,
-                        ]}
-                      >
+                      <Text style={[styles.dayText, sel && styles.dayTextSelected, isTodayDate && !sel && styles.dayTextToday]}>
                         {day.getDate()}
                       </Text>
+                      {isTodayDate && !sel && <View style={styles.todayDot} />}
                     </TouchableOpacity>
                   );
                 })}
               </View>
+            </View>
 
-              <View style={styles.footerRow}>
-                <TouchableOpacity style={styles.footerBtn} onPress={handleCancel}>
-                  <Text style={styles.footerCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.footerBtn} onPress={() => setMode('time')}>
-                  <Text style={styles.footerOkText}>Next: Time</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              {/* Time Picker */}
-              <View style={styles.timeContainer}>
-                <View style={styles.timeColumn}>
-                  <Text style={styles.timeColLabel}>Hour</Text>
+            {/* Time Card */}
+            <View style={styles.card}>
+              <Text style={styles.timeTitle}>SET TIME</Text>
+              <View style={styles.spinnerRow}>
+                <View style={styles.spinnerHighlight} />
+                <View style={styles.spinnerColumn}>
                   <ScrollView
-                    style={styles.timeScroll}
+                    ref={hourScrollRef}
+                    style={styles.spinner}
                     showsVerticalScrollIndicator={false}
+                    snapToInterval={SPIN_ITEM_H}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(e) => {
+                      const idx = Math.round(e.nativeEvent.contentOffset.y / SPIN_ITEM_H);
+                      const h = HOURS[Math.min(Math.max(idx, 0), HOURS.length - 1)];
+                      setHour(h);
+                    }}
                   >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
+                    <View style={{ height: SPIN_PAD }} />
+                    {HOURS.map((h) => (
                       <TouchableOpacity
                         key={h}
-                        style={[styles.timeItem, hour === h && styles.timeItemActive]}
-                        onPress={() => setHour(h)}
+                        style={styles.spinItem}
+                        onPress={() => { setHour(h); scrollToHour(h); }}
+                        activeOpacity={0.7}
                       >
-                        <Text style={[styles.timeItemText, hour === h && styles.timeItemTextActive]}>
+                        <Text style={[styles.spinItemText, hour === h && styles.spinItemTextActive]}>
                           {String(h).padStart(2, '0')}
                         </Text>
                       </TouchableOpacity>
                     ))}
+                    <View style={{ height: SPIN_PAD }} />
                   </ScrollView>
                 </View>
 
-                <Text style={styles.timeColon}>:</Text>
+                <Text style={styles.spinnerColon}>:</Text>
 
-                <View style={styles.timeColumn}>
-                  <Text style={styles.timeColLabel}>Min</Text>
+                <View style={styles.spinnerColumn}>
                   <ScrollView
-                    style={styles.timeScroll}
+                    ref={minuteScrollRef}
+                    style={styles.spinner}
                     showsVerticalScrollIndicator={false}
+                    snapToInterval={SPIN_ITEM_H}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(e) => {
+                      const idx = Math.round(e.nativeEvent.contentOffset.y / SPIN_ITEM_H);
+                      const m = MINUTES[Math.min(Math.max(idx, 0), MINUTES.length - 1)];
+                      setMinute(m);
+                    }}
                   >
-                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                    <View style={{ height: SPIN_PAD }} />
+                    {MINUTES.map((m) => (
                       <TouchableOpacity
                         key={m}
-                        style={[styles.timeItem, minute === m && styles.timeItemActive]}
-                        onPress={() => setMinute(m)}
+                        style={styles.spinItem}
+                        onPress={() => { setMinute(m); scrollToMinute(m); }}
+                        activeOpacity={0.7}
                       >
-                        <Text style={[styles.timeItemText, minute === m && styles.timeItemTextActive]}>
+                        <Text style={[styles.spinItemText, minute === m && styles.spinItemTextActive]}>
                           {String(m).padStart(2, '0')}
                         </Text>
                       </TouchableOpacity>
                     ))}
+                    <View style={{ height: SPIN_PAD }} />
                   </ScrollView>
                 </View>
 
-                {/* AM/PM */}
-                <View style={styles.periodCol}>
+                {/* AM/PM segmented control */}
+                <View style={styles.periodGroup}>
                   {(['AM', 'PM'] as const).map((p) => (
                     <TouchableOpacity
                       key={p}
                       style={[styles.periodBtn, period === p && styles.periodBtnActive]}
                       onPress={() => setPeriod(p)}
+                      activeOpacity={0.8}
                     >
-                      <Text style={[styles.periodBtnText, period === p && styles.periodBtnTextActive]}>
-                        {p}
-                      </Text>
+                      <Text style={[styles.periodBtnText, period === p && styles.periodBtnTextActive]}>{p}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
+            </View>
+          </ScrollView>
 
-              <TouchableOpacity style={styles.backToDateBtn} onPress={() => setMode('date')}>
-                <Ionicons name="arrow-back" size={16} color={colors.onSurfaceVariant} />
-                <Text style={styles.backToDateText}>Back to Date</Text>
-              </TouchableOpacity>
-
-              <View style={styles.footerRow}>
-                <TouchableOpacity style={styles.footerBtn} onPress={handleCancel}>
-                  <Text style={styles.footerCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-                  <Ionicons name="checkmark" size={18} color="#fff" />
-                  <Text style={styles.footerOkText}>OK</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+          {/* Bottom action bar */}
+          <View style={styles.actionBar}>
+            <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={onClose} activeOpacity={0.85}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.applyBtn]} onPress={handleConfirm} activeOpacity={0.85}>
+              <Text style={styles.applyText}>Apply Selection</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -254,226 +288,279 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
   },
-  card: {
-    backgroundColor: '#1e1b2e',
-    borderRadius: 16,
+  sheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+    maxHeight: '94%',
   },
   header: {
-    backgroundColor: colors.primaryContainer,
-    padding: 24,
-    paddingTop: 28,
-    gap: 4,
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.border,
+    backgroundColor: 'rgba(21,18,27,0.9)',
   },
-  headerYear: {
-    fontSize: 14,
+  iconBtn: { width: 32, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: C.onSurface,
+    letterSpacing: -0.3,
+  },
+  body: { flexShrink: 1, paddingHorizontal: 24, paddingVertical: 20, gap: 14 },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34,30,40,0.6)',
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    padding: 16,
+    marginBottom: 14,
+    gap: 16,
+  },
+  summaryLabel: {
+    fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.5,
+    color: C.onSurfaceVariant,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
-  headerDate: {
-    fontSize: 32,
+  summaryValue: {
+    fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: C.primary,
+    letterSpacing: -0.3,
   },
-  headerDateSmall: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
+  summaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  headerTime: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#fff',
+  card: {
+    backgroundColor: C.surfaceLow,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    padding: 16,
+    marginBottom: 14,
   },
-  monthNav: {
+  calHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    marginBottom: 14,
   },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  calTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.onSurface,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  calNavBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: C.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monthLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
   weekRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    marginBottom: 4,
   },
   weekLabel: {
     flex: 1,
     textAlign: 'center',
     fontSize: 11,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: 'rgba(204,195,216,0.5)',
+    textTransform: 'uppercase',
   },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
+    rowGap: 6,
   },
   dayCell: {
     width: '14.28%',
-    aspectRatio: 1,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 100,
+    borderRadius: 999,
+    position: 'relative',
   },
   dayCellSelected: {
-    backgroundColor: colors.primary,
+    backgroundColor: C.primaryContainer,
+    shadowColor: C.primaryContainer,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 5,
   },
   dayCellToday: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: C.primary,
+    backgroundColor: 'rgba(124,58,237,0.1)',
   },
   dayText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
-    color: colors.onSurface,
+    color: C.onSurface,
   },
   dayTextSelected: {
-    color: '#fff',
+    color: C.onPrimary,
     fontWeight: '700',
   },
   dayTextToday: {
-    color: colors.primary,
+    color: C.primary,
     fontWeight: '700',
   },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.04)',
+  todayDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: C.primary,
   },
-  footerBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: rounded.DEFAULT,
-  },
-  footerCancelText: {
+  timeTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: C.onSurface,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 14,
   },
-  footerOkText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  timeContainer: {
+  spinnerRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  timeColumn: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  timeColLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.5,
-  },
-  timeScroll: {
-    height: 180,
-  },
-  timeItem: {
-    width: 60,
-    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: rounded.DEFAULT,
-    marginVertical: 1,
+    gap: 10,
+    position: 'relative',
   },
-  timeItemActive: {
-    backgroundColor: `${colors.primary}20`,
+  spinnerHighlight: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    top: (SPIN_H - SPIN_ITEM_H) / 2,
+    height: SPIN_ITEM_H,
+    backgroundColor: 'rgba(60,55,66,0.6)',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    pointerEvents: 'none',
   },
-  timeItemText: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
+  spinnerColumn: {
+    width: 64,
+    alignItems: 'center',
   },
-  timeItemTextActive: {
-    color: colors.primary,
+  spinner: {
+    height: SPIN_H,
+  },
+  spinItem: {
+    height: SPIN_ITEM_H,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinItemText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: C.onSurfaceVariant,
+  },
+  spinItemTextActive: {
+    fontSize: 24,
     fontWeight: '800',
+    color: C.primary,
   },
-  timeColon: {
-    fontSize: 28,
+  spinnerColon: {
+    fontSize: 26,
     fontWeight: '300',
-    color: colors.onSurfaceVariant,
-    marginTop: 28,
+    color: 'rgba(204,195,216,0.3)',
   },
-  periodCol: {
-    marginTop: 28,
-    gap: 6,
+  periodGroup: {
+    marginLeft: 4,
+    backgroundColor: C.surfaceContainer,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    padding: 4,
+    gap: 4,
   },
   periodBtn: {
-    width: 52,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: rounded.DEFAULT,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   periodBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: C.primaryContainer,
+    shadowColor: C.primaryContainer,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 3,
   },
   periodBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: C.onSurfaceVariant,
   },
   periodBtnTextActive: {
-    color: '#fff',
+    color: C.onPrimary,
+    fontWeight: '700',
   },
-  backToDateBtn: {
+  actionBar: {
     flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingBottom: 30,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+    backgroundColor: 'rgba(29,26,36,0.9)',
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
   },
-  backToDateText: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
+  cancelBtn: {
+    borderWidth: 1,
+    borderColor: C.outlineVariant,
   },
-  confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primaryContainer,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: rounded.DEFAULT,
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.onSurface,
+  },
+  applyBtn: {
+    backgroundColor: C.primaryContainer,
+    shadowColor: C.primaryContainer,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  applyText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.onPrimary,
   },
 });
