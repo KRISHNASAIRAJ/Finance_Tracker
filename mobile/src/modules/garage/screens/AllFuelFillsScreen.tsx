@@ -1,3 +1,7 @@
+/**
+ * AllFuelFillsScreen — complete list of all fuel fill entries across vehicles
+ * with filter by vehicle and station-branded icons.
+ */
 import React from 'react';
 import {
   StyleSheet,

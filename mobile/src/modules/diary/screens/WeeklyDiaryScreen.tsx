@@ -1,3 +1,7 @@
+/**
+ * WeeklyDiaryScreen — Weekly reflection diary with week navigation and autosave.
+ */
+
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   StyleSheet,

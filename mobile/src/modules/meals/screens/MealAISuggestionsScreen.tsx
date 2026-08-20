@@ -1,3 +1,7 @@
+/**
+ * MealAISuggestionsScreen — Chat with AI for personalized meal suggestions against the health profile.
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,

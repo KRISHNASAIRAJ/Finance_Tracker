@@ -1,3 +1,7 @@
+/**
+ * FinanceStore — Zustand state + AsyncStorage persistence for finance entities
+ * (transactions, credit cards, bank accounts, receivables, fixed expenses).
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -630,13 +634,14 @@ export const useFinanceStore = create<FinanceState>()(
   )
 );
 
-const FIXED_EXPENSES_FIX_FLAG = 'meridian-fixed-expense-fixes-v1';
+const FIXED_EXPENSES_FIX_FLAG = 'meridian-fixed-expense-fixes-v2';
 
 /**
  * One-time data fixes + default additions for fixed expenses:
  * - "Flat Rent" amount -> ₹10,400 (10.4k)
  * - All SIPs (Investments category) -> due on the 1st of the month
  * - Add "Electricity Bill" (variable amount, default ₹500) if missing
+ * - Order: Rent, Electricity, Flexi Cap SIP, Midcap SIP, Small Cap SIP, rest
  * Changes stay local; the existing login sync (seedSupabase) pushes them to
  * the cloud via upsert. Guarded by an AsyncStorage flag so it runs once.
  */
@@ -651,7 +656,7 @@ export async function seedFixedExpenseFixes(): Promise<void> {
     let fixedExpenses = state.fixedExpenses.map((f) => {
       let updated = f;
       const name = (f.name || '').toLowerCase();
-      if ((name === 'flat rent' || name === 'rent') && f.amount !== 1040000) {
+      if (name.includes('rent') && f.amount !== 1040000) {
         updated = { ...updated, amount: 1040000 };
         changed = true;
       }
@@ -662,7 +667,7 @@ export async function seedFixedExpenseFixes(): Promise<void> {
       return updated;
     });
 
-    const hasElectricity = fixedExpenses.some((f) => (f.name || '').toLowerCase().includes('electricity'));
+    let hasElectricity = fixedExpenses.some((f) => (f.name || '').toLowerCase().includes('electricity'));
     if (!hasElectricity) {
       const now = new Date();
       const due = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -676,12 +681,26 @@ export async function seedFixedExpenseFixes(): Promise<void> {
         dueDate: due.toISOString(),
       };
       fixedExpenses = [newFix, ...fixedExpenses];
+      hasElectricity = true;
+      changed = true;
+    }
+
+    const ORDER = ['rent', 'electricity', 'flexi', 'midcap', 'small cap'];
+    const ranked = new Map<string, number>();
+    fixedExpenses.forEach((f) => {
+      const name = (f.name || '').toLowerCase();
+      const idx = ORDER.findIndex((k) => name.includes(k));
+      ranked.set(f.id, idx === -1 ? ORDER.length : idx);
+    });
+    const sorted = [...fixedExpenses].sort((a, b) => (ranked.get(a.id) ?? ORDER.length) - (ranked.get(b.id) ?? ORDER.length));
+    if (JSON.stringify(sorted.map((s) => s.id)) !== JSON.stringify(fixedExpenses.map((s) => s.id))) {
+      fixedExpenses = sorted;
       changed = true;
     }
 
     if (changed) {
       useFinanceStore.setState({ fixedExpenses });
-      console.log('[FinanceStore] Applied fixed expense fixes (rent 10.4k, SIPs due 1st, Electricity Bill added)');
+      console.log('[FinanceStore] Applied fixed expense fixes (rent 10.4k, SIPs due 1st, Electricity Bill, ordered)');
     }
     await AsyncStorage.setItem(FIXED_EXPENSES_FIX_FLAG, 'done');
   } catch (e) {

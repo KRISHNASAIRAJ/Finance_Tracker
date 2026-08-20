@@ -1,3 +1,6 @@
+/**
+ * notificationService — Central notification scheduling for tasks, finance goals, meals, and vehicles.
+ */
 import { Platform, PermissionsAndroid } from 'react-native';
 import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
@@ -161,22 +164,6 @@ export async function scheduleLocal(
       },
     });
   } catch (e) { console.warn('[notificationService] scheduleLocal failed:', title, e); }
-}
-
-function getNextBillingDate(billingDay: number): Date {
-  const now = istNow();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-  const safeDay = Math.min(billingDay, lastDayOfMonth);
-  let next = new Date(year, month, safeDay, 9, 0, 0);
-  if (next <= now) {
-    const nextMonth = month + 1;
-    const nextLastDay = new Date(year, nextMonth + 1, 0).getDate();
-    const nextSafeDay = Math.min(billingDay, nextLastDay);
-    next = new Date(year, nextMonth, nextSafeDay, 9, 0, 0);
-  }
-  return next;
 }
 
 export async function scheduleAllReminders() {

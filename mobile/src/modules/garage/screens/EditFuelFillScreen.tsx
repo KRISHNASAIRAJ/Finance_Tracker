@@ -1,3 +1,7 @@
+/**
+ * EditFuelFillScreen — edit an existing fuel fill entry with amount, liters,
+ * odometer, station, and date fields.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

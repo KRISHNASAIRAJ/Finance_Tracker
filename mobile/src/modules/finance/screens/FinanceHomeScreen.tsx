@@ -1,4 +1,8 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿/**
+ * FinanceHomeScreen — finance home tab: net-worth hero, spend/card stats,
+ * expense-distribution donut and recent transactions.
+ */
+import React, { useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,33 +12,25 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
-  Modal,
-  TextInput,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, G as SvgG } from 'react-native-svg';
+import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useFinanceStore, Transaction, getMinBalanceForAccount, CreditCard } from '../store';
+import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
-import { useFinanceSync } from '../hooks/useFinanceSync';
-import { queueTransactionSync, queueCardSync } from '../hooks/useFinanceSync';
-import { useAuth } from '../../../services/AuthProvider';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
-import CalendarPicker from '../../../shared/components/CalendarPicker';
-import GlowingCard from '../../../shared/components/ui/glowing-card';
+import DraggableFab from '../../../shared/components/DraggableFab';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { user } = useAuth();
   const garageFills = useGarageStore((s) => s.fills);
   const {
     transactions,
@@ -43,16 +39,11 @@ export default function FinanceHomeScreen() {
     accounts,
     fixedExpenses,
     notifications,
-    payzappLoads,
     getTotalBalance,
     getMonthlyExpenses,
-    editCard,
-    markCardBillPaid,
   } = useFinanceStore();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const { loading: syncing } = useFinanceSync();
 
   useFocusEffect(
     useCallback(() => {
@@ -60,70 +51,9 @@ export default function FinanceHomeScreen() {
     }, [])
   );
 
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  const [editingCard, setEditingCard] = useState<CreditCard | null>(null);
-  const [billAmountInput, setBillAmountInput] = useState('');
-  const [paidAmountInput, setPaidAmountInput] = useState('');
-  const [dueDate, setDueDate] = useState(new Date());
-  const [calendarVisible, setCalendarVisible] = useState(false);
-
   useEffect(() => {
     scheduleAllReminders();
   }, []);
-
-  const openEdit = (card: CreditCard) => {
-    setEditingCard(card);
-    setBillAmountInput(card.billAmount ? (card.billAmount / 100).toString() : ((card.balance || 0) / 100).toString());
-    setPaidAmountInput(card.paidAmount ? (card.paidAmount / 100).toString() : '0');
-    setDueDate(card.dueDate ? new Date(card.dueDate) : new Date());
-  };
-
-  const handleSave = () => {
-    if (!editingCard) return;
-    const billAmount = Math.round(parseFloat(billAmountInput) * 100);
-    const paidAmount = Math.round(parseFloat(paidAmountInput) * 100);
-    if (isNaN(billAmount)) { alert('Enter a valid bill amount'); return; }
-    if (isNaN(paidAmount)) { alert('Enter a valid paid amount'); return; }
-
-    const existingPaid = editingCard.paidAmount ?? 0;
-    const paymentAmount = Math.max(0, paidAmount - existingPaid);
-    const billLeft = Math.max(0, billAmount - paidAmount);
-
-    if (billLeft <= 0 && paymentAmount > 0 && typeof markCardBillPaid === 'function') {
-      markCardBillPaid(editingCard.id, paymentAmount, user?.id);
-    } else {
-      const balance = billAmount > 0 ? Math.max(0, billAmount - paidAmount) : editingCard.balance;
-      const updated: Partial<CreditCard> = { dueDate: dueDate.toISOString(), billAmount, paidAmount, balance };
-      if (typeof editCard === 'function') {
-        editCard(editingCard.id, updated);
-      }
-      if (user) {
-        queueCardSync(user.id, 'update', { id: editingCard.id, ...updated });
-      }
-    }
-    setEditingCard(null);
-    scheduleAllReminders();
-  };
-
-  const handleMarkFullyPaid = () => {
-    if (!editingCard) return;
-    const billAmount = Math.round(parseFloat(billAmountInput) * 100);
-    if (isNaN(billAmount) || billAmount <= 0) { alert('Enter a valid bill amount'); return; }
-    const existingPaid = editingCard.paidAmount ?? 0;
-    const paymentAmount = Math.max(0, billAmount - existingPaid);
-    if (typeof editCard === 'function') {
-      editCard(editingCard.id, { dueDate: dueDate.toISOString() });
-    }
-    if (typeof markCardBillPaid === 'function') {
-      markCardBillPaid(editingCard.id, paymentAmount, user?.id);
-    }
-    setEditingCard(null);
-    scheduleAllReminders();
-  };
-
-  const billLeft = editingCard
-    ? Math.max(0, (Math.round(parseFloat(billAmountInput || '0') * 100) || 0) - (Math.round(parseFloat(paidAmountInput || '0') * 100) || 0))
-    : 0;
 
   const totalBalance = getTotalBalance();
   const totalMinBalance = accounts.reduce((sum: number, acc: any) => sum + getMinBalanceForAccount(acc.title), 0);
@@ -138,7 +68,6 @@ export default function FinanceHomeScreen() {
   const totalLent = receivables.filter((r: any) => r.type === 'lent').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
   const totalBorrowed = receivables.filter((r: any) => r.type === 'borrowed').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
   const cardOutstandingTotal = cards.reduce((acc: number, c: any) => acc + c.balance, 0);
-  const fixedExpensesTotal = fixedExpenses.reduce((sum: number, f: any) => sum + f.amount, 0);
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
@@ -209,119 +138,162 @@ export default function FinanceHomeScreen() {
     })}`;
   };
 
+  const formatCompact = (paise: number) => {
+    const rupees = paise / 100;
+    if (rupees >= 10000000) return `₹${(rupees / 10000000).toFixed(1)}Cr`;
+    if (rupees >= 100000) return `₹${(rupees / 100000).toFixed(1)}L`;
+    if (rupees >= 1000) return `₹${(rupees / 1000).toFixed(1)}k`;
+    return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
+  };
+
 
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header Row */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Meridian</Text>
+        {/* Top App Bar */}
+        <View style={styles.appBar}>
+          <View style={styles.appBarSide} />
+          <Text style={styles.appBarTitle}>MERIDIAN</Text>
           <TouchableOpacity
-            style={styles.notifBtn}
+            style={styles.appBarBtn}
             onPress={() => (navigation as any).navigate('Notifications')}
+            activeOpacity={0.8}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
-            {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
+            {unreadCount > 0 && <View style={styles.notifDot} />}
           </TouchableOpacity>
         </View>
 
-        {/* Balance Summary Section */}
+        {/* Hero Section: Total Net Worth */}
         <TouchableOpacity
-          style={styles.netWorthContainer}
+          style={styles.heroPanel}
           onPress={() => navigation.navigate('BalanceSummary')}
           activeOpacity={0.9}
         >
-          <Text style={styles.netWorthLabel}>Balance Summary</Text>
-          <Text style={styles.netWorthValue}>{formatCurrency(totalNetWorth)}</Text>
+          <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
+          <View style={styles.heroRow}>
+            <Text style={styles.heroValue}>{formatCurrency(totalNetWorth)}</Text>
+          </View>
         </TouchableOpacity>
 
-        {/* Bento Grid Summaries */}
-        <View style={styles.glowingGrid}>
-          <GlowingCard
-            icon="wallet-outline"
-            label="MONTHLY SPEND"
-            value={formatCurrency(monthlyExpenses)}
-            color={colors.primary}
-            onPress={() => navigation.navigate('MonthlySpend')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-          <GlowingCard
-            icon="card-outline"
-            label="CREDIT CARD BILLS"
-            value={formatCurrency(cardOutstandingTotal)}
-            color={colors.amber}
-            onPress={() => navigation.navigate('CreditCards')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-          <GlowingCard
-            icon="business-outline"
-            label="BANK BALANCES"
-            value={formatCurrency(totalBalance)}
-            color={colors.stable}
-            onPress={() => navigation.navigate('BankAccounts')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-          <GlowingCard
-            icon="arrow-up-circle-outline"
-            label="NET LENT"
-            value={`+${formatCurrency(totalLent)}`}
-            color={colors.success}
-            onPress={() => navigation.navigate('LentBorrowed')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-          <GlowingCard
-            icon="lock-closed-outline"
-            label="FIXED EXPENSES"
-            value={formatCurrency(unpaidFixedExpensesTotal)}
-            subtitle={`of ${formatCurrency(fixedExpensesTotal)} · ${fixedExpenses.filter((f: any) => f.lastPaidMonth === currentMonthStr).length} of ${fixedExpenses.length} paid`}
-            color={colors.action}
-            onPress={() => navigation.navigate('FixedExpenses')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-          <GlowingCard
-            icon="wallet"
-            label="PAYZAPP"
-            value={formatCurrency(payzappMonthlyLoad)}
-            subtitle={`of ${formatCurrency(PAYZAPP_MONTHLY_CAP)} max`}
-            color={colors.chartreuse}
-            onPress={() => navigation.navigate('PayzappWallet')}
-            style={{ flex: 1, minWidth: '45%' }}
-          />
-        </View>
-
-        {/* Expense Distribution Card (Clickable) */}
-        <View style={styles.distributionCard}>
+        {/* Primary Cards Grid */}
+        <View style={styles.grid2}>
           <TouchableOpacity
-            style={styles.distributionHeader}
-            onPress={() => navigation.navigate('FinanceReports')}
-            activeOpacity={0.9}
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('MonthlySpend')}
+            activeOpacity={0.85}
           >
-            <Text style={styles.cardTitle}>Expense Distribution</Text>
+            <Ionicons name="wallet-outline" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(monthlyExpenses)}</Text>
+            <Text style={styles.statLabel}>Monthly Spends</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.distributionContent}
-            onPress={() => navigation.navigate('FinanceReports')}
-            activeOpacity={0.9}
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('CreditCards')}
+            activeOpacity={0.85}
           >
+            <Ionicons name="receipt-outline" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(cardOutstandingTotal)}</Text>
+            <Text style={styles.statLabel}>CC Bills</Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('BankAccounts')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="business-outline" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(totalBalance)}</Text>
+            <Text style={styles.statLabel}>Bank Acc</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('LentBorrowed')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="people-outline" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(totalLent)}</Text>
+            <Text style={styles.statLabel}>Net Lent/Debit</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Fixed Exp + Wallets */}
+        <View style={styles.grid2}>
+          <TouchableOpacity
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('FixedExpenses')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="lock-closed-outline" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(unpaidFixedExpensesTotal)}</Text>
+            <Text style={styles.statLabel}>Fixed Exp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.glassPanel, styles.statCard]}
+            onPress={() => navigation.navigate('PayzappWallet')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="wallet" size={26} color={colors.onSurface} />
+            <Text style={styles.statValue}>{formatCompact(payzappMonthlyLoad)}</Text>
+            <Text style={styles.statLabel}>Wallets</Text>
+            <Text style={styles.statSub}>{formatCompact(PAYZAPP_MONTHLY_CAP)} max</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Expense Distribution */}
+        <TouchableOpacity
+          style={[styles.glassPanel, styles.distributionPanel]}
+          onPress={() => navigation.navigate('FinanceReports')}
+          activeOpacity={0.95}
+        >
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelTitle}>Expense Distribution</Text>
+          </View>
+
+          <View style={styles.distributionContent}>
             <View style={styles.donutContainer}>
-              <Svg width={130} height={130} viewBox="0 0 130 130">
+              <Svg width={192} height={192} viewBox="0 0 100 100">
+                <Defs>
+                  <LinearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor="#ffb2b9" />
+                    <Stop offset="100%" stopColor="#d0bcff" />
+                  </LinearGradient>
+                  <LinearGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor="#5ee6ff" />
+                    <Stop offset="100%" stopColor="#00cbe6" />
+                  </LinearGradient>
+                  <LinearGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor="#ea6479" />
+                    <Stop offset="100%" stopColor="#ffdadc" />
+                  </LinearGradient>
+                </Defs>
+
+                {/* Background track */}
+                <Circle
+                  cx={50}
+                  cy={50}
+                  r={40}
+                  stroke="rgba(255,255,255,0.05)"
+                  strokeWidth={8}
+                  fill="none"
+                />
+
                 {categoriesSorted.length > 0 && (() => {
-                  const R = 48;
-                  const strokeW = 16;
-                  const cx = 65;
-                  const cy = 65;
+                  const R = 40;
+                  const strokeW = 8;
+                  const cx = 50;
+                  const cy = 50;
                   const circumference = 2 * Math.PI * R;
+                  const gap = 2.5;
+                  const gradients = ['url(#gradPink)', 'url(#gradTeal)', 'url(#gradOrange)'];
                   let cumulativeDeg = 0;
-                  return categoriesSorted.map((cat) => {
+                  return categoriesSorted.map((cat, i) => {
                     const pct = cat.percentage / 100;
-                    const segLen = Math.max(pct * circumference, 0.8);
+                    const segLen = Math.max(pct * circumference - gap, 0.8);
                     const deg = cumulativeDeg;
                     cumulativeDeg += pct * 360;
                     return (
@@ -330,140 +302,43 @@ export default function FinanceHomeScreen() {
                           cx={cx}
                           cy={cy}
                           r={R}
-                          stroke={getCategoryColor(cat.name)}
+                          stroke={gradients[i % gradients.length]}
                           strokeWidth={strokeW}
                           strokeDasharray={`${segLen} ${circumference - segLen}`}
                           strokeDashoffset={circumference * 0.25}
                           fill="none"
-                          strokeLinecap="butt"
+                          strokeLinecap="round"
                         />
                       </SvgG>
                     );
                   });
                 })()}
-                {categoriesSorted.length === 0 && (
-                  <Circle cx={65} cy={65} r={48} stroke="rgba(255,255,255,0.08)" strokeWidth={16} fill="none" />
-                )}
               </Svg>
-              <View style={styles.donutCenter}>
-                <Text style={styles.donutSub}>Total</Text>
-                <Text style={styles.donutVal}>{formatCurrency(totalExpense)}</Text>
-              </View>
-            </View>
-
-            {/* Dynamic Legend List */}
-            <View style={styles.legendContainer}>
-              {categoriesSorted.slice(0, 3).map((cat) => {
-                const dotColor = getCategoryColor(cat.name);
-                
-                return (
-                  <View key={cat.name} style={styles.legendItem}>
-                    <View style={styles.row}>
-                      <View style={[styles.legendDot, { backgroundColor: dotColor }]} />
-                      <Text style={styles.legendName} numberOfLines={1}>{cat.name}</Text>
-                    </View>
-                    <Text style={styles.legendPercentage}>{cat.percentage.toFixed(0)}%</Text>
-                  </View>
-                );
-              })}
-              {categoriesSorted.length === 0 && (
-                <Text style={{ color: colors.onSurfaceVariant, fontSize: 12 }}>No logs recorded</Text>
+              {categoriesSorted.length > 0 ? (
+                <View style={styles.donutCenter}>
+                  <Text style={styles.donutVal}>{categoriesSorted[0].percentage.toFixed(0)}%</Text>
+                  <Text style={styles.donutSub}>{categoriesSorted[0].name.toUpperCase()}</Text>
+                </View>
+              ) : (
+                <View style={styles.donutCenter}>
+                  <Text style={styles.donutSub}>NO DATA</Text>
+                </View>
               )}
             </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Credit Cards Horizontal Slider */}
-        <View style={styles.cardsSection}>
-          <View style={styles.cardsHeader}>
-            <Text style={styles.cardTitle}>Credit Cards</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('CreditCards')}>
-              <Ionicons name="arrow-forward" size={20} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
           </View>
+        </TouchableOpacity>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardsScroll}
-            snapToInterval={296}
-            decelerationRate="fast"
-          >
-            {[...cards]
-              .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-              .map((card: any) => {
-              // Set border accent color based on network/bank name
-              let borderColor: string = colors.border;
-              let decorColor: string = 'rgba(198, 197, 215, 0.04)';
-              if (card.name.toLowerCase().includes('cashback')) {
-                borderColor = 'rgba(155, 165, 255, 0.25)';
-                decorColor = 'rgba(155, 165, 255, 0.06)';
-              } else if (card.name.toLowerCase().includes('power')) {
-                borderColor = 'rgba(89, 214, 199, 0.25)';
-                decorColor = 'rgba(89, 214, 199, 0.06)';
-              } else if (card.name.toLowerCase().includes('simplysave')) {
-                borderColor = 'rgba(226, 164, 92, 0.25)';
-                decorColor = 'rgba(226, 164, 92, 0.06)';
-              } else if (card.name.toLowerCase().includes('hsbc')) {
-                borderColor = 'rgba(255, 136, 125, 0.25)';
-                decorColor = 'rgba(255, 136, 125, 0.06)';
-              } else if (card.name.toLowerCase().includes('amazon')) {
-                borderColor = 'rgba(155, 165, 255, 0.25)';
-                decorColor = 'rgba(155, 165, 255, 0.06)';
-              }
-
-              return (
-                <TouchableOpacity
-                  key={card.id}
-                  style={[styles.premiumCard, { borderColor }]}
-                  onPress={() => openEdit(card)}
-                  activeOpacity={0.9}
-                >
-                  <View style={[styles.cardDecor, { backgroundColor: decorColor }]} />
-                  <View style={styles.cardTop}>
-                    <View>
-                      <Text style={styles.cardBank}>{card.name}</Text>
-                      <Text style={styles.cardNumber}>•••• {card.endingWith}</Text>
-                    </View>
-                    <Ionicons name="card" size={22} color="rgba(255,255,255,0.6)" />
-                  </View>
-                  <View style={styles.cardBottom}>
-                    <View>
-                      <Text style={styles.cardBalanceLabel}>
-                        {card.billAmount ? 'Bill Left' : 'Current Balance'}
-                      </Text>
-                      <Text style={styles.cardBalanceValue}>
-                        {card.billAmount
-                          ? formatCurrency(Math.max(0, card.billAmount - (card.paidAmount || 0)))
-                          : formatCurrency(card.balance)}
-                      </Text>
-                    </View>
-                    <Text style={styles.cardDueDate}>
-                      Due {(card.dueDate ? new Date(card.dueDate) : new Date()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* Recent Activity (Live logs) */}
-        <View style={styles.recentActivitySection}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.cardTitle}>Recent Transactions</Text>
+        {/* Recent Transactions */}
+        <View style={[styles.glassPanel, styles.listPanel]}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelTitle}>Recent Transactions</Text>
             {transactions.length > 5 && (
-              <TouchableOpacity
-                style={styles.viewAllPill}
-                onPress={() => navigation.navigate('AllTransactions')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.viewAllText}>View All</Text>
-                <Ionicons name="arrow-forward" size={13} color={colors.primary} />
+              <TouchableOpacity onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.7}>
+                <Text style={styles.viewAllBtn}>View All</Text>
               </TouchableOpacity>
             )}
           </View>
-          <View style={styles.activityList}>
+          <View style={styles.cardRows}>
             {(() => {
               const filteredTxs = transactions.filter(
                 (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load' && tx.type !== 'fuel_purchase'
@@ -479,146 +354,50 @@ export default function FinanceHomeScreen() {
               }));
               const combined = [...filteredTxs, ...fuelPseudoTxs]
                 .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, isExpanded ? undefined : 5);
+                .slice(0, 4);
 
               return combined.map((tx: any) => {
-              const isIncome = tx.type === 'income';
-              const catColor = getCategoryColor(tx.category, isIncome);
-              return (
-                <TouchableOpacity
-                  key={tx.id}
-                  style={styles.activityRow}
-                  onPress={() => {
-                    if (tx.id?.startsWith('fill-')) {
-                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
-                    } else {
-                      navigation.navigate('EditTransaction', { transactionId: tx.id });
-                    }
-                  }}
-                >
-                  <View style={styles.row}>
-                    <View style={[styles.activityIcon, { backgroundColor: `${catColor}15` }]}>
+                const isIncome = tx.type === 'income';
+                const catColor = getCategoryColor(tx.category, isIncome);
+                return (
+                  <TouchableOpacity
+                    key={tx.id}
+                    style={styles.cardRow}
+                    onPress={() => {
+                      if (tx.id?.startsWith('fill-')) {
+                        navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
+                      } else {
+                        navigation.navigate('EditTransaction', { transactionId: tx.id });
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.cardRowIcon, styles.txIcon, { backgroundColor: `${catColor}15` }]}>
                       <Ionicons name={getCategoryIcon(tx.category)} size={16} color={catColor} />
                     </View>
-                    <View style={styles.detailsContainer}>
-                      <Text style={styles.activityTitle}>{tx.notes || tx.category}</Text>
-                      <Text style={styles.activitySubtitle}>
+                    <View style={styles.cardRowDetails}>
+                      <Text style={styles.cardRowName}>{tx.notes || tx.category}</Text>
+                      <Text style={styles.cardRowDue}>
                         {tx.category} • {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </Text>
                     </View>
-                  </View>
-                  <View style={styles.amountRightContainer}>
-                    <Text style={[styles.activityAmount, { color: catColor }]}>
+                    <Text style={styles.cardRowAmount}>
                       {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
                     </Text>
-                    <Ionicons name="chevron-forward" size={14} color={colors.outline} style={{ marginLeft: 4 }} />
-                  </View>
-                </TouchableOpacity>
-              );
-            });
-          })()}
+                  </TouchableOpacity>
+                );
+              });
+            })()}
           </View>
         </View>
       </ScrollView>
 
-      {/* Floating AI Button */}
-      <TouchableOpacity
-        style={styles.fab}
+      {/* Floating AI Button — draggable */}
+      <DraggableFab
+        icon="sparkles"
+        color={colors.textPrimary}
+        storageKey="meridian-fab-home"
         onPress={() => navigation.navigate('CardChat')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="sparkles" size={24} color={colors.textPrimary} />
-      </TouchableOpacity>
-
-      {/* Bill Payment Modal */}
-      {editingCard && (
-        <Modal visible={!!editingCard} transparent animationType="fade" onRequestClose={() => setEditingCard(null)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{editingCard.name}</Text>
-              <Text style={styles.modalSub}>
-                •••• {editingCard.endingWith}  ·  {editingCard.network}
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>BILL AMOUNT (₹)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={billAmountInput}
-                  onChangeText={setBillAmountInput}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.outline}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>PAID (₹)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={paidAmountInput}
-                  onChangeText={setPaidAmountInput}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.outline}
-                />
-              </View>
-
-              <View style={styles.billLeftRow}>
-                <Text style={styles.billLeftLabel}>BILL LEFT</Text>
-                <Text style={[styles.billLeftValue, billLeft > 0 && styles.billLeftDue]}>
-                  {formatCurrency(billLeft)}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.markPaidBtn}
-                onPress={handleMarkFullyPaid}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark-circle" size={18} color={colors.textPrimary} />
-                <Text style={styles.markPaidBtnText}>Mark as Fully Paid</Text>
-              </TouchableOpacity>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>DUE DATE</Text>
-                <TouchableOpacity
-                  style={styles.datePickerTrigger}
-                  onPress={() => setCalendarVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                  <Text style={styles.datePickerText}>
-                    {dueDate.toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.modalBtnCancel]}
-                  onPress={() => setEditingCard(null)}
-                >
-                  <Text style={styles.modalBtnTextCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleSave}>
-                  <Text style={styles.modalBtnTextSave}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      <CalendarPicker
-        visible={calendarVisible}
-        selected={dueDate}
-        onSelect={setDueDate}
-        onClose={() => setCalendarVisible(false)}
       />
     </SafeAreaView>
   );
@@ -627,260 +406,193 @@ export default function FinanceHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
-  showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  showMoreText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 120,
+    gap: 16,
   },
   appBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: 8,
     marginBottom: 4,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.onSurface,
-    letterSpacing: -0.5,
+  appBarSide: {
+    width: 40,
+    height: 40,
   },
-  notifBtn: {
-    padding: 8,
-    borderRadius: rounded.full,
-    position: 'relative',
-  },
-  notifBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: colors.error,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  notifBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  appBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  logoText: {
+  appBarTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.onSurface,
-    letterSpacing: -0.5,
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
   },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  notificationWrapper: {
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 6,
-    height: 6,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120, // offset for navigation bar
-  },
-  netWorthContainer: {
+  appBarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    paddingVertical: 12,
-    gap: 4,
+    justifyContent: 'center',
+    position: 'relative',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  netWorthLabel: {
+  notifDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  heroPanel: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 32,
+    padding: 24,
+    overflow: 'hidden',
+  },
+heroLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
     letterSpacing: 1,
+    marginBottom: 4,
+    textAlign: 'center',
   },
-  netWorthValue: {
-    fontSize: 38,
-    fontWeight: '800',
-    color: colors.onSurface,
-    letterSpacing: -1,
-  },
-  trendBadge: {
+  heroRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    borderColor: 'rgba(74, 222, 128, 0.2)',
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: rounded.full,
-    marginTop: 6,
-  },
-  trendText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  bentoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  glowingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  bentoCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    gap: 16,
-  },
-  bentoCardFullWidth: {
-    minWidth: '95%',
-  },
-  bentoRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  bentoCardHalf: {
-    flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 14,
-    gap: 10,
-  },
-  bentoIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: rounded.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-start',
+    gap: 12,
   },
-  bentoLabel: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  bentoValue: {
-    fontSize: 20,
+  heroValue: {
+    fontSize: 38,
     fontWeight: '800',
-    color: colors.onSurface,
+    color: '#FFFFFF',
+    letterSpacing: -1,
+    flexShrink: 1,
+    textAlign: 'center',
   },
-  bentoValueSecondary: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 1,
-    fontWeight: '400',
-  },
-  fixedHeaderRow: {
+  grid2: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  statusPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: rounded.full,
-    backgroundColor: `${colors.error}14`,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: `${colors.error}28`,
-  },
-  statusPillText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.error,
-  },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  distributionCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-  },
-  distributionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  monthDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: rounded.full,
-    backgroundColor: `${colors.primary}15`,
-    marginBottom: 16,
-  },
-  monthDropdownText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  distributionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
     gap: 16,
   },
+  glassPanel: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 32,
+    overflow: 'hidden',
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    gap: 8,
+    aspectRatio: 1,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  statSub: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: -4,
+  },
+  listPanel: {
+    padding: 16,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  panelTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  viewAllBtn: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  cardRows: {
+    gap: 4,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+  },
+  cardRowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  txIcon: {
+    borderRadius: 20,
+  },
+  cardRowDetails: {
+    flex: 1,
+    gap: 2,
+  },
+  cardRowName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  cardRowNumber: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '400',
+  },
+  cardRowDue: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  cardRowAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+},
+  distributionPanel: {
+    padding: 16,
+    marginTop: 8,
+  },
+  distributionContent: {
+    alignItems: 'center',
+  },
   donutContainer: {
-    width: 130,
-    height: 130,
+    width: 192,
+    height: 192,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -890,308 +602,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   donutSub: {
-    fontSize: 10,
-    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '600',
+    marginTop: 2,
   },
   donutVal: {
-    fontSize: 16,
+    fontSize: 32,
     fontWeight: '800',
-    color: colors.onSurface,
-  },
-  legendContainer: {
-    flex: 1,
-    gap: 10,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: rounded.full,
-  },
-  legendName: {
-    fontSize: 13,
-    color: colors.onSurface,
-  },
-  legendPercentage: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  cardsSection: {
-    gap: 12,
-  },
-  cardsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardsScroll: {
-    gap: 16,
-    paddingRight: spacing.containerPadding,
-  },
-  premiumCard: {
-    width: 280,
-    height: 160,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    justifyContent: 'space-between',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  cardDecor: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(124, 58, 237, 0.05)',
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cardBank: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-  },
-  cardNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-    letterSpacing: 2,
-    marginTop: 4,
-  },
-  cardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  cardBalanceLabel: {
-    fontSize: 10,
-    color: colors.onSurfaceVariant,
-    marginBottom: 2,
-  },
-  cardBalanceValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  cardDueDate: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  recentActivitySection: {
-    gap: 12,
-  },
-  activityList: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: rounded.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  activitySubtitle: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
-  detailsContainer: {
-    gap: 2,
-  },
-  amountRightContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activityAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 96, // moved higher up to avoid bottom navigation block
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  recentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  viewAllPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    backgroundColor: `${colors.primary}18`,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: `${colors.primary}30`,
-  },
-  viewAllText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 24,
-    gap: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  modalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
-  inputGroup: { gap: 6 },
-  inputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  textInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  datePickerTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-  },
-  datePickerText: { fontSize: 14, color: colors.onSurface, fontWeight: '600' },
-  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  modalBtnCancel: { backgroundColor: 'transparent' },
-  modalBtnSave: { backgroundColor: colors.primaryContainer },
-  modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
-  billLeftRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  billLeftLabel: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  billLeftValue: { fontSize: 20, fontWeight: '800', color: colors.success },
-  billLeftDue: { color: colors.error },
-  markPaidBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: rounded.DEFAULT,
-    backgroundColor: `${colors.success}25`,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: `${colors.success}40`,
-  },
-  markPaidBtnText: { fontSize: 14, fontWeight: '700', color: colors.success },
-  // Tools bento grid
-  toolsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  toolBentoCard: {
-    flex: 1,
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    gap: 10,
-    position: 'relative',
-  },
-  toolIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  toolCardDesc: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    lineHeight: 16,
-  },
-  toolCardArrow: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
+    color: '#FFFFFF',
+    letterSpacing: -1,
   },
 });

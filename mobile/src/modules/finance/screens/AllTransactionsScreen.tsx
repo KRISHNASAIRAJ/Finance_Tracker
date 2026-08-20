@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * AllTransactionsScreen — full chronological list of all transactions
+ * (including garage fuel fills) with category icons and amounts.
+ */
+import React from 'react';
 import {
   StyleSheet,
   Text,

@@ -1,3 +1,6 @@
+/**
+ * categoryMap — Expense category definitions with icons, colors, and labels for the finance module.
+ */
 import { Ionicons } from "@expo/vector-icons";
 
 export interface Category {

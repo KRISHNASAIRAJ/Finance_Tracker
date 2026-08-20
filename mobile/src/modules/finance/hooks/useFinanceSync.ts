@@ -1,3 +1,7 @@
+/**
+ * useFinanceSync — syncs the finance store with Supabase via the offline
+ * sync queue and seeds demo data when the store is empty.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";

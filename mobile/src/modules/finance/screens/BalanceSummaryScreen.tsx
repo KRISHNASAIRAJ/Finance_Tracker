@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * BalanceSummaryScreen — consolidated balance summary across bank accounts
+ * and credit cards with due dates and min-balance exclusions.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
+import MonthPickerModal from '../components/MonthPickerModal';
 
 const ordinalSuffix = (n: number): string => {
   if (n >= 11 && n <= 13) return 'th';
@@ -35,13 +40,16 @@ export default function BalanceSummaryScreen() {
   const navigation = useNavigation();
   const { transactions, cards, receivables, accounts, fixedExpenses } = useFinanceStore();
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [monthPickerVisible, setMonthPickerVisible] = useState(false);
+
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
   const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
   const effectiveBalance = totalBalance - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
 
-  const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f) => f.lastPaidMonth !== currentMonthStr)
@@ -53,12 +61,16 @@ export default function BalanceSummaryScreen() {
   }, 0);
   const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
 
-  // Monthly expenses
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Monthly expenses (filtered by selected month, defaults to current month)
+  const monthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
+  monthStart.setHours(0, 0, 0, 0);
+  const nextMonthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1);
+  nextMonthStart.setHours(0, 0, 0, 0);
   const monthlyTxns = transactions
-    .filter((tx) => new Date(tx.date) >= startOfMonth && (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service'));
+    .filter((tx) => {
+      const d = new Date(tx.date);
+      return d >= monthStart && d < nextMonthStart && (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service');
+    });
   const monthlyExpenses = monthlyTxns.reduce((sum, tx) => sum + tx.amount, 0);
   const monthlyTxCount = monthlyTxns.length;
 
@@ -149,7 +161,7 @@ export default function BalanceSummaryScreen() {
           alert: false,
         })),
       total: monthlyExpenses,
-      totalLabel: 'This Month',
+      totalLabel: selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
       showViewAll: monthlyTxCount > 3,
     },
   ];
@@ -197,6 +209,18 @@ export default function BalanceSummaryScreen() {
                 <Ionicons name={section.icon as any} size={18} color={section.color} />
               </View>
               <Text style={styles.sectionTitle}>{section.title}</Text>
+              {section.title === 'Monthly Spends' && (
+                <TouchableOpacity
+                  style={styles.monthBtn}
+                  onPress={() => setMonthPickerVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.monthBtnText}>
+                    {selectedMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </Text>
+                  <Ionicons name="chevron-down" size={12} color={colors.primary} />
+                </TouchableOpacity>
+              )}
               <Text style={[styles.sectionTotal, { color: section.color }]}>{formatCurrency(section.total)}</Text>
             </View>
             {section.items.length > 0 && (
@@ -241,6 +265,14 @@ export default function BalanceSummaryScreen() {
           </View>
         )}
       </ScrollView>
+
+      <MonthPickerModal
+        visible={monthPickerVisible}
+        selected={selectedMonth}
+        maxMonth={new Date(now.getFullYear(), now.getMonth(), 1)}
+        onSelect={setSelectedMonth}
+        onClose={() => setMonthPickerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -416,6 +448,20 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  monthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: `${colors.primary}15`,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  monthBtnText: {
+    fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
   },

@@ -1,3 +1,7 @@
+/**
+ * MealAIConfirmScreen — AI meal analysis from photo/text with item-level confirmation before logging.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,

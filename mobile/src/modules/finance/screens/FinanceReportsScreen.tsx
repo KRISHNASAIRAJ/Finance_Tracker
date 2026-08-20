@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * FinanceReportsScreen — monthly finance reports: category spend chart,
+ * fixed expenses and garage fuel totals with a month picker.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,

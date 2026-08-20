@@ -1,3 +1,7 @@
+/**
+ * Garage module Zustand store — fuel fills, maintenance logs, and vehicle records
+ * with persisted state and cross-module transaction linking.
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';

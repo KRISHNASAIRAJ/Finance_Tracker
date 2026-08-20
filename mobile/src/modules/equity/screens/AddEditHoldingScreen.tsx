@@ -1,3 +1,7 @@
+/**
+ * AddEditHoldingScreen — form to create or edit a holding (equity/MF/ETF/other)
+ * with fields for quantity, price, source, SIP, and allocation category.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

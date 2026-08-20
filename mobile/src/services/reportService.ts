@@ -1,3 +1,6 @@
+/**
+ * reportService — Generates and shares monthly finance reports as PDF via expo-print.
+ */
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useFinanceStore } from '../modules/finance/store';

@@ -1,3 +1,7 @@
+/**
+ * Seed/default data for the garage module — vehicle list, fuel fills and
+ * maintenance logs used on first-time app launch.
+ */
 import type { FuelFill, MaintenanceLog } from "../store";
 
 export const BACKUP_VEHICLES: string[] = ["Jupiter 125"];

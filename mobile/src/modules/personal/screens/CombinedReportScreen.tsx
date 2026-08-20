@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * CombinedReportScreen — Cross-module report of net worth, allocation, and spend summaries.
+ */
+
+import React from 'react';
 import {
   StyleSheet,
   Text,

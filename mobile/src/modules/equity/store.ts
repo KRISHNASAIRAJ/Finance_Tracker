@@ -1,3 +1,7 @@
+/**
+ * Equity module Zustand store — holdings, investment goals and portfolio snapshots
+ * with persisted state and sync queue integration.
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +14,7 @@ export interface Holding {
   quantity: number;
   avgPrice: number;
   currentPrice: number;
+  prevClose?: number;
   source: 'manual' | 'kite_sync';
   folio?: string;
   amc?: string;
@@ -65,6 +70,7 @@ interface InvestmentsState {
   addChatMessage: (sender: 'user' | 'assistant', text: string) => void;
   clearChatHistory: () => void;
   getPortfolioValue: () => number;
+  getTodayPnL: () => number;
 }
 
 function uid(): string {
@@ -181,6 +187,12 @@ export const useInvestmentsStore = create<InvestmentsState>()(
       },
       getPortfolioValue: () => {
         return get().holdings.reduce((sum, h) => sum + h.quantity * h.currentPrice, 0);
+      },
+      getTodayPnL: () => {
+        return get().holdings.reduce((sum, h) => {
+          if (!h.prevClose) return sum;
+          return sum + h.quantity * (h.currentPrice - h.prevClose);
+        }, 0);
       },
     }),
     {

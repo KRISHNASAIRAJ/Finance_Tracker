@@ -1,3 +1,7 @@
+/**
+ * AddEditGoalScreen — form to create or edit an investment goal with target amount,
+ * due date, and priority level.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

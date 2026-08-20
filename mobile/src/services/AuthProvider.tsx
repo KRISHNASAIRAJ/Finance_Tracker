@@ -1,3 +1,6 @@
+/**
+ * AuthProvider — React context for Supabase auth session, sign-in/sign-up/sign-out.
+ */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";

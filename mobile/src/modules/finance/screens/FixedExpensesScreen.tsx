@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * FixedExpensesScreen — manages fixed monthly expenses (amount, billing day,
+ * variable flag) with add/edit/delete support.
+ */
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -46,7 +50,17 @@ export default function FixedExpensesScreen() {
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const pendingExpenses = fixedExpenses.filter((item) => item.lastPaidMonth !== currentMonthStr);
+  const ORDER = ['rent', 'electricity', 'flexi', 'midcap', 'small cap'];
+  const orderedExpenses = [...fixedExpenses].sort((a, b) => {
+    const rank = (name: string) => {
+      const n = name.toLowerCase();
+      const idx = ORDER.findIndex((k) => n.includes(k));
+      return idx === -1 ? ORDER.length : idx;
+    };
+    return rank(a.name) - rank(b.name);
+  });
+
+  const pendingExpenses = orderedExpenses.filter((item) => item.lastPaidMonth !== currentMonthStr);
   const totalPending = pendingExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   const [amountInputs, setAmountInputs] = React.useState<Record<string, string>>({});
@@ -82,7 +96,7 @@ export default function FixedExpensesScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>MONTHLY OBLIGATIONS</Text>
           <View style={styles.listContainer}>
-            {fixedExpenses.map((item) => {
+            {orderedExpenses.map((item) => {
               const isPaid = item.lastPaidMonth === currentMonthStr;
               const variable = isVariable(item.name);
               const inputKey = `amt_${item.id}`;
@@ -106,11 +120,9 @@ export default function FixedExpensesScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.itemTitle}>{item.name}</Text>
                       <Text style={styles.itemSubtitle}>
-                        {variable
-                          ? 'Variable amount — enter this month\'s bill'
-                          : isPaid
-                            ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
-                            : `Due on ${ordinal(item.billingDay)} of every month`}
+                        {isPaid
+                          ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                          : `Due on ${ordinal(item.billingDay)} of every month`}
                       </Text>
                     </View>
                   </View>

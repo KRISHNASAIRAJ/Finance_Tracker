@@ -1,3 +1,6 @@
+/**
+ * colors — Backward-compatibility re-exports from the Tracend design system.
+ */
 // Re-exports from Tracend design system
 // This file is kept for backward compatibility during migration.
 // All tokens now sourced from tracend.ts

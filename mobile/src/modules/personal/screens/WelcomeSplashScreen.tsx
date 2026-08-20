@@ -1,3 +1,7 @@
+/**
+ * WelcomeSplashScreen — Branded onboarding splash with glassmorphic hero and entry CTA.
+ */
+
 import React from 'react';
 import {
   StyleSheet,

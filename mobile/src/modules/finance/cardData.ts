@@ -1,4 +1,7 @@
-import { Platform } from 'react-native';
+/**
+ * CardData — static credit-card definitions (rewards, fees, caps) and
+ * MCC/category matching helpers for the card recommendation engine.
+ */
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export interface CardDefinition {

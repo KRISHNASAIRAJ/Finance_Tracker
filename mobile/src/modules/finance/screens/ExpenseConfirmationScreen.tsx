@@ -1,4 +1,8 @@
-﻿import React from 'react';
+﻿/**
+ * ExpenseConfirmationScreen — post-add confirmation summary for a transaction
+ * with details and next steps.
+ */
+import React from 'react';
 import {
   StyleSheet,
   Text,

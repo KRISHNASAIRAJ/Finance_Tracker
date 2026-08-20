@@ -1,3 +1,7 @@
+/**
+ * NameEntryScreen — Onboarding step capturing the user's name.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

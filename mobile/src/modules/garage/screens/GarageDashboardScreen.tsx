@@ -1,3 +1,7 @@
+/**
+ * GarageDashboardScreen — vehicle garage root. Multi-vehicle overview, recent
+ * fuel fills, quick-add FAB, and vehicle management.
+ */
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,

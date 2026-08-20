@@ -1,3 +1,7 @@
+/**
+ * GoalsTrackerScreen — 2026 personal goals list with add, toggle, and delete.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

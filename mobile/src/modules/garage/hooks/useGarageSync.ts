@@ -1,3 +1,7 @@
+/**
+ * Garage sync hook — bidirectional sync of vehicles, fuel fills and maintenance
+ * logs with Supabase, including seed data on first launch.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";

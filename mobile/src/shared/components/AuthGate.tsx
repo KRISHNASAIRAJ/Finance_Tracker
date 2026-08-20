@@ -1,3 +1,6 @@
+/**
+ * AuthGate — Login/skip gate wrapping the app; shows auth screen if unauthenticated.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -13,7 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { spacing, rounded } from '../theme/spacing';
+import { rounded } from '../theme/spacing';
 import { useAuth } from '../../services/AuthProvider';
 
 interface Props {

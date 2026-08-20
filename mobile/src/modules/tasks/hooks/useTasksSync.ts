@@ -1,3 +1,7 @@
+/**
+ * Tasks sync hook — bidirectional sync of tasks with Supabase, auto-creates
+ * recurring task instances on load.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";

@@ -1,3 +1,7 @@
+/**
+ * VehicleSpendScreen — per-vehicle maintenance log viewer with form to add
+ * new service records and filter by vehicle.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

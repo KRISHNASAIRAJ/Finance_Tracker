@@ -1,3 +1,7 @@
+/**
+ * PortfolioHistoryScreen — daily portfolio snapshot timeline with line chart
+ * and delete-snapshot capability.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -113,11 +117,11 @@ export default function PortfolioHistoryScreen() {
 
   const ALLOC_COLORS: Record<string, string> = {
     Equity: '#9BA5FF',
-    'Mutual Funds': '#8894A8',
+    'Mutual Funds': 'rgba(255,255,255,0.7)',
     Gold: '#E2A45C',
     Realty: '#59D6C7',
     ETF: '#FF887D',
-    Other: '#8894A8',
+    Other: 'rgba(255,255,255,0.7)',
   };
 
   return (

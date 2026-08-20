@@ -1,3 +1,6 @@
+/**
+ * index — Expo root registration with boot error capture for crash visibility.
+ */
 import { registerRootComponent } from 'expo';
 import React from 'react';
 import {
@@ -19,7 +22,7 @@ function captureError(e: unknown) {
 }
 
 if (typeof ErrorUtils !== 'undefined' && ErrorUtils.setGlobalHandler) {
-  ErrorUtils.setGlobalHandler((e: Error, isFatal?: boolean) => {
+  ErrorUtils.setGlobalHandler((e: Error) => {
     captureError(e);
   });
 }

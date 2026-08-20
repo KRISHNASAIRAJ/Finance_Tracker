@@ -1,3 +1,7 @@
+/**
+ * AIRecommendationsScreen — chat interface for goal-aware portfolio recommendations
+ * powered by Groq Llama. Saves conversation history.
+ */
 import React, { useState, useRef } from 'react';
 import {
   StyleSheet,

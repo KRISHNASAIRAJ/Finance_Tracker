@@ -1,3 +1,7 @@
+/**
+ * IdentityDetailsScreen — Onboarding step collecting DOB and gender, finalizes onboarding.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -43,7 +47,7 @@ export default function IdentityDetailsScreen() {
   // Simple auto-formatter for DD/MM/YYYY
   const handleDobChange = (text: string) => {
     // Remove any non-numeric characters
-    let cleaned = text.replace(/[^0-9]/g, '');
+    const cleaned = text.replace(/[^0-9]/g, '');
     
     // Insert slash after DD and MM
     if (cleaned.length >= 2) {

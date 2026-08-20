@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * AddExpenseScreen — form to add income/expense transactions with category
+ * auto-detection, amount, date and payment details.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,

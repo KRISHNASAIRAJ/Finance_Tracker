@@ -1,3 +1,6 @@
+/**
+ * backupScheduler — Registers and schedules weekly background backup task via expo-background-fetch.
+ */
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import { exportAllData, TASK_NAME, cleanOldBackups } from './backupService';

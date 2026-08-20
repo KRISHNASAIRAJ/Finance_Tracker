@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * EditTransactionScreen — form to edit an existing transaction's amount,
+ * category, date and notes.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,

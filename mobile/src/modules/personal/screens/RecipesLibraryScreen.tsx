@@ -1,3 +1,7 @@
+/**
+ * RecipesLibraryScreen — Recipe list with add, edit, and delete via modal form.
+ */
+
 import React, { useState } from 'react';
 import {
   StyleSheet,

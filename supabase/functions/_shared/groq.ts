@@ -2,9 +2,10 @@
  * Shared Groq client for Edge Functions.
  * Used by ai-tnc-query, ai-portfolio-recommend, ai-meal-log.
  *
- * Groq offers generous free tier (Llama models): ~7,000 req/day, 30 req/min.
+ * Groq offers generous free tier (~7,000 req/day, 30 req/min).
  * Significantly cheaper than Anthropic Claude.
  *
+ * Text models: openai/gpt-oss-120b (default), openai/gpt-oss-20b (fast).
  * Vision model: qwen/qwen3.6-27b (supports images + text, JSON mode).
  */
 
@@ -13,8 +14,8 @@ export interface GroqConfig {
   model?: string;
 }
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const FAST_MODEL = "llama-3.1-8b-instant";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
+const FAST_MODEL = "openai/gpt-oss-20b";
 const VISION_MODEL = "qwen/qwen3.6-27b";
 
 export interface ContentPart {

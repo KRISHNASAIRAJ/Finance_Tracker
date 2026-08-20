@@ -1,4 +1,8 @@
-﻿import React, { useState } from 'react';
+﻿/**
+ * BankAccountsScreen — lists bank accounts with total balance and per-account
+ * balance editing via a modal.
+ */
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,

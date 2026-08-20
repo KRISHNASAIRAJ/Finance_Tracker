@@ -1,3 +1,7 @@
+/**
+ * InvestmentsDashboardScreen — wealth tab root. Holdings overview, allocation donut,
+ * Kite sync status, rapid-add, and AI recommendations entry.
+ */
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
@@ -9,13 +13,11 @@ import {
   Platform,
   StatusBar,
   TextInput,
-  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, Text as SvgText } from 'react-native-svg';
-import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -24,13 +26,17 @@ import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 import { useEquitySync, syncActionPlan } from '../hooks/useEquitySync';
 import { processSyncQueue } from '../../../services/syncQueue';
 import { useAuth } from '../../../services/AuthProvider';
+import { supabase } from '../../../services/supabaseClient';
+import DraggableFab from '../../../shared/components/DraggableFab';
 
 type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'InvestmentsDashboard'>;
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { holdings, goals, getPortfolioValue, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
+  const { holdings, goals, getPortfolioValue, getTodayPnL, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
+  const todayPnL = getTodayPnL();
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [activeTab, setActiveTab] = useState<'equity' | 'mf'>('equity');
   const { pullFromCloud } = useEquitySync();
   const { user } = useAuth();
@@ -71,6 +77,19 @@ export default function InvestmentsDashboardScreen() {
   const pnlPct = totalCost > 0 ? ((totalPnL / totalCost) * 100).toFixed(1) : '0.0';
   const isPositive = totalPnL >= 0;
 
+  const handleRefreshPrices = async () => {
+    setRefreshingPrices(true);
+    try {
+      await supabase.functions.invoke('refresh-portfolio-prices', { body: {} });
+      if (user?.id) {
+        await pullFromCloud();
+      }
+    } catch (e) {
+      console.warn('[Investments] refresh prices failed:', e);
+    }
+    setRefreshingPrices(false);
+  };
+
   const handleStartEditPlan = () => {
     setDraftPlan(portfolioActionPlan || '');
     setEditPlan(true);
@@ -92,24 +111,36 @@ export default function InvestmentsDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Portfolio Value Hero with gradient background */}
-        <ExpoLinearGradient
-          colors={['#1E2246', '#12152A', colors.background]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        {/* Portfolio Value Hero — Glass Noir panel, tappable → history */}
+        <TouchableOpacity
           style={styles.heroCard}
+          onPress={() => navigation.navigate('PortfolioHistory')}
+          activeOpacity={0.9}
         >
           <View style={styles.heroGlow} />
-          <Text style={styles.heroLabel}>TOTAL PORTFOLIO VALUE</Text>
-          <Text style={styles.heroValue}>{formatCurrency(portfolioValue)}</Text>
-          <View style={styles.heroSubRow}>
-            <View style={[styles.trendBadge, { backgroundColor: isPositive ? `${colors.success}20` : `${colors.error}20` }]}> 
+          <View style={styles.heroTopRow}>
+            <Text style={styles.heroLabel}>TOTAL PORTFOLIO VALUE</Text>
+            <TouchableOpacity
+              style={styles.refreshBtn}
+              onPress={(e) => { e.stopPropagation(); handleRefreshPrices(); }}
+              disabled={refreshingPrices}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={refreshingPrices ? 'sync' : 'refresh'}
+                size={16}
+                color={colors.onSurface}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.heroValueRow}>
+            <Text style={styles.heroValue}>{formatCurrency(portfolioValue)}</Text>
+            <View style={styles.trendBadge}>
               <Ionicons name={isPositive ? 'trending-up' : 'trending-down'} size={12} color={isPositive ? colors.success : colors.error} />
               <Text style={[styles.trendText, { color: isPositive ? colors.success : colors.error }]}>
                 {isPositive ? '+' : ''}{pnlPct}%
               </Text>
             </View>
-            <Text style={styles.heroSubText}>All-time unrealized P&amp;L</Text>
           </View>
           <View style={styles.heroMetaRow}>
             <View style={styles.heroMetaItem}>
@@ -129,55 +160,33 @@ export default function InvestmentsDashboardScreen() {
               <Text style={styles.heroMetaLabel}>Returns</Text>
             </View>
           </View>
-        </ExpoLinearGradient>
 
-        {/* Snapshot Summary */}
-        {snapshots.length > 0 && (() => {
-          const latest = snapshots[snapshots.length - 1];
-          const dayChg = latest.dayChange;
-          const dayChgPct = latest.dayChangePct.toFixed(1);
-          return (
-            <TouchableOpacity
-              style={styles.snapshotCard}
-              onPress={() => navigation.navigate('PortfolioHistory')}
-              activeOpacity={0.7}
-            >
-              <View style={styles.snapshotRow}>
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotLabel}>YESTERDAY'S CLOSE</Text>
-                  <Text style={styles.snapshotValue}>
-                    {formatCurrency(latest.totalValue - dayChg)}
+          {/* Snapshot info inside the hero — computed live from holdings */}
+          {holdings.some((h) => h.prevClose) && (() => {
+            const yesterdayClose = portfolioValue - todayPnL;
+            const dayChgPct = yesterdayClose > 0 ? (todayPnL / yesterdayClose) * 100 : 0;
+            return (
+              <View style={styles.heroSnapshotRow}>
+                <View style={styles.heroSnapshotItem}>
+                  <Text style={styles.heroSnapshotLabel}>YESTERDAY'S CLOSE</Text>
+                  <Text style={styles.heroSnapshotValue}>
+                    {formatCurrency(yesterdayClose)}
                   </Text>
                 </View>
-                <View style={styles.snapshotDivider} />
-                <View style={styles.snapshotItem}>
-                  <Text style={styles.snapshotLabel}>DAY CHANGE</Text>
-                  <Text style={[styles.snapshotValue, { color: dayChg >= 0 ? colors.success : colors.error }]}>
-                    {dayChg >= 0 ? '+' : ''}{formatCurrency(dayChg)} ({dayChgPct}%)
+                <View style={styles.heroSnapshotDivider} />
+                <View style={styles.heroSnapshotItem}>
+                  <Text style={styles.heroSnapshotLabel}>DAY CHANGE</Text>
+                  <Text style={[styles.heroSnapshotValue, { color: todayPnL >= 0 ? colors.success : colors.error }]}>
+                    {todayPnL >= 0 ? '+' : ''}{formatCurrency(todayPnL)} ({dayChgPct.toFixed(1)}%)
                   </Text>
                 </View>
               </View>
-              <View style={styles.snapshotFooter}>
-                <Text style={styles.snapshotDate}>
-                  Last snapshot: {new Date(latest.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </Text>
-                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
-          );
-        })()}
+            );
+          })()}
+        </TouchableOpacity>
 
-        {/* Allocation Donut */}
+        {/* Allocation Donut — segmented gradient design */}
         {holdings.length > 0 && (() => {
-          const CAT_COLORS: Record<string, string> = {
-            Equity: '#9BA5FF',
-            'Mutual Funds': '#8894A8',
-            Gold: '#E2A45C',
-            Realty: '#59D6C7',
-            ETF: '#FF887D',
-            Other: '#8894A8',
-          };
-
           const allocMap: Record<string, number> = {};
           holdings.forEach((h) => {
             const cat = h.allocation ?? ((h.type === 'mf') ? 'Mutual Funds' : (h.type === 'etf') ? 'ETF' : 'Equity');
@@ -188,12 +197,14 @@ export default function InvestmentsDashboardScreen() {
           const totalV = entries.reduce((s, e) => s + e[1], 0);
           if (totalV === 0) return null;
 
-          const R = 70;
-          const strokeW = 18;
-          const cx = 90;
-          const cy = 90;
+          const R = 40;
+          const strokeW = 8;
+          const cx = 50;
+          const cy = 50;
           const circumference = 2 * Math.PI * R;
-          let offset = 0;
+          const gap = 2.5;
+          const gradients = ['url(#allocGradPink)', 'url(#allocGradTeal)', 'url(#allocGradOrange)'];
+          let cumulativeDeg = 0;
 
           return (
             <TouchableOpacity
@@ -205,108 +216,76 @@ export default function InvestmentsDashboardScreen() {
                 <Text style={styles.donutTitle}>ASSET ALLOCATION</Text>
                 <Ionicons name="chevron-forward" size={16} color={colors.primary} />
               </View>
-              <View style={styles.donutRow}>
-                <Svg width={180} height={180} viewBox="0 0 180 180">
+              <View style={styles.donutCenterWrap}>
+                <Svg width={192} height={192} viewBox="0 0 100 100">
+                  <Defs>
+                    <LinearGradient id="allocGradPink" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <Stop offset="0%" stopColor="#ffb2b9" />
+                      <Stop offset="100%" stopColor="#d0bcff" />
+                    </LinearGradient>
+                    <LinearGradient id="allocGradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <Stop offset="0%" stopColor="#5ee6ff" />
+                      <Stop offset="100%" stopColor="#00cbe6" />
+                    </LinearGradient>
+                    <LinearGradient id="allocGradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <Stop offset="0%" stopColor="#ea6479" />
+                      <Stop offset="100%" stopColor="#ffdadc" />
+                    </LinearGradient>
+                  </Defs>
+
+                  {/* Background track */}
+                  <Circle
+                    cx={cx}
+                    cy={cy}
+                    r={R}
+                    stroke="rgba(255,255,255,0.05)"
+                    strokeWidth={strokeW}
+                    fill="none"
+                  />
+
                   {entries.map(([cat, val]) => {
-                    const sliceLen = (val / totalV) * circumference;
-                    const dashArray = `${sliceLen} ${circumference - sliceLen}`;
-                    const color = CAT_COLORS[cat] ?? CAT_COLORS.Other;
-                    const segment = (
-                      <Circle
-                        key={cat}
-                        cx={cx}
-                        cy={cy}
-                        r={R}
-                        stroke={color}
-                        strokeWidth={strokeW}
-                        strokeDasharray={dashArray}
-                        strokeDashoffset={-offset}
-                        fill="none"
-                        strokeLinecap="butt"
-                      />
-                    );
-                    offset += sliceLen;
-                    return segment;
-                  })}
-                  <SvgText
-                    x={cx}
-                    y={cy - 4}
-                    textAnchor="middle"
-                    fontSize={16}
-                    fontWeight="800"
-                    fill={colors.onSurface}
-                  >
-                    {formatCurrency(totalV)}
-                  </SvgText>
-                  <SvgText
-                    x={cx}
-                    y={cy + 14}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fill={colors.onSurfaceVariant}
-                  >
-                    Total
-                  </SvgText>
-                </Svg>
-                <View style={styles.donutLegend}>
-                  {entries.map(([cat, val]) => {
-                    const pct = ((val / totalV) * 100).toFixed(1);
+                    const pct = val / totalV;
+                    const segLen = Math.max(pct * circumference - gap, 0.8);
+                    const deg = cumulativeDeg;
+                    cumulativeDeg += pct * 360;
+                    const idx = entries.findIndex((e) => e[0] === cat);
                     return (
-                      <View key={cat} style={styles.legendRow}>
-                        <View style={[styles.legendDot, { backgroundColor: CAT_COLORS[cat] ?? CAT_COLORS.Other }]} />
-                        <Text style={styles.legendLabel} numberOfLines={1}>{cat}</Text>
-                        <Text style={styles.legendPct}>{pct}%</Text>
-                      </View>
+                      <SvgG key={cat} rotation={deg} origin={`${cx}, ${cy}`}>
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={R}
+                          stroke={gradients[idx % gradients.length]}
+                          strokeWidth={strokeW}
+                          strokeDasharray={`${segLen} ${circumference - segLen}`}
+                          strokeDashoffset={circumference * 0.25}
+                          fill="none"
+                          strokeLinecap="round"
+                        />
+                      </SvgG>
                     );
                   })}
+                </Svg>
+                <View style={styles.donutCenterAbs}>
+                  <Text style={styles.donutCenterVal}>{((entries[0][1] / totalV) * 100).toFixed(0)}%</Text>
+                  <Text style={styles.donutCenterLabel}>{entries[0][0].toUpperCase()}</Text>
                 </View>
+              </View>
+              <View style={styles.donutLegend}>
+                {entries.map(([cat, val], i) => {
+                  const pct = ((val / totalV) * 100).toFixed(1);
+                  return (
+                    <View key={cat} style={styles.legendRow}>
+                      <View style={[styles.legendDot, { backgroundColor: gradients[i % gradients.length] === 'url(#allocGradPink)' ? '#ffb2b9' : gradients[i % gradients.length] === 'url(#allocGradTeal)' ? '#5ee6ff' : '#ea6479' }]} />
+                      <Text style={styles.legendLabel} numberOfLines={1}>{cat}</Text>
+                      <Text style={styles.legendPct}>{pct}%</Text>
+                    </View>
+                  );
+                })}
               </View>
             </TouchableOpacity>
           );
         })()}
-
-        {/* Portfolio Action Plan */}
-        <View style={styles.planCard}>
-          <View style={styles.planHeader}>
-            <View style={styles.planTitleRow}>
-              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
-              <Text style={styles.planTitle}>PORTFOLIO ACTION PLAN</Text>
-            </View>
-            {!editPlan ? (
-              <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEditBtn}>
-                <Ionicons name="create-outline" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-          {editPlan ? (
-            <View style={styles.planEditContainer}>
-              <TextInput
-                style={styles.planInput}
-                value={draftPlan}
-                onChangeText={setDraftPlan}
-                placeholder="Enter your action plan..."
-                placeholderTextColor={colors.onSurfaceVariant}
-                multiline
-                textAlignVertical="top"
-              />
-              <View style={styles.planEditActions}>
-                <TouchableOpacity style={styles.planCancelBtn} onPress={handleCancelEditPlan}>
-                  <Text style={styles.planCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.planSaveBtn} onPress={handleSavePlan}>
-                  <Text style={styles.planSaveText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : portfolioActionPlan ? (
-            <Text style={styles.planContent} numberOfLines={12}>{portfolioActionPlan}</Text>
-          ) : (
-            <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEmptyState}>
-              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-              <Text style={styles.planEmptyText}>Add your portfolio action plan</Text>
-            </TouchableOpacity>
-          )}
-        </View>
 
         {/* Holdings List Section */}
         <View style={styles.sectionCard}>
@@ -461,16 +440,58 @@ export default function InvestmentsDashboardScreen() {
           </View>
         </View>
 
+        {/* Portfolio Action Plan */}
+        <View style={styles.planCard}>
+          <View style={styles.planHeader}>
+            <View style={styles.planTitleRow}>
+              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+              <Text style={styles.planTitle}>PORTFOLIO ACTION PLAN</Text>
+            </View>
+            {!editPlan ? (
+              <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEditBtn}>
+                <Ionicons name="create-outline" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {editPlan ? (
+            <View style={styles.planEditContainer}>
+              <TextInput
+                style={styles.planInput}
+                value={draftPlan}
+                onChangeText={setDraftPlan}
+                placeholder="Enter your action plan..."
+                placeholderTextColor={colors.onSurfaceVariant}
+                multiline
+                textAlignVertical="top"
+              />
+              <View style={styles.planEditActions}>
+                <TouchableOpacity style={styles.planCancelBtn} onPress={handleCancelEditPlan}>
+                  <Text style={styles.planCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.planSaveBtn} onPress={handleSavePlan}>
+                  <Text style={styles.planSaveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : portfolioActionPlan ? (
+            <Text style={styles.planContent} numberOfLines={12}>{portfolioActionPlan}</Text>
+          ) : (
+            <TouchableOpacity onPress={handleStartEditPlan} style={styles.planEmptyState}>
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text style={styles.planEmptyText}>Add your portfolio action plan</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
       </ScrollView>
 
-      {/* Floating AI Button */}
-      <TouchableOpacity
-        style={styles.fab}
+      {/* Floating AI Button — draggable */}
+      <DraggableFab
+        icon="sparkles"
+        color={colors.onSurface}
+        storageKey="meridian-fab-wealth"
         onPress={() => navigation.navigate('AIRecommendations')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="sparkles" size={24} color={colors.onPrimaryContainer} />
-      </TouchableOpacity>
+      />
     </SafeAreaView>
   );
 }
@@ -487,12 +508,13 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heroCard: {
-    borderRadius: rounded.xl,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 32,
     padding: 24,
     position: 'relative',
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(155,165,255,0.12)',
     gap: 6,
   },
   heroGlow: {
@@ -502,25 +524,40 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(155,165,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   heroLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(244,247,251,0.5)',
+    color: 'rgba(255,255,255,0.7)',
     letterSpacing: 1.5,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  refreshBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  heroValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 2,
   },
   heroValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: colors.onSurface,
+    color: '#FFFFFF',
     letterSpacing: -0.5,
-  },
-  heroSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
   },
   trendBadge: {
     flexDirection: 'row',
@@ -528,15 +565,12 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: rounded.full,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   trendText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  heroSubText: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
   },
   heroMetaRow: {
     flexDirection: 'row',
@@ -544,69 +578,60 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   heroMetaItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 3,
   },
   heroMetaDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   heroMetaValue: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.onSurface,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   heroMetaLabel: {
     fontSize: 10,
-    color: 'rgba(244,247,251,0.45)',
+    color: 'rgba(255,255,255,0.5)',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
-  snapshotCard: {
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(155,165,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.xl,
-    padding: spacing.cardPadding,
-    gap: 12,
-  },
-  snapshotRow: {
+  heroSnapshotRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
-  snapshotItem: {
+  heroSnapshotItem: {
     flex: 1,
   },
-  snapshotDivider: {
+  heroSnapshotDivider: {
     width: 1,
     height: 32,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  snapshotLabel: {
-    fontSize: 10,
+  heroSnapshotLabel: {
+    fontSize: 9,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.5)',
     letterSpacing: 0.5,
   },
-  snapshotValue: {
-    fontSize: 17,
+  heroSnapshotValue: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.onSurface,
-    marginTop: 4,
-  },
-  snapshotFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  snapshotDate: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
+    color: '#FFFFFF',
+    marginTop: 3,
   },
   donutCard: {
     backgroundColor: colors.surface,
@@ -627,13 +652,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  donutRow: {
-    flexDirection: 'row',
+  donutCenterWrap: {
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  donutCenterAbs: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  donutCenterVal: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.onSurface,
+    letterSpacing: -1,
+  },
+  donutCenterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 2,
   },
   donutLegend: {
-    flex: 1,
     gap: 8,
   },
   legendRow: {
@@ -949,21 +992,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.background,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
   },
 });

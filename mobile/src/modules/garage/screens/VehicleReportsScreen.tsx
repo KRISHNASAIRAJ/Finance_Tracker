@@ -1,3 +1,7 @@
+/**
+ * VehicleReportsScreen — per-vehicle analytics: fuel cost trends, mileage chart,
+ * maintenance spend breakdown and total cost of ownership.
+ */
 import React, { useState } from 'react';
 import {
   StyleSheet,

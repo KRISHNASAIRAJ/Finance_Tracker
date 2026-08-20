@@ -1,3 +1,6 @@
+/**
+ * chatExportService — Saves AI chat conversations to timestamped text files on device.
+ */
 import { Paths, File, Directory } from 'expo-file-system';
 import { Alert } from 'react-native';
 

@@ -1,3 +1,6 @@
+/**
+ * App — Root component: providers, background task registration, notification setup, and navigation.
+ */
 import React, { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, LogBox, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -15,7 +18,7 @@ import { scheduleNextBackup, registerBackupTask } from './src/services/backupSch
 import { scheduleAllReminders, requestNotificationPermission } from './src/services/notificationService';
 import { setupNotificationHandler } from './src/services/pushNotifications';
 import { AuthProvider } from './src/services/AuthProvider';
-import { registerSyncTask, triggerSyncNow } from './src/services/syncScheduler';
+import { registerSyncTask } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { seedGarageData } from './src/modules/garage/store';

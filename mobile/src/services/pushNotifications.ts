@@ -1,3 +1,6 @@
+/**
+ * pushNotifications — Expo push notification setup, token registration, and notification handler.
+ */
 import { isExpoGo } from '../shared/isExpoGo';
 
 let Notifications: any = null;

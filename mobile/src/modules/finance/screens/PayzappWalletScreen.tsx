@@ -1,4 +1,8 @@
-﻿import React, { useState, useMemo } from 'react';
+﻿/**
+ * PayzappWalletScreen — tracks Payzapp wallet loads and spends, showing the
+ * remaining balance against a monthly target.
+ */
+import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform, StatusBar } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
