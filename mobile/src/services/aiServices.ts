@@ -32,7 +32,7 @@ export interface CardTnCResponse {
   error?: string;
 }
 
-export async function askCardTnC(query: string, documentId?: string, transactionsCtx?: string): Promise<CardTnCResponse> {
+export async function askCardTnC(query: string, documentId?: string, transactionsCtx?: string, financeCtx?: string): Promise<CardTnCResponse> {
   const allowed = await checkDailyLimit(RATE_LIMIT_KEY_TNC, DAILY_LIMIT_TNC);
   if (!allowed) {
     return {
@@ -48,6 +48,9 @@ export async function askCardTnC(query: string, documentId?: string, transaction
     }
     if (transactionsCtx) {
       body.transactions_ctx = transactionsCtx;
+    }
+    if (financeCtx) {
+      body.finance_ctx = financeCtx;
     }
 
     const { data, error } = await supabase.functions.invoke('ai-tnc-query', {

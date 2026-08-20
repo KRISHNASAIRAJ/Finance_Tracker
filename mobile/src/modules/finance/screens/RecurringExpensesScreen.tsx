@@ -17,6 +17,19 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 
+function ordinal(n: number): string {
+  if (n >= 11 && n <= 13) return `${n}th`;
+  const r = n % 10;
+  if (r === 1) return `${n}st`;
+  if (r === 2) return `${n}nd`;
+  if (r === 3) return `${n}rd`;
+  return `${n}th`;
+}
+
+function isVariable(name: string): boolean {
+  return name.toLowerCase().includes('electricity');
+}
+
 export default function RecurringExpensesScreen() {
   const navigation = useNavigation();
   const { cards, fixedExpenses, markFixedExpensePaid, unmarkFixedExpensePaid } = useFinanceStore();
@@ -101,7 +114,7 @@ export default function RecurringExpensesScreen() {
                       <View>
                         <Text style={styles.itemTitle}>{sip.name}</Text>
                         <Text style={styles.itemSubtitle}>
-                          Triggers every {sip.billingDay}th
+                          Triggers every {ordinal(sip.billingDay)}
                         </Text>
                       </View>
                     </View>
@@ -138,14 +151,18 @@ export default function RecurringExpensesScreen() {
                     <View style={styles.itemLeft}>
                       <View style={[styles.iconWrapper, { backgroundColor: paid ? `${colors.success}15` : `${colors.error}15` }]}>
                         <Ionicons
-                          name={fee.category === 'Housing' ? 'home-outline' : 'receipt-outline'}
+                          name={isVariable(fee.name) ? 'flash-outline' : fee.category === 'Housing' ? 'home-outline' : 'receipt-outline'}
                           size={18}
                           color={paid ? colors.success : colors.error}
                         />
                       </View>
-                      <View>
+                      <View style={{ flex: 1 }}>
                         <Text style={styles.itemTitle}>{fee.name}</Text>
-                        <Text style={styles.itemSubtitle}>Due on {fee.billingDay}th of every month</Text>
+                        <Text style={styles.itemSubtitle}>
+                          {isVariable(fee.name)
+                            ? 'Variable amount — set monthly in Fixed Expenses'
+                            : `Due on ${ordinal(fee.billingDay)} of every month`}
+                        </Text>
                       </View>
                     </View>
                     <View style={styles.itemRight}>

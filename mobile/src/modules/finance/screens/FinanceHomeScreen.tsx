@@ -29,7 +29,6 @@ import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
 import GlowingCard from '../../../shared/components/ui/glowing-card';
-import MonthPickerModal from '../components/MonthPickerModal';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -67,11 +66,6 @@ export default function FinanceHomeScreen() {
   const [paidAmountInput, setPaidAmountInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [chartMonthPickerVisible, setChartMonthPickerVisible] = useState(false);
-  const [chartMonth, setChartMonth] = useState(() => {
-    const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1);
-  });
 
   useEffect(() => {
     scheduleAllReminders();
@@ -138,6 +132,7 @@ export default function FinanceHomeScreen() {
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const chartMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   // Dynamic calculations from user backup lists
   const totalLent = receivables.filter((r: any) => r.type === 'lent').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
@@ -307,16 +302,6 @@ export default function FinanceHomeScreen() {
             activeOpacity={0.9}
           >
             <Text style={styles.cardTitle}>Expense Distribution</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.monthDropdown}
-            onPress={() => setChartMonthPickerVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.monthDropdownText}>
-              {chartMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </Text>
-            <Ionicons name="chevron-down" size={14} color={colors.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -634,14 +619,6 @@ export default function FinanceHomeScreen() {
         selected={dueDate}
         onSelect={setDueDate}
         onClose={() => setCalendarVisible(false)}
-      />
-
-      <MonthPickerModal
-        visible={chartMonthPickerVisible}
-        selected={chartMonth}
-        maxMonth={new Date(now.getFullYear(), now.getMonth(), 1)}
-        onSelect={setChartMonth}
-        onClose={() => setChartMonthPickerVisible(false)}
       />
     </SafeAreaView>
   );

@@ -52,7 +52,11 @@ export default function AddEditTaskScreen() {
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none');
   const [subtaskInput, setSubtaskInput] = useState('');
   const [localSubtasks, setLocalSubtasks] = useState<string[]>([]);
-  const [dueDate, setDueDate] = useState(new Date(Date.now() + 86400000));
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+    return d;
+  });
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [timeVisible, setTimeVisible] = useState(false);
 

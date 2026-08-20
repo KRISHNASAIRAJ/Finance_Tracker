@@ -50,6 +50,7 @@ export default function AddMaintenanceScreen() {
   const [vehicle, setVehicle] = useState(vehicles[0] || '');
   const [serviceType, setServiceType] = useState('');
   const [amount, setAmount] = useState('');
+  const [odometer, setOdometer] = useState('');
   const [notes, setNotes] = useState('');
   const [serviceDate, setServiceDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
@@ -61,6 +62,7 @@ export default function AddMaintenanceScreen() {
         setVehicle(existing.vehicle);
         setServiceType(existing.serviceType);
         setAmount((existing.amount / 100).toString());
+        if (typeof existing.odometer === 'number') setOdometer(existing.odometer.toString());
         setNotes(existing.notes || '');
         if (existing.date) setServiceDate(new Date(existing.date));
       }
@@ -73,18 +75,19 @@ export default function AddMaintenanceScreen() {
       alert('Please fill all required fields (vehicle, service type, amount)');
       return;
     }
+    const odoNum = odometer.trim() ? Math.round(parseFloat(odometer)) : undefined;
+    if (odometer.trim() && (isNaN(odoNum as number) || (odoNum as number) <= 0)) {
+      alert('Enter a valid odometer reading (km)');
+      return;
+    }
+
+    const payload: any = { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() };
+    if (typeof odoNum === 'number') payload.odometer = odoNum;
 
     if (isEditing && editId) {
-      editMaintenanceLog(
-        editId,
-        { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() },
-        user?.id
-      );
+      editMaintenanceLog(editId, payload, user?.id);
     } else {
-      addMaintenanceLog(
-        { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() },
-        user?.id
-      );
+      addMaintenanceLog(payload, user?.id);
     }
     navigation.goBack();
   };
@@ -147,6 +150,20 @@ export default function AddMaintenanceScreen() {
             placeholder="0.00"
             placeholderTextColor={colors.outline}
           />
+        </View>
+
+        {/* Odometer */}
+        <View style={styles.field}>
+          <Text style={styles.label}>ODOMETER (KM) — OPTIONAL</Text>
+          <TextInput
+            style={styles.input}
+            value={odometer}
+            onChangeText={setOdometer}
+            keyboardType="number-pad"
+            placeholder="e.g. 5600"
+            placeholderTextColor={colors.outline}
+          />
+          <Text style={styles.hint}>Used for service reminders (next service = this + 3000 km)</Text>
         </View>
 
         {/* Date */}
@@ -256,6 +273,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notesInput: { height: 80, paddingTop: 12 },
+  hint: { fontSize: 11, color: colors.onSurfaceVariant },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',

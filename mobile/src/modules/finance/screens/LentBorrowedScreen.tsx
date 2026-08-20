@@ -103,7 +103,7 @@ export default function LentBorrowedScreen() {
     let result: number;
     if (mode === 'plus') result = base + typedPaise;
     else if (mode === 'minus') result = Math.max(0, base - typedPaise);
-    else result = base + Math.round(typedPaise * 0.95);
+    else result = Math.round(base * 0.95);
     setAmount((result / 100).toString());
   };
 

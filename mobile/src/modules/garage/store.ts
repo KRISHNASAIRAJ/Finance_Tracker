@@ -21,6 +21,7 @@ export interface MaintenanceLog {
   date: string;
   amount: number; // paise
   serviceType: string;
+  odometer?: number; // km at service time
   notes?: string;
 }
 
@@ -45,6 +46,7 @@ interface GarageState {
   addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editMaintenanceLog: (id: string, updated: Partial<MaintenanceLog>, userId?: string) => void;
   deleteMaintenanceLog: (id: string, userId?: string) => void;
+  seedMaintenanceLogs: (vehicle: string, logs: Array<Omit<MaintenanceLog, 'id'>>) => void;
   getVehicleFills: (vehicle: string) => FuelFill[];
   getVehicleSpendTotal: (vehicle: string) => number;
 }
@@ -175,6 +177,7 @@ export const useGarageStore = create<GarageState>()(
           date: newLog.date,
           amount: newLog.amount,
           service_type: newLog.serviceType,
+          odometer: newLog.odometer ?? null,
           notes: newLog.notes ?? null,
         });
         return newLog.id;
@@ -192,6 +195,7 @@ export const useGarageStore = create<GarageState>()(
             date: log.date,
             amount: log.amount,
             service_type: log.serviceType,
+            odometer: log.odometer ?? null,
             notes: log.notes ?? null,
           });
         }
@@ -201,6 +205,16 @@ export const useGarageStore = create<GarageState>()(
           maintenance: state.maintenance.filter((m) => m.id !== id),
         }));
         queueGarageSync('maintenance_logs', 'delete', { id, user_id: userId || null });
+      },
+      seedMaintenanceLogs: (vehicle, logs) => {
+        const seeded: MaintenanceLog[] = logs.map((log) => ({
+          ...log,
+          vehicle,
+          id: `seed-${Math.random().toString(36).substring(2, 9)}`,
+        }));
+        set((state) => ({
+          maintenance: [...seeded, ...state.maintenance],
+        }));
       },
       getVehicleFills: (vehicle) => {
         return get().fills.filter((f) => f.vehicle === vehicle);
@@ -221,3 +235,31 @@ export const useGarageStore = create<GarageState>()(
     }
   )
 );
+
+const SEED_FLAG_KEY = 'meridian-garage-seeded-v1';
+
+/**
+ * One-time seed of the user's real historical services so km-based
+ * service reminders have a baseline. Local-only (no cloud sync), guarded
+ * by an AsyncStorage flag so it never runs twice.
+ */
+export async function seedGarageData(): Promise<void> {
+  try {
+    const flag = await AsyncStorage.getItem(SEED_FLAG_KEY);
+    if (flag === 'done') return;
+    const { vehicles, maintenance } = useGarageStore.getState();
+    if (vehicles.length === 0 || maintenance.length > 0) return;
+
+    const vehicle = vehicles[0];
+    const seeds: Array<Omit<MaintenanceLog, 'id'>> = [
+      { vehicle, serviceType: 'General Service', amount: 72700, odometer: 651, date: '2026-06-06T12:00:00+05:30', notes: '1st service' },
+      { vehicle, serviceType: 'General Service', amount: 88700, odometer: 1605, date: '2026-07-03T12:00:00+05:30', notes: '2nd service' },
+      { vehicle, serviceType: 'General Service', amount: 88700, odometer: 2620, date: '2026-08-07T12:00:00+05:30', notes: '3rd service' },
+    ];
+    useGarageStore.getState().seedMaintenanceLogs(vehicle, seeds);
+    await AsyncStorage.setItem(SEED_FLAG_KEY, 'done');
+    console.log('[GarageStore] Seeded historical service logs:', seeds.length);
+  } catch (e) {
+    console.warn('[GarageStore] seedGarageData failed:', e);
+  }
+}

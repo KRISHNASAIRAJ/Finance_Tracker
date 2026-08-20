@@ -40,7 +40,7 @@ export default function CardChatScreen() {
   const documentId = (route.params as any)?.documentId;
   const documentName = (route.params as any)?.documentName;
 
-  const { transactions, cards } = useFinanceStore();
+  const { transactions, cards, receivables, fixedExpenses, getTotalBalance } = useFinanceStore();
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [inputText, setInputText] = useState('');
@@ -77,6 +77,70 @@ export default function CardChatScreen() {
     return ctx;
   };
 
+  // Full finance context: aggregates + masked cards. NEVER includes full card
+  // numbers, CVV, PIN or expiry — only the last-4 "endingWith" suffix.
+  const buildFinanceContext = () => {
+    const fmt = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const totalBalance = typeof getTotalBalance === 'function' ? getTotalBalance() : 0;
+    const monthTxs = transactions.filter((t) => new Date(t.date) >= monthStart && new Date(t.date) < monthEnd);
+    const monthlySpend = monthTxs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const monthlyIncome = monthTxs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+
+    const cardLines = (cards || []).map((c) => {
+      const billLeft = c.billAmount ? Math.max(0, c.billAmount - (c.paidAmount || 0)) : c.balance;
+      const due = c.dueDate ? new Date(c.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—';
+      return `- ${c.name} (••••${c.endingWith || '—'} ${c.network}): bill left ${fmt(billLeft)}, due ${due}`;
+    });
+
+    const catTotals: Record<string, number> = {};
+    monthTxs.filter((t) => t.amount < 0).forEach((t) => {
+      catTotals[t.category] = (catTotals[t.category] || 0) + Math.abs(t.amount);
+    });
+    const topCats = Object.entries(catTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([cat, amt]) => `- ${cat}: ${fmt(amt)}`)
+      .join('\n');
+
+    const lent = (receivables || []).filter((r) => r.type === 'lent').reduce((s, r) => s + (r.amount - (r.paidAmount || 0)), 0);
+    const borrowed = (receivables || []).filter((r) => r.type === 'borrowed').reduce((s, r) => s + (r.amount - (r.paidAmount || 0)), 0);
+    const unpaidFixed = (fixedExpenses || [])
+      .filter((f) => f.lastPaidMonth !== currentMonthStr)
+      .reduce((s, f) => s + f.amount, 0);
+
+    const recent = [...transactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 15)
+      .map((tx) => {
+        const d = new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const amt = fmt(Math.abs(tx.amount));
+        return `- ${d}: ${tx.category} · ${tx.type === 'income' ? '+' : '-'}${amt}${tx.paymentMode ? ` via ${tx.paymentMode}` : ''}`;
+      })
+      .join('\n');
+
+    return `## User's financial summary (the user's own personal data from their device)
+Bank account total: ${fmt(totalBalance)}
+This month spend: ${fmt(monthlySpend)}
+This month income: ${fmt(monthlyIncome)}
+Net lent outstanding: ${fmt(lent)}
+Net borrowed outstanding: ${fmt(borrowed)}
+Unpaid fixed expenses this month: ${fmt(unpaidFixed)}
+
+Credit cards (masked, last 4 digits only):
+${cardLines.length ? cardLines.join('\n') : '- none'}
+
+Top spending categories this month:
+${topCats || '- none'}
+
+Recent transactions:
+${recent || '- none'}`;
+  };
+
   const handleSend = async (text?: string) => {
     const query = (text || inputText).trim();
     if (!query || loading) return;
@@ -88,7 +152,8 @@ export default function CardChatScreen() {
     setLoading(true);
     try {
       const txCtx = buildTransactionContext();
-      const result = await askCardTnC(query, documentId, txCtx);
+      const financeCtx = buildFinanceContext();
+      const result = await askCardTnC(query, documentId, txCtx, financeCtx);
       addMessage('assistant', result.answer);
     } catch {
       addMessage('assistant', 'Sorry, I couldn\'t process your question. Please try again.');
@@ -123,6 +188,8 @@ export default function CardChatScreen() {
     if (totalSpent > 0) {
       prompts.push(`Analyze my recent spending of ₹${(totalSpent / 100).toFixed(0)}`);
     }
+    prompts.push('How much do I owe on all my credit cards?');
+    prompts.push('What is my net worth?');
     prompts.push('Which of my cards gives the best fuel rewards?');
     prompts.push('Help me pick the right card for online shopping');
     return prompts.slice(0, 4);

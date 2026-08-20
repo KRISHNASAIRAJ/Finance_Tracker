@@ -26,7 +26,7 @@ const formatCurrency = (paise: number) => {
 
 export default function AllMaintenanceScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { vehicles, maintenance } = useGarageStore();
+  const { vehicles, fills, maintenance } = useGarageStore();
   const [selectedVehicle, setSelectedVehicle] = React.useState(vehicles[0]);
 
   React.useEffect(() => {
@@ -40,6 +40,25 @@ export default function AllMaintenanceScreen() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
+
+  const lastService = vehicleMaint[0];
+  const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
+  const currentOdometer = vehicleFills.length > 0 ? Math.max(...vehicleFills.map((f) => f.odometer || 0)) : 0;
+
+  const nextService = (() => {
+    if (!lastService) return null;
+    const lastKm = typeof lastService.odometer === 'number' ? lastService.odometer : null;
+    const lastDate = new Date(lastService.date);
+    if (isNaN(lastDate.getTime())) return null;
+    const dueKm = typeof lastKm === 'number' && lastKm > 0 ? lastKm + 3000 : null;
+    const dueDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 3, lastDate.getDate());
+    return { dueKm, dueDate, currentOdometer };
+  })();
+
+  const serviceDueSoon = nextService
+    ? (nextService.dueKm !== null && nextService.dueKm - nextService.currentOdometer <= 200) ||
+      new Date() >= new Date(nextService.dueDate.getTime() - 14 * 86400000)
+    : false;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -77,6 +96,44 @@ export default function AllMaintenanceScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Next Service Due */}
+        {nextService && (
+          <View style={[styles.nextServiceCard, serviceDueSoon && styles.nextServiceCardUrgent]}>
+            <View style={styles.nextServiceHeader}>
+              <Ionicons name="construct-outline" size={16} color={serviceDueSoon ? colors.error : colors.primary} />
+              <Text style={styles.nextServiceTitle}>NEXT SERVICE DUE</Text>
+            </View>
+            <View style={styles.nextServiceRow}>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={styles.nextServiceValue}>
+                  {nextService.dueKm !== null
+                    ? `${nextService.dueKm.toLocaleString('en-IN')} km`
+                    : nextService.dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+                <Text style={styles.nextServiceSub}>
+                  {nextService.dueKm !== null
+                    ? `or ${nextService.dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · whichever first`
+                    : `due by ${nextService.dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                <Text style={styles.nextServiceKmLeft}>
+                  {nextService.dueKm !== null && nextService.currentOdometer > 0
+                    ? `${Math.max(0, nextService.dueKm - nextService.currentOdometer).toLocaleString('en-IN')} km left`
+                    : '—'}
+                </Text>
+                <Text style={styles.nextServiceOdo}>now at {nextService.currentOdometer.toLocaleString('en-IN')} km</Text>
+              </View>
+            </View>
+            {serviceDueSoon && (
+              <View style={styles.dueSoonBadge}>
+                <Ionicons name="alert-circle" size={12} color={colors.error} />
+                <Text style={styles.dueSoonText}>Service due soon — book it now</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Total Spend */}
         <View style={styles.spendRow}>
           <View style={{ flex: 1 }}>
@@ -124,15 +181,26 @@ export default function AllMaintenanceScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.logTitle}>{log.serviceType}</Text>
                   <Text style={styles.logSub} numberOfLines={1}>
+                    {typeof log.odometer === 'number' ? `${log.odometer.toLocaleString('en-IN')} km · ` : ''}
                     {log.notes ? log.notes : log.vehicle}
                   </Text>
                 </View>
               </View>
               <View style={styles.logRight}>
                 <Text style={styles.logAmount}>{formatCurrency(log.amount)}</Text>
-                <Text style={styles.logDate}>
-                  {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </Text>
+                <View style={styles.logMetaRow}>
+                  <Text style={styles.logDate}>
+                    {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.editBtn}
+                    onPress={() => navigation.navigate('AddMaintenance', { maintenanceId: log.id })}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="create-outline" size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </TouchableOpacity>
           ))
@@ -230,6 +298,73 @@ const styles = StyleSheet.create({
   logRight: { alignItems: 'flex-end' },
   logAmount: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
   logDate: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  logMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  editBtn: {
+    padding: 3,
+    borderRadius: rounded.full,
+    backgroundColor: `${colors.primary}15`,
+    marginTop: 2,
+  },
+  nextServiceCard: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: `${colors.primary}40`,
+    padding: 16,
+    gap: 10,
+  },
+  nextServiceCardUrgent: {
+    borderColor: `${colors.error}60`,
+    backgroundColor: `${colors.error}08`,
+  },
+  nextServiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nextServiceTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.8,
+  },
+  nextServiceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  nextServiceValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  nextServiceSub: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+  nextServiceKmLeft: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  nextServiceOdo: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+  dueSoonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: `${colors.error}15`,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: rounded.DEFAULT,
+  },
+  dueSoonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.error,
+  },
   emptyState: { padding: 48, alignItems: 'center', gap: 10 },
   emptyEmoji: { fontSize: 40 },
   emptyText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
