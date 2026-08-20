@@ -287,7 +287,7 @@ export default function GarageDashboardScreen() {
 
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => navigation.navigate('VehicleReports')}
+            onPress={() => navigation.navigate('AllMaintenance')}
             activeOpacity={0.7}
           >
             <View style={styles.gridHeader}>

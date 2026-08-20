@@ -41,6 +41,7 @@ import AllFuelFillsScreen from '../modules/garage/screens/AllFuelFillsScreen';
 import VehicleSpendScreen from '../modules/garage/screens/VehicleSpendScreen';
 import VehicleReportsScreen from '../modules/garage/screens/VehicleReportsScreen';
 import AddMaintenanceScreen from '../modules/garage/screens/AddMaintenanceScreen';
+import AllMaintenanceScreen from '../modules/garage/screens/AllMaintenanceScreen';
 
 import TasksDashboardScreen from '../modules/tasks/screens/TasksDashboardScreen';
 import TaskDetailScreen from '../modules/tasks/screens/TaskDetailScreen';
@@ -98,6 +99,7 @@ export type GarageStackParamList = {
   VehicleSpend: undefined;
   VehicleReports: undefined;
   AddMaintenance: { maintenanceId?: string } | undefined;
+  AllMaintenance: undefined;
 };
 
 export type TasksStackParamList = {
@@ -205,6 +207,7 @@ function GarageStackNavigator() {
       <GarageStack.Screen name="VehicleSpend" component={VehicleSpendScreen} />
       <GarageStack.Screen name="VehicleReports" component={VehicleReportsScreen} />
       <GarageStack.Screen name="AddMaintenance" component={AddMaintenanceScreen} />
+      <GarageStack.Screen name="AllMaintenance" component={AllMaintenanceScreen} />
     </GarageStack.Navigator>
   );
 }

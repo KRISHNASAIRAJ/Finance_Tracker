@@ -29,6 +29,7 @@ import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
 import GlowingCard from '../../../shared/components/ui/glowing-card';
+import MonthPickerModal from '../components/MonthPickerModal';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
@@ -66,6 +67,11 @@ export default function FinanceHomeScreen() {
   const [paidAmountInput, setPaidAmountInput] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
+  const [chartMonthPickerVisible, setChartMonthPickerVisible] = useState(false);
+  const [chartMonth, setChartMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
 
   useEffect(() => {
     scheduleAllReminders();
@@ -148,6 +154,7 @@ export default function FinanceHomeScreen() {
       (tx.category?.toLowerCase() === 'wallet loads' || tx.category?.toLowerCase() === 'wallet load' ||
        tx.notes?.toLowerCase().includes('payzapp wallet'))
     )
+    .filter((tx: any) => new Date(tx.date) >= new Date(now.getFullYear(), now.getMonth(), 1))
     .reduce((sum: number, tx: any) => sum + tx.amount, 0);
   const PAYZAPP_MONTHLY_CAP = 40_000 * 100;
 
@@ -159,17 +166,20 @@ export default function FinanceHomeScreen() {
     'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
     ...fixedExpenses.map((f: any) => f.name),
   ];
+  const monthStart = new Date(chartMonth.getFullYear(), chartMonth.getMonth(), 1);
+  const nextMonthStart = new Date(chartMonth.getFullYear(), chartMonth.getMonth() + 1, 1);
   const expenseTxs = transactions.filter(
     (tx: any) =>
       (tx.type === 'expense' || tx.type === 'vehicle_service') &&
       tx.type !== 'fixed_expense' &&
       !EXCLUDED_CHART_CATEGORIES.some(cat =>
         cat.toLowerCase() === (tx.category || '').toLowerCase()
-      )
+      ) &&
+      new Date(tx.date) >= monthStart &&
+      new Date(tx.date) < nextMonthStart
   );
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const fuelFillAmount = garageFills
-    .filter((f: any) => new Date(f.date) >= monthStart)
+    .filter((f: any) => new Date(f.date) >= monthStart && new Date(f.date) < nextMonthStart)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
   const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0) + fuelFillAmount;
 
@@ -290,13 +300,31 @@ export default function FinanceHomeScreen() {
         </View>
 
         {/* Expense Distribution Card (Clickable) */}
-        <TouchableOpacity
-          style={styles.distributionCard}
-          onPress={() => navigation.navigate('FinanceReports')}
-          activeOpacity={0.9}
-        >
-          <Text style={styles.cardTitle}>Expense Distribution</Text>
-          <View style={styles.distributionContent}>
+        <View style={styles.distributionCard}>
+          <TouchableOpacity
+            style={styles.distributionHeader}
+            onPress={() => navigation.navigate('FinanceReports')}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.cardTitle}>Expense Distribution</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.monthDropdown}
+            onPress={() => setChartMonthPickerVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.monthDropdownText}>
+              {chartMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={colors.primary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.distributionContent}
+            onPress={() => navigation.navigate('FinanceReports')}
+            activeOpacity={0.9}
+          >
+
             <View style={styles.donutContainer}>
               <Svg width={130} height={130} viewBox="0 0 130 130">
                 {categoriesSorted.length > 0 && (() => {
@@ -357,8 +385,8 @@ export default function FinanceHomeScreen() {
                 <Text style={{ color: colors.onSurfaceVariant, fontSize: 12 }}>No logs recorded</Text>
               )}
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         {/* Credit Cards Horizontal Slider */}
         <View style={styles.cardsSection}>
@@ -607,6 +635,14 @@ export default function FinanceHomeScreen() {
         onSelect={setDueDate}
         onClose={() => setCalendarVisible(false)}
       />
+
+      <MonthPickerModal
+        visible={chartMonthPickerVisible}
+        selected={chartMonth}
+        maxMonth={new Date(now.getFullYear(), now.getMonth(), 1)}
+        onSelect={setChartMonth}
+        onClose={() => setChartMonthPickerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -832,11 +868,32 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: spacing.cardPadding,
   },
+  distributionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  monthDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: rounded.full,
+    backgroundColor: `${colors.primary}15`,
+    marginBottom: 16,
+  },
+  monthDropdownText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.onSurface,
-    marginBottom: 16,
   },
   distributionContent: {
     flexDirection: 'row',

@@ -24,6 +24,7 @@ import { supabase } from '../../../services/supabaseClient';
 import { scheduleMealReminders, checkMealReminderNotifications, requestNotificationPermissions } from '../../../services/dietNotifications';
 import { useFinanceStore } from '../../finance/store';
 import { tc, ts, tr, card, sectionTitle, dataLarge, dataBase, labelMuted, progressTrack, macroDot } from '../../../shared/theme/tracend';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
@@ -609,36 +610,15 @@ export default function MealLoggerScreen() {
       </Modal>
 
       {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-        <View style={styles.modalCenter}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Date</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={selectedDate}
-              onChangeText={(v) => { if (/^\d{0,4}-?\d{0,2}-?\d{0,2}$/.test(v)) setSelectedDate(v); }}
-              onBlur={() => {
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) setSelectedDate(getTodayDateString());
-              }}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={tc.textMuted}
-              keyboardType="numbers-and-punctuation"
-              maxLength={10}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalBtnSecondary} onPress={() => { setSelectedDate(getTodayDateString()); setShowDatePicker(false); }}>
-                <Text style={styles.modalBtnText}>Today</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtnSecondary} onPress={() => { setSelectedDate(addDays(getTodayDateString(), -1)); setShowDatePicker(false); }}>
-                <Text style={styles.modalBtnText}>Yesterday</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtnPrimary} onPress={() => setShowDatePicker(false)}>
-                <Text style={styles.modalBtnPrimaryText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <CalendarPicker
+        visible={showDatePicker}
+        selected={new Date(selectedDate + 'T12:00:00')}
+        onSelect={(d) => {
+          setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+          setShowDatePicker(false);
+        }}
+        onClose={() => setShowDatePicker(false)}
+      />
 
       {/* Targets Modal */}
       <Modal visible={showTargets} transparent animationType="fade" onRequestClose={() => setShowTargets(false)}>
@@ -1116,14 +1096,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  modalCard: {
-    backgroundColor: tc.surface,
-    borderRadius: tr.lg,
-    padding: 24,
-    width: '100%',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
-  },
   modalTitle: {
     fontSize: 17,
     fontWeight: '700',
@@ -1131,49 +1103,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 18,
   },
-  modalInput: {
-    backgroundColor: 'rgba(244,247,251,0.04)',
-    borderRadius: tr.DEFAULT,
-    height: 48,
-    paddingHorizontal: 14,
-    color: tc.textPrimary,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-  },
-  modalBtnSecondary: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: tr.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
-  },
-  modalBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: tc.textSecondary,
-  },
-  modalBtnPrimary: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: tr.DEFAULT,
-    backgroundColor: tc.action,
-  },
-  modalBtnPrimaryText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: tc.canvas,
-  },
-
   // ── Targets Modal ──
   targetModalCard: {
     backgroundColor: tc.surface,
