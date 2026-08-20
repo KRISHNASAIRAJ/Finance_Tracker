@@ -10,7 +10,9 @@ import {
   StatusBar,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -32,6 +34,7 @@ export default function LentBorrowedScreen() {
   // Form fields
   const [personName, setPersonName] = useState('');
   const [amount, setAmount] = useState('');
+  const [quickAmount, setQuickAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [entryType, setEntryType] = useState<'lent' | 'borrowed'>('lent');
   
@@ -82,6 +85,46 @@ export default function LentBorrowedScreen() {
     })}`;
   };
 
+  const remainingFor = (items: Receivable[]) =>
+    items.reduce((sum, item) => sum + ((item.amount || 0) - (item.paidAmount || 0)), 0);
+
+  const outstandingOf = (item: Receivable) => item.amount - (item.paidAmount || 0);
+
+  const applyQuickMath = (mode: 'plus' | 'minus' | 'minus5') => {
+    if (!selectedItem) return;
+    const typed = parseFloat(quickAmount);
+    if (isNaN(typed) || typed <= 0) {
+      Alert.alert('Enter the new amount first');
+      return;
+    }
+    const typedPaise = Math.round(typed * 100);
+    const current = parseFloat(amount || '0');
+    const base = isNaN(current) ? 0 : Math.round(current * 100);
+    let result: number;
+    if (mode === 'plus') result = base + typedPaise;
+    else if (mode === 'minus') result = Math.max(0, base - typedPaise);
+    else result = base + Math.round(typedPaise * 0.95);
+    setAmount((result / 100).toString());
+  };
+
+  const copyGroupDetails = async (group: { personName: string; items: Receivable[] }) => {
+    const sorted = [...group.items].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    const lines = sorted.map((item) => {
+      const d = new Date(item.dueDate);
+      const month = d.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+      const day = d.getDate();
+      const suffix = day % 10 === 1 && day !== 11 ? 'ST' : day % 10 === 2 && day !== 12 ? 'ND' : day % 10 === 3 && day !== 13 ? 'RD' : 'TH';
+      const outstanding = (item.amount || 0) - (item.paidAmount || 0);
+      const amountLabel = Math.round(outstanding / 100).toLocaleString('en-IN');
+      const noteLabel = item.note && item.note.trim() ? item.note.trim() : 'CARD';
+      return `${noteLabel} -> ${amountLabel} ${month} ${day}${suffix}`;
+    });
+    const total = remainingFor(sorted);
+    const text = `${lines.join('\n')}\n\nTOTAL ${Math.round(total / 100).toLocaleString('en-IN')}`;
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied', `Lent details for ${group.personName} copied to clipboard.`);
+  };
+
   const openAddModal = () => {
     setSelectedItem(null);
     setPersonName('');
@@ -96,6 +139,7 @@ export default function LentBorrowedScreen() {
     setSelectedItem(item);
     setPersonName(item.personName);
     setAmount((item.amount / 100).toString());
+    setQuickAmount('');
     setNotes(item.note || '');
     setEntryType(item.type);
     
@@ -113,6 +157,10 @@ export default function LentBorrowedScreen() {
     }
     if (isNaN(rawAmount) || rawAmount <= 0) {
       alert('Please enter a valid amount');
+      return;
+    }
+    if (!notes.trim()) {
+      alert('Please enter an expense name (e.g. CARD)');
       return;
     }
 
@@ -298,7 +346,15 @@ export default function LentBorrowedScreen() {
                         <Text style={[styles.itemAmount, { color: group.type === 'lent' ? colors.success : colors.error }]}>
                           {group.type === 'lent' ? '+' : '-'}{formatCurrency(group.total)}
                         </Text>
-                        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.onSurfaceVariant} />
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            copyGroupDetails({ personName: group.personName, items: group.items });
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="copy-outline" size={14} color={colors.primary} />
+                        </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
 
@@ -339,10 +395,10 @@ export default function LentBorrowedScreen() {
                                     style={styles.payBtn}
                                     onPress={(e) => { e.stopPropagation(); openPaymentModal(item); }}
                                   >
-                                    <Text style={styles.payBtnText}>Pay</Text>
+                                    <Ionicons name="arrow-down-circle-outline" size={12} color={colors.success} />
+                                    <Text style={styles.payBtnText}>Receive</Text>
                                   </TouchableOpacity>
                                 )}
-                                <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
                               </View>
                             </TouchableOpacity>
                           );
@@ -357,7 +413,7 @@ export default function LentBorrowedScreen() {
                           }}
                         >
                           <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                          <Text style={styles.addSubBtnText}>Add another transaction for {group.personName}</Text>
+                          <Text style={styles.addSubBtnText}>Add transaction</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -465,6 +521,45 @@ export default function LentBorrowedScreen() {
                 onChangeText={setAmount}
               />
             </View>
+
+            {selectedItem && (
+              <View style={styles.quickMathGroup}>
+                <Text style={styles.paymentInfo}>
+                  Existing outstanding: {formatCurrency(outstandingOf(selectedItem))}
+                </Text>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>NEW AMOUNT (₹)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.outline}
+                    keyboardType="numeric"
+                    value={quickAmount}
+                    onChangeText={setQuickAmount}
+                  />
+                </View>
+                <View style={styles.quickMathRow}>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                    onPress={() => applyQuickMath('plus')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                    onPress={() => applyQuickMath('minus')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                    onPress={() => applyQuickMath('minus5')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Date Picker trigger */}
             <View style={styles.inputGroup}>
@@ -813,6 +908,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  adjBtn: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: rounded.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  adjBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickMathGroup: {
+    gap: 8,
+    padding: 12,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: colors.surfaceContainer,
+  },
+  quickMathRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickMathBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: rounded.DEFAULT,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  quickMathBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -927,6 +1058,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   payBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: `${colors.success}20`,
     paddingHorizontal: 10,
     paddingVertical: 4,

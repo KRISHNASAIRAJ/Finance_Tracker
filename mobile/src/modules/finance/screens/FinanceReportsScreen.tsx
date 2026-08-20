@@ -17,12 +17,18 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
 import { useGarageStore } from '../../garage/store';
+import MonthPickerModal from '../components/MonthPickerModal';
 
 export default function FinanceReportsScreen() {
   const navigation = useNavigation();
   const { transactions, fixedExpenses } = useFinanceStore();
   const garageFills = useGarageStore((s) => s.fills);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [chartMonth, setChartMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [chartMonthPickerVisible, setChartMonthPickerVisible] = useState(false);
 
   const EXCLUDED_CATEGORIES = [
     'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
@@ -30,19 +36,21 @@ export default function FinanceReportsScreen() {
   ];
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStart = new Date(chartMonth.getFullYear(), chartMonth.getMonth(), 1);
+  const nextMonthStart = new Date(chartMonth.getFullYear(), chartMonth.getMonth() + 1, 1);
 
   const expenseTxs = transactions.filter(
     (tx: any) =>
       (tx.type === 'expense' || tx.type === 'vehicle_service') &&
       new Date(tx.date) >= monthStart &&
+      new Date(tx.date) < nextMonthStart &&
       !EXCLUDED_CATEGORIES.some(cat =>
         cat.toLowerCase() === (tx.category || '').toLowerCase()
       )
   );
 
   const fuelFillAmount = garageFills
-    .filter((f: any) => new Date(f.date) >= monthStart)
+    .filter((f: any) => new Date(f.date) >= monthStart && new Date(f.date) < nextMonthStart)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
   const totalExpense = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0) + fuelFillAmount;
 
@@ -111,7 +119,19 @@ export default function FinanceReportsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Total Spend */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>TOTAL EXPENSES LOGGED</Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryLabel}>TOTAL EXPENSES LOGGED</Text>
+            <TouchableOpacity
+              style={styles.monthDropdown}
+              onPress={() => setChartMonthPickerVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.monthDropdownText}>
+                {chartMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.summaryValue}>{formatCurrency(totalExpense)}</Text>
           {selectedCategory && (
             <TouchableOpacity
@@ -227,6 +247,14 @@ export default function FinanceReportsScreen() {
           );
         })()}
       </ScrollView>
+
+      <MonthPickerModal
+        visible={chartMonthPickerVisible}
+        selected={chartMonth}
+        maxMonth={new Date(now.getFullYear(), now.getMonth(), 1)}
+        onSelect={setChartMonth}
+        onClose={() => setChartMonthPickerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -268,6 +296,26 @@ const styles = StyleSheet.create({
     padding: spacing.cardPadding,
     alignItems: 'center',
     gap: 8,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  monthDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: rounded.full,
+    backgroundColor: `${colors.primary}15`,
+  },
+  monthDropdownText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
   },
   summaryLabel: {
     fontSize: 11,

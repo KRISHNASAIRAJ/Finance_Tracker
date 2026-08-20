@@ -18,6 +18,7 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type RouteProps = RouteProp<GarageStackParamList, 'AddMaintenance'>;
 
@@ -50,6 +51,8 @@ export default function AddMaintenanceScreen() {
   const [serviceType, setServiceType] = useState('');
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
+  const [serviceDate, setServiceDate] = useState(new Date());
+  const [calendarVisible, setCalendarVisible] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -59,6 +62,7 @@ export default function AddMaintenanceScreen() {
         setServiceType(existing.serviceType);
         setAmount((existing.amount / 100).toString());
         setNotes(existing.notes || '');
+        if (existing.date) setServiceDate(new Date(existing.date));
       }
     }
   }, [editId, isEditing, maintenance]);
@@ -71,9 +75,16 @@ export default function AddMaintenanceScreen() {
     }
 
     if (isEditing && editId) {
-      editMaintenanceLog(editId, { vehicle, serviceType, amount: amountPaise, notes }, user?.id);
+      editMaintenanceLog(
+        editId,
+        { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() },
+        user?.id
+      );
     } else {
-      addMaintenanceLog({ vehicle, serviceType, amount: amountPaise, notes }, user?.id);
+      addMaintenanceLog(
+        { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() },
+        user?.id
+      );
     }
     navigation.goBack();
   };
@@ -138,6 +149,21 @@ export default function AddMaintenanceScreen() {
           />
         </View>
 
+        {/* Date */}
+        <View style={styles.field}>
+          <Text style={styles.label}>SERVICE DATE</Text>
+          <TouchableOpacity
+            style={[styles.input, styles.dateTrigger]}
+            onPress={() => setCalendarVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.dateTriggerText}>
+              {serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
+
         {/* Notes */}
         <View style={styles.field}>
           <Text style={styles.label}>NOTES (OPTIONAL)</Text>
@@ -153,6 +179,16 @@ export default function AddMaintenanceScreen() {
           />
         </View>
       </ScrollView>
+
+      <CalendarPicker
+        visible={calendarVisible}
+        selected={serviceDate}
+        onSelect={(d) => {
+          setServiceDate(d);
+          setCalendarVisible(false);
+        }}
+        onClose={() => setCalendarVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -220,4 +256,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notesInput: { height: 80, paddingTop: 12 },
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateTriggerText: {
+    color: colors.onSurface,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

@@ -5,6 +5,15 @@ import { isExpoGo } from '../shared/isExpoGo';
 
 const WALLET_TARGET = 4000000;
 
+interface MealSlot { slot: string; hour: number; minute: number; label: string }
+
+const MEAL_SLOTS: MealSlot[] = [
+  { slot: 'breakfast', hour: 9, minute: 0, label: 'Breakfast' },
+  { slot: 'lunch', hour: 14, minute: 15, label: 'Lunch' },
+  { slot: 'snack', hour: 18, minute: 30, label: 'Snack' },
+  { slot: 'dinner', hour: 21, minute: 30, label: 'Dinner' },
+];
+
 function ensureIST(date: Date): Date {
   const istOffsetMs = 5.5 * 60 * 60 * 1000;
   const localOffsetMs = date.getTimezoneOffset() * 60 * 1000;
@@ -87,6 +96,7 @@ async function setupChannels() {
       { id: 'task_reminders', name: 'Task Reminders', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
       { id: 'portfolio', name: 'Portfolio Updates', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'bills_due', name: 'Bills & Due Dates', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
+      { id: 'diet-reminders', name: 'Diet Reminders', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 250, 250], sound: 'default' },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
@@ -184,6 +194,25 @@ export async function scheduleAllReminders() {
     if (!Notifications) return;
     console.log('[notificationService] Cancelling all + rescheduling...');
     await Notifications.cancelAllScheduledNotificationsAsync();
+
+    // Meal reminders — recurring daily at fixed times (DBG 9:00, lunch 14:15, snack 18:30, dinner 21:30)
+    for (const { slot, hour, minute, label } of MEAL_SLOTS) {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${label} Time`,
+            body: `Time to log your ${slot === 'lunch' ? 'lunch' : slot} meal!`,
+            data: { screen: 'MealLogger', slot },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+            channelId: 'diet-reminders',
+          },
+        });
+      } catch (e) { console.warn('[notificationService] Meal reminder schedule failed:', slot, e); }
+    }
 
     const { cards, receivables } = useFinanceStore.getState();
     const { tasks } = useTasksStore.getState();
@@ -312,37 +341,24 @@ export async function scheduleAllReminders() {
       }
     }
 
-    // Task reminders — at exact due time, then every 2h until completed (up to 8h)
+    // Task reminders — one notification at the exact due time
     const now = istNow();
     for (const task of (tasks || [])) {
       if (task.completed) continue;
       const dueDate = new Date(task.dueDate);
       if (isNaN(dueDate.getTime())) continue;
+      if (dueDate <= now) continue;
 
       const dueStr = new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
       const dueTimeStr = new Date(dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-      if (dueDate > now) {
-        await scheduleLocal(
-          `${task.name}, ${dueStr} ${dueTimeStr}`,
-          task.description || 'Task due now',
-          dueDate,
-          'task_reminders',
-          { screen: 'TaskDetail', taskId: task.id }
-        );
-        for (let hr = 2; hr <= 8; hr += 2) {
-          const repeatDate = new Date(dueDate.getTime() + hr * 3600000);
-          if (repeatDate > now) {
-            await scheduleLocal(
-              `${task.name}, ${dueStr} ${dueTimeStr}`,
-              task.description || 'Task overdue — 2h reminder',
-              repeatDate,
-              'task_reminders',
-              { screen: 'TaskDetail', taskId: task.id }
-            );
-          }
-        }
-      }
+      await scheduleLocal(
+        `${task.name}, ${dueStr} ${dueTimeStr}`,
+        task.description || 'Task due now',
+        dueDate,
+        'task_reminders',
+        { screen: 'TaskDetail', taskId: task.id }
+      );
     }
   } finally {
     isScheduling = false;

@@ -15,8 +15,9 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMealStore, MealFoodItem, MealLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
-import { getTodayDateString } from '../../../shared/istDate';
+import { getTodayDateString, formatDateFull } from '../../../shared/istDate';
 import { tc, ts, tr, card, labelMuted } from '../../../shared/theme/tracend';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
@@ -50,6 +51,7 @@ export default function MealEditScreen() {
 
   const [mealType, setMealType] = useState<MealType>(existing?.mealType || paramType || 'breakfast');
   const [mealDate, setMealDate] = useState(existing?.date.slice(0, 10) || paramDate || getTodayDateString());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [foodItems, setFoodItems] = useState<MealFoodItem[]>(
     existing?.items?.length ? existing.items : [{ name: '', quantity: '', calories: 0, protein: 0, carbs: 0, fat: 0 }]
   );
@@ -136,13 +138,14 @@ export default function MealEditScreen() {
 
         {/* Date */}
         <Text style={labelMuted}>Date</Text>
-        <TextInput
+        <TouchableOpacity
           style={styles.dateInput}
-          value={mealDate}
-          onChangeText={setMealDate}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={tc.textMuted}
-        />
+          onPress={() => setShowDatePicker(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.dateInputText}>{formatDateFull(mealDate)}</Text>
+          <Ionicons name="calendar-outline" size={18} color={tc.textSecondary} />
+        </TouchableOpacity>
 
         {/* Food Items */}
         <Text style={labelMuted}>Food Items</Text>
@@ -228,6 +231,16 @@ export default function MealEditScreen() {
         )}
       </ScrollView>
       </KeyboardAvoidingView>
+
+      <CalendarPicker
+        visible={showDatePicker}
+        selected={new Date(mealDate + 'T12:00:00')}
+        onSelect={(d) => {
+          setMealDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+          setShowDatePicker(false);
+        }}
+        onClose={() => setShowDatePicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -273,15 +286,20 @@ const styles = StyleSheet.create({
   mealTypeText: { fontSize: 11, fontWeight: '600', color: tc.textMuted },
 
   dateInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: tc.surface,
     borderRadius: tr.DEFAULT,
     height: 48,
     paddingHorizontal: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  dateInputText: {
     color: tc.textPrimary,
     fontSize: 15,
     fontWeight: '500',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
   },
 
   foodCard: {

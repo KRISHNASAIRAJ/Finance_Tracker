@@ -78,35 +78,10 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
 export async function scheduleMealReminders(): Promise<void> {
   if (isExpoGo()) return;
+  // Delegate to the single unified scheduler so it doesn't cancel other notifications.
   try {
-    const Notifications = require('expo-notifications');
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-
-    await Notifications.cancelAllScheduledNotificationsAsync();
-
-    for (const { slot, hour, minute, label } of MEAL_SLOTS) {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `${label} Time`,
-          body: `Time to log your ${slot === 'lunch' ? 'lunch' : slot} meal!`,
-          data: { screen: 'MealLogger', slot },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour,
-          minute,
-          channelId: 'diet-reminders',
-        },
-      });
-    }
+    const { scheduleAllReminders } = require('./notificationService');
+    await scheduleAllReminders();
   } catch {
     // Notifications not available, silently skip
   }

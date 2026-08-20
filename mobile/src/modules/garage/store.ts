@@ -42,7 +42,7 @@ interface GarageState {
   addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editFuelFill: (id: string, updated: Partial<FuelFill>, userId?: string) => void;
   deleteFuelFill: (id: string, userId?: string) => void;
-  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'>, userId?: string) => string;
+  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editMaintenanceLog: (id: string, updated: Partial<MaintenanceLog>, userId?: string) => void;
   deleteMaintenanceLog: (id: string, userId?: string) => void;
   getVehicleFills: (vehicle: string) => FuelFill[];
@@ -163,7 +163,7 @@ export const useGarageStore = create<GarageState>()(
         const newLog: MaintenanceLog = {
           ...log,
           id: Math.random().toString(36).substring(2, 9),
-          date: new Date().toISOString(),
+          date: log.date || new Date().toISOString(),
         };
         set((state) => ({
           maintenance: [newLog, ...state.maintenance],
