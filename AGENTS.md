@@ -83,6 +83,37 @@ Always work within the current phase. Do NOT skip ahead.
 | **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation (goal-aware) | 🟢 100% — shared Groq client, both edge functions fully implemented (T&C Q&A + portfolio recs), CardChat + AIRecommendations screens, document upload + RAG via text retrieval, rate-limited Groq calls |
 | **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
 | **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, sync queue crash-safety (no-dataloss), fixed expense idempotency guard, balance summary min-bal exclusion, task notification catch-up for near-term tasks, Kite OAuth state-param + redirect URI + verify_jwt fix, Android 13 POST_NOTIFICATIONS permission |
+| **Phase 10** | Web App (Planned): full-featured website mirroring the mobile app | 🟡 Planned — same data, same functionality, all free resources, email+password login |
+
+---
+
+### Phase 10 — Web App (Planned)
+
+> **Status:** 🟡 Planned — not started. Do NOT build until this phase is activated.
+
+A website that mirrors the mobile app: same Supabase data, same modules (Finance, Garage, Tasks, Wealth, Personal, Career, Meals), same functionality. All free resources only.
+
+**Guiding constraints (locked in):**
+- **Reuse the existing Supabase backend as-is** — same tables, RLS policies, and edge functions. No new backend.
+- **Login:** email + password via Supabase Auth (same accounts as the app — no separate user system).
+- **Free tier only:** free hosting (e.g., Vercel/Netlify/Cloudflare Pages), free PostgreSQL (existing Supabase free tier), free AI (existing Groq), no paid services.
+- **TypeScript only** (matches repo convention).
+- Data sync is simpler than mobile: web is always online, so no SQLite/sync-queue needed — read/write directly via Supabase client with the user's JWT (RLS still applies).
+- Mobile keeps working unchanged; web is additive.
+
+**Candidate stack (decide at kickoff):** React + Vite (SPA) or Next.js, Supabase JS client, Tailwind or plain CSS, deployed free on Vercel/Netlify/Cloudflare Pages.
+
+**Rough scope (refine when activated):**
+1. Auth screens (email+password login/signup) via Supabase Auth.
+2. Shared module parity: Finance dashboard + add/edit screens, Garage, Tasks, Wealth (live prices via existing `refresh-portfolio-prices` edge function), Personal, Career, Meals.
+3. Reuse existing edge functions for AI features and price refresh.
+4. Responsive layout (mobile-first, desktop friendly).
+5. Deploy to free hosting; add domain if desired.
+
+**Open questions (decide before kickoff):**
+- Framework choice (Vite SPA vs Next.js).
+- Whether notifications/background tasks are needed on web (likely out of scope — mobile keeps those).
+- Whether the repo gets a `web/` directory (likely, mirroring `mobile/`).
 
 ---
 
