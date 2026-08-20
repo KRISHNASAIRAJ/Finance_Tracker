@@ -5,46 +5,46 @@ import { Ionicons } from "@expo/vector-icons";
 
 export interface Category {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap | 'gas-station-outline';
   color: string;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
-  { name: "Food & Dining",       icon: "restaurant-outline",          color: "#f87171" },
-  { name: "Grocery",             icon: "basket-outline",              color: "#4ade80" },
-  { name: "Fuel",                icon: "speedometer-outline",         color: "#fb923c" },
-  { name: "Travel",              icon: "airplane-outline",            color: "#60a5fa" },
-  { name: "Shopping",            icon: "bag-outline",                 color: "#c084fc" },
-  { name: "Bills & Recharge",    icon: "receipt-outline",             color: "#fbbf24" },
+  { name: "Food & Dining",       icon: "restaurant-outline",          color: "#ffb2b9" },
+  { name: "Grocery",             icon: "basket-outline",              color: "#5ee6ff" },
+  { name: "Fuel",                icon: "gas-station-outline",         color: "#ea6479" },
+  { name: "Travel",              icon: "airplane-outline",            color: "#d0bcff" },
+  { name: "Shopping",            icon: "bag-outline",                 color: "#ffdadc" },
+  { name: "Bills & Recharge",    icon: "receipt-outline",             color: "#00cbe6" },
   { name: "Rent",                icon: "home-outline",                color: "#38bdf8" },
   { name: "EMI",                 icon: "repeat-outline",              color: "#a78bfa" },
   { name: "Entertainment",       icon: "film-outline",                color: "#f472b6" },
   { name: "OTT",                 icon: "tv-outline",                  color: "#e879f9" },
   { name: "Youtube Premium",     icon: "logo-youtube",                color: "#ef4444" },
   { name: "Education",           icon: "school-outline",              color: "#22d3ee" },
-  { name: "Medical",             icon: "medkit-outline",              color: "#34d399" },
-  { name: "Health & Wellness",   icon: "fitness-outline",             color: "#2dd4bf" },
-  { name: "Insurance",           icon: "shield-checkmark-outline",    color: "#818cf8" },
-  { name: "SIP",                 icon: "trending-up-outline",         color: "#06b6d4" },
-  { name: "Equity Investment",   icon: "bar-chart-outline",           color: "#0ea5e9" },
-  { name: "Card Annual Charges", icon: "card-outline",                color: "#8b5cf6" },
-  { name: "Interest",            icon: "calculator-outline",          color: "#facc15" },
-  { name: "Family",              icon: "heart-outline",               color: "#fb7185" },
-  { name: "Friends",             icon: "people-outline",              color: "#14b8a6" },
-  { name: "Cash Withdrawal",     icon: "cash-outline",                color: "#d97706" },
-  { name: "Wallet Loads",        icon: "wallet-outline",              color: "#7c3aed" },
-  { name: "Professional Service",icon: "briefcase-outline",           color: "#f97316" },
-  { name: "Others",              icon: "ellipsis-horizontal-outline", color: "#d946ef" },
+  { name: "Medical",             icon: "medkit-outline",              color: "#ffb2b9" },
+  { name: "Health & Wellness",   icon: "fitness-outline",             color: "#5ee6ff" },
+  { name: "Insurance",           icon: "shield-checkmark-outline",    color: "#d0bcff" },
+  { name: "SIP",                 icon: "trending-up-outline",         color: "#00cbe6" },
+  { name: "Equity Investment",   icon: "bar-chart-outline",           color: "#ea6479" },
+  { name: "Card Annual Charges", icon: "card-outline",                color: "#ffdadc" },
+  { name: "Interest",            icon: "calculator-outline",          color: "#ffb2b9" },
+  { name: "Family",              icon: "heart-outline",               color: "#ea6479" },
+  { name: "Friends",             icon: "people-outline",              color: "#5ee6ff" },
+  { name: "Cash Withdrawal",     icon: "cash-outline",                color: "#d0bcff" },
+  { name: "Wallet Loads",        icon: "wallet-outline",              color: "#00cbe6" },
+  { name: "Professional Service",icon: "briefcase-outline",           color: "#ffdadc" },
+  { name: "Others",              icon: "ellipsis-horizontal-outline", color: "#a78bfa" },
 ];
 
 export const INCOME_CATEGORIES: Category[] = [
-  { name: "Salary", icon: "cash-outline", color: "#22c55e" },
-  { name: "Freelance", icon: "briefcase-outline", color: "#10b981" },
-  { name: "Investment", icon: "trending-up-outline", color: "#06b6d4" },
-  { name: "Others", icon: "ellipsis-horizontal-outline", color: "#64748b" },
+  { name: "Salary", icon: "cash-outline", color: "#5ee6ff" },
+  { name: "Freelance", icon: "briefcase-outline", color: "#ffb2b9" },
+  { name: "Investment", icon: "trending-up-outline", color: "#00cbe6" },
+  { name: "Others", icon: "ellipsis-horizontal-outline", color: "#d0bcff" },
 ];
 
-export function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap {
+export function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap | 'gas-station-outline' {
   const name = category.toLowerCase().trim();
   const found =
     EXPENSE_CATEGORIES.find((c) => c.name.toLowerCase() === name) ??

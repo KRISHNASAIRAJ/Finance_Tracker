@@ -165,7 +165,7 @@ export default function TasksDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Filter Tabs Segment */}
+      {/* Filter Tabs Segment + Trash */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'all' && styles.tabActive]}
@@ -174,22 +174,21 @@ export default function TasksDashboardScreen() {
           <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>Active</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'today' && styles.tabActive]}
-          onPress={() => setActiveTab('today')}
-        >
-          <Text style={[styles.tabText, activeTab === 'today' && styles.tabTextActive]}>Today</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'upcoming' && styles.tabActive]}
           onPress={() => setActiveTab('upcoming')}
         >
           <Text style={[styles.tabText, activeTab === 'upcoming' && styles.tabTextActive]}>Upcoming</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'done' && styles.tabActive]}
-          onPress={() => setActiveTab('done')}
+          style={[styles.trashBtn, activeTab === 'done' && styles.trashBtnActive]}
+          onPress={() => setActiveTab(activeTab === 'done' ? 'all' : 'done')}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.tabText, activeTab === 'done' && styles.tabTextActive]}>Done</Text>
+          <Ionicons
+            name="trash-outline"
+            size={20}
+            color={activeTab === 'done' ? colors.error : colors.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -250,6 +249,15 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: colors.onSurface,
+  },
+  trashBtn: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: rounded.DEFAULT,
+  },
+  trashBtnActive: {
+    backgroundColor: `${colors.error}15`,
   },
   listContent: {
     paddingHorizontal: spacing.containerPadding,

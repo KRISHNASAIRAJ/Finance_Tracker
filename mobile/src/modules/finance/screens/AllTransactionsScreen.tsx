@@ -21,7 +21,8 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { useGarageStore } from '../../garage/store';
-import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { getCategoryColor } from '../../../shared/categoryMap';
+import CategoryIcon from '../../../shared/CategoryIcon';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AllTransactions'>;
@@ -103,7 +104,7 @@ export default function AllTransactionsScreen() {
       >
         <View style={styles.txLeft}>
           <View style={[styles.txIcon, { backgroundColor: `${catColor}18` }]}>
-            <Ionicons name={getCategoryIcon(tx.category)} size={18} color={catColor} />
+            <CategoryIcon category={tx.category} size={18} color={catColor} />
           </View>
           <View style={styles.txDetails}>
             <Text style={styles.txTitle} numberOfLines={1}>

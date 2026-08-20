@@ -2,7 +2,7 @@
  * AllocationDetailScreen — donut chart breakdown of asset allocation by category
  * (Equity, MF, Gold, Realty, ETF) with per-holding drill-down.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -45,6 +45,8 @@ const formatCurrencyDetailed = (paise: number) =>
 export default function AllocationDetailScreen() {
   const navigation = useNavigation();
   const { holdings } = useInvestmentsStore();
+  const scrollRef = useRef<ScrollView>(null);
+  const holdingY = useRef<Record<string, number>>({});
 
   const holdingValues = holdings.map((h: Holding) => ({
     ...h,
@@ -67,7 +69,36 @@ export default function AllocationDetailScreen() {
   const cx = 90;
   const cy = 90;
   const circumference = 2 * Math.PI * R;
-  let offset = 0;
+
+  // Build segment angle spans (clockwise from 12 o'clock) for tap hit-testing
+  const segments = sorted.reduce((acc: any[], h: any) => {
+    const startDeg = acc.length > 0 ? acc[acc.length - 1].endDeg : 0;
+    const sliceDeg = (h.value / totalValue) * 360;
+    acc.push({ id: h.id, startDeg, endDeg: startDeg + sliceDeg });
+    return acc;
+  }, []);
+
+  const scrollToHolding = (id: string) => {
+    const y = holdingY.current[id];
+    if (y == null) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
+
+  const handleSegmentTap = (e: any) => {
+    const { locationX, locationY } = e.nativeEvent;
+    const dx = locationX - cx;
+    const dy = locationY - cy;
+    // Clockwise angle from 12 o'clock; SVG dashes start at 3 o'clock (+90°)
+    let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    if (angle < 0) angle += 360;
+    const hit = segments.find((s: any) => {
+      const start = (s.startDeg + 90) % 360;
+      const end = (s.endDeg + 90) % 360;
+      if (start < end) return angle >= start && angle < end;
+      return angle >= start || angle < end; // wraps past 360
+    });
+    if (hit) scrollToHolding(hit.id);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -79,7 +110,67 @@ export default function AllocationDetailScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      {/* Donut — fixed permanently at top, outside the scroll view */}
+      {sorted.length > 0 && (
+        <View style={styles.donutCard}>
+          <View style={styles.donutRow}>
+            <View style={styles.donutChartWrap}>
+              <Svg width={180} height={180} viewBox="0 0 180 180">
+                {sorted.map((h: any) => {
+                  const sliceLen = (h.value / totalValue) * circumference;
+                  const dashArray = `${sliceLen} ${circumference - sliceLen}`;
+                  const startDeg = segments.find((s: any) => s.id === h.id)?.startDeg ?? 0;
+                  return (
+                    <Circle
+                      key={h.id}
+                      cx={cx}
+                      cy={cy}
+                      r={R}
+                      stroke={h.color}
+                      strokeWidth={strokeW}
+                      strokeDasharray={dashArray}
+                      strokeDashoffset={-(startDeg / 360) * circumference}
+                      fill="none"
+                      strokeLinecap="butt"
+                    />
+                  );
+                })}
+                <SvgText
+                  x={cx}
+                  y={cy - 4}
+                  textAnchor="middle"
+                  fontSize={16}
+                  fontWeight="800"
+                  fill={colors.onSurface}
+                >
+                  {formatCurrency(totalValue)}
+                </SvgText>
+                <SvgText
+                  x={cx}
+                  y={cy + 14}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill={colors.onSurfaceVariant}
+                >
+                  Total
+                </SvgText>
+              </Svg>
+              {/* Native transparent overlay — reliably catches every tap */}
+              <TouchableOpacity
+                style={styles.donutTapOverlay}
+                activeOpacity={1}
+                onPress={handleSegmentTap}
+              />
+            </View>
+          </View>
+        </View>
+      )}
+
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         {sorted.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="pie-chart-outline" size={32} color={colors.outline} />
@@ -87,58 +178,6 @@ export default function AllocationDetailScreen() {
           </View>
         ) : (
           <>
-            {/* Donut Chart */}
-            <View style={styles.donutCard}>
-              <View style={styles.donutRow}>
-                <Svg width={180} height={180} viewBox="0 0 180 180">
-                  {sorted.map((h: any) => {
-                    const sliceLen = (h.value / totalValue) * circumference;
-                    const dashArray = `${sliceLen} ${circumference - sliceLen}`;
-                    const segment = (
-                      <Circle
-                        key={h.id}
-                        cx={cx}
-                        cy={cy}
-                        r={R}
-                        stroke={h.color}
-                        strokeWidth={strokeW}
-                        strokeDasharray={dashArray}
-                        strokeDashoffset={-offset}
-                        fill="none"
-                        strokeLinecap="butt"
-                      />
-                    );
-                    offset += sliceLen;
-                    return segment;
-                  })}
-                  <SvgText
-                    x={cx}
-                    y={cy - 4}
-                    textAnchor="middle"
-                    fontSize={16}
-                    fontWeight="800"
-                    fill={colors.onSurface}
-                  >
-                    {formatCurrency(totalValue)}
-                  </SvgText>
-                  <SvgText
-                    x={cx}
-                    y={cy + 14}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fill={colors.onSurfaceVariant}
-                  >
-                    Total
-                  </SvgText>
-                </Svg>
-                <View style={styles.donutSummary}>
-                  <Text style={styles.donutCount}>{sorted.length} holdings</Text>
-                  <Text style={styles.donutSubText}>in portfolio</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Individual Holding Cards */}
             <Text style={styles.sectionLabel}>INDIVIDUAL HOLDINGS</Text>
             {sorted.map((h: any) => {
               const cost = h.quantity * h.avgPrice;
@@ -148,7 +187,11 @@ export default function AllocationDetailScreen() {
               const isMF = h.type === 'mf';
 
               return (
-                <View key={h.id} style={[styles.holdingCard, { borderLeftColor: h.color }]}>
+                <View
+                  key={h.id}
+                  style={[styles.holdingCard, { borderLeftColor: h.color }]}
+                  onLayout={(e) => { holdingY.current[h.id] = e.nativeEvent.layout.y; }}
+                >
                   <View style={styles.holdingHeader}>
                     <View style={[styles.dot, { backgroundColor: h.color }]} />
                     <View style={{ flex: 1 }}>
@@ -230,7 +273,7 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyText: { fontSize: 14, color: colors.onSurfaceVariant },
   donutCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderColor: 'rgba(155,165,255,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.xl,
@@ -239,15 +282,19 @@ const styles = StyleSheet.create({
   donutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
   },
-  donutSummary: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
+  donutChartWrap: {
+    position: 'relative',
   },
-  donutCount: { fontSize: 18, fontWeight: '800', color: colors.onSurface },
-  donutSubText: { fontSize: 12, color: colors.onSurfaceVariant },
+  donutTapOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+  },
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',

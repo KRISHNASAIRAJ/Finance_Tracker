@@ -21,7 +21,8 @@ import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native
 import { colors } from '../../../shared/theme/colors';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryIcon, getCategoryColor } from '../../../shared/categoryMap';
+import { getCategoryColor } from '../../../shared/categoryMap';
+import CategoryIcon from '../../../shared/CategoryIcon';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
@@ -255,8 +256,8 @@ export default function FinanceHomeScreen() {
           </View>
 
           <View style={styles.distributionContent}>
-            <View style={styles.donutContainer}>
-              <Svg width={192} height={192} viewBox="0 0 100 100">
+            <View style={styles.donutSvgWrap}>
+              <Svg width={140} height={140} viewBox="0 0 100 100">
                 <Defs>
                   <LinearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%">
                     <Stop offset="0%" stopColor="#ffb2b9" />
@@ -316,8 +317,15 @@ export default function FinanceHomeScreen() {
               </Svg>
               {categoriesSorted.length > 0 ? (
                 <View style={styles.donutCenter}>
-                  <Text style={styles.donutVal}>{categoriesSorted[0].percentage.toFixed(0)}%</Text>
-                  <Text style={styles.donutSub}>{categoriesSorted[0].name.toUpperCase()}</Text>
+                  <Text
+                    style={styles.donutVal}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    {formatCurrency(totalExpense)}
+                  </Text>
+                  <Text style={styles.donutSub}>TOTAL</Text>
                 </View>
               ) : (
                 <View style={styles.donutCenter}>
@@ -325,6 +333,23 @@ export default function FinanceHomeScreen() {
                 </View>
               )}
             </View>
+
+            {categoriesSorted.length > 0 && (
+              <View style={styles.legendContainer}>
+                {categoriesSorted.slice(0, 3).map((cat, i) => {
+                  const gradientColors = ['#ffb2b9', '#5ee6ff', '#ea6479'];
+                  return (
+                    <View key={cat.name} style={styles.legendItem}>
+                      <View style={styles.legendLeft}>
+                        <View style={[styles.legendDot, { backgroundColor: gradientColors[i % gradientColors.length] }]} />
+                        <Text style={styles.legendName} numberOfLines={1}>{cat.name}</Text>
+                      </View>
+                      <Text style={styles.legendPct}>{cat.percentage.toFixed(0)}%</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </TouchableOpacity>
 
@@ -373,7 +398,7 @@ export default function FinanceHomeScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={[styles.cardRowIcon, styles.txIcon, { backgroundColor: `${catColor}15` }]}>
-                      <Ionicons name={getCategoryIcon(tx.category)} size={16} color={catColor} />
+                      <CategoryIcon category={tx.category} size={16} color={catColor} />
                     </View>
                     <View style={styles.cardRowDetails}>
                       <Text style={styles.cardRowName}>{tx.notes || tx.category}</Text>
@@ -588,11 +613,14 @@ heroLabel: {
     marginTop: 8,
   },
   distributionContent: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
   },
-  donutContainer: {
-    width: 192,
-    height: 192,
+  donutSvgWrap: {
+    width: 140,
+    height: 140,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -600,9 +628,11 @@ heroLabel: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: 96,
+    paddingHorizontal: 4,
   },
   donutSub: {
-    fontSize: 12,
+    fontSize: 10,
     color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -610,9 +640,41 @@ heroLabel: {
     marginTop: 2,
   },
   donutVal: {
-    fontSize: 32,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -1,
+    textAlign: 'center',
+  },
+  legendContainer: {
+    flex: 1,
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendName: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  legendPct: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.7)',
   },
 });

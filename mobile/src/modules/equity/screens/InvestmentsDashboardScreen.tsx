@@ -214,10 +214,10 @@ export default function InvestmentsDashboardScreen() {
             >
               <View style={styles.donutHeaderRow}>
                 <Text style={styles.donutTitle}>ASSET ALLOCATION</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.primary} />
               </View>
               <View style={styles.donutCenterWrap}>
-                <Svg width={192} height={192} viewBox="0 0 100 100">
+                <View style={styles.donutSvgWrap}>
+                  <Svg width={140} height={140} viewBox="0 0 100 100">
                   <Defs>
                     <LinearGradient id="allocGradPink" x1="0%" y1="0%" x2="100%" y2="100%">
                       <Stop offset="0%" stopColor="#ffb2b9" />
@@ -267,12 +267,19 @@ export default function InvestmentsDashboardScreen() {
                   })}
                 </Svg>
                 <View style={styles.donutCenterAbs}>
-                  <Text style={styles.donutCenterVal}>{((entries[0][1] / totalV) * 100).toFixed(0)}%</Text>
-                  <Text style={styles.donutCenterLabel}>{entries[0][0].toUpperCase()}</Text>
+                  <Text
+                    style={styles.donutCenterVal}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  >
+                    {formatCurrency(totalV)}
+                  </Text>
+                  <Text style={styles.donutCenterLabel}>TOTAL</Text>
                 </View>
               </View>
               <View style={styles.donutLegend}>
-                {entries.map(([cat, val], i) => {
+                {entries.slice(0, 4).map(([cat, val], i) => {
                   const pct = ((val / totalV) * 100).toFixed(1);
                   return (
                     <View key={cat} style={styles.legendRow}>
@@ -283,6 +290,7 @@ export default function InvestmentsDashboardScreen() {
                   );
                 })}
               </View>
+            </View>
             </TouchableOpacity>
           );
         })()}
@@ -653,23 +661,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   donutCenterWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  donutSvgWrap: {
+    width: 140,
+    height: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
   },
   donutCenterAbs: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    maxWidth: 96,
+    paddingHorizontal: 4,
   },
   donutCenterVal: {
-    fontSize: 32,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.onSurface,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
   donutCenterLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     textTransform: 'uppercase',
@@ -677,11 +695,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   donutLegend: {
-    gap: 8,
+    flex: 1,
+    gap: 12,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   legendDot: {
@@ -691,11 +711,11 @@ const styles = StyleSheet.create({
   },
   legendLabel: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.onSurface,
   },
   legendPct: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.onSurfaceVariant,
   },
