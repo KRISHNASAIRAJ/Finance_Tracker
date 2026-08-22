@@ -167,8 +167,8 @@ jobs:
         run: |
           cd android
           ./gradlew assembleRelease \
-            -PversionCode=${{ github.run_number }} \
-            -PversionName=1.0.${{ github.run_number }} \
+            -PappVersionCode=${{ github.run_number }} \
+            -PappVersionName=1.0.${{ github.run_number }} \
             --no-daemon
 
       - name: Upload APK
