@@ -49,7 +49,9 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx --ignore-pattern node_modules --ignore-pattern android --ignore-pattern ios --ignore-pattern modules --ignore-pattern dist",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest --forceExit",
+    "test:unit": "jest --runInBand --forceExit --testPathIgnorePatterns \"\\.e2e\\.test\"",
+    "test:e2e": "jest src/__tests__ src/modules/finance/__tests__/store.e2e.test.ts --runInBand --forceExit"
   },
   "private": true
 }

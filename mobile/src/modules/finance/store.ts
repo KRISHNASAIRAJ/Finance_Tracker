@@ -31,6 +31,9 @@ export interface CreditCard {
   currentOutstanding?: number; // in paise
   billAmount?: number; // current bill statement amount (paise)
   paidAmount?: number; // amount paid toward this bill (paise)
+  annualCharge?: number; // annual maintenance charge in paise (0 = free)
+  annualChargeDate?: string; // next AMC due date (ISO date string)
+  isLtf?: boolean; // lifetime free card
 }
 
 export interface Receivable {
@@ -422,6 +425,11 @@ export const useFinanceStore = create<FinanceState>()(
           if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
           if (updated.billAmount !== undefined) payload.bill_amount = updated.billAmount;
           if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
+          if (updated.cardLimit !== undefined) payload.card_limit = updated.cardLimit;
+          if (updated.currentOutstanding !== undefined) payload.current_outstanding = updated.currentOutstanding;
+          if (updated.annualCharge !== undefined) payload.annual_charge = updated.annualCharge;
+          if (updated.annualChargeDate !== undefined) payload.annual_charge_date = updated.annualChargeDate;
+          if (updated.isLtf !== undefined) payload.is_ltf = updated.isLtf;
           enqFlush("credit_cards", "update", payload);
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
@@ -446,6 +454,9 @@ export const useFinanceStore = create<FinanceState>()(
             current_outstanding: newCard.currentOutstanding ?? null,
             bill_amount: newCard.billAmount ?? 0,
             paid_amount: newCard.paidAmount ?? 0,
+            annual_charge: newCard.annualCharge ?? 0,
+            annual_charge_date: newCard.annualChargeDate ?? null,
+            is_ltf: newCard.isLtf ?? false,
           });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
@@ -705,5 +716,72 @@ export async function seedFixedExpenseFixes(): Promise<void> {
     await AsyncStorage.setItem(FIXED_EXPENSES_FIX_FLAG, 'done');
   } catch (e) {
     console.warn('[FinanceStore] seedFixedExpenseFixes failed:', e);
+  }
+}
+
+const CARD_AMC_FIX_FLAG = 'meridian-card-amc-fixes-v1';
+
+/**
+ * One-time data fix for credit card annual charges (AMC):
+ * - "SBI Cashback" card: AMC ₹1,180, due on December 2nd.
+ * - All other cards: marked LTF (Lifetime Free), AMC date Jan 1st.
+ * Guarded by an AsyncStorage flag so it runs once. Changes stay local;
+ * the login sync (seedSupabase) pushes them to the cloud via upsert.
+ */
+export async function seedCardAmcFixes(): Promise<void> {
+  try {
+    const flag = await AsyncStorage.getItem(CARD_AMC_FIX_FLAG);
+    if (flag === 'done') return;
+
+    const state = useFinanceStore.getState();
+    let changed = false;
+
+    const nextOccurrence = (month: number, day: number): string => {
+      const now = new Date();
+      const candidate = new Date(now.getFullYear(), month - 1, day, 0, 0, 0, 0);
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (candidate.getTime() < todayStart.getTime()) {
+        candidate.setFullYear(now.getFullYear() + 1);
+      }
+      return candidate.toISOString();
+    };
+
+    const cards = state.cards.map((c) => {
+      const name = (c.name || '').toLowerCase();
+      if (name.includes('sbi') && name.includes('cashback')) {
+        if (c.annualCharge !== 118000 || c.isLtf) {
+          changed = true;
+          return {
+            ...c,
+            annualCharge: 118000,
+            annualChargeDate: c.annualChargeDate || nextOccurrence(12, 2),
+            isLtf: false,
+          };
+        }
+      } else if (!c.isLtf && (c.annualCharge ?? 0) === 0 && !c.annualChargeDate) {
+        changed = true;
+        return {
+          ...c,
+          annualCharge: c.annualCharge ?? 0,
+          annualChargeDate: c.annualChargeDate || nextOccurrence(1, 1),
+          isLtf: true,
+        };
+      } else if (c.isLtf && (c.annualCharge ?? 0) > 0) {
+        changed = true;
+        return { ...c, isLtf: false };
+      } else if (!c.isLtf && (c.annualCharge ?? 0) === 0) {
+        changed = true;
+        return { ...c, isLtf: true };
+      }
+      return c;
+    });
+
+    if (changed) {
+      useFinanceStore.setState({ cards });
+      console.log('[FinanceStore] Applied card AMC fixes (SBI Cashback ₹1,180 on Dec 2; others LTF Jan 1)');
+    }
+    await AsyncStorage.setItem(CARD_AMC_FIX_FLAG, 'done');
+  } catch (e) {
+    console.warn('[FinanceStore] seedCardAmcFixes failed:', e);
   }
 }

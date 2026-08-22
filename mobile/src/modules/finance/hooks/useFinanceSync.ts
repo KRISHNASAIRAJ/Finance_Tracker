@@ -150,6 +150,9 @@ const TABLE_MAP = [
           currentOutstanding: r.current_outstanding as number,
           billAmount: r.bill_amount as number ?? 0,
           paidAmount: r.paid_amount as number ?? 0,
+          annualCharge: r.annual_charge as number ?? 0,
+          annualChargeDate: r.annual_charge_date as string ?? undefined,
+          isLtf: r.is_ltf as boolean ?? false,
         }));
       if (newCards.length > 0) {
         store.setState({ cards: [...newCards, ...state.cards] });
@@ -167,6 +170,9 @@ const TABLE_MAP = [
         bank: c.bank, card_limit: c.cardLimit,
         current_outstanding: c.currentOutstanding,
         bill_amount: c.billAmount ?? 0, paid_amount: c.paidAmount ?? 0,
+        annual_charge: c.annualCharge ?? 0,
+        annual_charge_date: c.annualChargeDate ?? null,
+        is_ltf: c.isLtf ?? false,
       }));
       supabase.from("credit_cards").upsert(rows, { onConflict: "id" }).then(({ error }) => {
         if (error) console.warn('[FinanceSync] seed cards:', error.message);
