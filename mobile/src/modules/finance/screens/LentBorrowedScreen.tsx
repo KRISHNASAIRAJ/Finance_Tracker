@@ -94,21 +94,61 @@ export default function LentBorrowedScreen() {
 
   const outstandingOf = (item: Receivable) => item.amount - (item.paidAmount || 0);
 
-  const applyQuickMath = (mode: 'plus' | 'minus' | 'minus5') => {
-    if (!selectedItem) return;
+  const applyQuickMath = (mode: 'plus' | 'minus' | 'minus5', target: 'amount' | 'quick' = 'quick') => {
+    if (selectedItem) {
+      const typed = parseFloat(quickAmount);
+      if (isNaN(typed) || typed <= 0) {
+        Alert.alert('Enter the new amount first');
+        return;
+      }
+      const typedPaise = Math.round(typed * 100);
+      const current = parseFloat(amount || '0');
+      const base = isNaN(current) ? 0 : Math.round(current * 100);
+      let result: number;
+      if (mode === 'plus') result = base + typedPaise;
+      else if (mode === 'minus') result = Math.max(0, base - typedPaise);
+      else result = base + Math.round(typedPaise * 0.95);
+      setAmount((result / 100).toString());
+      setQuickAmount('');
+      return;
+    }
+
+    const current = parseFloat(amount || '0');
+    const base = isNaN(current) ? 0 : Math.round(current * 100);
+
+    if (target === 'amount') {
+      if (mode === 'minus5') {
+        if (base <= 0) {
+          Alert.alert('Enter the initial amount first');
+          return;
+        }
+        setAmount((Math.round(base * 0.95) / 100).toString());
+        return;
+      }
+      const typed = parseFloat(quickAmount);
+      if (isNaN(typed) || typed <= 0) {
+        Alert.alert('Enter the quick amount first');
+        return;
+      }
+      const typedPaise = Math.round(typed * 100);
+      const result = mode === 'plus' ? base + typedPaise : Math.max(0, base - typedPaise);
+      setAmount((result / 100).toString());
+      setQuickAmount('');
+      return;
+    }
+
     const typed = parseFloat(quickAmount);
     if (isNaN(typed) || typed <= 0) {
-      Alert.alert('Enter the new amount first');
+      Alert.alert('Enter the quick amount first');
       return;
     }
     const typedPaise = Math.round(typed * 100);
-    const current = parseFloat(amount || '0');
-    const base = isNaN(current) ? 0 : Math.round(current * 100);
     let result: number;
     if (mode === 'plus') result = base + typedPaise;
     else if (mode === 'minus') result = Math.max(0, base - typedPaise);
-    else result = Math.round(base * 0.95);
+    else result = base + Math.round(typedPaise * 0.95);
     setAmount((result / 100).toString());
+    setQuickAmount('');
   };
 
   const copyGroupDetails = async (group: { personName: string; items: Receivable[] }) => {
@@ -133,6 +173,7 @@ export default function LentBorrowedScreen() {
     setSelectedItem(null);
     setPersonName('');
     setAmount('');
+    setQuickAmount('');
     setNotes('');
     setSelectedDate(new Date());
     setEntryType(activeTab);
@@ -526,13 +567,31 @@ export default function LentBorrowedScreen() {
               />
             </View>
 
-            {selectedItem && (
-              <View style={styles.quickMathGroup}>
-                <Text style={styles.paymentInfo}>
-                  Existing outstanding: {formatCurrency(outstandingOf(selectedItem))}
-                </Text>
+            {!selectedItem && (
+              <>
+                <View style={styles.quickMathRow}>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                    onPress={() => applyQuickMath('plus', 'amount')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                    onPress={() => applyQuickMath('minus', 'amount')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                    onPress={() => applyQuickMath('minus5', 'amount')}
+                  >
+                    <Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>NEW AMOUNT (₹)</Text>
+                  <Text style={styles.inputLabel}>QUICK AMOUNT (₹)</Text>
                   <TextInput
                     style={styles.textInput}
                     placeholder="0.00"
@@ -542,24 +601,64 @@ export default function LentBorrowedScreen() {
                     onChangeText={setQuickAmount}
                   />
                 </View>
+
                 <View style={styles.quickMathRow}>
                   <TouchableOpacity
                     style={[styles.quickMathBtn, { borderColor: colors.success }]}
-                    onPress={() => applyQuickMath('plus')}
+                    onPress={() => applyQuickMath('plus', 'quick')}
                   >
                     <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.quickMathBtn, { borderColor: colors.error }]}
-                    onPress={() => applyQuickMath('minus')}
+                    onPress={() => applyQuickMath('minus', 'quick')}
                   >
                     <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.quickMathBtn, { borderColor: colors.warning }]}
-                    onPress={() => applyQuickMath('minus5')}
+                    onPress={() => applyQuickMath('minus5', 'quick')}
                   >
                     <Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {selectedItem && (
+              <View style={styles.quickMathGroup}>
+                <Text style={styles.paymentInfo}>
+                  Existing outstanding: {formatCurrency(outstandingOf(selectedItem))}
+                </Text>
+                <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>QUICK AMOUNT (₹)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.outline}
+                  keyboardType="numeric"
+                  value={quickAmount}
+                  onChangeText={setQuickAmount}
+                />
+              </View>
+              <View style={styles.quickMathRow}>
+                <TouchableOpacity
+                  style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                  onPress={() => applyQuickMath('plus')}
+                >
+                  <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                  onPress={() => applyQuickMath('minus')}
+                >
+                  <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                  onPress={() => applyQuickMath('minus5')}
+                >
+<Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
                   </TouchableOpacity>
                 </View>
               </View>

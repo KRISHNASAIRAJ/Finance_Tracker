@@ -22,7 +22,6 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -207,7 +206,7 @@ export default function MoreMenuScreen() {
   ];
 
   const handleConnectKite = () => {
-    const apiKey = (Constants.expoConfig?.extra as any)?.kiteApiKey || process.env.EXPO_PUBLIC_KITE_API_KEY || '';
+    const apiKey = process.env.EXPO_PUBLIC_KITE_API_KEY || '';
     console.log('[KiteConnect] apiKey:', apiKey ? apiKey.substring(0, 6) + '...' : 'EMPTY');
     if (!apiKey || apiKey === 'YOUR_KITE_API_KEY_HERE') {
       setKiteSyncResult('Set EXPO_PUBLIC_KITE_API_KEY in .env');
@@ -383,21 +382,6 @@ export default function MoreMenuScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.bellRow}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => (navigation as any).navigate('Notifications')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
         {/* Grid Sections */}
         {GRID_SECTIONS.map((section) => (
           <View key={section.title} style={styles.section}>
@@ -606,19 +590,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  bellRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 4,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   bellBadge: {
     position: 'absolute',

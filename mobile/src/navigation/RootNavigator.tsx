@@ -5,6 +5,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../shared/theme/colors';
@@ -176,6 +177,16 @@ const modalScreenOptions = {
   contentStyle: { backgroundColor: colors.background },
 };
 
+// Screens that keep the floating tab bar visible. Every other screen renders full-screen
+// (AI assistants, forms, reports, detail screens) so the tab bar never overlaps them.
+const TAB_BAR_SCREENS = new Set([
+  'FinanceHome',
+  'GarageDashboard',
+  'TasksDashboard',
+  'InvestmentsDashboard',
+  'MoreMenu',
+]);
+
 function FinanceStackNavigator() {
   return (
     <FinanceStack.Navigator screenOptions={stackScreenOptions}>
@@ -263,8 +274,12 @@ function MoreStackNavigator() {
 function TabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+      screenOptions={({ route }) => {
+        const focusedRouteName = getFocusedRouteNameFromRoute(route) ?? '';
+        const showTabBar = focusedRouteName === '' || TAB_BAR_SCREENS.has(focusedRouteName);
+
+        return {
+          tabBarIcon: ({ color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'card-outline';
 
           if (route.name === 'FinanceTab') {
@@ -280,36 +295,39 @@ function TabNavigator() {
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.outline,
-        tabBarStyle: {
-          position: 'absolute',
-          left: 12,
-          right: 12,
-          bottom: 10,
-          height: 76,
-          paddingBottom: 12,
-          paddingTop: 10,
-          borderRadius: 28,
-          backgroundColor: 'rgba(15, 15, 17, 0.85)',
-          borderTopColor: 'rgba(255, 255, 255, 0.12)',
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(255, 255, 255, 0.12)',
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: 0.5,
-          shadowRadius: 24,
-          elevation: 12,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-        headerShown: false,
-        animation: 'shift' as const,
-      })}
+          },
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.outline,
+          tabBarStyle: showTabBar
+            ? {
+                position: 'absolute',
+                left: 12,
+                right: 12,
+                bottom: 10,
+                height: 76,
+                paddingBottom: 12,
+                paddingTop: 10,
+                borderRadius: 28,
+                backgroundColor: 'rgba(15, 15, 17, 0.85)',
+                borderTopColor: 'rgba(255, 255, 255, 0.12)',
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(255, 255, 255, 0.12)',
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.5,
+                shadowRadius: 24,
+                elevation: 12,
+              }
+            : { display: 'none' },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+          },
+          headerShown: false,
+          animation: 'shift' as const,
+        };
+      }}
     >
       <Tab.Screen
         name="FinanceTab"

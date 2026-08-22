@@ -271,21 +271,21 @@ export default function GarageDashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.gridHeader}>
-              <View style={[styles.gridIcon, { backgroundColor: `${colors.primary}15` }]}>
-                <Ionicons name="water-outline" size={16} color={colors.primary} />
+              <View style={[styles.gridIcon, { backgroundColor: '#5ee6ff20' }]}>
+                <Ionicons name="water-outline" size={16} color="#5ee6ff" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.gridLabel} numberOfLines={1}>Fuel Spend</Text>
               </View>
             </View>
-            <Text style={[styles.gridValue, { fontWeight: '700' }]}>{formatCurrency(monthlyFuelSpend)}</Text>
+            <Text style={[styles.gridValue, { fontWeight: '700', color: '#5ee6ff' }]}>{formatCurrency(monthlyFuelSpend)}</Text>
             <Text style={styles.gridSubValue}>{formatCurrency(totalFuelSpend)} total</Text>
             <TouchableOpacity
               style={styles.cardAction}
               onPress={(e) => { e.stopPropagation(); navigation.navigate('AddFuelFill'); }}
               activeOpacity={0.7}
             >
-              <Text style={styles.cardActionText}>+ Add Fuel Fill</Text>
+              <Text style={[styles.cardActionText, { color: '#5ee6ff' }]}>+ Add Fuel Fill</Text>
             </TouchableOpacity>
           </TouchableOpacity>
 
@@ -295,21 +295,21 @@ export default function GarageDashboardScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.gridHeader}>
-              <View style={[styles.gridIcon, { backgroundColor: `${colors.amber}20` }]}>
-                <Ionicons name="construct-outline" size={16} color={colors.amber} />
+              <View style={[styles.gridIcon, { backgroundColor: '#ea647920' }]}>
+                <Ionicons name="construct-outline" size={16} color="#ea6479" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
               </View>
             </View>
-            <Text style={styles.gridValue}>{formatCurrency(totalMaintSpend)}</Text>
+            <Text style={[styles.gridValue, { color: '#ea6479' }]}>{formatCurrency(totalMaintSpend)}</Text>
             <Text style={styles.gridLink}>{vehicleMaint.length} logs →</Text>
             <TouchableOpacity
               style={styles.cardAction}
               onPress={(e) => { e.stopPropagation(); navigation.navigate('AddMaintenance', {}); }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.cardActionText, { color: colors.amber }]}>+ Add Service</Text>
+              <Text style={[styles.cardActionText, { color: '#ea6479' }]}>+ Add Service</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
