@@ -43,7 +43,11 @@ export function createHFClient(config?: { apiKey?: string }) {
           {
             role: "user" as const,
             content: [
-              { type: "text", text: params.userText || "Analyze this meal photo. Identify all food items and estimate nutrition. Output ONLY the JSON response." },
+              {
+                type: "text",
+                text: params.userText ||
+                  "Analyze this meal photo. Identify all food items and estimate nutrition. Output ONLY the JSON response.",
+              },
               { type: "image_url", image_url: { url: dataUri } },
             ],
           },
@@ -71,13 +75,19 @@ export function createHFClient(config?: { apiKey?: string }) {
         console.error(`[HF] HTTP ${resp.status}: ${preview}`);
 
         if (resp.status === 503 && respText.includes("loading")) {
-          throw new Error("HF model is loading (cold start). Please wait 30-60s and try again.");
+          throw new Error(
+            "HF model is loading (cold start). Please wait 30-60s and try again.",
+          );
         }
         if (resp.status === 403) {
-          throw new Error("HF access denied. Go to https://huggingface.co/settings/tokens and ensure your token has 'Make calls to the serverless Inference API' permission.");
+          throw new Error(
+            "HF access denied. Go to https://huggingface.co/settings/tokens and ensure your token has 'Make calls to the serverless Inference API' permission.",
+          );
         }
         if (resp.status === 429) {
-          throw new Error("HF rate limit reached. Wait a moment and try again.");
+          throw new Error(
+            "HF rate limit reached. Wait a moment and try again.",
+          );
         }
         throw new Error(`HF API error ${resp.status}: ${preview}`);
       }
@@ -92,7 +102,9 @@ export function createHFClient(config?: { apiKey?: string }) {
       const content = parsed.choices?.[0]?.message?.content ?? "";
       if (!content) {
         console.error("[HF] Empty response body:", respText.substring(0, 400));
-        throw new Error("HF returned empty response. The model may still be loading (cold start).");
+        throw new Error(
+          "HF returned empty response. The model may still be loading (cold start).",
+        );
       }
 
       console.log(`[HF] Success — ${content.length} chars`);

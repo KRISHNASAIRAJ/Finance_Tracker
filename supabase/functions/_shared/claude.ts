@@ -40,7 +40,9 @@ export function createClaudeClient(config?: ClaudeConfig) {
       const body = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(`Claude API error: ${resp.status} ${JSON.stringify(body)}`);
+        throw new Error(
+          `Claude API error: ${resp.status} ${JSON.stringify(body)}`,
+        );
       }
 
       return body.content?.[0]?.text ?? "";

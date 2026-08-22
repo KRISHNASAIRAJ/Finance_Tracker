@@ -2,9 +2,9 @@ name: CI — Smoke Tests + OTA Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, "v*"]
   pull_request:
-    branches: [main]
+    branches: [main, "v*"]
   workflow_dispatch:
 
 concurrency:
@@ -46,9 +46,41 @@ jobs:
         run: npx jest --passWithNoTests --forceExit
         continue-on-error: true
 
+  deno:
+    name: Edge Functions (fmt + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.9.0"
+
+      - name: Deno format + lint
+        run: |
+          deno fmt --check supabase/functions
+          deno lint supabase/functions
+
+  db:
+    name: Migration Collision Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for duplicate migration timestamps
+        run: |
+          DUPES=$(ls supabase/migrations/*.sql 2>/dev/null | sed 's|.*/||' | grep -oP '^\d+' | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "::error::Duplicate migration timestamps found: $DUPES"
+            exit 1
+          fi
+          echo "No duplicate migration timestamps found."
+
   deploy:
     name: OTA Deploy
-    needs: smoke
+    needs: [smoke, deno, db]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
@@ -70,10 +102,16 @@ jobs:
         run: npm ci
 
       - name: Setup Expo
+        if: ${{ secrets.EXPO_TOKEN != '' }}
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Push OTA Update
+        if: ${{ secrets.EXPO_TOKEN != '' }}
         run: eas update --branch production --auto --non-interactive
+
+      - name: Skip OTA (no EXPO_TOKEN)
+        if: ${{ secrets.EXPO_TOKEN == '' }}
+        run: echo "EXPO_TOKEN not set — skipping OTA update."

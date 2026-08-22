@@ -81,14 +81,17 @@ export function createGroqClient(config?: GroqConfig) {
 
       const postBody = JSON.stringify(reqBody);
 
-      let resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+      let resp = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: postBody,
         },
-        body: postBody,
-      });
+      );
 
       // Retry on rate limit (429) with backoff, up to 3 attempts
       let attempts = 0;
@@ -109,13 +112,17 @@ export function createGroqClient(config?: GroqConfig) {
       const body = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(`Groq API error: ${resp.status} ${JSON.stringify(body)}`);
+        throw new Error(
+          `Groq API error: ${resp.status} ${JSON.stringify(body)}`,
+        );
       }
 
       return body.choices?.[0]?.message?.content ?? "";
     },
 
-    async completeVision(params: VisionCompleteParams): Promise<VisionCompleteResult> {
+    async completeVision(
+      params: VisionCompleteParams,
+    ): Promise<VisionCompleteResult> {
       const messages: VisionMessage[] = [
         { role: "system", content: params.systemPrompt },
       ];
@@ -135,19 +142,24 @@ export function createGroqClient(config?: GroqConfig) {
         reqBody.response_format = { type: "json_object" };
       }
 
-      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+      const resp = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(reqBody),
         },
-        body: JSON.stringify(reqBody),
-      });
+      );
 
       const body = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(`Groq API vision error: ${resp.status} ${JSON.stringify(body)}`);
+        throw new Error(
+          `Groq API vision error: ${resp.status} ${JSON.stringify(body)}`,
+        );
       }
 
       return {

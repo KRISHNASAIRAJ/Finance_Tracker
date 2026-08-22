@@ -11,7 +11,8 @@
 import { createGroqClient } from "../_shared/groq.ts";
 import { createDeepSeekClient } from "../_shared/deepseek.ts";
 
-const SYSTEM_PROMPT = `You are a portfolio advisor for Indian retail investors. The user provides current holdings (stocks, MF, ETFs, gold, real estate) and goals. Give concise rebalancing advice. Always:
+const SYSTEM_PROMPT =
+  `You are a portfolio advisor for Indian retail investors. The user provides current holdings (stocks, MF, ETFs, gold, real estate) and goals. Give concise rebalancing advice. Always:
 1. Flag concentration risk if any single holding > 20%
 2. Suggest diversification if equity allocation is extreme for goals
 3. Mention tax implications (STCG/LTCG)
@@ -74,39 +75,62 @@ Deno.serve(async (req: Request) => {
   try {
     const { holdings, goals, query } = await req.json();
 
-    if (!holdings || !Array.isArray(holdings) || (holdings.length === 0 && !query)) {
+    if (
+      !holdings || !Array.isArray(holdings) || (holdings.length === 0 && !query)
+    ) {
       return new Response(
         JSON.stringify({
-          summary: "Add some holdings first to get personalized recommendations.",
+          summary:
+            "Add some holdings first to get personalized recommendations.",
           recommendations: [],
-          disclaimer: "For informational purposes only. This is not investment advice.",
+          disclaimer:
+            "For informational purposes only. This is not investment advice.",
         }),
-        { status: 400, headers }
+        { status: 400, headers },
       );
     }
 
     // Build a structured context for Groq
     const holdingsSummary = holdings.length > 0
       ? holdings.map((h: any) => {
-          const value = h.quantity * h.currentPrice;
-          const cost = h.quantity * h.avgPrice;
-          const pnl = value - cost;
-          const pnlPct = cost > 0 ? ((pnl / cost) * 100).toFixed(1) : "0.0";
-          return `- ${h.symbol || h.name} (${h.type}): ${h.quantity} units, value ₹${Math.round(value / 100).toLocaleString('en-IN')}, P&L ${pnl >= 0 ? '+' : ''}${pnlPct}%, allocation: ${h.allocation || 'Uncategorized'}`;
-        }).join("\n")
+        const value = h.quantity * h.currentPrice;
+        const cost = h.quantity * h.avgPrice;
+        const pnl = value - cost;
+        const pnlPct = cost > 0 ? ((pnl / cost) * 100).toFixed(1) : "0.0";
+        return `- ${
+          h.symbol || h.name
+        } (${h.type}): ${h.quantity} units, value ₹${
+          Math.round(value / 100).toLocaleString("en-IN")
+        }, P&L ${pnl >= 0 ? "+" : ""}${pnlPct}%, allocation: ${
+          h.allocation || "Uncategorized"
+        }`;
+      }).join("\n")
       : "No holdings in portfolio.";
 
     const goalsSummary = goals && goals.length > 0
       ? goals.map((g: any) => {
-          const progress = g.current > 0 && g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
-          return `- ${g.name}: ₹${Math.round(g.current / 100).toLocaleString('en-IN')} / ₹${Math.round(g.target / 100).toLocaleString('en-IN')} (${progress}%), due ${g.dueDate ? new Date(g.dueDate).getFullYear() : 'N/A'}`;
-        }).join("\n")
+        const progress = g.current > 0 && g.target > 0
+          ? Math.round((g.current / g.target) * 100)
+          : 0;
+        return `- ${g.name}: ₹${
+          Math.round(g.current / 100).toLocaleString("en-IN")
+        } / ₹${
+          Math.round(g.target / 100).toLocaleString("en-IN")
+        } (${progress}%), due ${
+          g.dueDate ? new Date(g.dueDate).getFullYear() : "N/A"
+        }`;
+      }).join("\n")
       : "No goals set.";
 
-    const userPrompt = `Current Holdings:\n${holdingsSummary}\n\nInvestment Goals:\n${goalsSummary}\n\nUser Question: ${query || "Provide rebalancing recommendations."}\n\nIf the user asked about a specific company, apply the Fundamental Analysis Skill framework. Otherwise, provide portfolio rebalancing advice.`;
+    const userPrompt =
+      `Current Holdings:\n${holdingsSummary}\n\nInvestment Goals:\n${goalsSummary}\n\nUser Question: ${
+        query || "Provide rebalancing recommendations."
+      }\n\nIf the user asked about a specific company, apply the Fundamental Analysis Skill framework. Otherwise, provide portfolio rebalancing advice.`;
 
     // Use DeepSeek when a key is configured, otherwise fall back to Groq
-    const client = Deno.env.get("DEEPSEEK_API_KEY") ? createDeepSeekClient() : createGroqClient();
+    const client = Deno.env.get("DEEPSEEK_API_KEY")
+      ? createDeepSeekClient()
+      : createGroqClient();
     const disclaimer = client.DISCLAIMER_PORTFOLIO;
 
     const response = await client.complete({
@@ -165,32 +189,37 @@ Deno.serve(async (req: Request) => {
     } catch {
       return new Response(
         JSON.stringify({
-          summary: response.trim().slice(0, 300) || "I couldn't analyze that right now. Please try again.",
+          summary: response.trim().slice(0, 300) ||
+            "I couldn't analyze that right now. Please try again.",
           recommendations: [],
           disclaimer,
         }),
-        { status: 200, headers }
+        { status: 200, headers },
       );
     }
 
     return new Response(
       JSON.stringify({
         summary: parsed.summary || "Analysis complete.",
-        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+        recommendations: Array.isArray(parsed.recommendations)
+          ? parsed.recommendations
+          : [],
         question: parsed.question || "",
         disclaimer,
       }),
-      { status: 200, headers }
+      { status: 200, headers },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({
-        summary: "Sorry, I couldn't analyze your portfolio right now. Please try again.",
+        summary:
+          "Sorry, I couldn't analyze your portfolio right now. Please try again.",
         recommendations: [],
         error: (err as Error).message,
-        disclaimer: "For informational purposes only. This is not investment advice.",
+        disclaimer:
+          "For informational purposes only. This is not investment advice.",
       }),
-      { status: 500, headers }
+      { status: 500, headers },
     );
   }
 });

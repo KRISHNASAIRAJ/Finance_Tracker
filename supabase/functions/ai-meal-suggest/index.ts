@@ -10,7 +10,8 @@
 
 import { createGroqClient } from "../_shared/groq.ts";
 
-const SYSTEM_PROMPT = `You are a nutritionist AI assistant for Meridian, a personal life tracker app.
+const SYSTEM_PROMPT =
+  `You are a nutritionist AI assistant for Meridian, a personal life tracker app.
 
 You help a 23-year-old male (54kg, 170.6cm, BMI 18.5 underweight) gain weight to 65kg at ~0.4 kg/week. Project 65 — a body recomposition protocol.
 
@@ -66,8 +67,11 @@ Deno.serve(async (req: Request) => {
 
   if (!checkRateLimit()) {
     return new Response(
-      JSON.stringify({ suggestion: "Daily AI query limit reached (50/day). Try again tomorrow." }),
-      { headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        suggestion:
+          "Daily AI query limit reached (50/day). Try again tomorrow.",
+      }),
+      { headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -76,12 +80,16 @@ Deno.serve(async (req: Request) => {
     const query = (body.query as string)?.trim();
     const healthProfile = (body.healthProfile as string)?.trim() || "";
     const todayContext = (body.todayContext as string)?.trim() || "";
-    const conversation = body.conversation as Array<{ role: string; content: string }> | undefined;
+    const conversation = body.conversation as
+      | Array<{ role: string; content: string }>
+      | undefined;
 
     if (!query) {
       return new Response(
-        JSON.stringify({ suggestion: "Please ask a question about your meals or nutrition." }),
-        { headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          suggestion: "Please ask a question about your meals or nutrition.",
+        }),
+        { headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -113,11 +121,12 @@ Deno.serve(async (req: Request) => {
       temperature: 0.7,
     });
 
-    const disclaimer = "Based on your health profile and today's food log. Consult a doctor for medical advice.";
+    const disclaimer =
+      "Based on your health profile and today's food log. Consult a doctor for medical advice.";
 
     return new Response(
       JSON.stringify({ suggestion: response, disclaimer }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("ai-meal-suggest error:", err);
@@ -126,7 +135,7 @@ Deno.serve(async (req: Request) => {
         suggestion: "Sorry, I encountered an error. Please try again later.",
         error: (err as Error).message,
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

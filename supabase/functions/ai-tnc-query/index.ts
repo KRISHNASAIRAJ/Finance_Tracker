@@ -81,7 +81,8 @@ const CARD_KNOWLEDGE = `## Credit Card Database
 - Forex transactions attract a markup % over VISA/Mastercard exchange rate.
 - Annual fees may be waived if annual spend threshold is met.`;
 
-const GENERAL_SYSTEM_PROMPT = `You are a credit card rewards and spending advisor for Indian cards. Answer user questions about cards OR their spending. Be concise and specific.
+const GENERAL_SYSTEM_PROMPT =
+  `You are a credit card rewards and spending advisor for Indian cards. Answer user questions about cards OR their spending. Be concise and specific.
 
 If the user asks about credit cards: answer based ONLY on the card database below. Mention any caps, exclusions, or conditions. If the answer is not in the database, say "I don't have that information in my database."
 
@@ -93,14 +94,17 @@ At the end of every response, add this disclaimer in italic: "_Based on publicly
 
 ${CARD_KNOWLEDGE}`;
 
-const DOCUMENT_SYSTEM_PROMPT = `You are a credit card terms and conditions analyst. The user has uploaded a card T&C document. Answer their question based ONLY on the document content provided below. Be precise and cite specific sections when possible.
+const DOCUMENT_SYSTEM_PROMPT =
+  `You are a credit card terms and conditions analyst. The user has uploaded a card T&C document. Answer their question based ONLY on the document content provided below. Be precise and cite specific sections when possible.
 
 If the document doesn't contain the answer, say "The uploaded document doesn't cover this specific scenario." Do not make up information.
 
 At the end of every response, add this disclaimer in italic: "_Based on your uploaded document — verify with your bank for current terms._"`;
 
 function buildDocumentPrompt(query: string, documentText: string): string {
-  const truncated = documentText.length > 8000 ? documentText.slice(0, 8000) + "\n\n[... document truncated ...]" : documentText;
+  const truncated = documentText.length > 8000
+    ? documentText.slice(0, 8000) + "\n\n[... document truncated ...]"
+    : documentText;
   return `Document Content:\n"""\n${truncated}\n"""\n\nUser Question: ${query}\n\nAnswer the question using only the document above.`;
 }
 
@@ -115,12 +119,13 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
-    const { query, document_id, transactions_ctx, finance_ctx } = await req.json();
+    const { query, document_id, transactions_ctx, finance_ctx } = await req
+      .json();
 
     if (!query || typeof query !== "string" || query.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "query required" }),
-        { status: 400, headers }
+        { status: 400, headers },
       );
     }
 
@@ -135,7 +140,7 @@ Deno.serve(async (req: Request) => {
       if (!supabaseUrl || !supabaseKey) {
         return new Response(
           JSON.stringify({ error: "Database not configured" }),
-          { status: 500, headers }
+          { status: 500, headers },
         );
       }
 
@@ -149,8 +154,11 @@ Deno.serve(async (req: Request) => {
 
       if (dbErr || !doc) {
         return new Response(
-          JSON.stringify({ error: "Document not found", answer: "The requested document could not be found." }),
-          { status: 200, headers }
+          JSON.stringify({
+            error: "Document not found",
+            answer: "The requested document could not be found.",
+          }),
+          { status: 200, headers },
         );
       }
 
@@ -186,16 +194,17 @@ Deno.serve(async (req: Request) => {
         answer: answer.trim(),
         disclaimer: groq.DISCLAIMER_TNC,
       }),
-      { status: 200, headers }
+      { status: 200, headers },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({
         error: (err as Error).message,
         answer: "Sorry, I couldn't process your question. Please try again.",
-        disclaimer: "Based on publicly available card information — verify with your bank for current terms.",
+        disclaimer:
+          "Based on publicly available card information — verify with your bank for current terms.",
       }),
-      { status: 500, headers }
+      { status: 500, headers },
     );
   }
 });

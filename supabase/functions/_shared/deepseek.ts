@@ -19,8 +19,10 @@ const DEFAULT_MODEL = "deepseek-v4-flash";
 
 export function createDeepSeekClient(config?: DeepSeekConfig) {
   const apiKey = config?.apiKey ?? Deno.env.get("DEEPSEEK_API_KEY") ?? "";
-  const model = config?.model ?? Deno.env.get("DEEPSEEK_MODEL") ?? DEFAULT_MODEL;
-  const baseUrl = config?.baseUrl ?? Deno.env.get("DEEPSEEK_BASE_URL") ?? DEFAULT_BASE_URL;
+  const model = config?.model ?? Deno.env.get("DEEPSEEK_MODEL") ??
+    DEFAULT_MODEL;
+  const baseUrl = config?.baseUrl ?? Deno.env.get("DEEPSEEK_BASE_URL") ??
+    DEFAULT_BASE_URL;
 
   return {
     async complete(params: {
@@ -74,7 +76,9 @@ export function createDeepSeekClient(config?: DeepSeekConfig) {
       const body = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(`DeepSeek API error: ${resp.status} ${JSON.stringify(body)}`);
+        throw new Error(
+          `DeepSeek API error: ${resp.status} ${JSON.stringify(body)}`,
+        );
       }
 
       return body.choices?.[0]?.message?.content ?? "";

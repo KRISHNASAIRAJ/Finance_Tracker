@@ -17,7 +17,10 @@ const KITE_API_SECRET = Deno.env.get("KITE_API_SECRET")!;
 function cleanFundName(raw: string): string {
   return raw
     .replace(/\s*-\s*(DIRECT|REGULAR)\s*PLAN/gi, "")
-    .replace(/\s*-\s*(GROWTH|DIVIDEND|IDCW|DAILY|WEEKLY|MONTHLY)(\s+OPTION)?/gi, "")
+    .replace(
+      /\s*-\s*(GROWTH|DIVIDEND|IDCW|DAILY|WEEKLY|MONTHLY)(\s+OPTION)?/gi,
+      "",
+    )
     .replace(/\s+FUND$/i, "")
     .replace(/\s{2,}/g, " ")
     .trim()
@@ -27,22 +30,34 @@ function cleanFundName(raw: string): string {
 function extractAmc(raw: string): string {
   return raw
     .replace(/\s*-\s*(DIRECT|REGULAR)\s*PLAN/gi, "")
-    .replace(/\s*-\s*(GROWTH|DIVIDEND|IDCW|DAILY|WEEKLY|MONTHLY)(\s+OPTION)?/gi, "")
+    .replace(
+      /\s*-\s*(GROWTH|DIVIDEND|IDCW|DAILY|WEEKLY|MONTHLY)(\s+OPTION)?/gi,
+      "",
+    )
     .replace(/\s+FUND$/i, "")
     .replace(/\s{2,}/g, " ")
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getAllocationCategory(symbol: string, type: string, name: string): string {
+function getAllocationCategory(
+  symbol: string,
+  type: string,
+  name: string,
+): string {
   const s = symbol.toUpperCase();
   const n = name.toUpperCase();
-  if (s.includes('GOLDBEES') || s.includes('GOLD') || n.includes('GOLD ETF')) return 'Gold';
-  if (s.includes('EMBASSY') || s.includes('BIRET') || s.includes('REIT') || n.includes('REIT')) return 'Realty';
-  if (type === 'mf') return 'Mutual Funds';
-  if (type === 'etf') return 'ETF';
-  if (type === 'equity') return 'Equity';
-  return 'Other';
+  if (s.includes("GOLDBEES") || s.includes("GOLD") || n.includes("GOLD ETF")) {
+    return "Gold";
+  }
+  if (
+    s.includes("EMBASSY") || s.includes("BIRET") || s.includes("REIT") ||
+    n.includes("REIT")
+  ) return "Realty";
+  if (type === "mf") return "Mutual Funds";
+  if (type === "etf") return "ETF";
+  if (type === "equity") return "Equity";
+  return "Other";
 }
 
 Deno.serve(async (req: Request) => {
@@ -52,13 +67,19 @@ Deno.serve(async (req: Request) => {
 
   if (!KITE_API_KEY || !KITE_API_SECRET) {
     return new Response(
-      JSON.stringify({ error: "KITE_API_KEY or KITE_API_SECRET is not configured. Run: supabase secrets set KITE_API_KEY=xxx KITE_API_SECRET=yyy", synced: 0 }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error:
+          "KITE_API_KEY or KITE_API_SECRET is not configured. Run: supabase secrets set KITE_API_KEY=xxx KITE_API_SECRET=yyy",
+        synced: 0,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
   const apiKeyPreview = KITE_API_KEY.substring(0, 4) + "...";
-  console.log(`[kite-holdings-sync] Using Kite API key starting with: ${apiKeyPreview}`);
+  console.log(
+    `[kite-holdings-sync] Using Kite API key starting with: ${apiKeyPreview}`,
+  );
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -76,19 +97,30 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    console.log(`[kite-holdings-sync] Querying kite_tokens for user_id: ${userId.substring(0, 12)}...`);
+    console.log(
+      `[kite-holdings-sync] Querying kite_tokens for user_id: ${
+        userId.substring(0, 12)
+      }...`,
+    );
 
     // List ALL rows in kite_tokens for diagnostic purposes
     const { data: allRows, error: countErr } = await supabase
       .from("kite_tokens")
       .select("user_id, access_token")
       .limit(10);
-    console.log(`[kite-holdings-sync] Total kite_tokens rows in DB: ${allRows?.length ?? 0}`);
+    console.log(
+      `[kite-holdings-sync] Total kite_tokens rows in DB: ${
+        allRows?.length ?? 0
+      }`,
+    );
     if (allRows && allRows.length > 0) {
       for (const r of allRows) {
         const uid = (r.user_id ?? "").substring(0, 12);
-        const tok = (r.access_token ?? "").substring(0, 4) + "..." + (r.access_token ?? "").slice(-4);
-        console.log(`[kite-holdings-sync]   DB row: user_id=${uid}, token=${tok}, len=${r.access_token?.length}`);
+        const tok = (r.access_token ?? "").substring(0, 4) + "..." +
+          (r.access_token ?? "").slice(-4);
+        console.log(
+          `[kite-holdings-sync]   DB row: user_id=${uid}, token=${tok}, len=${r.access_token?.length}`,
+        );
       }
     }
 
@@ -118,8 +150,11 @@ Deno.serve(async (req: Request) => {
 
       if (legacyErr || !legacyRows || legacyRows.length === 0) {
         return new Response(
-          JSON.stringify({ error: "No Kite token found. Please connect Kite first.", synced: 0 }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: "No Kite token found. Please connect Kite first.",
+            synced: 0,
+          }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -127,26 +162,42 @@ Deno.serve(async (req: Request) => {
       tokenSource = "legacy_fallback";
       // Migrate: update the legacy token's user_id to match the requesting user
       const legacyUserId = legacyRows[0].user_id;
-      console.log(`[kite-holdings-sync] Token found by LEGACY FALLBACK — stored user_id="${legacyUserId?.substring(0, 12)}...", request user_id="${userId.substring(0, 12)}..."`);
+      console.log(
+        `[kite-holdings-sync] Token found by LEGACY FALLBACK — stored user_id="${
+          legacyUserId?.substring(0, 12)
+        }...", request user_id="${userId.substring(0, 12)}..."`,
+      );
       if (legacyUserId !== userId) {
         await supabase
           .from("kite_tokens")
           .update({ user_id: userId, updated_at: new Date().toISOString() })
           .eq("user_id", legacyUserId);
-        console.log(`Migrated kite_tokens user_id from "${legacyUserId}" to "${userId}"`);
+        console.log(
+          `Migrated kite_tokens user_id from "${legacyUserId}" to "${userId}"`,
+        );
       }
     }
 
     if (!accessToken) {
       return new Response(
-        JSON.stringify({ error: "No Kite token found. Please connect Kite first.", synced: 0 }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "No Kite token found. Please connect Kite first.",
+          synced: 0,
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    const tokPreview = accessToken.substring(0, 4) + "..." + accessToken.slice(-4);
-    console.log(`[kite-holdings-sync] Token preview: ${tokPreview}, length: ${accessToken.length}, source: ${tokenSource}`);
-    console.log(`[kite-holdings-sync] Auth header key prefix: ${KITE_API_KEY.substring(0, 5)}...`);
+    const tokPreview = accessToken.substring(0, 4) + "..." +
+      accessToken.slice(-4);
+    console.log(
+      `[kite-holdings-sync] Token preview: ${tokPreview}, length: ${accessToken.length}, source: ${tokenSource}`,
+    );
+    console.log(
+      `[kite-holdings-sync] Auth header key prefix: ${
+        KITE_API_KEY.substring(0, 5)
+      }...`,
+    );
 
     const authHeader = `token ${KITE_API_KEY}:${accessToken}`;
 
@@ -157,19 +208,34 @@ Deno.serve(async (req: Request) => {
       });
       const profileData = await profileRes.json();
       if (profileData.status !== "success") {
-        console.error(`[kite-holdings-sync] Token verification FAILED — message: ${profileData.message || 'unknown'}, code: ${profileData.error_code || 'none'}`);
+        console.error(
+          `[kite-holdings-sync] Token verification FAILED — message: ${
+            profileData.message || "unknown"
+          }, code: ${profileData.error_code || "none"}`,
+        );
         return new Response(
           JSON.stringify({
-            error: `Kite token invalid — please tap "Connect Kite" to re-authenticate. (${profileData.message || 'token rejected'})`,
+            error:
+              `Kite token invalid — please tap "Connect Kite" to re-authenticate. (${
+                profileData.message || "token rejected"
+              })`,
             synced: 0,
             needsReconnect: true,
           }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
+          { status: 401, headers: { "Content-Type": "application/json" } },
         );
       }
-      console.log(`[kite-holdings-sync] Token verified — user: ${profileData.data?.user_name || 'unknown'}`);
+      console.log(
+        `[kite-holdings-sync] Token verified — user: ${
+          profileData.data?.user_name || "unknown"
+        }`,
+      );
     } catch (profileErr: any) {
-      console.warn(`[kite-holdings-sync] Profile check network error: ${profileErr?.message ?? profileErr}`);
+      console.warn(
+        `[kite-holdings-sync] Profile check network error: ${
+          profileErr?.message ?? profileErr
+        }`,
+      );
     }
 
     // Fetch equity holdings from Kite Connect
@@ -183,14 +249,19 @@ Deno.serve(async (req: Request) => {
 
     if (kiteData.status !== "success") {
       const errMsg = kiteData.message || "Unknown Kite error";
-      console.error(`[kite-holdings-sync] Kite API error — message: ${errMsg}, code: ${kiteData.error_code || 'none'}`);
+      console.error(
+        `[kite-holdings-sync] Kite API error — message: ${errMsg}, code: ${
+          kiteData.error_code || "none"
+        }`,
+      );
       return new Response(
         JSON.stringify({
-          error: `Kite API: ${errMsg}. Try tapping "Connect Kite" to re-authenticate.`,
+          error:
+            `Kite API: ${errMsg}. Try tapping "Connect Kite" to re-authenticate.`,
           synced: 0,
           needsReconnect: true,
         }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -204,7 +275,11 @@ Deno.serve(async (req: Request) => {
       .select("symbol, prev_close")
       .eq("user_id", userId);
     const existingPrevClose: Record<string, number | null> = {};
-    for (const row of (existingRows as Array<{ symbol: string; prev_close: number | null }>) || []) {
+    for (
+      const row of (existingRows as Array<
+        { symbol: string; prev_close: number | null }
+      >) || []
+    ) {
       existingPrevClose[row.symbol] = row.prev_close;
     }
 
@@ -214,11 +289,17 @@ Deno.serve(async (req: Request) => {
       const avgBuyPrice = Math.round(Number(h.average_price) * 100);
       const currentPrice = Math.round(Number(h.last_price) * 100);
       const currentValue = Math.round(Number(h.last_price) * quantity * 100);
-      const rawType = (h.instrument_type as string) || '';
-      const type = rawType === 'ETF' ? 'etf' as const
-        : rawType === 'MF' ? 'mf' as const
-        : 'equity' as const;
-      const alloc = getAllocationCategory(symbol, type, h.tradingsymbol as string);
+      const rawType = (h.instrument_type as string) || "";
+      const type = rawType === "ETF"
+        ? "etf" as const
+        : rawType === "MF"
+        ? "mf" as const
+        : "equity" as const;
+      const alloc = getAllocationCategory(
+        symbol,
+        type,
+        h.tradingsymbol as string,
+      );
 
       const { error: upsertErr } = await supabase
         .from("holdings")
@@ -239,7 +320,10 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "user_id,symbol" });
 
       if (!upsertErr) synced++;
-      else console.error(`Failed to upsert equity ${symbol}:`, upsertErr.message);
+      else {console.error(
+          `Failed to upsert equity ${symbol}:`,
+          upsertErr.message,
+        );}
     }
 
     // Fetch MF holdings from Zerodha Coin (separate endpoint)
@@ -261,14 +345,19 @@ Deno.serve(async (req: Request) => {
           const quantity = Number(mf.quantity) || 0;
           const avgBuyPrice = Math.round(Number(mf.average_price) * 100);
           const currentPrice = Math.round(Number(mf.last_price) * 100);
-          const currentValue = Math.round(Number(mf.last_price) * quantity * 100);
+          const currentValue = Math.round(
+            Number(mf.last_price) * quantity * 100,
+          );
           const folio = mf.folio as string | undefined;
-          const isin = (mf.isin as string) || (mf.tradingsymbol as string) || undefined;
+          const isin = (mf.isin as string) || (mf.tradingsymbol as string) ||
+            undefined;
           const schemeName = mf.scheme_name as string | undefined;
           const fundHouse = (mf.fund as string) || undefined;
           const fundName = cleanFundName(schemeName || fundHouse || symbol);
-          const amc = fundHouse && fundHouse !== (schemeName || "") ? extractAmc(fundHouse) : fundName;
-          const alloc = getAllocationCategory(symbol, 'mf', fundName);
+          const amc = fundHouse && fundHouse !== (schemeName || "")
+            ? extractAmc(fundHouse)
+            : fundName;
+          const alloc = getAllocationCategory(symbol, "mf", fundName);
 
           const { error: upsertErr } = await supabase
             .from("holdings")
@@ -292,23 +381,36 @@ Deno.serve(async (req: Request) => {
             }, { onConflict: "user_id,symbol" });
 
           if (!upsertErr) mfSynced++;
-          else console.error(`Failed to upsert MF ${symbol}:`, upsertErr.message);
+          else {console.error(
+              `Failed to upsert MF ${symbol}:`,
+              upsertErr.message,
+            );}
         }
       } else {
-        console.warn("MF holdings fetch warning:", mfData.message || "Could not fetch MF holdings");
+        console.warn(
+          "MF holdings fetch warning:",
+          mfData.message || "Could not fetch MF holdings",
+        );
       }
     } catch (mfErr) {
-      console.warn("MF holdings fetch failed (may not have Coin account):", (mfErr as Error).message);
+      console.warn(
+        "MF holdings fetch failed (may not have Coin account):",
+        (mfErr as Error).message,
+      );
     }
 
     return new Response(
-      JSON.stringify({ synced, mfSynced, total: equityHoldings.length + mfSynced }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        synced,
+        mfSynced,
+        total: equityHoldings.length + mfSynced,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

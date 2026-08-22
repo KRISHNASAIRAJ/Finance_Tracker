@@ -23,9 +23,13 @@ interface Holding {
   scheme_code: string | null;
 }
 
-async function fetchYahooPrice(symbol: string): Promise<{ price: number; prevClose: number } | null> {
+async function fetchYahooPrice(
+  symbol: string,
+): Promise<{ price: number; prevClose: number } | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${
+      encodeURIComponent(symbol)
+    }?interval=1d&range=1d`;
     const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
     if (!resp.ok) return null;
     const body = await resp.json();
@@ -41,14 +45,20 @@ async function fetchYahooPrice(symbol: string): Promise<{ price: number; prevClo
   }
 }
 
-async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevClose: number } | null> {
+async function fetchAmfiNav(
+  schemeCode: string,
+): Promise<{ price: number; prevClose: number } | null> {
   try {
     // If the stored value is not a numeric scheme code (Kite stores the
     // scheme name there), resolve it via the AMFI search endpoint first.
     let code = schemeCode.trim();
     if (!/^\d+$/.test(code)) {
-      const searchUrl = `https://api.mfapi.in/mf/search?q=${encodeURIComponent(code)}`;
-      const searchResp = await fetch(searchUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+      const searchUrl = `https://api.mfapi.in/mf/search?q=${
+        encodeURIComponent(code)
+      }`;
+      const searchResp = await fetch(searchUrl, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
       if (searchResp.ok) {
         const searchBody = await searchResp.json();
         const match = Array.isArray(searchBody) ? searchBody[0] : null;
@@ -66,7 +76,9 @@ async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevCl
     const data = body?.data;
     if (!Array.isArray(data) || data.length === 0) return null;
     const price = Math.round(Number(data[0].nav) * 100);
-    const prevClose = data.length > 1 ? Math.round(Number(data[1].nav) * 100) : price;
+    const prevClose = data.length > 1
+      ? Math.round(Number(data[1].nav) * 100)
+      : price;
     if (!price || isNaN(price)) return null;
     return { price, prevClose };
   } catch {
@@ -109,8 +121,12 @@ Deno.serve(async (req: Request) => {
     const { data: holdings, error: holdingsErr } = await query;
     if (holdingsErr || !holdings || holdings.length === 0) {
       return new Response(
-        JSON.stringify({ ok: true, message: "No holdings to refresh", updated: 0 }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          ok: true,
+          message: "No holdings to refresh",
+          updated: 0,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -130,7 +146,9 @@ Deno.serve(async (req: Request) => {
 
       if (!result) {
         failed++;
-        failures.push(`${h.symbol} (${h.type}${h.scheme_code ? `/${h.scheme_code}` : ''})`);
+        failures.push(
+          `${h.symbol} (${h.type}${h.scheme_code ? `/${h.scheme_code}` : ""})`,
+        );
         continue;
       }
 
@@ -167,12 +185,12 @@ Deno.serve(async (req: Request) => {
         failures,
         at: now,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

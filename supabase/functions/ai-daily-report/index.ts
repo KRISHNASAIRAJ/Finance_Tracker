@@ -11,7 +11,8 @@
 
 import { createGroqClient } from "../_shared/groq.ts";
 
-const SYSTEM_PROMPT = `You are a nutritionist AI for Meridian's "Project 65" body recomposition protocol.
+const SYSTEM_PROMPT =
+  `You are a nutritionist AI for Meridian's "Project 65" body recomposition protocol.
 Generate a concise end-of-day report comparing the user's logged intake against their targets.
 
 AGE: 23, Male, 54kg, 170.6cm, BMI 18.5 (underweight)
@@ -66,22 +67,34 @@ function getToday(): string {
 
 function checkRateLimit(): boolean {
   const today = getToday();
-  if (RATE_LIMIT_KV.date !== today) { RATE_LIMIT_KV.date = today; RATE_LIMIT_KV.count = 1; return true; }
+  if (RATE_LIMIT_KV.date !== today) {
+    RATE_LIMIT_KV.date = today;
+    RATE_LIMIT_KV.count = 1;
+    return true;
+  }
   if (RATE_LIMIT_KV.count >= DAILY_LIMIT) return false;
   RATE_LIMIT_KV.count++;
   return true;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
 
   if (!checkRateLimit()) {
-    return new Response(JSON.stringify({ report: "Daily report limit reached (30/day). Try again tomorrow." }), { headers: { "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({
+        report: "Daily report limit reached (30/day). Try again tomorrow.",
+      }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   }
 
   try {
     const body = await req.json();
-    const todayIntake = (body.todayIntake as string)?.trim() || "No meals logged today.";
+    const todayIntake = (body.todayIntake as string)?.trim() ||
+      "No meals logged today.";
 
     const groq = createGroqClient();
     const response = await groq.complete({
@@ -93,13 +106,16 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify({ report: response }),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("ai-daily-report error:", err);
     return new Response(
-      JSON.stringify({ report: "Sorry, could not generate the daily report. Please try again.", error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        report: "Sorry, could not generate the daily report. Please try again.",
+        error: (err as Error).message,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

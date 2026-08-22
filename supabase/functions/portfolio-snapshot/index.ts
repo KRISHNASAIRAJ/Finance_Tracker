@@ -35,15 +35,27 @@ Deno.serve(async (req: Request) => {
 
     // Refresh live prices first so the snapshot reflects today's market moves.
     try {
-      const refreshResp = await fetch(`${supabaseUrl}/functions/v1/refresh-portfolio-prices`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${serviceKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
+      const refreshResp = await fetch(
+        `${supabaseUrl}/functions/v1/refresh-portfolio-prices`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${serviceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({}),
+        },
+      );
       const refreshBody = await refreshResp.json();
-      console.log("refresh-portfolio-prices:", JSON.stringify(refreshBody).substring(0, 300));
+      console.log(
+        "refresh-portfolio-prices:",
+        JSON.stringify(refreshBody).substring(0, 300),
+      );
     } catch (refreshErr) {
-      console.warn("refresh-portfolio-prices failed (snapshot continues with existing prices):", (refreshErr as Error).message);
+      console.warn(
+        "refresh-portfolio-prices failed (snapshot continues with existing prices):",
+        (refreshErr as Error).message,
+      );
     }
 
     const today = new Date().toISOString().split("T")[0];
@@ -51,21 +63,29 @@ Deno.serve(async (req: Request) => {
     const dayOfWeek = new Date().getUTCDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       return new Response(
-        JSON.stringify({ ok: true, date: today, skipped: "weekend", message: "Markets closed on Saturday and Sunday" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          ok: true,
+          date: today,
+          skipped: "weekend",
+          message: "Markets closed on Saturday and Sunday",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const yesterday =
+      new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
     const { data: holdings, error: holdingsErr } = await supabase
       .from("holdings")
-      .select("id, user_id, symbol, fund_name, type, allocation_category, quantity, current_price, current_value, prev_close");
+      .select(
+        "id, user_id, symbol, fund_name, type, allocation_category, quantity, current_price, current_value, prev_close",
+      );
 
     if (holdingsErr || !holdings || holdings.length === 0) {
       return new Response(
         JSON.stringify({ ok: true, message: "No holdings found", users: 0 }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -88,7 +108,7 @@ Deno.serve(async (req: Request) => {
         const price = Number(h.current_price) || 0;
         const value = Number(h.quantity) * price;
         totalValue += Math.round(value);
-        const cat = (h.allocation_category as string) || h.type || 'Other';
+        const cat = (h.allocation_category as string) || h.type || "Other";
         allocation[cat] = (allocation[cat] || 0) + Math.round(value);
         if (Number(h.prev_close) > 0) {
           hasPrevClose = true;
@@ -108,12 +128,16 @@ Deno.serve(async (req: Request) => {
         .limit(1)
         .maybeSingle();
 
-      const latestValue = latestSnap?.total_value ? Number(latestSnap.total_value) : null;
+      const latestValue = latestSnap?.total_value
+        ? Number(latestSnap.total_value)
+        : null;
 
       // Prefer per-holding prev_close (true market move for the day).
       if (hasPrevClose) {
         dayChange = Math.round(totalValue - prevCloseValue);
-        dayChangePct = prevCloseValue > 0 ? (dayChange / prevCloseValue) * 100 : 0;
+        dayChangePct = prevCloseValue > 0
+          ? (dayChange / prevCloseValue) * 100
+          : 0;
       } else if (latestValue) {
         dayChange = totalValue - latestValue;
         dayChangePct = latestValue > 0 ? (dayChange / latestValue) * 100 : 0;
@@ -122,7 +146,10 @@ Deno.serve(async (req: Request) => {
       // If the value hasn't changed, don't add a new snapshot row —
       // slide the latest snapshot's date forward instead so the history
       // doesn't accumulate duplicate-value entries.
-      if (latestValue !== null && latestValue === totalValue && latestSnap.date !== today) {
+      if (
+        latestValue !== null && latestValue === totalValue &&
+        latestSnap.date !== today
+      ) {
         const { error: slideErr } = await supabase
           .from("portfolio_snapshots")
           .update({ date: today, updated_at: new Date().toISOString() })
@@ -130,7 +157,10 @@ Deno.serve(async (req: Request) => {
           .eq("date", latestSnap.date);
 
         if (slideErr) {
-          console.error(`Failed to slide snapshot date for ${userId}:`, slideErr.message);
+          console.error(
+            `Failed to slide snapshot date for ${userId}:`,
+            slideErr.message,
+          );
         } else {
           results.push({
             user_id: userId,
@@ -157,7 +187,10 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "user_id,date" });
 
       if (upsertErr) {
-        console.error(`Failed to upsert snapshot for ${userId}:`, upsertErr.message);
+        console.error(
+          `Failed to upsert snapshot for ${userId}:`,
+          upsertErr.message,
+        );
       }
 
       results.push({
@@ -190,7 +223,10 @@ Deno.serve(async (req: Request) => {
 
           await supabase
             .from("investment_goals")
-            .update({ current_progress: goalValue, updated_at: new Date().toISOString() })
+            .update({
+              current_progress: goalValue,
+              updated_at: new Date().toISOString(),
+            })
             .eq("id", goal.id);
         }
       }
@@ -204,8 +240,10 @@ Deno.serve(async (req: Request) => {
 
         if (tokens && tokens.length > 0) {
           const roundedL = (totalValue / 100000).toFixed(1);
-          const prefix = dayChange >= 0 ? '+' : '';
-          const body = `₹${roundedL}L · ${prefix}${dayChangePct.toFixed(1)}% today`;
+          const prefix = dayChange >= 0 ? "+" : "";
+          const body = `₹${roundedL}L · ${prefix}${
+            dayChangePct.toFixed(1)
+          }% today`;
 
           for (const t of tokens) {
             await fetch("https://exp.host/--/api/v2/push/send", {
@@ -235,12 +273,12 @@ Deno.serve(async (req: Request) => {
         users: byUser.size,
         results,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 });

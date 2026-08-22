@@ -13,7 +13,8 @@
 import { createGroqClient } from "../_shared/groq.ts";
 import { createHFClient } from "../_shared/huggingface.ts";
 
-const SYSTEM_PROMPT = `You are a nutritionist AI assistant for Meridian, a personal life tracker app.
+const SYSTEM_PROMPT =
+  `You are a nutritionist AI assistant for Meridian, a personal life tracker app.
 You analyze meal photos or text descriptions and return structured food items with nutritional estimates.
 
 The user is a 23-year-old male (54kg, 170.6cm, BMI 18.5 underweight) targeting weight gain to 65kg at ~0.4 kg/week. They eat Indian home-cooked meals.
@@ -98,13 +99,13 @@ function parseResponse(raw: string) {
     const parsed = JSON.parse(jsonStr);
     const items = Array.isArray(parsed.items)
       ? parsed.items.map((item: any) => ({
-          name: String(item.name || ""),
-          quantity: String(item.quantity || ""),
-          calories: Number(item.calories || 0),
-          protein: Number(item.protein || 0),
-          carbs: Number(item.carbs || 0),
-          fat: Number(item.fat || 0),
-        }))
+        name: String(item.name || ""),
+        quantity: String(item.quantity || ""),
+        calories: Number(item.calories || 0),
+        protein: Number(item.protein || 0),
+        carbs: Number(item.carbs || 0),
+        fat: Number(item.fat || 0),
+      }))
       : [];
 
     return {
@@ -173,12 +174,17 @@ async function analyzeWithVision(
   // Step A: Vision model describes the food in natural language
   const groq = createGroqClient();
   const visionResult = await groq.completeVision({
-    systemPrompt: "You are a nutritionist. Describe every food item visible in this meal photo in detail: what dish, estimated portion size, and visible ingredients. Be specific and factual. Do NOT output JSON — just plain natural language.",
+    systemPrompt:
+      "You are a nutritionist. Describe every food item visible in this meal photo in detail: what dish, estimated portion size, and visible ingredients. Be specific and factual. Do NOT output JSON — just plain natural language.",
     messages: [
       {
         role: "user",
         content: [
-          { type: "text", text: "Describe every food item in this meal photo in detail — what each dish is, estimated portion size, and visible ingredients." },
+          {
+            type: "text",
+            text:
+              "Describe every food item in this meal photo in detail — what each dish is, estimated portion size, and visible ingredients.",
+          },
           { type: "image_url", image_url: { url: dataUri } },
         ],
       },
@@ -188,7 +194,11 @@ async function analyzeWithVision(
   });
 
   const foodDescription = visionResult.content;
-  console.log("ai-meal-log: Vision description:", foodDescription.substring(0, 150), "...");
+  console.log(
+    "ai-meal-log: Vision description:",
+    foodDescription.substring(0, 150),
+    "...",
+  );
 
   // Step B: Text model parses the description into structured JSON
   const jsonPrompt = `${SYSTEM_PROMPT}
@@ -216,8 +226,12 @@ Deno.serve(async (req: Request) => {
 
   if (!checkRateLimit()) {
     return new Response(
-      JSON.stringify(emptyResponse("Daily AI query limit reached (50/day). Try again tomorrow.")),
-      { headers: { "Content-Type": "application/json" } }
+      JSON.stringify(
+        emptyResponse(
+          "Daily AI query limit reached (50/day). Try again tomorrow.",
+        ),
+      ),
+      { headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -225,7 +239,9 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const rawImage = (body.image as string) || "";
     const text = (body.text as string)?.trim() || "";
-    const conversation = body.conversation as Array<{ role: string; content: string }> | undefined;
+    const conversation = body.conversation as
+      | Array<{ role: string; content: string }>
+      | undefined;
     const healthProfile = (body.healthProfile as string)?.trim() || "";
     const todayContext = (body.todayContext as string)?.trim() || "";
 
@@ -255,7 +271,9 @@ Deno.serve(async (req: Request) => {
       const groqText = createGroqClient();
       const messages = conversation.map((m) => ({
         role: m.role as "user" | "assistant",
-        content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+        content: typeof m.content === "string"
+          ? m.content
+          : JSON.stringify(m.content),
       }));
 
       response = await groqText.complete({
@@ -283,8 +301,12 @@ Deno.serve(async (req: Request) => {
       });
     } else {
       return new Response(
-        JSON.stringify(emptyResponse("Please provide an image, text description, or conversation.")),
-        { headers: { "Content-Type": "application/json" } }
+        JSON.stringify(
+          emptyResponse(
+            "Please provide an image, text description, or conversation.",
+          ),
+        ),
+        { headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -292,7 +314,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify(parsed),
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("ai-meal-log error:", err);
@@ -307,7 +329,7 @@ Deno.serve(async (req: Request) => {
         isComplete: true,
         error: errorMessage,
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   }
 });

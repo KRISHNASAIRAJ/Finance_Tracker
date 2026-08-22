@@ -1,6 +1,19 @@
 # Meridian — Personal Life Tracker
 
+[![CI](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/ci.yml)
+[![Deploy](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/deploy.yml/badge.svg)](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/deploy.yml)
+[![Android Release](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/android-release.yml/badge.svg)](https://github.com/KRISHNASAIRAJ/Finance_Tracker/actions/workflows/android-release.yml)
+
 Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across seven modules. Built with React Native (Expo) and Supabase, featuring offline-first sync, AI-powered insights, and Android home screen widgets.
+
+## Download APK
+
+Every push to `main` automatically builds a signed release APK and publishes it to [GitHub Releases](https://github.com/KRISHNASAIRAJ/Finance_Tracker/releases).
+
+1. Open the latest release and download `meridian-<tag>.apk`
+2. Transfer to your Android device and install (allow "install from unknown sources")
+
+Manual release: `git tag v1.0.1 && git push origin v1.0.1` — or use the **Android Release** workflow button in the Actions tab.
 
 ## Modules
 
@@ -167,6 +180,7 @@ Wealth holdings get live prices automatically:
 | API contracts | `docs/api-contracts.md` |
 | Notification flows | `docs/notification-flows.md` |
 | AI safety rules | `SAFETY.md` |
+| CI/CD pipeline | `docs/ci-cd.md` |
 
 ## Roadmap
 
