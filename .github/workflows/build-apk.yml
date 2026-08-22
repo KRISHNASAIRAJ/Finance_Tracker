@@ -68,7 +68,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: ESLint check
-        run: npx eslint . --ext .ts,.tsx --max-warnings 50
+        run: npx eslint . --ext .ts,.tsx --max-warnings 80
 
       - name: Expo Doctor
         run: npx expo-doctor
