@@ -10,8 +10,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-env:
+    name: 0 — Validate Env
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check EXPO_PUBLIC secrets
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_KITE_API_KEY: ${{ secrets.EXPO_PUBLIC_KITE_API_KEY }}
+        run: |
+          test -n "$EXPO_PUBLIC_SUPABASE_URL"      || { echo "::error::EXPO_PUBLIC_SUPABASE_URL missing"; exit 1; }
+          test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY" || { echo "::error::EXPO_PUBLIC_SUPABASE_ANON_KEY missing"; exit 1; }
+          test -n "$EXPO_PUBLIC_KITE_API_KEY"      || { echo "::error::EXPO_PUBLIC_KITE_API_KEY missing"; exit 1; }
+
   migrate-db:
     name: 1 — Database Migration
+    needs: [validate-env]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,6 +61,7 @@ jobs:
 
   smoke:
     name: 2 — Smoke Tests
+    needs: [validate-env]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -76,6 +92,7 @@ jobs:
 
   tests:
     name: 3 — Unit & Integration Tests
+    needs: [validate-env]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -99,6 +116,7 @@ jobs:
 
   e2e:
     name: 4 — E2E Tests
+    needs: [validate-env]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -122,7 +140,7 @@ jobs:
 
   build-apk:
     name: 5 — Build APK
-    needs: [migrate-db, smoke, tests, e2e]
+    needs: [validate-env, migrate-db, smoke, tests, e2e]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -163,6 +181,16 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      - name: Validate EXPO_PUBLIC env
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_KITE_API_KEY: ${{ secrets.EXPO_PUBLIC_KITE_API_KEY }}
+        run: |
+          test -n "$EXPO_PUBLIC_SUPABASE_URL"      || { echo "::error::EXPO_PUBLIC_SUPABASE_URL is empty"; exit 1; }
+          test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY" || { echo "::error::EXPO_PUBLIC_SUPABASE_ANON_KEY is empty"; exit 1; }
+          test -n "$EXPO_PUBLIC_KITE_API_KEY"      || { echo "::error::EXPO_PUBLIC_KITE_API_KEY is empty"; exit 1; }
+
       - name: Build release APK
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
@@ -174,6 +202,12 @@ jobs:
             -PappVersionCode=${{ github.run_number }} \
             -PappVersionName=1.0.${{ github.run_number }} \
             --no-daemon
+
+      - name: Verify env inlined in APK
+        run: |
+          unzip -p android/app/build/outputs/apk/release/app-release.apk assets/index.android.bundle \
+            | grep -q "https://rkmouoglorsnijmemmcd.supabase.co" \
+            || { echo "::error::Supabase URL not found in JS bundle — env not inlined"; exit 1; }
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
