@@ -1,6 +1,7 @@
 ﻿/**
  * BalanceSummaryScreen — consolidated balance summary across bank accounts
  * and credit cards with due dates and min-balance exclusions.
+ * Glass Noir UI with donut-palette section color coding.
  */
 import React, { useState } from 'react';
 import {
@@ -16,9 +17,30 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { spacing } from '../../../shared/theme/spacing';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import MonthPickerModal from '../components/MonthPickerModal';
+import BankLogo from '../../../shared/components/BankLogo';
+
+// Donut palette — same 6 colors used on the home screen cards
+const DONUT = {
+  pink: '#ffb2b9',
+  blue: '#5ee6ff',
+  coral: '#ea6479',
+  purple: '#d0bcff',
+  peach: '#ffdadc',
+  cyan: '#00cbe6',
+  red: '#FF887D',
+  amber: '#E2A45C',
+};
+
+interface SectionItem {
+  label: string;
+  value: number;
+  subtitle: string;
+  alert: boolean;
+  bank?: string;
+}
 
 const ordinalSuffix = (n: number): string => {
   if (n >= 11 && n <= 13) return 'th';
@@ -43,6 +65,11 @@ export default function BalanceSummaryScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
 
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
   const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
@@ -72,20 +99,27 @@ export default function BalanceSummaryScreen() {
       return d >= monthStart && d < nextMonthStart && (tx.type === 'expense' || tx.type === 'fuel_purchase' || tx.type === 'vehicle_service');
     });
   const monthlyExpenses = monthlyTxns.reduce((sum, tx) => sum + tx.amount, 0);
-  const monthlyTxCount = monthlyTxns.length;
 
   const formatCurrency = (paise: number) => {
     const rupees = paise / 100;
     return `₹${rupees.toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
   };
 
-  const sections = [
+  const sections: Array<{
+    title: string;
+    icon: string;
+    color: string;
+    items: SectionItem[];
+    total: number;
+    totalLabel: string;
+  }> = [
     {
       title: 'Bank Balances',
       icon: 'business-outline',
-      color: colors.stable,
+      color: DONUT.blue,
       items: accounts.map((acc) => ({
         label: acc.title,
+        bank: acc.title,
         value: acc.amount,
         subtitle: acc.amount < getMinBalanceForAccount(acc.title)
           ? `Below min ₹${(getMinBalanceForAccount(acc.title) / 100).toLocaleString('en-IN')}`
@@ -98,7 +132,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Credit Card Bills',
       icon: 'card-outline',
-      color: colors.amber,
+      color: DONUT.coral,
       items: cards.filter((c) => c.balance > 0).map((c) => ({
         label: `${c.name} •••• ${c.endingWith}`,
         value: c.balance,
@@ -111,7 +145,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Lent Money',
       icon: 'arrow-up-circle-outline',
-      color: colors.action,
+      color: DONUT.pink,
       items: receivables.filter((r) => r.type === 'lent').map((r) => ({
         label: r.personName,
         value: r.amount,
@@ -124,7 +158,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Borrowed Money',
       icon: 'arrow-down-circle-outline',
-      color: colors.attention,
+      color: DONUT.purple,
       items: receivables.filter((r) => r.type === 'borrowed').map((r) => ({
         label: r.personName,
         value: r.amount,
@@ -137,7 +171,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Fixed Expenses (Unpaid)',
       icon: 'lock-closed-outline',
-      color: colors.action,
+      color: DONUT.peach,
       items: fixedExpenses.filter((f) => f.lastPaidMonth !== currentMonthStr).map((f) => ({
         label: f.name,
         value: f.amount,
@@ -150,7 +184,7 @@ export default function BalanceSummaryScreen() {
     {
       title: 'Monthly Spends',
       icon: 'wallet-outline',
-      color: colors.primary,
+      color: DONUT.cyan,
       items: monthlyTxns
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 3)
@@ -162,7 +196,6 @@ export default function BalanceSummaryScreen() {
         })),
       total: monthlyExpenses,
       totalLabel: selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      showViewAll: monthlyTxCount > 3,
     },
   ];
 
@@ -177,35 +210,40 @@ export default function BalanceSummaryScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Net Worth Card */}
-        <View style={styles.heroCard}>
+        {/* Hero Net Worth Card — glass with gradient tint */}
+        <View style={[styles.glassPanel, styles.heroCard]}>
+          <View style={styles.heroGlow} />
           <Text style={styles.heroLabel}>Total Net Worth</Text>
           <Text style={styles.heroValue}>{formatCurrency(totalNetWorth)}</Text>
           <View style={styles.heroBreakdown}>
             <View style={styles.heroChip}>
+              <View style={[styles.heroChipDot, { backgroundColor: DONUT.blue }]} />
               <Text style={styles.heroChipLabel}>Banks</Text>
-              <Text style={styles.heroChipValue}>{formatCurrency(effectiveBalance)}</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.blue }]}>{formatCurrency(effectiveBalance)}</Text>
             </View>
             <View style={styles.heroChip}>
+              <View style={[styles.heroChipDot, { backgroundColor: DONUT.pink }]} />
               <Text style={styles.heroChipLabel}>Lent</Text>
-              <Text style={[styles.heroChipValue, { color: colors.action }]}>+{formatCurrency(totalLent)}</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.pink }]}>+{formatCurrency(totalLent)}</Text>
             </View>
             <View style={styles.heroChip}>
+              <View style={[styles.heroChipDot, { backgroundColor: DONUT.coral }]} />
               <Text style={styles.heroChipLabel}>Cards</Text>
-              <Text style={[styles.heroChipValue, { color: colors.amber }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.coral }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
             </View>
             <View style={styles.heroChip}>
+              <View style={[styles.heroChipDot, { backgroundColor: DONUT.purple }]} />
               <Text style={styles.heroChipLabel}>Fixed</Text>
-              <Text style={[styles.heroChipValue, { color: colors.action }]}>-{formatCurrency(unpaidFixedExpensesTotal)}</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.purple }]}>-{formatCurrency(unpaidFixedExpensesTotal)}</Text>
             </View>
           </View>
         </View>
 
-        {/* Sections */}
+        {/* Sections — glass cards with color-coded headers */}
         {sections.map((section) => (
-          <View key={section.title} style={styles.section}>
+          <View key={section.title} style={[styles.glassPanel, styles.section]}>
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: `${section.color}20` }]}>
+              <View style={[styles.sectionIconWrap, { backgroundColor: `${section.color}1F` }]}>
                 <Ionicons name={section.icon as any} size={18} color={section.color} />
               </View>
               <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -225,25 +263,34 @@ export default function BalanceSummaryScreen() {
             </View>
             {section.items.length > 0 && (
               <View style={styles.sectionBody}>
-                {section.items.map((item, idx) => (
-                  <View key={idx} style={[styles.itemRow, idx === section.items.length - 1 && !(section as any).showViewAll && { borderBottomWidth: 0 }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemLabel}>{item.label}</Text>
-                      {item.subtitle && (
-                        <Text style={[styles.itemSubtitle, item.alert && { color: colors.attention }]}>{item.subtitle}</Text>
-                      )}
+                {(expandedSections[section.title] ? section.items : section.items.slice(0, 3)).map((item, idx) => (
+                  <View key={idx} style={[styles.itemRow, idx === (expandedSections[section.title] ? section.items.length : Math.min(3, section.items.length)) - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={styles.itemLeft}>
+                      {item.bank && <BankLogo title={item.bank} size={30} />}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemLabel}>{item.label}</Text>
+                        {item.subtitle && (
+                          <Text style={[styles.itemSubtitle, item.alert && { color: DONUT.red }]}>{item.subtitle}</Text>
+                        )}
+                      </View>
                     </View>
-                    <Text style={[styles.itemValue, item.alert && { color: colors.attention }]}>{formatCurrency(item.value)}</Text>
+                    <Text style={[styles.itemValue, item.alert && { color: DONUT.red }]}>{formatCurrency(item.value)}</Text>
                   </View>
                 ))}
-                {(section as any).showViewAll && (
+                {section.items.length > 3 && (
                   <TouchableOpacity
                     style={styles.viewAllBtn}
-                    onPress={() => navigation.navigate('MonthlySpend' as never)}
+                    onPress={() => toggleSection(section.title)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.viewAllText}>View All ({monthlyTxCount} total)</Text>
-                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+                    <Text style={styles.viewAllText}>
+                      {expandedSections[section.title] ? 'Show Less' : `Show More (${section.items.length - 3} more)`}
+                    </Text>
+                    <Ionicons
+                      name={expandedSections[section.title] ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color={colors.primary}
+                    />
                   </TouchableOpacity>
                 )}
               </View>
@@ -258,7 +305,7 @@ export default function BalanceSummaryScreen() {
 
         {deficitsSum > 0 && (
           <View style={styles.deficitBanner}>
-            <Ionicons name="warning" size={16} color={colors.amber} />
+            <Ionicons name="warning" size={16} color={DONUT.amber} />
             <Text style={styles.deficitText}>
               Bank balance deficits: {formatCurrency(deficitsSum)} below minimum required
             </Text>
@@ -290,7 +337,7 @@ const styles = StyleSheet.create({
     height: 64,
     paddingHorizontal: spacing.containerPadding,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   backBtn: {
     width: 40,
@@ -309,71 +356,90 @@ const styles = StyleSheet.create({
     gap: spacing.stackGapLg,
     paddingBottom: 120,
   },
-  heroCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    padding: 24,
+  glassPanel: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(124, 58, 237, 0.2)',
+    borderColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  heroCard: {
+    padding: 24,
     alignItems: 'center',
     gap: 8,
+    borderColor: 'rgba(94,230,255,0.28)',
+  },
+  heroGlow: {
+    position: 'absolute',
+    top: -60,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(94,230,255,0.08)',
   },
   heroLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.6)',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
   },
   heroValue: {
     fontSize: 36,
     fontWeight: '800',
-    color: colors.onSurface,
+    color: '#FFFFFF',
     letterSpacing: -1,
   },
   heroBreakdown: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
+    gap: 10,
+    marginTop: 10,
     justifyContent: 'center',
   },
   heroChip: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     alignItems: 'center',
-    minWidth: 72,
+    minWidth: 84,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  heroChipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 4,
   },
   heroChipLabel: {
     fontSize: 10,
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.55)',
     fontWeight: '500',
     marginBottom: 2,
   },
   heroChipValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.onSurface,
+    color: '#FFFFFF',
   },
   section: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    overflow: 'hidden',
+    borderRadius: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   sectionIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -381,43 +447,48 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '700',
-    color: colors.onSurface,
+    color: '#FFFFFF',
   },
   sectionTotal: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
   sectionBody: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.02)',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.07)',
+  },
+  itemLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   itemLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.onSurface,
+    color: '#FFFFFF',
   },
   itemSubtitle: {
     fontSize: 11,
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 2,
   },
   itemValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.onSurface,
+    color: '#FFFFFF',
   },
   emptyText: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     paddingVertical: 16,
   },
@@ -425,15 +496,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.amberDim,
-    borderRadius: rounded.DEFAULT,
-    padding: 12,
+    backgroundColor: 'rgba(226,164,92,0.12)',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderColor: 'rgba(226,164,92,0.3)',
   },
   deficitText: {
     fontSize: 12,
-    color: colors.amber,
+    color: '#E2A45C',
     fontWeight: '600',
     flex: 1,
   },
@@ -443,26 +514,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   viewAllText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#FFFFFF',
   },
   monthBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: `${colors.primary}15`,
-    borderRadius: rounded.DEFAULT,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   monthBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#FFFFFF',
   },
 });

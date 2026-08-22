@@ -22,6 +22,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, BankAccount, getMinBalanceForAccount } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
+import BankLogo from '../../../shared/components/BankLogo';
 
 export default function BankAccountsScreen() {
   const navigation = useNavigation();
@@ -96,7 +97,7 @@ export default function BankAccountsScreen() {
                   <View style={styles.accountRowTop}>
                     <View style={styles.accountLeft}>
                       <View style={[styles.iconWrapper, { backgroundColor: `${colors.primary}15` }]}>
-                        <Ionicons name="business-outline" size={18} color={colors.primary} />
+                        <BankLogo title={acc.title} size={34} />
                       </View>
                       <View>
                         <Text style={styles.accountTitle}>{acc.title}</Text>

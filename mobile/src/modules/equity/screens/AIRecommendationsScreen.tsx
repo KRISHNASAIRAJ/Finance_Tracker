@@ -23,7 +23,6 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
 import { askPortfolioRecommend } from '../../../services/aiServices';
-import { saveAIChatToFile } from '../../../services/chatExportService';
 
 export default function AIRecommendationsScreen() {
   const navigation = useNavigation();
@@ -34,6 +33,71 @@ export default function AIRecommendationsScreen() {
 
   const scrollToEnd = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  const getSuggestionPrompts = (): string[] => {
+    const lastUser = [...chatHistory].reverse().find((m) => m.sender === 'user')?.text ?? '';
+    const lower = lastUser.toLowerCase();
+    const prompts: string[] = [];
+
+    if (
+      lower.includes('hospital') ||
+      lower.includes('fundamental') ||
+      lower.includes('arpob') ||
+      lower.includes('healthcare') ||
+      lower.includes('apollo') ||
+      lower.includes('max health') ||
+      lower.includes('yatharth') ||
+      lower.includes('fortis') ||
+      lower.includes('narayana') ||
+      lower.includes('kims') ||
+      lower.includes('rainbow') ||
+      lower.includes('aster')
+    ) {
+      prompts.push(
+        'Which hospital stock is a good high-risk/high-reward pick?',
+        'Compare the payer mix and expansion plans of two hospital stocks',
+        'What red flags should I watch for hospital stocks this quarter?',
+        'Is this hospital stock a good buy after its capex-driven decline?'
+      );
+    } else if (lower.includes('sell') || lower.includes('exit')) {
+      prompts.push(
+        'Which of my holdings have the worst P&L?',
+        'What are the tax implications of selling (STCG/LTCG)?',
+        'What should I do with my losing positions?'
+      );
+    } else if (
+      lower.includes('buy') ||
+      lower.includes('add') ||
+      lower.includes('diversif') ||
+      lower.includes('allocate')
+    ) {
+      prompts.push(
+        'What is my current concentration risk?',
+        'How much should I allocate to each asset class?',
+        'Suggest stocks across different sectors to diversify'
+      );
+    } else {
+      prompts.push(
+        'Review my portfolio and suggest rebalancing',
+        'What stocks should I add next to diversify?',
+        'Am I on track with my investment goals?'
+      );
+    }
+
+    const topHolding = [...holdings]
+      .sort((a, b) => b.quantity * b.currentPrice - a.quantity * a.currentPrice)[0];
+    if (topHolding) {
+      prompts.push(
+        `Is ${topHolding.name} too big a part of my portfolio?`,
+        `Analyze ${topHolding.name} fundamentals`
+      );
+    }
+    if (goals.length > 0) {
+      prompts.push(`Am I on track to reach ${goals[0].name}?`);
+    }
+
+    return [...new Set(prompts)].slice(0, 4);
   };
 
   const handleSend = async () => {
@@ -61,10 +125,11 @@ export default function AIRecommendationsScreen() {
           target: g.target,
           current: g.current,
           dueDate: g.dueDate,
-        }))
+        })),
+        query
       );
 
-      let reply = result.summary;
+      let reply = result.question || result.summary || 'No analysis returned. Please try again.';
       if (result.recommendations.length > 0) {
         const recs = result.recommendations.map(
           r => `\n\n• ${r.asset}: ${r.action.toUpperCase()} — ${r.reason}`
@@ -82,36 +147,20 @@ export default function AIRecommendationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.disclaimerBanner}>
-        <Ionicons name="alert-circle" size={16} color={colors.onPrimaryContainer} />
-        <Text style={styles.disclaimerText}>
-          AI recommendations are suggestions only. Not investment advice.
-        </Text>
-      </View>
-
       <View style={styles.appBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>AI Portfolio Advisor</Text>
-          <Text style={styles.headerSubtitle}>Goal-aware allocations · Groq Llama 3.3</Text>
-        </View>
-        <View style={{ width: 40 }}>
-          {chatHistory.length > 0 && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => saveAIChatToFile(
-                chatHistory.map((m) => ({ role: m.sender, text: m.text, date: m.date })),
-                'Portfolio AI Chat'
-              )}
-            >
-              <Ionicons name="download-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
       <ScrollView
         ref={scrollRef}
         style={styles.chatScroll}
@@ -123,7 +172,8 @@ export default function AIRecommendationsScreen() {
             <Ionicons name="sparkles" size={28} color={colors.outline} />
             <Text style={styles.emptyTitle}>AI Portfolio Advisor</Text>
             <Text style={styles.emptySub}>
-              Ask about rebalancing, diversification, or goal progress.{'\n'}
+              Ask about rebalancing, diversification, goal progress,{'\n'}
+              or run a fundamental analysis on a specific stock.{'\n'}
               Your holdings and goals will be analyzed.
             </Text>
           </View>
@@ -136,6 +186,8 @@ export default function AIRecommendationsScreen() {
               'What stocks should I add next to diversify?',
               'Am I on track with my investment goals?',
               'Any stocks I should consider selling?',
+              'Analyze a hospital stock fundamentally (ARPOB, payer mix, expansion)',
+              'Fundamental analysis: what metrics matter for hospital stocks?',
             ].map((q, i) => (
               <TouchableOpacity
                 key={i}
@@ -174,12 +226,22 @@ export default function AIRecommendationsScreen() {
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         )}
+        {chatHistory.length > 0 && !loading && (
+          <View style={styles.quickActions}>
+            <Text style={styles.suggestLabel}>SUGGESTED</Text>
+            {getSuggestionPrompts().map((q, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.quickChip}
+                onPress={() => { setInputText(q); }}
+              >
+                <Text style={styles.quickChipText}>{q}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.inputField}
@@ -212,21 +274,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
-  disclaimerBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.primaryContainer,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  disclaimerText: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.onPrimaryContainer,
-    fontWeight: '700',
-    lineHeight: 14,
-  },
   appBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -240,17 +287,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.onSurface,
   },
-  headerSubtitle: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
   iconButton: {
     padding: 8,
     borderRadius: rounded.full,
     marginRight: 8,
   },
   chatScroll: {
+    flex: 1,
+  },
+  flex: {
     flex: 1,
   },
   chatContent: {
@@ -342,6 +387,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 6,
     marginBottom: 8,
+  },
+  suggestLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   quickChip: {
     backgroundColor: colors.surface,

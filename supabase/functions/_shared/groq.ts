@@ -59,25 +59,52 @@ export function createGroqClient(config?: GroqConfig) {
       messages: Array<{ role: "user" | "assistant"; content: string }>;
       maxTokens?: number;
       temperature?: number;
+      jsonMode?: boolean;
     }): Promise<string> {
       const messages = [
         { role: "system" as const, content: params.systemPrompt },
         ...params.messages,
       ];
 
-      const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const maxTokens = params.maxTokens ?? 1024;
+
+      const reqBody: Record<string, unknown> = {
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature: params.temperature ?? 0.7,
+      };
+
+      if (params.jsonMode) {
+        reqBody.response_format = { type: "json_object" };
+      }
+
+      const postBody = JSON.stringify(reqBody);
+
+      let resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          max_tokens: params.maxTokens ?? 1024,
-          temperature: params.temperature ?? 0.7,
-        }),
+        body: postBody,
       });
+
+      // Retry on rate limit (429) with backoff, up to 3 attempts
+      let attempts = 0;
+      while (resp.status === 429 && attempts < 3) {
+        attempts += 1;
+        const retryAfter = Number(resp.headers.get("retry-after")) || 5;
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+        resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: postBody,
+        });
+      }
 
       const body = await resp.json();
 

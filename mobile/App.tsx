@@ -22,7 +22,7 @@ import { registerSyncTask } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { seedGarageData } from './src/modules/garage/store';
-import { seedFixedExpenseFixes } from './src/modules/finance/store';
+import { seedFixedExpenseFixes, seedCardAmcFixes } from './src/modules/finance/store';
 
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
@@ -49,6 +49,7 @@ export default function App() {
     registerSyncTask();
     seedGarageData();
     seedFixedExpenseFixes();
+    seedCardAmcFixes();
     requestNotificationPermission().then(() => {
       scheduleAllReminders();
       setTimeout(() => promptBatteryOptimization(), 3000);

@@ -260,6 +260,56 @@ export async function scheduleAllReminders() {
       }
     }
 
+    // Credit card annual maintenance charge (AMC) reminders — 30 days before,
+    // 7 days before, and on the due date (LTF cards get no reminder).
+    for (const card of (cards || [])) {
+      const amc = card.annualCharge ?? 0;
+      if (amc <= 0 || card.isLtf || !card.annualChargeDate) continue;
+      const acDate = new Date(card.annualChargeDate);
+      if (isNaN(acDate.getTime())) continue;
+
+      const now = istNow();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Compute the next occurrence of this month+day
+      const nextAc = new Date(now.getFullYear(), acDate.getMonth(), acDate.getDate(), 9, 0, 0);
+      if (nextAc < todayStart) {
+        nextAc.setFullYear(now.getFullYear() + 1);
+      }
+
+      const cardName = card.name;
+      const amcStr = `\u20B9${(amc / 100).toLocaleString('en-IN')}`;
+      const dueStr = acDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+      const remind30d = new Date(nextAc.getTime() - 30 * 86400000);
+      if (remind30d > now) {
+        await scheduleLocal(
+          `\u{1F4B3} ${cardName} AMC Due in 1 Month`,
+          `${amcStr} annual charges due on ${dueStr}. Start getting ready!`,
+          remind30d,
+          'bills_due'
+        );
+      }
+
+      const remind7d = new Date(nextAc.getTime() - 7 * 86400000);
+      if (remind7d > now) {
+        await scheduleLocal(
+          `\u{1F4B3} ${cardName} AMC Due Soon`,
+          `${amcStr} annual charges due on ${dueStr} (in 1 week).`,
+          remind7d,
+          'bills_due'
+        );
+      }
+
+      if (nextAc > now) {
+        await scheduleLocal(
+          `\u{1F4B3} ${cardName} AMC Due Today`,
+          `${amcStr} annual charges due today (${dueStr}).`,
+          nextAc,
+          'bills_due'
+        );
+      }
+    }
+
     // Lent/Borrowed reminders — at 10 AM and 8:30 PM on the due date, then recurring if overdue
     for (const rec of (receivables || [])) {
       if (rec.status === 'paid') continue;
