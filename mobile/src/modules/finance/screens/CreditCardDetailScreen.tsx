@@ -24,6 +24,8 @@ import { useFinanceStore } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
+import CardBrandLogo from '../../../shared/components/CardBrandLogo';
+import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type DetailRouteProp = RouteProp<FinanceStackParamList, 'CreditCardDetail'>;
 
@@ -45,10 +47,20 @@ export default function CreditCardDetailScreen() {
   const { cardId } = route.params;
   const { cards, transactions } = useFinanceStore() as any;
   const markCardBillPaid = useFinanceStore((s: any) => s.markCardBillPaid);
+  const editCard = useFinanceStore((s: any) => s.editCard);
   const { user } = require('../../../services/AuthProvider').useAuth();
 
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentInput, setPaymentInput] = useState('');
+  const [showEditAmountModal, setShowEditAmountModal] = useState(false);
+  const [editAmountInput, setEditAmountInput] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsBillingDay, setSettingsBillingDay] = useState('');
+  const [settingsAmc, setSettingsAmc] = useState('');
+  const [settingsAcDate, setSettingsAcDate] = useState(new Date());
+  const [settingsAcCalendarVisible, setSettingsAcCalendarVisible] = useState(false);
+  const [settingsDueDate, setSettingsDueDate] = useState(new Date());
+  const [settingsDueCalendarVisible, setSettingsDueCalendarVisible] = useState(false);
 
   const card = (cards as any[]).find((c: any) => c.id === cardId);
 
@@ -81,6 +93,38 @@ export default function CreditCardDetailScreen() {
   const formatCurrency = (paise: number) =>
     `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
+  const formatOrdinal = (day: number) => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = day % 100;
+    return `${day}${s[(v - 20) % 10] || s[v] || s[0]}`;
+  };
+
+  const openSettingsPanel = () => {
+    setSettingsBillingDay((card.billingDay || 1).toString());
+    setSettingsAmc(((card.annualCharge ?? 0) / 100).toString());
+    setSettingsAcDate(card.annualChargeDate ? new Date(card.annualChargeDate) : new Date());
+    setSettingsDueDate(new Date(card.dueDate));
+    setShowSettings((prev) => !prev);
+  };
+
+  const saveSettings = () => {
+    const billingDay = parseInt(settingsBillingDay, 10);
+    if (isNaN(billingDay) || billingDay < 1 || billingDay > 31) {
+      alert('Enter a valid billing day (1-31)');
+      return;
+    }
+    const amc = Math.round(parseFloat(settingsAmc) * 100);
+    const finalAmc = isNaN(amc) || amc < 0 ? 0 : amc;
+    editCard(cardId, {
+      billingDay,
+      dueDate: settingsDueDate.toISOString(),
+      annualCharge: finalAmc,
+      annualChargeDate: settingsAcDate.toISOString(),
+      isLtf: finalAmc <= 0,
+    }, user?.id);
+    setShowSettings(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
@@ -88,7 +132,9 @@ export default function CreditCardDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.appBarTitle} numberOfLines={1}>{card.name}</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={styles.iconButton} onPress={openSettingsPanel}>
+          <Ionicons name="settings-outline" size={24} color={showSettings ? colors.primary : colors.onSurfaceVariant} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -106,14 +152,23 @@ export default function CreditCardDetailScreen() {
                   <Text style={styles.heroBank}>{card.bank}</Text>
                 ) : null}
               </View>
-              <View style={[styles.networkBadge, { borderColor: accent }]}>
-                <Text style={[styles.networkBadgeText, { color: accent }]}>{card.network}</Text>
-              </View>
+              <CardBrandLogo network={card.network || ''} size={44} />
             </View>
 
             <View style={styles.heroStats}>
               <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>OUTSTANDING</Text>
+                <View style={styles.heroStatLabelRow}>
+                  <Text style={styles.heroStatLabel}>OUTSTANDING</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditAmountInput((card.balance / 100).toString());
+                      setShowEditAmountModal(true);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
                 <Text style={[styles.heroStatValue, { color: accent }]}>
                   {formatCurrency(card.balance)}
                 </Text>
@@ -167,7 +222,7 @@ export default function CreditCardDetailScreen() {
               <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
               <View>
                 <Text style={styles.infoLabel}>Billing Date</Text>
-                <Text style={styles.infoValue}>{card.billingDay}th of every month</Text>
+                <Text style={styles.infoValue}>{formatOrdinal(card.billingDay ?? 1)}</Text>
               </View>
             </View>
             <View style={styles.infoItem}>
@@ -179,6 +234,121 @@ export default function CreditCardDetailScreen() {
             </View>
           </View>
         </View>
+
+        {/* Annual Charges */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Annual Charges</Text>
+            {(card.annualCharge ?? 0) > 0 ? (
+              <Text style={[styles.sectionValue, { color: colors.amber }]}>
+                {formatCurrency(card.annualCharge)}
+              </Text>
+            ) : (
+              <Text style={[styles.sectionValue, { color: colors.success }]}>LTF</Text>
+            )}
+          </View>
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <Ionicons name="pricetag-outline" size={16} color={colors.onSurfaceVariant} />
+              <View>
+                <Text style={styles.infoLabel}>Annual Charges Date</Text>
+                <Text style={styles.infoValue}>
+                  {card.annualChargeDate
+                    ? new Date(card.annualChargeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                    : 'Not set'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="shield-checkmark-outline" size={16} color={colors.onSurfaceVariant} />
+              <View>
+                <Text style={styles.infoLabel}>Status</Text>
+                <Text style={[styles.infoValue, { color: (card.annualCharge ?? 0) > 0 ? colors.amber : colors.success }]}>
+                  {(card.annualCharge ?? 0) > 0 ? 'Charged' : 'Lifetime Free'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Inline Card Settings */}
+        {showSettings && (
+          <View style={styles.settingsPanel}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Edit Card Details</Text>
+            </View>
+
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.settingsInputLabel}>BILLING DAY</Text>
+                <TextInput
+                  style={styles.settingsTextInput}
+                  value={settingsBillingDay}
+                  onChangeText={setSettingsBillingDay}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  placeholder="15"
+                  placeholderTextColor={colors.outline}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.settingsInputLabel}>ANNUAL CHARGES (₹)</Text>
+                <TextInput
+                  style={styles.settingsTextInput}
+                  value={settingsAmc}
+                  onChangeText={setSettingsAmc}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={colors.outline}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.settingsInputLabel}>DUE DATE</Text>
+                <TouchableOpacity
+                  style={styles.settingsDateTrigger}
+                  onPress={() => setSettingsDueCalendarVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+                  <Text style={styles.settingsDateText}>
+                    {settingsDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.settingsInputLabel}>AC DATE</Text>
+                <TouchableOpacity
+                  style={styles.settingsDateTrigger}
+                  onPress={() => setSettingsAcCalendarVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+                  <Text style={styles.settingsDateText}>
+                    {settingsAcDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.settingsButtons}>
+              <TouchableOpacity
+                style={[styles.settingsBtn, styles.settingsBtnCancel]}
+                onPress={() => setShowSettings(false)}
+              >
+                <Text style={styles.settingsBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.settingsBtn, styles.settingsBtnSave]}
+                onPress={saveSettings}
+              >
+                <Text style={styles.settingsBtnSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Bill Payment */}
         <View style={styles.section}>
@@ -223,7 +393,7 @@ export default function CreditCardDetailScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="card-outline" size={18} color={colors.textPrimary} />
+            <Ionicons name="card-outline" size={18} color={colors.textInverse} />
             <Text style={styles.payButtonText}>Pay Bill</Text>
           </TouchableOpacity>
         </View>
@@ -267,6 +437,48 @@ export default function CreditCardDetailScreen() {
         </View>
       </ScrollView>
 
+      <Modal visible={showEditAmountModal} transparent animationType="fade" onRequestClose={() => setShowEditAmountModal(false)}>
+        <View style={styles.payModalOverlay}>
+          <View style={styles.payModalContent}>
+            <Text style={styles.payModalTitle}>Update Outstanding — {card.name}</Text>
+            <Text style={styles.payModalSub}>
+              Set the latest outstanding balance from your bank app
+            </Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.payInputLabel}>LATEST OUTSTANDING AMOUNT (₹)</Text>
+              <TextInput
+                style={styles.payTextInput}
+                value={editAmountInput}
+                onChangeText={setEditAmountInput}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.outline}
+                autoFocus
+              />
+            </View>
+            <View style={styles.payModalButtons}>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnCancel]}
+                onPress={() => setShowEditAmountModal(false)}
+              >
+                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                onPress={() => {
+                  const amount = Math.round(parseFloat(editAmountInput) * 100);
+                  if (isNaN(amount) || amount < 0) { alert('Enter a valid amount'); return; }
+                  editCard(cardId, { balance: amount, currentOutstanding: amount }, user?.id);
+                  setShowEditAmountModal(false);
+                }}
+              >
+                <Text style={styles.payModalBtnSaveText}>Update Amount</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={showPayModal} transparent animationType="fade" onRequestClose={() => setShowPayModal(false)}>
         <View style={styles.payModalOverlay}>
           <View style={styles.payModalContent}>
@@ -308,6 +520,9 @@ export default function CreditCardDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <CalendarPicker visible={settingsDueCalendarVisible} selected={settingsDueDate} onSelect={setSettingsDueDate} onClose={() => setSettingsDueCalendarVisible(false)} />
+      <CalendarPicker visible={settingsAcCalendarVisible} selected={settingsAcDate} onSelect={setSettingsAcDate} onClose={() => setSettingsAcCalendarVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -343,15 +558,9 @@ const styles = StyleSheet.create({
   heroName: { fontSize: 20, fontWeight: '800', color: colors.onSurface },
   heroNumber: { fontSize: 13, color: colors.onSurfaceVariant, marginTop: 2 },
   heroBank: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2, textTransform: 'uppercase' },
-  networkBadge: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  networkBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   heroStats: { flexDirection: 'row', gap: 24 },
   heroStat: { flex: 1 },
+  heroStatLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   heroStatLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
   heroStatValue: { fontSize: 24, fontWeight: '800', marginTop: 2 },
   heroDueDays: { fontSize: 12, fontWeight: '500', marginTop: 2 },
@@ -394,7 +603,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     marginTop: 8,
   },
-  payButtonText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  payButtonText: { fontSize: 15, fontWeight: '700', color: colors.textInverse },
   payModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
   payModalContent: {
     backgroundColor: colors.surface,
@@ -426,4 +635,43 @@ const styles = StyleSheet.create({
   payModalBtnSave: { backgroundColor: colors.primaryContainer },
   payModalBtnCancelText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
   payModalBtnSaveText: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
+  settingsPanel: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: spacing.cardPadding,
+    gap: 12,
+  },
+  inputRow: { flexDirection: 'row', gap: 12 },
+  settingsInputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  settingsTextInput: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    height: 44,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  settingsDateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    height: 44,
+    paddingHorizontal: 10,
+  },
+  settingsDateText: { fontSize: 12, color: colors.onSurface, fontWeight: '600' },
+  settingsButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  settingsBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
+  settingsBtnCancel: { backgroundColor: colors.primaryFixedDim },
+  settingsBtnSave: { backgroundColor: colors.primaryContainer },
+  settingsBtnCancelText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
+  settingsBtnSaveText: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
 });

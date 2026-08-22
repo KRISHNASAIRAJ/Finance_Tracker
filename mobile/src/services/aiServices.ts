@@ -196,18 +196,20 @@ export interface PortfolioRecResponse {
     reason: string;
     priority: string;
   }>;
+  question?: string;
   disclaimer: string;
   error?: string;
 }
 
 export async function askPortfolioRecommend(
   holdings: PortfolioHolding[],
-  goals: PortfolioGoal[]
+  goals: PortfolioGoal[],
+  query?: string
 ): Promise<PortfolioRecResponse> {
-  const allowed = await checkDailyLimit('meridian_ai_portfolio_calls', 10);
+  const allowed = await checkDailyLimit('meridian_ai_portfolio_calls', 50);
   if (!allowed) {
     return {
-      summary: 'You\'ve reached the daily portfolio recommendation limit (10/day).',
+      summary: 'You\'ve reached the daily portfolio recommendation limit (50/day).',
       recommendations: [],
       disclaimer: 'For informational purposes only. This is not investment advice.',
     };
@@ -215,19 +217,34 @@ export async function askPortfolioRecommend(
 
   try {
     const { data, error } = await supabase.functions.invoke('ai-portfolio-recommend', {
-      body: { holdings, goals },
+      body: { holdings, goals, query },
     });
 
     if (error || !data) {
+      let body: Partial<PortfolioRecResponse> = {};
+      if (error && typeof (error as any).context?.json === 'function') {
+        try {
+          body = await (error as any).context.json();
+        } catch {
+          body = {};
+        }
+      }
       return {
-        summary: 'Sorry, I couldn\'t analyze your portfolio. Please try again.',
-        recommendations: [],
-        disclaimer: 'For informational purposes only. This is not investment advice.',
+        summary: body.summary || 'Sorry, I couldn\'t analyze your portfolio. Please try again.',
+        recommendations: body.recommendations || [],
+        question: body.question,
+        disclaimer: body.disclaimer || 'For informational purposes only. This is not investment advice.',
         error: error?.message,
       };
     }
 
-    return data as PortfolioRecResponse;
+    const result = data as PortfolioRecResponse;
+    return {
+      summary: result.summary || 'Analysis complete.',
+      recommendations: Array.isArray(result.recommendations) ? result.recommendations : [],
+      question: result.question,
+      disclaimer: result.disclaimer || 'For informational purposes only. This is not investment advice.',
+    };
   } catch (e: any) {
     return {
       summary: 'Sorry, the AI service is temporarily unavailable.',

@@ -185,7 +185,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('MonthlySpend')}
             activeOpacity={0.85}
           >
-            <Ionicons name="wallet-outline" size={26} color={colors.onSurface} />
+            <Ionicons name="pricetags-outline" size={26} color="#ffb2b9" />
             <Text style={styles.statValue}>{formatCompact(monthlyExpenses)}</Text>
             <Text style={styles.statLabel}>Monthly Spends</Text>
           </TouchableOpacity>
@@ -195,7 +195,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('CreditCards')}
             activeOpacity={0.85}
           >
-            <Ionicons name="receipt-outline" size={26} color={colors.onSurface} />
+            <Ionicons name="receipt-outline" size={26} color="#5ee6ff" />
             <Text style={styles.statValue}>{formatCompact(cardOutstandingTotal)}</Text>
             <Text style={styles.statLabel}>CC Bills</Text>
           </TouchableOpacity>
@@ -205,7 +205,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('BankAccounts')}
             activeOpacity={0.85}
           >
-            <Ionicons name="business-outline" size={26} color={colors.onSurface} />
+            <Ionicons name="business-outline" size={26} color="#ea6479" />
             <Text style={styles.statValue}>{formatCompact(totalBalance)}</Text>
             <Text style={styles.statLabel}>Bank Acc</Text>
           </TouchableOpacity>
@@ -215,7 +215,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('LentBorrowed')}
             activeOpacity={0.85}
           >
-            <Ionicons name="people-outline" size={26} color={colors.onSurface} />
+            <Ionicons name="people-outline" size={26} color="#d0bcff" />
             <Text style={styles.statValue}>{formatCompact(totalLent)}</Text>
             <Text style={styles.statLabel}>Net Lent/Debit</Text>
           </TouchableOpacity>
@@ -228,7 +228,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('FixedExpenses')}
             activeOpacity={0.85}
           >
-            <Ionicons name="lock-closed-outline" size={26} color={colors.onSurface} />
+            <Ionicons name="lock-closed-outline" size={26} color="#ffdadc" />
             <Text style={styles.statValue}>{formatCompact(unpaidFixedExpensesTotal)}</Text>
             <Text style={styles.statLabel}>Fixed Exp</Text>
           </TouchableOpacity>
@@ -238,10 +238,9 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('PayzappWallet')}
             activeOpacity={0.85}
           >
-            <Ionicons name="wallet" size={26} color={colors.onSurface} />
+            <Ionicons name="wallet" size={26} color="#00cbe6" />
             <Text style={styles.statValue}>{formatCompact(payzappMonthlyLoad)}</Text>
             <Text style={styles.statLabel}>Wallets</Text>
-            <Text style={styles.statSub}>{formatCompact(PAYZAPP_MONTHLY_CAP)} max</Text>
           </TouchableOpacity>
         </View>
 
