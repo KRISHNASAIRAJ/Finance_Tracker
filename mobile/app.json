@@ -43,7 +43,8 @@
           "sounds": []
         }
       ],
-      "expo-updates"
+      "expo-updates",
+      "expo-font"
     ],
     "updates": {
       "url": "https://u.expo.dev/cf70f456-c860-412c-8692-d26ee19926c3",

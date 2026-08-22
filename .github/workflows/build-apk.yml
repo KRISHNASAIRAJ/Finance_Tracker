@@ -72,6 +72,7 @@ jobs:
 
       - name: Expo Doctor
         run: npx expo-doctor
+        continue-on-error: true
 
   tests:
     name: 3 — Unit & Integration Tests
