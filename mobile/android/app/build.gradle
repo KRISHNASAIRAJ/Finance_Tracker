@@ -96,7 +96,7 @@ android {
         applicationId 'com.krishnasairaj.meridian'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode (System.getenv("VERSION_CODE") ?: findProperty('versionCode') ?: 1) as int
+        versionCode ((System.getenv("VERSION_CODE") ?: findProperty('versionCode') ?: 1) as int)
         versionName System.getenv("VERSION_NAME") ?: findProperty('versionName') ?: "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
