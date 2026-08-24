@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../shared/theme/colors';
 import { useFinanceStore } from '../modules/finance/store';
 import { GarageSyncInitializer } from '../modules/garage/hooks/useGarageSync';
+import AppSyncInitializer from '../services/AppSyncInitializer';
 
 // Onboarding Screens
 import WelcomeSplashScreen from '../modules/personal/screens/WelcomeSplashScreen';
@@ -363,7 +364,12 @@ export default function RootNavigator() {
 
   return (
     <>
-      {isOnboarded && <GarageSyncInitializer />}
+      {isOnboarded && (
+        <>
+          <GarageSyncInitializer />
+          <AppSyncInitializer />
+        </>
+      )}
       <RootStack.Navigator
       screenOptions={{
         headerShown: false,

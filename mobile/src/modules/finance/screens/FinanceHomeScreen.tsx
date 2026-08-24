@@ -26,6 +26,7 @@ import CategoryIcon from '../../../shared/CategoryIcon';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
+import { useFinanceSync } from '../hooks/useFinanceSync';
 import DraggableFab from '../../../shared/components/DraggableFab';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
@@ -33,6 +34,9 @@ type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceH
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const garageFills = useGarageStore((s) => s.fills);
+  // Mounts the finance sync hook — pulls cloud data into the store on mount
+  // (critical on fresh installs, where the local store is empty)
+  useFinanceSync();
   const {
     transactions,
     cards,

@@ -40,8 +40,26 @@ export function useFinanceSync() {
 
   useEffect(() => {
     if (!user || synced.current) return;
-    synced.current = true;
-    doFullSync(user.id);
+
+    const hydrateAndSync = () => {
+      if (synced.current) return;
+      synced.current = true;
+      doFullSync(user.id);
+    };
+
+    // Wait for store hydration before pulling — otherwise a fresh install
+    // (empty persisted store) or slow hydration could race the pull and
+    // leave the store empty even though cloud has data.
+    const storeModule = require("../store");
+    const store = storeModule.useFinanceStore;
+    if (store.persist && store.persist.hasHydrated && store.persist.hasHydrated()) {
+      hydrateAndSync();
+    } else if (store.persist && store.persist.onFinishHydration) {
+      const unsub = store.persist.onFinishHydration(() => hydrateAndSync());
+      return unsub;
+    } else {
+      hydrateAndSync();
+    }
   }, [user]);
 
   const pullFromCloud = useCallback(async () => {
