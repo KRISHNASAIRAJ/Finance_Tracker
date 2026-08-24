@@ -18,7 +18,7 @@ export function BalanceSummaryPage() {
   const { data: txns } = useTransactions(userId)
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
-  const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.current_outstanding ?? c.balance ?? 0), 0)
+  const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
 
   const lentOut = useMemo(
     () =>
@@ -112,7 +112,7 @@ export function BalanceSummaryPage() {
           <CardBody className="space-y-3">
             {(cards ?? []).length === 0 && <p className="text-sm text-white/30 py-4 text-center">No credit cards</p>}
             {(cards ?? []).map((c) => {
-              const outstanding = c.current_outstanding ?? c.balance ?? 0
+              const outstanding = c.balance ?? c.current_outstanding ?? 0
               return (
                 <div key={c.id} className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
                   <div>

@@ -16,6 +16,7 @@ export interface Transaction {
   notes?: string;
   source: 'manual' | 'kite_sync';
   paymentMode?: string; // 'upi' | 'card' | 'cash' | 'bank'
+  linkedCardId?: string;
 }
 
 export interface CreditCard {
@@ -492,6 +493,7 @@ export const useFinanceStore = create<FinanceState>()(
             category: 'Credit Card Bill',
             notes: `${card.name} — Bill Paid`,
             source: 'manual',
+            linkedCardId: card.id,
           };
 
           set((state) => ({
@@ -507,7 +509,7 @@ export const useFinanceStore = create<FinanceState>()(
             id: generatedTxId, type: 'credit_card_bill', amount: billAmt,
             currency: 'INR', date: new Date().toISOString(),
             category: 'Credit Card Bill', notes: `${card.name} — Bill Paid`,
-            source: 'manual', user_id: userId || null,
+            source: 'manual', user_id: userId || null, linked_card_id: card.id,
           });
           enqFlush('credit_cards', 'update', {
             id, user_id: userId || null, due_date: nextDueDate.toISOString(),

@@ -83,7 +83,7 @@ export function CreditCardsPage() {
     setDeleting(null)
   }
 
-  const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.current_outstanding ?? c.balance ?? 0), 0)
+  const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
 
   return (
     <div className="fade-up space-y-5">
@@ -110,7 +110,7 @@ export function CreditCardsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(cards ?? []).map((c) => {
-            const outstanding = c.current_outstanding ?? c.balance ?? 0
+            const outstanding = c.balance ?? c.current_outstanding ?? 0
             const limit = c.card_limit
             const usagePct = limit && limit > 0 ? Math.round((outstanding / limit) * 100) : 0
             return (
@@ -192,8 +192,8 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
   if (!card) return <Skeleton className="h-64 w-full" />
 
   const cardTxns = (txns ?? []).filter((t) => t.linked_card_id === cardId || t.notes?.includes(card.name)).slice(0, 20)
-  const outstanding = card.current_outstanding ?? card.balance ?? 0
-  const billAmount = card.bill_amount ?? 0
+  const outstanding = card.balance ?? card.current_outstanding ?? 0
+  const billAmount = card.bill_amount ?? card.balance ?? 0
   const paidAmount = card.paid_amount ?? 0
   const dueSoon = card.due_date && new Date(card.due_date).getTime() < Date.now() + 7 * 86400000
 

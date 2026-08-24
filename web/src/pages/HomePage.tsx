@@ -45,7 +45,7 @@ export function HomePage() {
   const { data: holdings } = useHoldings(userId)
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
-  const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.current_outstanding ?? c.balance ?? 0), 0)
+  const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
   const portfolioValue = (holdings ?? []).reduce(
     (s, h) => s + (h.current_value ?? (h.quantity * (h.current_price ?? 0))),
     0
@@ -57,9 +57,23 @@ export function HomePage() {
     () => (txns ?? []).filter((t) => t.date.slice(0, 7) === monthKey),
     [txns, monthKey]
   )
-  const monthSpend = monthTxns
-    .filter((t) => ['expense', 'fuel_purchase', 'vehicle_service', 'fixed_expense'].includes(t.type))
-    .reduce((s, t) => s + t.amount, 0)
+  const monthSpend = useMemo(() => {
+    // Same as mobile app's getMonthlyExpenses() — excludes fixed exp names,
+    // rent/sip/wallet categories, and non-spend types
+    const excluded = new Set([
+      'rent', 'sip', 'investments', 'housing', 'wallet loads', 'wallet load',
+      ...(fixed ?? []).map((f) => f.name.toLowerCase()),
+    ])
+    const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service'])
+    return (txns ?? [])
+      .filter(
+        (t) =>
+          t.date.slice(0, 7) === monthKey &&
+          spendTypes.has(t.type) &&
+          !excluded.has(t.category.toLowerCase())
+      )
+      .reduce((s, t) => s + t.amount, 0)
+  }, [txns, monthKey, fixed])
   const monthIncome = monthTxns
     .filter((t) => t.type === 'income')
     .reduce((s, t) => s + t.amount, 0)

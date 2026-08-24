@@ -28,7 +28,7 @@ export function CombinedReportPage() {
   const { data: maintenanceLogs } = useMaintenanceLogs(userId)
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
-  const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.current_outstanding ?? c.balance ?? 0), 0)
+  const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
   const portfolioValue = (holdings ?? []).reduce((s, h) => s + (h.current_value ?? (h.quantity * (h.current_price ?? 0))), 0)
   const lentOutstanding = (receivables ?? [])
     .filter((r) => r.type === 'lent' && r.status !== 'paid')

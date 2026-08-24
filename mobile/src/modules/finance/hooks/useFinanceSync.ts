@@ -154,6 +154,8 @@ const TABLE_MAP: SyncTable[] = [
         id: t.id, user_id: userId, type: t.type, amount: t.amount,
         currency: t.currency, date: t.date, category: t.category,
         notes: t.notes ?? null, source: t.source,
+        payment_mode: t.paymentMode ?? null,
+        linked_card_id: (t as any).linkedCardId ?? null,
       }));
     },
   },
