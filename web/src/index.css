@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* ─── Meridian Web — Tracend design system (ported from mobile) ─── */
+@theme {
+  --color-canvas: #000000;
+  --color-surface: #101010;
+  --color-raised: #1a1a1a;
+  --color-elevated: #202020;
+  --color-bright: #262626;
+
+  --color-ink: #ffffff;
+  --color-ink-dim: rgba(255, 255, 255, 0.7);
+  --color-ink-muted: rgba(255, 255, 255, 0.5);
+
+  --color-stable: #59d6c7;
+  --color-attention: #ff887d;
+  --color-protein: #9ba5ff;
+  --color-chartreuse: #bce85d;
+  --color-amber: #e2a45c;
+
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-line-strong: rgba(255, 255, 255, 0.25);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+html,
+body {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar — subtle, dark */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Tabular numbers for money/stat readouts */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle entrance animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fadeUp 0.25s ease-out both;
+}
+
+/* Modal backdrop */
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.backdrop-in {
+  animation: backdropIn 0.15s ease-out both;
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.pop-in {
+  animation: popIn 0.18s ease-out both;
+}
