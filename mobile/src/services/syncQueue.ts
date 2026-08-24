@@ -192,7 +192,7 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
 
     let succeeded = 0;
     let failed = 0;
-    let dropped = 0;
+    const dropped = 0;
     const remaining: SyncQueueItem[] = [];
     const errorMessages: string[] = [];
     const now = Date.now();
