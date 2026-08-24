@@ -231,11 +231,16 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
           // UPDATE by id — partial rows (e.g. card balance, paid amount)
           // must NOT go through upsert, whose INSERT branch fails on
           // NOT NULL columns not present in the payload.
-          const { id, ...fields } = resolvedData;
+          const fields: Record<string, unknown> = {
+            ...item.data,
+            user_id: item.data.user_id || sessionUser.id,
+            updated_at: new Date().toISOString(),
+          };
+          delete fields.id;
           const { error } = await supabase
             .from(item.entity)
             .update(fields)
-            .eq("id", id as string);
+            .eq("id", item.data.id as string);
           if (error) {
             errorMessages.push(`update ${item.entity}/${item.data.id}: ${error.message}`);
             throw error;
