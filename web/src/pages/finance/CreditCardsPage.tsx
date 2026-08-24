@@ -3,7 +3,7 @@
  */
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Plus, MessageCircle, ArrowRight } from 'lucide-react'
+import { Plus, MessageCircle, ArrowRight, Pencil } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useCreditCards, useCreateCard, useUpdateCard, useDeleteCard } from '../../hooks/data/useCreditCards'
 import { usePayCardBill, useTransactions } from '../../hooks/data/useTransactions'
@@ -187,8 +187,13 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
   const { data: cards } = useCreditCards(userId)
   const { data: txns } = useTransactions(userId)
   const payBill = usePayCardBill(userId)
+  const updateCard = useUpdateCard(userId)
 
   const card = (cards ?? []).find((c) => c.id === cardId)
+  const [editOpen, setEditOpen] = useState(false)
+  const [form, setForm] = useState<Partial<CreditCard>>({})
+  const [saving, setSaving] = useState(false)
+
   if (!card) return <Skeleton className="h-64 w-full" />
 
   const cardTxns = (txns ?? []).filter((t) => t.linked_card_id === cardId || t.notes?.includes(card.name)).slice(0, 20)
@@ -196,6 +201,40 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
   const billAmount = card.bill_amount ?? card.balance ?? 0
   const paidAmount = card.paid_amount ?? 0
   const dueSoon = card.due_date && new Date(card.due_date).getTime() < Date.now() + 7 * 86400000
+
+  const openEdit = () => {
+    setForm({ ...card })
+    setEditOpen(true)
+  }
+
+  const saveEdit = async () => {
+    setSaving(true)
+    try {
+      const row: Partial<CreditCard> = {
+        name: form.name ?? card.name,
+        network: (form.network ?? card.network) as CreditCard['network'],
+        ending_with: form.ending_with ?? card.ending_with,
+        billing_day: form.billing_day ?? card.billing_day,
+        due_date: form.due_date ?? card.due_date,
+        balance: form.balance ?? card.balance ?? 0,
+        bank: form.bank ?? card.bank ?? null,
+        card_limit: form.card_limit ?? card.card_limit ?? null,
+        bill_amount: form.bill_amount ?? card.bill_amount ?? 0,
+        paid_amount: form.paid_amount ?? card.paid_amount ?? 0,
+        current_outstanding: form.current_outstanding ?? card.current_outstanding ?? 0,
+        annual_charge: form.annual_charge ?? card.annual_charge ?? 0,
+        annual_charge_date: form.annual_charge_date ?? card.annual_charge_date ?? null,
+        is_ltf: form.is_ltf ?? card.is_ltf ?? false,
+      }
+      await updateCard.mutateAsync({ id: card.id, row })
+      toast.success('Card updated')
+      setEditOpen(false)
+    } catch {
+      toast.error('Failed to update card')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handlePayBill = async () => {
     try {
@@ -217,6 +256,9 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
           <Link to={`/finance/cards/${card.id}/chat`}>
             <Button variant="secondary" size="sm" className="gap-1.5"><MessageCircle className="h-4 w-4" /> T&C Chat</Button>
           </Link>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={openEdit}>
+            <Pencil className="h-4 w-4" /> Edit
+          </Button>
           <Button variant="secondary" size="sm" className="gap-1.5" onClick={handlePayBill} loading={payBill.isPending}>
             Pay bill
           </Button>
@@ -274,6 +316,43 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
           ))}
         </CardBody>
       </Card>
+
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit card"
+        subtitle="Update balance, bill, and card details"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveEdit} loading={saving}>Save</Button>
+          </>
+        }
+        wide
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <Field.Input label="Card name" value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Field.Select
+            label="Network"
+            value={form.network ?? card.network}
+            onChange={(e) => setForm({ ...form, network: e.target.value as CreditCard['network'] })}
+            options={NETWORKS.map((n) => ({ value: n, label: n }))}
+          />
+          <Field.Input label="Last 4 digits" value={form.ending_with ?? ''} onChange={(e) => setForm({ ...form, ending_with: e.target.value })} maxLength={4} />
+          <Field.Input label="Bank" value={form.bank ?? ''} onChange={(e) => setForm({ ...form, bank: e.target.value })} />
+          <Field.Input label="Billing day" type="number" min={1} max={31} value={form.billing_day ?? 1} onChange={(e) => setForm({ ...form, billing_day: Number(e.target.value) })} />
+          <Field.Input label="Due date" type="date" value={form.due_date?.slice(0, 10) ?? ''} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+          <Field.Input label="Balance / outstanding (₹)" type="number" step="0.01" value={form.balance != null ? String(form.balance / 100) : ''} onChange={(e) => setForm({ ...form, balance: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <Field.Input label="Bill amount (₹)" type="number" step="0.01" value={form.bill_amount != null ? String(form.bill_amount / 100) : ''} onChange={(e) => setForm({ ...form, bill_amount: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <Field.Input label="Paid amount (₹)" type="number" step="0.01" value={form.paid_amount != null ? String(form.paid_amount / 100) : ''} onChange={(e) => setForm({ ...form, paid_amount: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <Field.Input label="Card limit (₹)" type="number" step="0.01" value={form.card_limit != null ? String(form.card_limit / 100) : ''} onChange={(e) => setForm({ ...form, card_limit: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <Field.Input label="Annual charge (₹)" type="number" step="0.01" value={form.annual_charge != null ? String(form.annual_charge / 100) : ''} onChange={(e) => setForm({ ...form, annual_charge: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <label className="flex items-center gap-2 text-sm text-white/70">
+            <input type="checkbox" checked={form.is_ltf ?? false} onChange={(e) => setForm({ ...form, is_ltf: e.target.checked })} className="rounded border-white/20 bg-white/5" />
+            Lifetime free
+          </label>
+        </div>
+      </Modal>
     </div>
   )
 }
