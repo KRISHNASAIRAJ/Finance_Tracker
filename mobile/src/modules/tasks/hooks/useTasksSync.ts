@@ -68,11 +68,11 @@ async function doPull(userId: string) {
   const store = getStore();
   const localState = store.getState();
 
-  // Push local-only tasks to cloud (never lose offline-created tasks)
-  const cloudIds = new Set((data as Array<Record<string, unknown>>).map((r) => r.id as string));
-  const localOnly = localState.tasks.filter((t: Task) => !cloudIds.has(t.id));
-  if (localOnly.length > 0) {
-    const rows = localOnly.map((t: Task) => ({
+  // Push ALL local tasks to cloud (phone is source of truth) — ensures edits
+  // and completions sync too, not just brand-new tasks
+  const localTasks = localState.tasks;
+  if (localTasks.length > 0) {
+    const rows = localTasks.map((t: Task) => ({
       id: t.id,
       user_id: userId,
       title: t.name,
@@ -85,7 +85,7 @@ async function doPull(userId: string) {
       recurrence: t.recurrence,
     }));
     supabase.from("tasks").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) console.warn('[TasksSync] pushMissing tasks:', error.message);
+      if (error) console.warn('[TasksSync] pushLocal tasks:', error.message);
     });
   }
 

@@ -124,15 +124,15 @@ interface SyncTable {
   pushMissing?: (userId: string, cloudRows: Record<string, unknown>[]) => void;
 }
 
-function pushMissingRows(table: SyncTable, userId: string, cloudRows: Record<string, unknown>[]) {
+function pushMissingRows(table: SyncTable, userId: string, _cloudRows: Record<string, unknown>[]) {
   const local = table.getLocalItems();
   if (local.length === 0) return;
-  const cloudIds = new Set(cloudRows.map((r) => r.id as string));
-  const missing = local.filter((item) => !cloudIds.has(item.id));
-  if (missing.length === 0) return;
-  const rows = table.toRows(userId, missing);
+  // Push ALL local rows (upsert by id) — the phone is the source of truth.
+  // This ensures edits (balances, paid amounts, bill payments) reach the
+  // cloud too, not just brand-new rows.
+  const rows = table.toRows(userId, local);
   supabase.from(table.supabaseTable).upsert(rows, { onConflict: "id" }).then(({ error }) => {
-    if (error) console.warn(`[FinanceSync] pushMissing ${table.supabaseTable}:`, error.message);
+    if (error) console.warn(`[FinanceSync] pushLocal ${table.supabaseTable}:`, error.message);
   });
 }
 
@@ -248,6 +248,7 @@ const TABLE_MAP: SyncTable[] = [
       return (items as Receivable[]).map((r) => ({
         id: r.id, user_id: userId, person_name: r.personName, amount: r.amount,
         due_date: r.dueDate, note: r.note ?? null, type: r.type, status: r.status ?? 'pending',
+        paid_amount: r.paidAmount ?? 0,
       }));
     },
   },

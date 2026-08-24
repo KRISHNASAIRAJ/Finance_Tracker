@@ -12,6 +12,7 @@ import { useCreditCards } from '../hooks/data/useCreditCards'
 import { useFixedExpenses } from '../hooks/data/useFixedExpenses'
 import { useReceivables } from '../hooks/data/useReceivables'
 import { useHoldings } from '../hooks/data/useInvestments'
+import { useFuelFills } from '../hooks/data/useGarage'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/Shared'
 import { TrendArea } from '../components/charts/Charts'
@@ -43,6 +44,7 @@ export function HomePage() {
   const { data: fixed } = useFixedExpenses(userId)
   const { data: receivables } = useReceivables(userId)
   const { data: holdings } = useHoldings(userId)
+  const { data: fuelFills } = useFuelFills(userId)
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
   const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
@@ -59,21 +61,30 @@ export function HomePage() {
   )
   const monthSpend = useMemo(() => {
     // Same as mobile app's getMonthlyExpenses() — excludes fixed exp names,
-    // rent/sip/wallet categories, and non-spend types
+    // rent/sip/wallet categories, adds garage fuel fills
     const excluded = new Set([
       'rent', 'sip', 'investments', 'housing', 'wallet loads', 'wallet load',
       ...(fixed ?? []).map((f) => f.name.toLowerCase()),
     ])
     const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service'])
-    return (txns ?? [])
-      .filter(
-        (t) =>
-          t.date.slice(0, 7) === monthKey &&
-          spendTypes.has(t.type) &&
-          !excluded.has(t.category.toLowerCase())
-      )
+    const monthTxs = (txns ?? []).filter(
+      (t) =>
+        t.date.slice(0, 7) === monthKey &&
+        spendTypes.has(t.type) &&
+        !excluded.has(t.category.toLowerCase())
+    )
+    let total = monthTxs.reduce((s, t) => s + t.amount, 0)
+    const fuelTxAmount = monthTxs
+      .filter((t) => t.type === 'fuel_purchase')
       .reduce((s, t) => s + t.amount, 0)
-  }, [txns, monthKey, fixed])
+    const fuelFillAmount = (fuelFills ?? [])
+      .filter((f) => f.date.slice(0, 7) === monthKey)
+      .reduce((s, f) => s + f.amount, 0)
+    if (fuelFillAmount > fuelTxAmount) {
+      total += fuelFillAmount - fuelTxAmount
+    }
+    return total
+  }, [txns, monthKey, fixed, fuelFills])
   const monthIncome = monthTxns
     .filter((t) => t.type === 'income')
     .reduce((s, t) => s + t.amount, 0)

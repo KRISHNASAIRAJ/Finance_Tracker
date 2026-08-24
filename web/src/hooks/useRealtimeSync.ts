@@ -2,38 +2,14 @@
  * useRealtimeSync — subscribes to Postgres changes for the signed-in user's
  * tables and invalidates the matching TanStack Query caches so the web app
  * reflects mobile-app changes immediately (and vice-versa).
+ *
+ * Uses ONE channel with no table filter (RLS-scoped) instead of 24 per-table
+ * channels — more reliable on the free tier and picks up any new table
+ * automatically.
  */
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-
-/** Every table queried by the web app, mapped to its query key prefix. */
-const REALTIME_TABLES = [
-  'transactions',
-  'credit_cards',
-  'bank_accounts',
-  'receivables',
-  'fixed_expenses',
-  'payzapp_loads',
-  'expected_incomes',
-  'user_settings',
-  'portfolio_action_plans',
-  'vehicles',
-  'fuel_fills',
-  'maintenance_logs',
-  'tasks',
-  'holdings',
-  'investment_goals',
-  'portfolio_snapshots',
-  'goals',
-  'notes',
-  'recipes',
-  'diet_plans',
-  'meal_logs',
-  'weight_logs',
-  'career_events',
-  'weekly_diary',
-] as const
 
 export function useRealtimeSync(userId: string) {
   const qc = useQueryClient()
@@ -41,26 +17,36 @@ export function useRealtimeSync(userId: string) {
   useEffect(() => {
     if (!userId) return
 
-    const channels = REALTIME_TABLES.map((table) =>
-      supabase
-        .channel(`rt-${table}-${userId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table,
-            filter: `user_id=eq.${userId}`,
-          },
-          () => {
-            qc.invalidateQueries({ queryKey: [table, userId] })
-          }
-        )
-        .subscribe()
-    )
+    const channel = supabase
+      .channel('rt-meridian-all')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          const table = payload.table
+          if (!table) return
+          // Invalidate by table + user prefix — TanStack partial-matches
+          qc.invalidateQueries({ queryKey: [table, userId] })
+          // Also invalidate combined/dashboard queries that aggregate many tables
+          qc.invalidateQueries({ queryKey: ['user_settings', userId] })
+          qc.invalidateQueries({ queryKey: ['portfolio_action_plans', userId] })
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Fresh data on connect — covers anything missed while offline
+          qc.invalidateQueries()
+        }
+      })
+
+    // Safety net: periodic refetch so long-open tabs never go stale
+    const interval = window.setInterval(() => {
+      qc.invalidateQueries()
+    }, 60_000)
 
     return () => {
-      channels.forEach((ch) => supabase.removeChannel(ch))
+      window.clearInterval(interval)
+      supabase.removeChannel(channel)
     }
   }, [userId, qc])
 }

@@ -9,12 +9,55 @@ import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/data/useTransactions'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
 import { useUserSettings } from '../../hooks/data/useMisc'
+import { useFixedExpenses } from '../../hooks/data/useFixedExpenses'
+import { useFuelFills } from '../../hooks/data/useGarage'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
 import { TrendArea, Donut } from '../../components/charts/Charts'
 import { Button } from '../../components/ui/Button'
 import { getCategory } from '../../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { istMonthKey } from '../../lib/istDate'
+import type { FixedExpense, FuelFill, Transaction } from '../../types'
+
+/** Matches the mobile app's getMonthlyExpenses() logic exactly. */
+function computeMonthSpend(
+  txns: Transaction[] | undefined,
+  fixedExpenses: FixedExpense[] | undefined,
+  fuelFills: FuelFill[] | undefined
+): number {
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const excluded = new Set([
+    'rent', 'sip', 'investments', 'housing', 'wallet loads', 'wallet load',
+    ...(fixedExpenses ?? []).map((f) => f.name.toLowerCase()),
+  ])
+
+  const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service'])
+  const monthTxs = (txns ?? []).filter(
+    (tx) =>
+      new Date(tx.date) >= startOfMonth &&
+      spendTypes.has(tx.type) &&
+      !excluded.has(tx.category.toLowerCase())
+  )
+
+  let total = monthTxs.reduce((acc, tx) => acc + tx.amount, 0)
+
+  const fuelTxAmount = monthTxs
+    .filter((tx) => tx.type === 'fuel_purchase')
+    .reduce((acc, tx) => acc + tx.amount, 0)
+
+  // Same as app: include garage fuel fills not already counted as fuel txns
+  const fuelFillAmount = (fuelFills ?? [])
+    .filter((f) => new Date(f.date) >= startOfMonth)
+    .reduce((sum, f) => sum + f.amount, 0)
+  if (fuelFillAmount > fuelTxAmount) {
+    total += fuelFillAmount - fuelTxAmount
+  }
+
+  return total
+}
 
 export function FinanceHomePage() {
   const { user } = useAuth()
@@ -22,10 +65,15 @@ export function FinanceHomePage() {
   const { data: txns } = useTransactions(userId)
   const { data: accounts } = useBankAccounts(userId)
   const { data: settings } = useUserSettings(userId)
+  const { data: fixedExpenses } = useFixedExpenses(userId)
+  const { data: fuelFills } = useFuelFills(userId)
 
   const monthKey = istMonthKey()
   const monthTxns = useMemo(() => (txns ?? []).filter((t) => t.date.slice(0, 7) === monthKey), [txns, monthKey])
-  const monthSpend = monthTxns.filter((t) => t.type !== 'income').reduce((s, t) => s + t.amount, 0)
+  const monthSpend = useMemo(
+    () => computeMonthSpend(txns ?? [], fixedExpenses ?? [], fuelFills ?? []),
+    [txns, fixedExpenses, fuelFills]
+  )
   const monthIncome = monthTxns.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const budget = (settings?.monthly_budget ?? 0) * 100
   const budgetRemaining = budget - monthSpend

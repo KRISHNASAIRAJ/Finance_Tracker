@@ -117,17 +117,16 @@ async function doPull(userId: string) {
         }));
       store.setState({ fills: merged });
     }
-    // Push local-only fills to cloud (never lose offline-created fills)
-    const cloudIds = new Set(cloudRows.map((r: Record<string, unknown>) => r.id as string));
-    const localOnly = store.getState().fills.filter((f: FuelFill) => !cloudIds.has(f.id));
-    if (localOnly.length > 0) {
-      const rows = localOnly.map((f: FuelFill) => ({
+    // Push ALL local fills to cloud (phone is source of truth)
+    const localFills = store.getState().fills;
+    if (localFills.length > 0) {
+      const rows = localFills.map((f: FuelFill) => ({
         id: f.id, user_id: userId, vehicle: f.vehicle, date: f.date,
         amount: f.amount, liters: f.liters, price_per_liter: f.pricePerLiter,
         odometer: f.odometer, station: f.station ?? null, note: f.note ?? null,
       }));
       supabase.from("fuel_fills").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-        if (error) console.warn('[GarageSync] pushMissing fuel_fills:', error.message);
+        if (error) console.warn('[GarageSync] pushLocal fuel_fills:', error.message);
       });
     }
   } else if (!_hasSeeded) {
@@ -160,16 +159,16 @@ async function doPull(userId: string) {
         store.setState({ maintenance: [...newMaint, ...state.maintenance] });
       }
     }
-    // Push local-only maintenance to cloud
-    const cloudIds = new Set(cloudRows.map((r: Record<string, unknown>) => r.id as string));
-    const localOnly = store.getState().maintenance.filter((m: MaintenanceLog) => !cloudIds.has(m.id));
-    if (localOnly.length > 0) {
-      const rows = localOnly.map((m: MaintenanceLog) => ({
+    // Push ALL local maintenance to cloud
+    const localMaint = store.getState().maintenance;
+    if (localMaint.length > 0) {
+      const rows = localMaint.map((m: MaintenanceLog) => ({
         id: m.id, user_id: userId, vehicle: m.vehicle, date: m.date,
         amount: m.amount, service_type: m.serviceType, notes: m.notes ?? null,
+        odometer: m.odometer ?? null,
       }));
       supabase.from("maintenance_logs").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-        if (error) console.warn('[GarageSync] pushMissing maintenance_logs:', error.message);
+        if (error) console.warn('[GarageSync] pushLocal maintenance_logs:', error.message);
       });
     }
   } else if (!_hasSeeded) {
@@ -191,15 +190,18 @@ async function doPull(userId: string) {
     if (merged.length !== state.vehicles.length) {
       store.setState({ vehicles: merged });
     }
-    // Push local-only vehicles to cloud
-    const localOnly = state.vehicles.filter((v: string) => !cloudNames.includes(v));
-    if (localOnly.length > 0) {
-      const rows = localOnly.map((v: string) => ({
-        id: Math.random().toString(36).substring(2, 9),
+    // Push ALL local vehicles to cloud (upsert by user_id+name — unique index exists)
+    const localVehicles = state.vehicles;
+    if (localVehicles.length > 0) {
+      const existingByNames = new Map(
+        (cloudRows as Array<Record<string, unknown>>).map((r) => [r.name as string, r.id as string])
+      );
+      const rows = localVehicles.map((v: string) => ({
+        id: existingByNames.get(v) ?? `vehicle-${v.replace(/\s+/g, '-').toLowerCase()}-${userId.slice(0, 6)}`,
         user_id: userId, name: v,
       }));
-      supabase.from("vehicles").upsert(rows).then(({ error }) => {
-        if (error) console.warn('[GarageSync] pushMissing vehicles:', error.message);
+      supabase.from("vehicles").upsert(rows, { onConflict: "user_id,name" }).then(({ error }) => {
+        if (error) console.warn('[GarageSync] pushLocal vehicles:', error.message);
       });
     }
   } else if (!_hasSeeded) {

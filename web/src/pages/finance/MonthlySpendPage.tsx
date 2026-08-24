@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/data/useTransactions'
+import { useFuelFills } from '../../hooks/data/useGarage'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui/Shared'
 import { Card, CardHeader, CardBody } from '../../components/ui/Card'
 import { TrendBars, Donut } from '../../components/charts/Charts'
@@ -19,6 +20,7 @@ export function MonthlySpendPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const { data: txns, isLoading } = useTransactions(userId)
+  const { data: fills } = useFuelFills(userId)
 
   const [selectedMonth, setSelectedMonth] = useState(istMonthKey())
 
@@ -27,7 +29,18 @@ export function MonthlySpendPage() {
     [txns, selectedMonth]
   )
 
-  const spend = monthTxns.filter((t) => t.type !== 'income').reduce((s, t) => s + t.amount, 0)
+  // Same as mobile app: garage fuel fills count toward monthly spend
+  const monthFuelFills = useMemo(
+    () => (fills ?? []).filter((f) => f.date.slice(0, 7) === selectedMonth),
+    [fills, selectedMonth]
+  )
+  const fuelFillTotal = monthFuelFills.reduce((s, f) => s + f.amount, 0)
+  const fuelTxnTotal = monthTxns
+    .filter((t) => t.type === 'fuel_purchase')
+    .reduce((s, t) => s + t.amount, 0)
+  const spend = monthTxns
+    .filter((t) => t.type !== 'income' && t.type !== 'fuel_purchase' && t.type !== 'fixed_expense')
+    .reduce((s, t) => s + t.amount, 0) + Math.max(fuelFillTotal, fuelTxnTotal)
   const income = monthTxns.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const net = income - spend
 
