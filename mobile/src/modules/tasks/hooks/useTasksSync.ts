@@ -72,7 +72,7 @@ async function doPull(userId: string) {
   const cloudIds = new Set((data as Array<Record<string, unknown>>).map((r) => r.id as string));
   const localOnly = localState.tasks.filter((t: Task) => !cloudIds.has(t.id));
   if (localOnly.length > 0) {
-    const rows = localOnly.map((t) => ({
+    const rows = localOnly.map((t: Task) => ({
       id: t.id,
       user_id: userId,
       title: t.name,
