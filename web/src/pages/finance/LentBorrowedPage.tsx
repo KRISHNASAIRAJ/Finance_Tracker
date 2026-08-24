@@ -119,7 +119,7 @@ export function LentBorrowedPage() {
     const r = (items ?? []).find((x) => x.id === id)
     if (!r) return
     try {
-      await markPaid.mutateAsync({ id, paidAmount: r.amount })
+      await markPaid.mutateAsync({ id, paidAmount: r.amount, amount: r.amount })
       toast.success('Marked as paid')
     } catch {
       toast.error('Failed to mark paid')

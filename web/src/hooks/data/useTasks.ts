@@ -163,14 +163,13 @@ export function useToggleTask(userId: string) {
       const newCompleted = !task.is_completed
       const now = new Date().toISOString()
 
-      // update current task
-      await upsert.mutateAsync({
-        id: task.id,
-        row: {
-          is_completed: newCompleted,
-          completed_at: newCompleted ? now : null,
-        },
-      })
+      // Update current task — must be UPDATE not upsert (partial fields
+      // would violate NOT NULL title on the INSERT branch)
+      const { error } = await supabase
+        .from('tasks')
+        .update({ is_completed: newCompleted, completed_at: newCompleted ? now : null })
+        .eq('id', task.id)
+      if (error) throw error
 
       // create next recurring instance
       if (newCompleted && task.recurrence && task.recurrence !== 'none') {
@@ -196,17 +195,18 @@ export function useToggleTask(userId: string) {
 
 export function useToggleSubtask(userId: string) {
   const qc = useQueryClient()
-  const { upsert } = useTaskMutations(userId)
 
   return useMutation({
     mutationFn: async ({ task, subtaskId }: { task: Task; subtaskId: string }) => {
       const subtasks = (task.subtasks ?? []).map((s) =>
         s.id === subtaskId ? { ...s, completed: !s.completed } : s
       )
-      await upsert.mutateAsync({
-        id: task.id,
-        row: { subtasks: JSON.stringify(subtasks) as unknown as Task['subtasks'] },
-      })
+      // UPDATE only subtasks column (upsert would need NOT NULL title)
+      const { error } = await supabase
+        .from('tasks')
+        .update({ subtasks: JSON.stringify(subtasks) })
+        .eq('id', task.id)
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all(userId) }),
   })

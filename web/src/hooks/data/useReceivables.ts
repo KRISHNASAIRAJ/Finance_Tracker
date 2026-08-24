@@ -67,15 +67,20 @@ export function useDeleteReceivable(userId: string) {
 
 /** Mark a lent/borrowed record fully paid (or update partial amount). */
 export function useMarkReceivablePaid(userId: string) {
-  const { upsert } = useRecvMutations(userId)
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, paidAmount }: { id: string; paidAmount: number }) =>
-      upsert.mutateAsync({
-        id,
-        row: {
+    mutationFn: async ({ id, paidAmount, amount }: { id: string; paidAmount: number; amount: number }) => {
+      // UPDATE only the changed fields — upsert would violate NOT NULL
+      // person_name/amount on the INSERT branch
+      const { error } = await supabase
+        .from('receivables')
+        .update({
           paid_amount: paidAmount,
-          status: paidAmount >= (0) ? 'paid' : 'partial',
-        },
-      }),
+          status: paidAmount >= amount ? 'paid' : 'partial',
+        })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: recvKeys.all(userId) }),
   })
 }
