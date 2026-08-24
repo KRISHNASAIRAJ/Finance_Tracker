@@ -68,11 +68,13 @@ async function doPull(userId: string) {
   const store = getStore();
   const localState = store.getState();
 
-  // Push ALL local tasks to cloud (phone is source of truth) — ensures edits
-  // and completions sync too, not just brand-new tasks
-  const localTasks = localState.tasks;
-  if (localTasks.length > 0) {
-    const rows = localTasks.map((t: Task) => ({
+  // Push only tasks that are missing in cloud (brand-new offline tasks).
+  // Edits travel through the never-drop sync queue; cloud-wins merge below
+  // keeps the local store in sync with the cloud.
+  const cloudIds = new Set((data as Array<Record<string, unknown>>).map((r) => r.id as string));
+  const localOnly = localState.tasks.filter((t: Task) => !cloudIds.has(t.id));
+  if (localOnly.length > 0) {
+    const rows = localOnly.map((t: Task) => ({
       id: t.id,
       user_id: userId,
       title: t.name,
@@ -85,11 +87,9 @@ async function doPull(userId: string) {
       recurrence: t.recurrence,
     }));
     supabase.from("tasks").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) console.warn('[TasksSync] pushLocal tasks:', error.message);
+      if (error) console.warn('[TasksSync] pushMissing tasks:', error.message);
     });
   }
-
-  const existingIds = new Set(localState.tasks.map((t: Task) => t.id));
 
   const remoteTasks: Task[] = (data as Array<Record<string, unknown>>).map((r) => {
     let subtasks: Subtask[] = [];
@@ -111,51 +111,14 @@ async function doPull(userId: string) {
     };
   });
 
-  const newRemote = remoteTasks.filter((r) => !existingIds.has(r.id));
-  const remoteMap = new Map(remoteTasks.map((r) => [r.id, r]));
-
-  if (newRemote.length > 0) {
-    const merged = [...newRemote, ...localState.tasks].filter(
-      (t) => remoteMap.has(t.id)
-    );
-    merged.forEach((t) => {
-      const remote = remoteMap.get(t.id);
-      if (remote) {
-        t.completed = remote.completed;
-        t.completedAt = remote.completedAt;
-        t.name = remote.name;
-        t.description = remote.description;
-        t.priority = remote.priority;
-        t.dueDate = remote.dueDate;
-        t.subtasks = remote.subtasks;
-        t.recurrence = remote.recurrence;
-      }
-    });
-    store.setState({ tasks: merged });
-  } else {
-    const needsUpdate = localState.tasks.some((t: Task) => {
-      const remote = remoteMap.get(t.id);
-      if (!remote) return false;
-      return (
-        t.completed !== remote.completed ||
-        t.completedAt !== remote.completedAt ||
-        t.name !== remote.name ||
-        t.description !== remote.description ||
-        t.priority !== remote.priority ||
-        t.dueDate !== remote.dueDate ||
-        JSON.stringify(t.subtasks) !== JSON.stringify(remote.subtasks) ||
-        t.recurrence !== remote.recurrence
-      );
-    });
-    if (needsUpdate) {
-      const merged = localState.tasks.map((t: Task) => {
-        const remote = remoteMap.get(t.id);
-        if (!remote) return t;
-        return { ...t, ...remote };
-      });
-      store.setState({ tasks: merged });
-    }
+  // Cloud-wins merge: replace matching local tasks with cloud versions,
+  // keep local-only tasks (they were just pushed above)
+  const remoteById = new Map(remoteTasks.map((r) => [r.id, r]));
+  const merged = localState.tasks.map((t: Task) => remoteById.get(t.id) ?? t);
+  for (const r of remoteTasks) {
+    if (!localState.tasks.some((t: Task) => t.id === r.id)) merged.push(r);
   }
+  store.setState({ tasks: merged });
 }
 
 async function doInitialSync(

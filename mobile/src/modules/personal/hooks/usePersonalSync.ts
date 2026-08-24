@@ -96,15 +96,16 @@ async function doPull(userId: string) {
     await seedGoals(userId);
   }
 
-  // Push ALL local goals to cloud (phone is source of truth)
-  const localGoals = store.getState().goals;
-  if (localGoals.length > 0) {
-    const rows = localGoals.map((g) => ({
+  // Push only goals missing in cloud (brand-new offline goals)
+  const cloudGoalIds = new Set((goalsData ?? []).map((r: any) => r.id as string));
+  const localOnlyGoals = store.getState().goals.filter((g) => !cloudGoalIds.has(g.id));
+  if (localOnlyGoals.length > 0) {
+    const rows = localOnlyGoals.map((g) => ({
       id: g.id, user_id: userId, title: g.name,
       is_completed: g.completed, updated_at: new Date().toISOString(),
     }));
     supabase.from("goals").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) console.warn('[PersonalSync] pushLocal goals:', error.message);
+      if (error) console.warn('[PersonalSync] pushMissing goals:', error.message);
     });
   }
 
@@ -131,15 +132,16 @@ async function doPull(userId: string) {
     await seedNotes(userId);
   }
 
-  // Push ALL local notes to cloud
-  const localNotes = store.getState().notes;
-  if (localNotes.length > 0) {
-    const rows = localNotes.map((n) => ({
+  // Push only notes missing in cloud
+  const cloudNoteIds = new Set((notesData ?? []).map((r: any) => r.id as string));
+  const localOnlyNotes = store.getState().notes.filter((n) => !cloudNoteIds.has(n.id));
+  if (localOnlyNotes.length > 0) {
+    const rows = localOnlyNotes.map((n) => ({
       id: n.id, user_id: userId, title: n.title,
       content: n.content, created_at: n.date, updated_at: new Date().toISOString(),
     }));
     supabase.from("notes").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) console.warn('[PersonalSync] pushLocal notes:', error.message);
+      if (error) console.warn('[PersonalSync] pushMissing notes:', error.message);
     });
   }
 
@@ -168,10 +170,11 @@ async function doPull(userId: string) {
     await seedRecipes(userId);
   }
 
-  // Push ALL local recipes to cloud
-  const localRecipes = store.getState().recipes;
-  if (localRecipes.length > 0) {
-    const rows = localRecipes.map((r) => ({
+  // Push only recipes missing in cloud
+  const cloudRecipeIds = new Set((recipesData ?? []).map((r: any) => r.id as string));
+  const localOnlyRecipes = store.getState().recipes.filter((r) => !cloudRecipeIds.has(r.id));
+  if (localOnlyRecipes.length > 0) {
+    const rows = localOnlyRecipes.map((r) => ({
       id: r.id, user_id: userId, title: r.title,
       prep_time: parseInt(r.prepTime) || 0,
       calories: parseInt(r.calories) || 0,
@@ -180,7 +183,7 @@ async function doPull(userId: string) {
       updated_at: new Date().toISOString(),
     }));
     supabase.from("recipes").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-      if (error) console.warn('[PersonalSync] pushLocal recipes:', error.message);
+      if (error) console.warn('[PersonalSync] pushMissing recipes:', error.message);
     });
   }
 

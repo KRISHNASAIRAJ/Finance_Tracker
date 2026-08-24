@@ -109,11 +109,10 @@ async function doPull(userId: string) {
       table.mergeIntoStore(rows);
     }
 
-    // ALWAYS push local-only rows to cloud (true bidirectional sync).
-    // Previously local rows were only seeded when the cloud table was
-    // completely empty — once cloud had any rows, new local data never
-    // reached Supabase. pushMissing fixes that without overwriting
-    // cloud rows (by id) and without resurrecting deleted rows.
+    // Push only rows that are missing in cloud (brand-new offline rows).
+    // Existing rows are never overwritten here — edits travel through the
+    // never-drop sync queue, and the cloud-wins merge above keeps the app
+    // in sync with the cloud.
     if (table.pushMissing) {
       table.pushMissing(userId, rows);
     } else {
@@ -133,6 +132,8 @@ function getStore() {
 
 interface SyncTable {
   supabaseTable: string;
+  /** Cloud-wins merge: existing local rows with same id get REPLACED by
+   *  cloud values; brand-new cloud rows get added; local-only rows stay. */
   mergeIntoStore: (rows: Record<string, unknown>[]) => void;
   /** Map local store items to cloud rows. */
   toRows: (userId: string, items: any[]) => Record<string, unknown>[];
@@ -142,30 +143,52 @@ interface SyncTable {
   pushMissing?: (userId: string, cloudRows: Record<string, unknown>[]) => void;
 }
 
-function pushMissingRows(table: SyncTable, userId: string, _cloudRows: Record<string, unknown>[]) {
+/** Build a cloud-wins merge for any table. fromRow maps a cloud row → local item. */
+function makeMerge(
+  getLocal: () => any[],
+  setLocal: (items: any[]) => void,
+  fromRow: (r: Record<string, unknown>) => any
+) {
+  return (rows: Record<string, unknown>[]) => {
+    const local = getLocal();
+    const cloudById = new Map(rows.map((r) => [r.id as string, fromRow(r)]));
+    // Replace matching local rows with cloud versions, keep local-only rows
+    const merged = local.map((item) => cloudById.get(item.id) ?? item);
+    // Add brand-new cloud rows
+    const localIds = new Set(local.map((item) => item.id));
+    for (const [id, item] of cloudById) {
+      if (!localIds.has(id)) merged.push(item);
+    }
+    if (merged.length !== local.length) {
+      setLocal(merged);
+    }
+  };
+}
+
+function pushMissingRows(table: SyncTable, userId: string, cloudRows: Record<string, unknown>[]) {
   const local = table.getLocalItems();
   if (local.length === 0) return;
-  // Push ALL local rows (upsert by id) — the phone is the source of truth.
-  // This ensures edits (balances, paid amounts, bill payments) reach the
-  // cloud too, not just brand-new rows.
-  const rows = table.toRows(userId, local);
+  // Only push rows that do NOT exist in cloud — brand-new offline rows.
+  // Edits to existing rows travel through the never-drop sync queue, so
+  // stale local data can never overwrite the cloud (cloud is the truth
+  // for rows it already has).
+  const cloudIds = new Set(cloudRows.map((r) => r.id as string));
+  const missing = local.filter((item) => !cloudIds.has(item.id));
+  if (missing.length === 0) return;
+  const rows = table.toRows(userId, missing);
   supabase.from(table.supabaseTable).upsert(rows, { onConflict: "id" }).then(({ error }) => {
-    if (error) console.warn(`[FinanceSync] pushLocal ${table.supabaseTable}:`, error.message);
+    if (error) console.warn(`[FinanceSync] pushMissing ${table.supabaseTable}:`, error.message);
   });
 }
 
 const TABLE_MAP: SyncTable[] = [
   {
     supabaseTable: "transactions",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.transactions.map((t: Transaction) => t.id));
-      const newTxns = (rows as unknown as Transaction[]).filter((t) => !existingIds.has(t.id));
-      if (newTxns.length > 0) {
-        store.setState({ transactions: [...newTxns, ...state.transactions] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().transactions as Transaction[],
+      (items) => getStore().setState({ transactions: items }),
+      (r) => r as unknown as Transaction
+    ),
     getLocalItems: () => getStore().getState().transactions as Transaction[],
     toRows(userId, items) {
       return (items as Transaction[]).map((t) => ({
@@ -179,33 +202,27 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "credit_cards",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.cards.map((c: CreditCard) => c.id));
-      const newCards: CreditCard[] = (rows as Array<Record<string, unknown>>)
-        .filter((r) => !existingIds.has(r.id as string))
-        .map((r) => ({
-          id: r.id as string,
-          name: r.name as string,
-          network: (r.network as CreditCard["network"]) ?? "VISA",
-          endingWith: r.ending_with as string ?? "",
-          billingDay: r.billing_day as number ?? 1,
-          balance: r.balance as number ?? 0,
-          dueDate: r.due_date as string ?? "",
-          bank: r.bank as string,
-          cardLimit: r.card_limit as number,
-          currentOutstanding: r.current_outstanding as number,
-          billAmount: r.bill_amount as number ?? 0,
-          paidAmount: r.paid_amount as number ?? 0,
-          annualCharge: r.annual_charge as number ?? 0,
-          annualChargeDate: r.annual_charge_date as string ?? undefined,
-          isLtf: r.is_ltf as boolean ?? false,
-        }));
-      if (newCards.length > 0) {
-        store.setState({ cards: [...newCards, ...state.cards] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().cards as CreditCard[],
+      (items) => getStore().setState({ cards: items }),
+      (r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        network: (r.network as CreditCard["network"]) ?? "VISA",
+        endingWith: r.ending_with as string ?? "",
+        billingDay: r.billing_day as number ?? 1,
+        balance: r.balance as number ?? 0,
+        dueDate: r.due_date as string ?? "",
+        bank: r.bank as string,
+        cardLimit: r.card_limit as number,
+        currentOutstanding: r.current_outstanding as number,
+        billAmount: r.bill_amount as number ?? 0,
+        paidAmount: r.paid_amount as number ?? 0,
+        annualCharge: r.annual_charge as number ?? 0,
+        annualChargeDate: r.annual_charge_date as string ?? undefined,
+        isLtf: r.is_ltf as boolean ?? false,
+      })
+    ),
     getLocalItems: () => getStore().getState().cards as CreditCard[],
     toRows(userId, items) {
       return (items as CreditCard[]).map((c) => ({
@@ -223,15 +240,11 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "bank_accounts",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.accounts.map((a: BankAccount) => a.id));
-      const newAccs = (rows as unknown as BankAccount[]).filter((a) => !existingIds.has(a.id));
-      if (newAccs.length > 0) {
-        store.setState({ accounts: [...newAccs, ...state.accounts] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().accounts as BankAccount[],
+      (items) => getStore().setState({ accounts: items }),
+      (r) => r as unknown as BankAccount
+    ),
     getLocalItems: () => getStore().getState().accounts as BankAccount[],
     toRows(userId, items) {
       return (items as BankAccount[]).map((a) => ({
@@ -241,26 +254,20 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "receivables",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.receivables.map((r: Receivable) => r.id));
-      const newRecvs: Receivable[] = (rows as Array<Record<string, unknown>>)
-        .filter((r) => !existingIds.has(r.id as string))
-        .map((r) => ({
-          id: r.id as string,
-          personName: r.person_name as string ?? "",
-          amount: r.amount as number ?? 0,
-          paidAmount: (r.paid_amount as number) ?? 0,
-          dueDate: r.due_date as string ?? "",
-          note: r.note as string ?? undefined,
-          type: (r.type as "lent" | "borrowed") ?? "lent",
-          status: (r.status as "pending" | "partial" | "paid") ?? "pending",
-        }));
-      if (newRecvs.length > 0) {
-        store.setState({ receivables: [...newRecvs, ...state.receivables] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().receivables as Receivable[],
+      (items) => getStore().setState({ receivables: items }),
+      (r) => ({
+        id: r.id as string,
+        personName: r.person_name as string ?? "",
+        amount: r.amount as number ?? 0,
+        paidAmount: (r.paid_amount as number) ?? 0,
+        dueDate: r.due_date as string ?? "",
+        note: r.note as string ?? undefined,
+        type: (r.type as "lent" | "borrowed") ?? "lent",
+        status: (r.status as "pending" | "partial" | "paid") ?? "pending",
+      })
+    ),
     getLocalItems: () => getStore().getState().receivables as Receivable[],
     toRows(userId, items) {
       return (items as Receivable[]).map((r) => ({
@@ -272,25 +279,19 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "fixed_expenses",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.fixedExpenses.map((f: FixedExpense) => f.id));
-      const newFixes: FixedExpense[] = (rows as Array<Record<string, unknown>>)
-        .filter((r) => !existingIds.has(r.id as string))
-        .map((r) => ({
-          id: r.id as string,
-          name: r.name as string ?? "",
-          amount: r.amount as number ?? 0,
-          billingDay: r.billing_day as number ?? 1,
-          category: r.category as string ?? "",
-          lastPaidMonth: r.last_paid_month as string ?? "",
-          dueDate: r.due_date as string ?? "",
-        }));
-      if (newFixes.length > 0) {
-        store.setState({ fixedExpenses: [...newFixes, ...state.fixedExpenses] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().fixedExpenses as FixedExpense[],
+      (items) => getStore().setState({ fixedExpenses: items }),
+      (r) => ({
+        id: r.id as string,
+        name: r.name as string ?? "",
+        amount: r.amount as number ?? 0,
+        billingDay: r.billing_day as number ?? 1,
+        category: r.category as string ?? "",
+        lastPaidMonth: r.last_paid_month as string ?? "",
+        dueDate: r.due_date as string ?? "",
+      })
+    ),
     getLocalItems: () => getStore().getState().fixedExpenses as FixedExpense[],
     toRows(userId, items) {
       return (items as FixedExpense[]).map((f) => ({
@@ -302,15 +303,11 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "payzapp_loads",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.payzappLoads.map((l: PayzappLoad) => l.id));
-      const newLoads = (rows as unknown as PayzappLoad[]).filter((l) => !existingIds.has(l.id));
-      if (newLoads.length > 0) {
-        store.setState({ payzappLoads: [...newLoads, ...state.payzappLoads] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().payzappLoads as PayzappLoad[],
+      (items) => getStore().setState({ payzappLoads: items }),
+      (r) => r as unknown as PayzappLoad
+    ),
     getLocalItems: () => getStore().getState().payzappLoads as PayzappLoad[],
     toRows(userId, items) {
       return (items as PayzappLoad[]).map((p) => ({
@@ -320,23 +317,17 @@ const TABLE_MAP: SyncTable[] = [
   },
   {
     supabaseTable: "expected_incomes",
-    mergeIntoStore(rows: Record<string, unknown>[]) {
-      const store = getStore();
-      const state = store.getState();
-      const existingIds = new Set(state.expectedIncomes.map((e: ExpectedIncome) => e.id));
-      const newItems: ExpectedIncome[] = (rows as Array<Record<string, unknown>>)
-        .filter((r) => !existingIds.has(r.id as string))
-        .map((r) => ({
-          id: r.id as string,
-          name: r.name as string ?? "",
-          amount: r.amount as number ?? 0,
-          notes: (r.notes as string) || undefined,
-          date: r.date as string ?? "",
-        }));
-      if (newItems.length > 0) {
-        store.setState({ expectedIncomes: [...newItems, ...state.expectedIncomes] });
-      }
-    },
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().expectedIncomes as ExpectedIncome[],
+      (items) => getStore().setState({ expectedIncomes: items }),
+      (r) => ({
+        id: r.id as string,
+        name: r.name as string ?? "",
+        amount: r.amount as number ?? 0,
+        notes: (r.notes as string) || undefined,
+        date: r.date as string ?? "",
+      })
+    ),
     getLocalItems: () => getStore().getState().expectedIncomes as ExpectedIncome[],
     toRows(userId, items) {
       return (items as ExpectedIncome[]).map((e) => ({
