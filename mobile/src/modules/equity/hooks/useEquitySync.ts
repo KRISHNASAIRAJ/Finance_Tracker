@@ -96,6 +96,30 @@ async function doPull(userId: string) {
     await seedHoldings(userId);
   }
 
+  // Push local-only holdings to cloud (never lose offline-created holdings)
+  const cloudHoldingIds = new Set((holdingsData ?? []).map((r: any) => r.id as string));
+  const localOnlyHoldings = store.getState().holdings.filter((h) => !cloudHoldingIds.has(h.id));
+  if (localOnlyHoldings.length > 0) {
+    const rows = localOnlyHoldings.map((h) => ({
+      id: h.id, user_id: userId, symbol: h.symbol,
+      fund_name: h.name, type: h.type, quantity: h.quantity,
+      avg_buy_price: h.avgPrice, current_price: h.currentPrice,
+      prev_close: h.prevClose ?? null,
+      current_value: h.quantity * h.currentPrice, source: h.source,
+      updated_at: new Date().toISOString(),
+      folio_number: h.folio || null,
+      amc: h.amc || null,
+      scheme_code: h.schemeCode || null,
+      isin: h.isin || null,
+      sip_amount: h.sipAmount || null,
+      sip_day: h.sipDay || null,
+      allocation_category: h.allocation || null,
+    }));
+    supabase.from("holdings").upsert(rows, { onConflict: "user_id,symbol" }).then(({ error }) => {
+      if (error) console.warn('[EquitySync] pushMissing holdings:', error.message);
+    });
+  }
+
   // --- INVESTMENT GOALS ---
   const { data: goalsData, error: goalsErr } = await supabase
     .from("investment_goals")
@@ -115,6 +139,21 @@ async function doPull(userId: string) {
     store.setState({ goals });
   } else if (_hasEquitySeeded && goalsData && goalsData.length === 0) {
     store.setState({ goals: [] });
+  }
+
+  // Push local-only goals to cloud
+  const cloudGoalIds = new Set((goalsData ?? []).map((r: any) => r.id as string));
+  const localOnlyGoals = store.getState().goals.filter((g) => !cloudGoalIds.has(g.id));
+  if (localOnlyGoals.length > 0) {
+    const rows = localOnlyGoals.map((g) => ({
+      id: g.id, user_id: userId, goal_name: g.name,
+      target_amount: g.target, current_progress: g.current,
+      target_date: g.dueDate, priority: g.priority,
+      updated_at: new Date().toISOString(),
+    }));
+    supabase.from("investment_goals").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[EquitySync] pushMissing goals:', error.message);
+    });
   }
 
   // --- PORTFOLIO SNAPSHOTS ---

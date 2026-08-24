@@ -1,9 +1,15 @@
 /**
  * syncQueue — Offline-first write queue with retry/backoff, persisted to AsyncStorage.
+ * Data safety: items are NEVER dropped. They stay queued with exponential backoff
+ * until a sync succeeds, so local changes are never lost.
  */
 const SYNC_QUEUE_KEY = "meridian_sync_queue";
 
-const MAX_RETRIES = 5;
+/** Soft cap for retry bookkeeping (never drops items, only paces retries). */
+const MAX_RETRIES = 50;
+
+/** Cap backoff at 1 hour between attempts. */
+const MAX_BACKOFF_MS = 60 * 60 * 1000;
 
 interface SyncQueueItem {
   id: string;
@@ -12,6 +18,8 @@ interface SyncQueueItem {
   data: Record<string, unknown>;
   queuedAt: string;
   retryCount: number;
+  /** ISO timestamp — item is skipped until this time (backoff pacing). */
+  nextAttemptAt?: string;
 }
 
 let AsyncStorage: {
@@ -187,12 +195,20 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
     let dropped = 0;
     const remaining: SyncQueueItem[] = [];
     const errorMessages: string[] = [];
+    const now = Date.now();
 
     for (const item of items) {
-      if (item.retryCount >= MAX_RETRIES) {
-        console.warn(`[SyncQueue] Dropping ${item.entity}/${item.data.id} after ${MAX_RETRIES} retries`);
-        dropped++;
+      // Backoff pacing — skip items not yet due for retry
+      if (item.nextAttemptAt && Date.parse(item.nextAttemptAt) > now) {
+        remaining.push(item);
         continue;
+      }
+
+      // Never drop items — keep retrying with backoff. The retryCount
+      // is informational only (< MAX_RETRIES prevents unbounded counters).
+      if (item.retryCount >= MAX_RETRIES) {
+        // Reset retry count so it keeps trying, just with backoff
+        item.retryCount = 0;
       }
 
       const resolvedData = {
@@ -223,7 +239,12 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
         succeeded++;
       } catch (e: any) {
         console.warn(`[SyncQueue] ${item.action} failed for ${item.entity}/${item.data.id}:`, e?.message ?? e);
-        remaining.push({ ...item, retryCount: item.retryCount + 1 });
+        const backoffMs = Math.min(Math.pow(2, item.retryCount) * 1000, MAX_BACKOFF_MS);
+        remaining.push({
+          ...item,
+          retryCount: item.retryCount + 1,
+          nextAttemptAt: new Date(Date.now() + backoffMs).toISOString(),
+        });
         failed++;
       }
     }

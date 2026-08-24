@@ -59,10 +59,36 @@ async function doPull(userId: string) {
     return;
   }
 
-  if (!data || data.length === 0) return;
+  if (!data || data.length === 0) {
+    // Cloud has no tasks — push all local tasks up (bidirectional sync)
+    await seedTasks(userId);
+    return;
+  }
 
   const store = getStore();
   const localState = store.getState();
+
+  // Push local-only tasks to cloud (never lose offline-created tasks)
+  const cloudIds = new Set((data as Array<Record<string, unknown>>).map((r) => r.id as string));
+  const localOnly = localState.tasks.filter((t: Task) => !cloudIds.has(t.id));
+  if (localOnly.length > 0) {
+    const rows = localOnly.map((t) => ({
+      id: t.id,
+      user_id: userId,
+      title: t.name,
+      description: t.description ?? null,
+      priority: t.priority,
+      due_date: t.dueDate,
+      is_completed: t.completed,
+      completed_at: t.completedAt,
+      subtasks: JSON.stringify(t.subtasks),
+      recurrence: t.recurrence,
+    }));
+    supabase.from("tasks").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[TasksSync] pushMissing tasks:', error.message);
+    });
+  }
+
   const existingIds = new Set(localState.tasks.map((t: Task) => t.id));
 
   const remoteTasks: Task[] = (data as Array<Record<string, unknown>>).map((r) => {

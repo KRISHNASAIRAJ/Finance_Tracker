@@ -96,6 +96,19 @@ async function doPull(userId: string) {
     await seedGoals(userId);
   }
 
+  // Push local-only goals to cloud
+  const cloudGoalIds = new Set((goalsData ?? []).map((r: any) => r.id as string));
+  const localOnlyGoals = store.getState().goals.filter((g) => !cloudGoalIds.has(g.id));
+  if (localOnlyGoals.length > 0) {
+    const rows = localOnlyGoals.map((g) => ({
+      id: uuid(), user_id: userId, title: g.name,
+      is_completed: g.completed, updated_at: new Date().toISOString(),
+    }));
+    supabase.from("goals").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[PersonalSync] pushMissing goals:', error.message);
+    });
+  }
+
   // --- NOTES ---
   const { data: notesData, error: notesErr } = await supabase
     .from("notes")
@@ -117,6 +130,19 @@ async function doPull(userId: string) {
     }
   } else if (!_hasPersonalSeeded && notesData && notesData.length === 0) {
     await seedNotes(userId);
+  }
+
+  // Push local-only notes to cloud
+  const cloudNoteIds = new Set((notesData ?? []).map((r: any) => r.id as string));
+  const localOnlyNotes = store.getState().notes.filter((n) => !cloudNoteIds.has(n.id));
+  if (localOnlyNotes.length > 0) {
+    const rows = localOnlyNotes.map((n) => ({
+      id: uuid(), user_id: userId, title: n.title,
+      content: n.content, created_at: n.date, updated_at: new Date().toISOString(),
+    }));
+    supabase.from("notes").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[PersonalSync] pushMissing notes:', error.message);
+    });
   }
 
   // --- RECIPES ---
@@ -142,6 +168,23 @@ async function doPull(userId: string) {
     }
   } else if (!_hasPersonalSeeded && recipesData && recipesData.length === 0) {
     await seedRecipes(userId);
+  }
+
+  // Push local-only recipes to cloud
+  const cloudRecipeIds = new Set((recipesData ?? []).map((r: any) => r.id as string));
+  const localOnlyRecipes = store.getState().recipes.filter((r) => !cloudRecipeIds.has(r.id));
+  if (localOnlyRecipes.length > 0) {
+    const rows = localOnlyRecipes.map((r) => ({
+      id: uuid(), user_id: userId, title: r.title,
+      prep_time: parseInt(r.prepTime) || 0,
+      calories: parseInt(r.calories) || 0,
+      ingredients: JSON.stringify(r.ingredients),
+      steps: JSON.stringify(r.steps),
+      updated_at: new Date().toISOString(),
+    }));
+    supabase.from("recipes").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[PersonalSync] pushMissing recipes:', error.message);
+    });
   }
 
   // --- DIET PLANS ---

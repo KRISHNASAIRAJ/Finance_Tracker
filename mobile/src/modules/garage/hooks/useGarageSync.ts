@@ -99,22 +99,38 @@ async function doPull(userId: string) {
     .select("*")
     .eq("user_id", userId);
 
-  if (!fillError && fillData && fillData.length > 0) {
+  if (!fillError) {
     const store = useGarageStore;
-    const merged: FuelFill[] = (fillData as Array<Record<string, unknown>>)
-      .map((r) => ({
-        id: r.id as string,
-        vehicle: r.vehicle as string ?? "",
-        date: r.date as string ?? "",
-        amount: r.amount as number ?? 0,
-        liters: Number(r.liters) ?? 0,
-        pricePerLiter: r.price_per_liter as number ?? 0,
-        odometer: r.odometer as number ?? 0,
-        station: r.station as string ?? undefined,
-        note: r.note as string ?? undefined,
+    const cloudRows = fillData ?? [];
+    if (cloudRows.length > 0) {
+      const merged: FuelFill[] = (cloudRows as Array<Record<string, unknown>>)
+        .map((r) => ({
+          id: r.id as string,
+          vehicle: r.vehicle as string ?? "",
+          date: r.date as string ?? "",
+          amount: r.amount as number ?? 0,
+          liters: Number(r.liters) ?? 0,
+          pricePerLiter: r.price_per_liter as number ?? 0,
+          odometer: r.odometer as number ?? 0,
+          station: r.station as string ?? undefined,
+          note: r.note as string ?? undefined,
+        }));
+      store.setState({ fills: merged });
+    }
+    // Push local-only fills to cloud (never lose offline-created fills)
+    const cloudIds = new Set(cloudRows.map((r: Record<string, unknown>) => r.id as string));
+    const localOnly = store.getState().fills.filter((f: FuelFill) => !cloudIds.has(f.id));
+    if (localOnly.length > 0) {
+      const rows = localOnly.map((f: FuelFill) => ({
+        id: f.id, user_id: userId, vehicle: f.vehicle, date: f.date,
+        amount: f.amount, liters: f.liters, price_per_liter: f.pricePerLiter,
+        odometer: f.odometer, station: f.station ?? null, note: f.note ?? null,
       }));
-    store.setState({ fills: merged });
-  } else if (!_hasSeeded && fillData && fillData.length === 0) {
+      supabase.from("fuel_fills").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[GarageSync] pushMissing fuel_fills:', error.message);
+      });
+    }
+  } else if (!_hasSeeded) {
     await seedFuelFills(userId);
   }
 
@@ -124,24 +140,39 @@ async function doPull(userId: string) {
     .select("*")
     .eq("user_id", userId);
 
-  if (!maintError && maintData && maintData.length > 0) {
+  if (!maintError) {
     const store = useGarageStore;
+    const cloudRows = maintData ?? [];
     const state = store.getState();
-    const existingIds = new Set(state.maintenance.map((m: MaintenanceLog) => m.id));
-    const newMaint: MaintenanceLog[] = (maintData as Array<Record<string, unknown>>)
-      .filter((r) => !existingIds.has(r.id as string))
-      .map((r) => ({
-        id: r.id as string,
-        vehicle: r.vehicle as string ?? "",
-        date: r.date as string ?? "",
-        amount: r.amount as number ?? 0,
-        serviceType: r.service_type as string ?? "",
-        notes: r.notes as string ?? undefined,
-      }));
-    if (newMaint.length > 0) {
-      store.setState({ maintenance: [...newMaint, ...state.maintenance] });
+    if (cloudRows.length > 0) {
+      const existingIds = new Set(state.maintenance.map((m: MaintenanceLog) => m.id));
+      const newMaint: MaintenanceLog[] = (cloudRows as Array<Record<string, unknown>>)
+        .filter((r) => !existingIds.has(r.id as string))
+        .map((r) => ({
+          id: r.id as string,
+          vehicle: r.vehicle as string ?? "",
+          date: r.date as string ?? "",
+          amount: r.amount as number ?? 0,
+          serviceType: r.service_type as string ?? "",
+          notes: r.notes as string ?? undefined,
+        }));
+      if (newMaint.length > 0) {
+        store.setState({ maintenance: [...newMaint, ...state.maintenance] });
+      }
     }
-  } else if (!_hasSeeded && maintData && maintData.length === 0) {
+    // Push local-only maintenance to cloud
+    const cloudIds = new Set(cloudRows.map((r: Record<string, unknown>) => r.id as string));
+    const localOnly = store.getState().maintenance.filter((m: MaintenanceLog) => !cloudIds.has(m.id));
+    if (localOnly.length > 0) {
+      const rows = localOnly.map((m: MaintenanceLog) => ({
+        id: m.id, user_id: userId, vehicle: m.vehicle, date: m.date,
+        amount: m.amount, service_type: m.serviceType, notes: m.notes ?? null,
+      }));
+      supabase.from("maintenance_logs").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[GarageSync] pushMissing maintenance_logs:', error.message);
+      });
+    }
+  } else if (!_hasSeeded) {
     await seedMaintenanceLogs(userId);
   }
 
@@ -151,15 +182,27 @@ async function doPull(userId: string) {
     .select("*")
     .eq("user_id", userId);
 
-  if (!vehicleError && vehicleData && vehicleData.length > 0) {
+  if (!vehicleError) {
     const store = useGarageStore;
     const state = store.getState();
-    const cloudNames = (vehicleData as Array<Record<string, unknown>>).map((r) => r.name as string);
+    const cloudRows = vehicleData ?? [];
+    const cloudNames = (cloudRows as Array<Record<string, unknown>>).map((r) => r.name as string);
     const merged = [...new Set([...state.vehicles, ...cloudNames])];
     if (merged.length !== state.vehicles.length) {
       store.setState({ vehicles: merged });
     }
-  } else if (!_hasSeeded && vehicleData && vehicleData.length === 0) {
+    // Push local-only vehicles to cloud
+    const localOnly = state.vehicles.filter((v: string) => !cloudNames.includes(v));
+    if (localOnly.length > 0) {
+      const rows = localOnly.map((v: string) => ({
+        id: Math.random().toString(36).substring(2, 9),
+        user_id: userId, name: v,
+      }));
+      supabase.from("vehicles").upsert(rows).then(({ error }) => {
+        if (error) console.warn('[GarageSync] pushMissing vehicles:', error.message);
+      });
+    }
+  } else if (!_hasSeeded) {
     await seedVehicles(userId);
   }
 }
