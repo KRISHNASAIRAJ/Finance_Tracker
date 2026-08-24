@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/data/useTransactions'
 import { useFuelFills } from '../../hooks/data/useGarage'
+import { useFixedExpenses } from '../../hooks/data/useFixedExpenses'
 import { PageHeader, Skeleton, StatCard } from '../../components/ui/Shared'
 import { Card, CardHeader, CardBody } from '../../components/ui/Card'
 import { TrendBars, Donut } from '../../components/charts/Charts'
@@ -21,6 +22,7 @@ export function MonthlySpendPage() {
   const userId = user?.id ?? ''
   const { data: txns, isLoading } = useTransactions(userId)
   const { data: fills } = useFuelFills(userId)
+  const { data: fixedExpenses } = useFixedExpenses(userId)
 
   const [selectedMonth, setSelectedMonth] = useState(istMonthKey())
 
@@ -29,18 +31,36 @@ export function MonthlySpendPage() {
     [txns, selectedMonth]
   )
 
+  // Same excluded categories as the mobile app's MonthlySpendScreen —
+  // wallet loads, rent, SIP, investments, housing, and fixed expense names
+  const excluded = useMemo(() => {
+    const set = new Set(
+      ['Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load'].map((c) => c.toLowerCase())
+    )
+    for (const f of fixedExpenses ?? []) set.add(f.name.toLowerCase())
+    return set
+  }, [fixedExpenses])
+
+  const spendTxns = useMemo(
+    () =>
+      monthTxns.filter(
+        (t) =>
+          (t.type === 'expense' || t.type === 'vehicle_service') &&
+          !excluded.has(t.category.toLowerCase())
+      ),
+    [monthTxns, excluded]
+  )
+
   // Same as mobile app: garage fuel fills count toward monthly spend
   const monthFuelFills = useMemo(
     () => (fills ?? []).filter((f) => f.date.slice(0, 7) === selectedMonth),
     [fills, selectedMonth]
   )
   const fuelFillTotal = monthFuelFills.reduce((s, f) => s + f.amount, 0)
-  const fuelTxnTotal = monthTxns
-    .filter((t) => t.type === 'fuel_purchase')
+  const fuelTxnTotal = (txns ?? [])
+    .filter((t) => t.date.slice(0, 7) === selectedMonth && t.type === 'fuel_purchase')
     .reduce((s, t) => s + t.amount, 0)
-  const spend = monthTxns
-    .filter((t) => t.type !== 'income' && t.type !== 'fuel_purchase' && t.type !== 'fixed_expense')
-    .reduce((s, t) => s + t.amount, 0) + Math.max(fuelFillTotal, fuelTxnTotal)
+  const spend = spendTxns.reduce((s, t) => s + t.amount, 0) + Math.max(fuelFillTotal, fuelTxnTotal)
   const income = monthTxns.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const net = income - spend
 
@@ -50,24 +70,23 @@ export function MonthlySpendPage() {
     const days: Array<{ label: string; value: number }> = []
     for (let d = 1; d <= daysInMonth; d++) {
       const key = `${selectedMonth}-${String(d).padStart(2, '0')}`
-      const total = monthTxns
-        .filter((t) => t.date.slice(0, 10) === key && t.type !== 'income')
+      const total = spendTxns
+        .filter((t) => t.date.slice(0, 10) === key)
         .reduce((s, t) => s + t.amount, 0)
       days.push({ label: String(d), value: total })
     }
     return days
-  }, [monthTxns, selectedMonth])
+  }, [spendTxns, selectedMonth])
 
   const catData = useMemo(() => {
     const map = new Map<string, number>()
-    for (const t of monthTxns) {
-      if (t.type === 'income') continue
+    for (const t of spendTxns) {
       map.set(t.category, (map.get(t.category) ?? 0) + t.amount)
     }
     return Array.from(map.entries())
       .map(([name, value]) => ({ name, value, color: getCategory(name).color }))
       .sort((a, b) => b.value - a.value)
-  }, [monthTxns])
+  }, [spendTxns])
 
   const avgPerDay = spend > 0 ? Math.round(spend / new Date(Number(selectedMonth.split('-')[0]), Number(selectedMonth.split('-')[1]), 0).getDate()) : 0
 
