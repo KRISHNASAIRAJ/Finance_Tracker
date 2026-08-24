@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/Button'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
 import { ConfirmDialog, Modal } from '../../components/ui/Modal'
 import { Field } from '../../components/ui/Field'
+import { TrendArea, Donut } from '../../components/charts/Charts'
 import {
   formatDate,
   formatNumber,
@@ -79,6 +80,32 @@ export function GarageDashboardPage() {
     if (dist <= 0 || latest.liters <= 0) return null
     return dist / latest.liters
   }, [vehicleFills])
+
+  // Per-fill mileage trend (same as mobile app's garage area chart)
+  const mileageTrend = useMemo(() => {
+    const sorted = [...vehicleFills].sort((a, b) => a.odometer - b.odometer)
+    const points: Array<{ label: string; value: number }> = []
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1]
+      const curr = sorted[i]
+      const dist = curr.odometer - prev.odometer
+      if (dist <= 0 || curr.liters <= 0) continue
+      points.push({
+        label: formatDate(curr.date),
+        value: Math.round((dist / curr.liters) * 10) / 10,
+      })
+    }
+    return points
+  }, [vehicleFills])
+
+  // Fuel vs maintenance spend donut
+  const spendDonut = useMemo(() => {
+    const data = [
+      { name: 'Fuel', value: totalFuelSpend, color: '#9BA5FF' },
+      { name: 'Maintenance', value: totalMaintenanceSpend, color: '#E2A45C' },
+    ]
+    return data.filter((d) => d.value > 0)
+  }, [totalFuelSpend, totalMaintenanceSpend])
 
   const openManage = () => {
     setFormOpen(false)
@@ -221,6 +248,50 @@ export function GarageDashboardPage() {
               value={mileage ? `${mileage.toFixed(1)} km/l` : '—'}
               changeLabel={mileage ? 'last fill' : 'need 2+ fills'}
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader
+                title="Mileage trend"
+                subtitle={mileageTrend.length > 0 ? 'km/l per fuel fill' : 'Add 2+ fuel fills to see the trend'}
+              />
+              <CardBody>
+                {mileageTrend.length >= 2 ? (
+                  <TrendArea
+                    data={mileageTrend}
+                    height={170}
+                    color="#59D6C7"
+                    formatter={(v) => `${v} km/l`}
+                  />
+                ) : (
+                  <p className="py-10 text-center text-sm text-white/30">
+                    Not enough fuel fills yet
+                  </p>
+                )}
+              </CardBody>
+            </Card>
+            <Card>
+              <CardHeader title="Spend split" />
+              <CardBody>
+                {spendDonut.length > 0 ? (
+                  <>
+                    <Donut data={spendDonut} height={150} formatter={paiseToRupeesCompact} />
+                    <div className="mt-2 space-y-1.5">
+                      {spendDonut.map((d) => (
+                        <div key={d.name} className="flex items-center gap-2 text-xs">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
+                          <span className="flex-1 text-white/60">{d.name}</span>
+                          <span className="font-medium text-white/80">{paiseToRupeesCompact(d.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="py-10 text-center text-sm text-white/30">No spend yet</p>
+                )}
+              </CardBody>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -1,4 +1,4 @@
-name: Build APK
+name: Build & Deploy (APK + Web)
 
 on:
   push:
@@ -215,3 +215,59 @@ jobs:
           name: apk-release
           path: mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+  deploy-web:
+    name: 6 — Deploy Web (Netlify)
+    needs: [validate-env, smoke, tests]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Build web app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Verify env inlined in web bundle
+        run: |
+          grep -q "https://rkmouoglorsnijmemmcd.supabase.co" dist/assets/*.js \
+            || { echo "::error::Supabase URL not found in web bundle — env not inlined"; exit 1; }
+
+      - name: Deploy to Netlify (production)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "::error::NETLIFY_AUTH_TOKEN secret missing. Add a Netlify personal access token → repo Secrets."
+            exit 1
+          fi
+          if [ -z "$NETLIFY_SITE_ID" ]; then
+            echo "::error::NETLIFY_SITE_ID secret missing. Site id: 26bb0145-ef60-4526-9539-66a90a83a927"
+            exit 1
+          fi
+          npx --yes netlify-cli deploy --prod --dir dist --site "$NETLIFY_SITE_ID"
+
+      - name: Verify production site is live
+        run: |
+          curl -sf "https://meridian365.netlify.app/" > /dev/null \
+            || { echo "::error::meridian365.netlify.app not responding after deploy"; exit 1; }
+          echo "✅ https://meridian365.netlify.app is live"
