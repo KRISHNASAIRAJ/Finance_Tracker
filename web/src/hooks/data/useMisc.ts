@@ -3,7 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import type { ExpectedIncome, PayzappLoad, UserSettings } from '../../types'
+import type { CategoryBudget, ExpectedIncome, PayzappLoad, UserSettings } from '../../types'
 
 // ─── Payzapp loads ───────────────────────────────────────
 
@@ -132,6 +132,56 @@ export function useSetMonthlyBudget(userId: string) {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.all(userId) }),
+  })
+}
+
+// ─── Category budgets (per-category monthly spend limits) ──
+
+export const categoryBudgetKeys = {
+  all: (userId: string) => ['category_budgets', userId] as const,
+}
+
+export function useCategoryBudgets(userId: string) {
+  return useQuery({
+    queryKey: categoryBudgetKeys.all(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('category_budgets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('category', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as CategoryBudget[]
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useUpsertCategoryBudget(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ category, amountPaise }: { category: string; amountPaise: number }) => {
+      const { error } = await supabase
+        .from('category_budgets')
+        .upsert({ user_id: userId, category, amount_paise: amountPaise }, { onConflict: 'user_id,category' })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: categoryBudgetKeys.all(userId) }),
+  })
+}
+
+export function useDeleteCategoryBudget(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (category: string) => {
+      const { error } = await supabase
+        .from('category_budgets')
+        .delete()
+        .eq('user_id', userId)
+        .eq('category', category)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: categoryBudgetKeys.all(userId) }),
   })
 }
 

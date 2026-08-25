@@ -199,6 +199,9 @@ export default function MonthlySpendScreen() {
               <TouchableOpacity style={styles.editBudgetBtn} onPress={() => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); }}>
                 <Text style={styles.editBudgetText}>{budgetPaise > 0 ? 'Edit Budget' : 'Set Budget'}</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.editBudgetBtn} onPress={() => navigation.navigate('CategoryBudgets')}>
+                <Text style={styles.editBudgetText}>Category Limits</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={styles.setBudgetBtn} onPress={() => { setBudgetInput(''); setBudgetModalVisible(true); }}>

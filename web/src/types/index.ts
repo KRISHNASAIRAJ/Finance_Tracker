@@ -44,6 +44,15 @@ export interface UserSettings {
   updated_at?: string
 }
 
+export interface CategoryBudget {
+  id: string
+  user_id: string
+  category: string
+  amount_paise: number
+  created_at?: string
+  updated_at?: string
+}
+
 // ─── Finance ─────────────────────────────────────────────
 
 export interface CreditCard {

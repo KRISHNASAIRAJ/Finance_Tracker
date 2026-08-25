@@ -2,16 +2,18 @@
  * FinanceHomePage — the finance module dashboard.
  * Shows: month spend, budget, recent transactions, category donut, quick actions.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ChevronRight } from 'lucide-react'
+import { Plus, ChevronRight, Trash2, Settings2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useTransactions } from '../../hooks/data/useTransactions'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
-import { useUserSettings } from '../../hooks/data/useMisc'
+import { useUserSettings, useCategoryBudgets, useUpsertCategoryBudget, useDeleteCategoryBudget } from '../../hooks/data/useMisc'
 import { useFixedExpenses } from '../../hooks/data/useFixedExpenses'
 import { useFuelFills } from '../../hooks/data/useGarage'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
+import { Modal } from '../../components/ui/Modal'
+import { Field } from '../../components/ui/Field'
 import { TrendArea, Donut } from '../../components/charts/Charts'
 import { Button } from '../../components/ui/Button'
 import { getCategory } from '../../lib/categoryMap'
@@ -67,6 +69,13 @@ export function FinanceHomePage() {
   const { data: settings } = useUserSettings(userId)
   const { data: fixedExpenses } = useFixedExpenses(userId)
   const { data: fuelFills } = useFuelFills(userId)
+  const { data: categoryBudgets } = useCategoryBudgets(userId)
+  const upsertBudget = useUpsertCategoryBudget(userId)
+  const deleteBudget = useDeleteCategoryBudget(userId)
+
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const [budgetCat, setBudgetCat] = useState('')
+  const [budgetAmt, setBudgetAmt] = useState('')
 
   const monthKey = istMonthKey()
   const monthTxns = useMemo(() => (txns ?? []).filter((t) => t.date.slice(0, 7) === monthKey), [txns, monthKey])
@@ -105,6 +114,41 @@ export function FinanceHomePage() {
   }, [txns])
 
   const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 6)
+
+  // Category limits: spent this month vs limit, with progress
+  const budgetRows = useMemo(() => {
+    const spent = new Map<string, number>()
+    for (const t of monthTxns) {
+      if (t.type === 'income' || t.type === 'credit_card_bill') continue
+      spent.set(t.category, (spent.get(t.category) ?? 0) + t.amount)
+    }
+    return (categoryBudgets ?? [])
+      .map((b) => {
+        const used = spent.get(b.category) ?? 0
+        return {
+          category: b.category,
+          limit: b.amount_paise,
+          used,
+          pct: b.amount_paise > 0 ? Math.min(100, (used / b.amount_paise) * 100) : 0,
+          over: used > b.amount_paise,
+        }
+      })
+      .sort((a, b) => b.used - a.used)
+  }, [categoryBudgets, monthTxns])
+
+  const openBudgetModal = (category: string) => {
+    const existing = categoryBudgets?.find((b) => b.category === category)
+    setBudgetCat(category)
+    setBudgetAmt(existing ? (existing.amount_paise / 100).toString() : '')
+    setBudgetModalOpen(true)
+  }
+
+  const saveBudget = () => {
+    const amt = parseFloat(budgetAmt)
+    if (!budgetCat || isNaN(amt) || amt <= 0) return
+    upsertBudget.mutate({ category: budgetCat, amountPaise: Math.round(amt * 100) })
+    setBudgetModalOpen(false)
+  }
 
   return (
     <div className="space-y-6 fade-up">
@@ -201,6 +245,105 @@ export function FinanceHomePage() {
           ))}
         </CardBody>
       </Card>
+
+      {/* Category limits */}
+      <Card>
+        <CardHeader
+          title="Category limits"
+          action={
+            <button
+              onClick={() => openBudgetModal('')}
+              className="flex items-center gap-1 text-xs text-white/40 transition-colors hover:text-white"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add limit
+            </button>
+          }
+        />
+        <CardBody>
+          {budgetRows.length === 0 && (
+            <p className="text-sm text-white/30 py-4 text-center">No category limits set — add one to track spending.</p>
+          )}
+          {budgetRows.map((row) => {
+            const cat = getCategory(row.category)
+            return (
+              <div key={row.category} className="border-b border-white/5 py-2.5 last:border-0">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-white/80">{row.category}</p>
+                    <p className="text-xs text-white/35 tnum">
+                      {paiseToRupeesCompact(row.used)} / {paiseToRupeesCompact(row.limit)} this month
+                    </p>
+                  </div>
+                  <span className={`text-xs font-medium tnum ${row.over ? 'text-[#FF887D]' : 'text-white/60'}`}>
+                    {row.over ? 'Over limit' : `${Math.round(row.pct)}%`}
+                  </span>
+                  <button
+                    onClick={() => openBudgetModal(row.category)}
+                    className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                    aria-label={`Edit ${row.category} limit`}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteBudget.mutate(row.category)}
+                    className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-[#FF887D]"
+                    aria-label={`Delete ${row.category} limit`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${row.pct}%`,
+                      backgroundColor: row.over ? '#FF887D' : cat.color,
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </CardBody>
+      </Card>
+
+      <Modal
+        open={budgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        title={budgetCat ? `Edit ${budgetCat} limit` : 'Add category limit'}
+        footer={
+          <>
+            <button
+              onClick={() => setBudgetModalOpen(false)}
+              className="h-10 rounded-xl border border-white/15 px-4 text-sm text-white/70 transition-colors hover:bg-white/5"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveBudget}
+              disabled={upsertBudget.isPending}
+              className="h-10 rounded-xl bg-white px-4 text-sm font-medium text-black transition-colors hover:bg-white/85 disabled:opacity-50"
+            >
+              Save
+            </button>
+          </>
+        }
+      >
+        <Field.Input
+          label="Category"
+          value={budgetCat}
+          onChange={(e) => setBudgetCat(e.target.value)}
+          placeholder="e.g. Food & Dining"
+        />
+        <Field.Input
+          label="Monthly limit (₹)"
+          type="number"
+          value={budgetAmt}
+          onChange={(e) => setBudgetAmt(e.target.value)}
+          placeholder="e.g. 6000"
+        />
+      </Modal>
     </div>
   )
 }

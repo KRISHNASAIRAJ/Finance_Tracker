@@ -48,6 +48,7 @@ const resetState = () => {
     fixedExpenses: [],
     expectedIncomes: [],
     payzappLoads: [],
+    categoryBudgets: [],
   });
 };
 
@@ -121,6 +122,40 @@ describe('Finance E2E — card lifecycle', () => {
     expect(card.paidAmount).toBe(80000);
     expect(card.billAmount).toBe(200000);
     expect(useFinanceStore.getState().transactions).toHaveLength(0);
+  });
+});
+
+describe('Finance E2E — category budgets', () => {
+  beforeEach(resetState);
+
+  it('sets a new category limit and returns it via getCategoryBudgetFor', () => {
+    const { setCategoryBudget, getCategoryBudgetFor } = useFinanceStore.getState();
+    setCategoryBudget('Food & Dining', 600000);
+
+    expect(useFinanceStore.getState().categoryBudgets).toHaveLength(1);
+    expect(getCategoryBudgetFor('Food & Dining')?.amountPaise).toBe(600000);
+  });
+
+  it('upserts an existing category limit (latest amount wins)', () => {
+    const { setCategoryBudget } = useFinanceStore.getState();
+    setCategoryBudget('Fuel', 300000);
+    setCategoryBudget('Fuel', 350000);
+
+    const budgets = useFinanceStore.getState().categoryBudgets;
+    expect(budgets).toHaveLength(1);
+    expect(budgets[0].amountPaise).toBe(350000);
+  });
+
+  it('deletes a category limit', () => {
+    const { setCategoryBudget, deleteCategoryBudget } = useFinanceStore.getState();
+    setCategoryBudget('Rent', 1040000);
+    setCategoryBudget('Grocery', 600000);
+    deleteCategoryBudget('Rent');
+
+    const budgets = useFinanceStore.getState().categoryBudgets;
+    expect(budgets).toHaveLength(1);
+    expect(budgets[0].category).toBe('Grocery');
+    expect(useFinanceStore.getState().getCategoryBudgetFor('Rent')).toBeUndefined();
   });
 });
 

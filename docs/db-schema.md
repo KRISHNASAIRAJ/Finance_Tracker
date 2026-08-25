@@ -18,6 +18,7 @@
 | `fixed_expenses` | Finance | Recurring bills and subscriptions |
 | `expected_incomes` | Finance | Expected income entries per user |
 | `user_settings` | Finance | Per-user settings (monthly budget) |
+| `category_budgets` | Finance | Per-category monthly spend limits (upsert by user_id + category) |
 | `payzapp_loads` | Finance | Payzapp wallet load tracking |
 | `kite_tokens` | Equity | Kite Connect OAuth access tokens |
 | `tnc_documents` | Finance/AI | Uploaded card T&C PDFs metadata |

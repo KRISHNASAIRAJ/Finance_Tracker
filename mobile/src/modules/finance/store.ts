@@ -72,12 +72,19 @@ export interface ExpectedIncome {
   date: string; // ISO date string
 }
 
+export interface CategoryBudget {
+  id: string;
+  category: string;
+  amountPaise: number; // monthly limit in paise
+}
+
 interface FinanceState {
   transactions: Transaction[];
   cards: CreditCard[];
   receivables: Receivable[];
   accounts: BankAccount[];
   fixedExpenses: FixedExpense[];
+  categoryBudgets: CategoryBudget[];
   lastSyncedAt: string | null;
   isOnboarded: boolean;
   onboardingName: string;
@@ -100,6 +107,9 @@ interface FinanceState {
   deleteExpectedIncome: (id: string, userId?: string) => void;
   monthlyBudget: number; // in rupees (not paise)
   setMonthlyBudget: (amount: number, userId?: string) => void;
+  setCategoryBudget: (category: string, amountPaise: number, userId?: string) => void;
+  deleteCategoryBudget: (category: string, userId?: string) => void;
+  getCategoryBudgetFor: (category: string) => CategoryBudget | undefined;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editTransaction: (id: string, updated: Partial<Transaction>, userId?: string) => void;
   deleteTransaction: (id: string, userId?: string) => void;
@@ -157,6 +167,7 @@ export const useFinanceStore = create<FinanceState>()(
       payzappLoads: [],
       expectedIncomes: [],
       monthlyBudget: 0,
+      categoryBudgets: [],
       transactions: [],
       cards: [],
       receivables: [],
@@ -639,9 +650,58 @@ export const useFinanceStore = create<FinanceState>()(
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
       setLastSyncedAt: (ts) => set({ lastSyncedAt: ts }),
+      setCategoryBudget: (category, amountPaise, userId) => {
+        const trimmed = (category || '').trim();
+        if (!trimmed) return;
+        set((state) => {
+          const existing = state.categoryBudgets.find((c) => c.category === trimmed);
+          if (existing) {
+            return {
+              categoryBudgets: state.categoryBudgets.map((c) =>
+                c.category === trimmed ? { ...c, amountPaise } : c
+              ),
+            };
+          }
+          return {
+            categoryBudgets: [
+              ...state.categoryBudgets,
+              {
+                id: Math.random().toString(36).substring(2, 9),
+                category: trimmed,
+                amountPaise,
+              },
+            ],
+          };
+        });
+        try {
+          const item = get().categoryBudgets.find((c) => c.category === trimmed);
+          if (item) {
+            enqFlush("category_budgets", "upsert", {
+              id: item.id, user_id: userId || null,
+              category: item.category, amount_paise: item.amountPaise,
+            });
+          }
+        } catch (e) { console.warn('[FinanceStore] category budget sync failed:', e); }
+      },
+      deleteCategoryBudget: (category, userId) => {
+        const trimmed = (category || '').trim();
+        set((state) => ({
+          categoryBudgets: state.categoryBudgets.filter((c) => c.category !== trimmed),
+        }));
+        try {
+          const item = get().categoryBudgets.find((c) => c.category === trimmed);
+          enqFlush("category_budgets", "delete", {
+            id: item?.id ?? null,
+            category: trimmed,
+            user_id: userId || null,
+          });
+        } catch (e) { console.warn('[FinanceStore] category budget sync failed:', e); }
+      },
+      getCategoryBudgetFor: (category) =>
+        get().categoryBudgets.find((c) => c.category === category),
     }),
     {
-      name: 'meridian-finance-storage-v13',
+      name: 'meridian-finance-storage-v14',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

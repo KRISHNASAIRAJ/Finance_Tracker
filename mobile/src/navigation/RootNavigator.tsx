@@ -30,6 +30,7 @@ import LentBorrowedScreen from '../modules/finance/screens/LentBorrowedScreen';
 import ExpenseConfirmationScreen from '../modules/finance/screens/ExpenseConfirmationScreen';
 import MonthlySpendScreen from '../modules/finance/screens/MonthlySpendScreen';
 import FixedExpensesScreen from '../modules/finance/screens/FixedExpensesScreen';
+import CategoryBudgetsScreen from '../modules/finance/screens/CategoryBudgetsScreen';
 import FinanceReportsScreen from '../modules/finance/screens/FinanceReportsScreen';
 import AllTransactionsScreen from '../modules/finance/screens/AllTransactionsScreen';
 import CreditCardsScreen from '../modules/finance/screens/CreditCardsScreen';
@@ -86,6 +87,7 @@ export type FinanceStackParamList = {
   ExpenseConfirmation: { transactionId: string };
   MonthlySpend: undefined;
   FixedExpenses: undefined;
+  CategoryBudgets: undefined;
   FinanceReports: undefined;
   AllTransactions: undefined;
   CreditCards: undefined;
@@ -200,6 +202,7 @@ function FinanceStackNavigator() {
       <FinanceStack.Screen name="ExpenseConfirmation" component={ExpenseConfirmationScreen} options={modalScreenOptions} />
       <FinanceStack.Screen name="MonthlySpend" component={MonthlySpendScreen} />
       <FinanceStack.Screen name="FixedExpenses" component={FixedExpensesScreen} />
+      <FinanceStack.Screen name="CategoryBudgets" component={CategoryBudgetsScreen} />
       <FinanceStack.Screen name="FinanceReports" component={FinanceReportsScreen} />
       <FinanceStack.Screen name="AllTransactions" component={AllTransactionsScreen} />
       <FinanceStack.Screen name="CreditCards" component={CreditCardsScreen} />

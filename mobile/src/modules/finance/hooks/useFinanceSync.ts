@@ -13,6 +13,7 @@ import type {
   BankAccount,
   FixedExpense,
   ExpectedIncome,
+  CategoryBudget,
 } from "../store";
 
 interface SyncState {
@@ -355,6 +356,24 @@ const TABLE_MAP: SyncTable[] = [
       }, { onConflict: "user_id" }).then(({ error }) => {
         if (error) console.warn('[FinanceSync] pushMissing user_settings:', error.message);
       });
+    },
+  },
+  {
+    supabaseTable: "category_budgets",
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().categoryBudgets as CategoryBudget[],
+      (items) => getStore().setState({ categoryBudgets: items }),
+      (r) => ({
+        id: r.id as string,
+        category: r.category as string,
+        amountPaise: r.amount_paise as number ?? 0,
+      })
+    ),
+    getLocalItems: () => getStore().getState().categoryBudgets as CategoryBudget[],
+    toRows(userId, items) {
+      return (items as CategoryBudget[]).map((c) => ({
+        id: c.id, user_id: userId, category: c.category, amount_paise: c.amountPaise,
+      }));
     },
   },
 ];
