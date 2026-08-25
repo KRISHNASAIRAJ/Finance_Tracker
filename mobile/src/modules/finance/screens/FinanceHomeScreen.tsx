@@ -369,7 +369,7 @@ export default function FinanceHomeScreen() {
           <View style={styles.cardRows}>
             {(() => {
               const filteredTxs = transactions.filter(
-                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load' && tx.type !== 'fuel_purchase'
+                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load' && tx.type !== 'fuel_purchase' && tx.type !== 'credit_card_bill'
               );
               const fuelPseudoTxs: any[] = garageFills.map((f) => ({
                 id: `fill-${f.id}`,

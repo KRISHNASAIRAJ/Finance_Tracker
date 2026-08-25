@@ -88,6 +88,7 @@ export default function MonthlySpendScreen() {
     .filter((tx) => new Date(tx.date) >= startOfMonth)
     .filter((tx) => tx.type !== 'fixed_expense')
     .filter((tx) => tx.type !== 'fuel_purchase')
+    .filter((tx) => tx.type !== 'credit_card_bill')
     .filter((tx) => !EXCLUDED_CATEGORIES.some(cat =>
       cat.toLowerCase() === (tx.category || '').toLowerCase()
     ));

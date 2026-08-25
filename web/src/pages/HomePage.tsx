@@ -122,7 +122,7 @@ export function HomePage() {
     [receivables]
   )
 
-  const recentTxns = (txns ?? []).slice(0, 8)
+  const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 8)
 
   return (
     <div className="space-y-6 fade-up">

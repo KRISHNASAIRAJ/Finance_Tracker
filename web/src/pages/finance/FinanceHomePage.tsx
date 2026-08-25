@@ -104,7 +104,7 @@ export function FinanceHomePage() {
     return days
   }, [txns])
 
-  const recentTxns = (txns ?? []).slice(0, 6)
+  const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 6)
 
   return (
     <div className="space-y-6 fade-up">

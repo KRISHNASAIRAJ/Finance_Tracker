@@ -74,7 +74,7 @@ export function CombinedReportPage() {
     return items
   }, [holdings, totalBalance, totalCardOutstanding])
 
-  const recentTxns = (txns ?? []).slice(0, 5)
+  const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 5)
 
   const isLoading = !txns || !accounts || !cards || !receivables || !holdings
 
