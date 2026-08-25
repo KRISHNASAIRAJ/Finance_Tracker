@@ -1,8 +1,10 @@
 /**
  * AddExpensePage / EditTransactionPage — shared transaction form.
+ * Windfall-style: type it naturally → smart parser fills amount/category/notes.
  */
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Sparkles, ArrowRight, Check } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   useTransactions,
@@ -15,6 +17,7 @@ import { Field } from '../../components/ui/Field'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../lib/categoryMap'
 import { fromInputDate, toInputDate } from '../../lib/istDate'
 import { parseRupees, rupeesToPaise } from '../../lib/format'
+import { smartParse } from '../../lib/smartParse'
 import { toast } from '../../components/ui/Toast'
 import type { Transaction } from '../../types'
 
@@ -51,10 +54,28 @@ function TransactionForm({ id }: { id?: string }) {
   const [date, setDate] = useState(existing ? toInputDate(existing.date) : toInputDate(new Date().toISOString()))
   const [paymentMode, setPaymentMode] = useState(existing?.payment_mode ?? 'upi')
   const [notes, setNotes] = useState(existing?.notes ?? '')
+  const [smartInput, setSmartInput] = useState('')
+  const [smartUsed, setSmartUsed] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES
+
+  const applySmartParse = () => {
+    const parsed = smartParse(smartInput)
+    if (parsed.amount === null && !parsed.notes) {
+      setError('Add an amount, e.g. "Lunch 300 upi" or "Salary 45000"')
+      return
+    }
+    setError('')
+    setType(parsed.type)
+    if (parsed.amount !== null) setAmount(String(parsed.amount))
+    if (parsed.notes) setNotes(parsed.notes)
+    setCategory(parsed.category)
+    if (parsed.paymentMode) setPaymentMode(parsed.paymentMode)
+    if (parsed.date) setDate(toInputDate(parsed.date.toISOString()))
+    setSmartUsed(true)
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -99,6 +120,51 @@ function TransactionForm({ id }: { id?: string }) {
       />
 
       <form onSubmit={onSubmit} className="space-y-5">
+        {/* Smart add — Windfall-style natural language entry */}
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3">
+            <Sparkles className="h-4 w-4 shrink-0 text-white/40" />
+            <input
+              value={smartInput}
+              onChange={(e) => setSmartInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applySmartParse() } }}
+              placeholder='Type it — try "Lunch at Starbucks 300 UPI"'
+              className="h-10 flex-1 bg-transparent text-sm text-white placeholder:text-white/30 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={applySmartParse}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20"
+              aria-label="Parse"
+            >
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-white/35">
+            Type it naturally — amount, category and payment are filled for you to review.
+          </p>
+        </div>
+
+        {/* Review chips */}
+        {smartUsed && !existing && (
+          <div className="flex flex-wrap gap-2">
+            {amount && (
+              <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+                <Check className="h-3 w-3 text-[#59D6C7]" /> ₹{amount}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+              {category}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase text-white/80">
+              {paymentMode}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+              {date}
+            </span>
+          </div>
+        )}
+
         {/* Type toggle */}
         <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 p-1">
           {(['expense', 'income'] as const).map((t) => (

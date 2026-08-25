@@ -1,6 +1,8 @@
 ﻿/**
- * AddExpenseScreen — form to add income/expense transactions with category
- * auto-detection, amount, date and payment details.
+ * AddExpenseScreen — Windfall-style transaction entry.
+ * Type it naturally ("Lunch at Starbucks 300 UPI") → the smart parser fills
+ * amount, category, payment mode and notes; review the chips before saving
+ * with the floating bottom action. The full form below acts as the editor.
  */
 import React, { useState } from 'react';
 import {
@@ -30,6 +32,7 @@ import {
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import DateTimePicker from '../../../shared/components/DateTimePicker';
 import CategoryIcon from '../../../shared/CategoryIcon';
+import { smartParse } from '../smartParse';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AddExpense'>;
 
@@ -40,6 +43,7 @@ export default function AddExpenseScreen() {
   const cards = useFinanceStore((state) => state.cards);
   const { user } = useAuth();
 
+  const [smartInput, setSmartInput] = useState('');
   const [amount, setAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
   const [notes, setNotes] = useState('');
@@ -51,8 +55,27 @@ export default function AddExpenseScreen() {
   const [paymentMode, setPaymentMode] = useState<'upi' | 'card' | 'cash'>('cash');
   const [selectedPaymentAccount, setSelectedPaymentAccount] = useState<string>('');
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
+  const [smartUsed, setSmartUsed] = useState(false);
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+
+  const applySmartParse = () => {
+    const parsed = smartParse(smartInput);
+    if (parsed.amount === null && !parsed.notes) {
+      alert('Add an amount, e.g. "Lunch 300 upi" or "Salary 45000"');
+      return;
+    }
+    setTransactionType(parsed.type);
+    setIsManualCategory(false);
+    if (parsed.amount !== null) setAmount(String(parsed.amount));
+    if (parsed.notes) setExpenseName(parsed.notes);
+    setSelectedCategory(parsed.category);
+    if (parsed.paymentMode === 'cash') setPaymentMode('cash');
+    else if (parsed.paymentMode === 'card') setPaymentMode('card');
+    else if (parsed.paymentMode === 'upi' || parsed.paymentMode === 'bank') setPaymentMode('upi');
+    if (parsed.date) setSelectedDate(parsed.date);
+    setSmartUsed(true);
+  };
 
   const handleNameChange = (name: string) => {
     setExpenseName(name);
@@ -100,7 +123,7 @@ export default function AddExpenseScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* AppBar */}
           <View style={styles.appBar}>
@@ -110,6 +133,53 @@ export default function AddExpenseScreen() {
             <Text style={styles.appBarTitle}>Add Transaction</Text>
             <View style={{ width: 40 }} />
           </View>
+
+          {/* Smart Add — Windfall-style natural language entry */}
+          <View style={styles.smartPanel}>
+            <View style={styles.smartInputRow}>
+              <Ionicons name="sparkles" size={16} color={colors.primary} />
+              <TextInput
+                style={styles.smartInput}
+                placeholder="Type it — try “Lunch at Starbucks 300 UPI”"
+                placeholderTextColor={colors.onSurfaceVariant}
+                value={smartInput}
+                onChangeText={setSmartInput}
+                onSubmitEditing={applySmartParse}
+                returnKeyType="go"
+                autoCapitalize="sentences"
+              />
+              <TouchableOpacity style={styles.smartGoBtn} onPress={applySmartParse} activeOpacity={0.8}>
+                <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.smartHint}>Type it naturally — amount, category and payment are filled for you to review.</Text>
+          </View>
+
+          {/* Review chips — shown once smart entry has filled fields */}
+          {smartUsed && (
+            <View style={styles.reviewChips}>
+              {amount !== '' && (
+                <View style={styles.reviewChip}>
+                  <Text style={styles.reviewChipLabel}>AMOUNT</Text>
+                  <Text style={styles.reviewChipValue}>₹{amount}</Text>
+                </View>
+              )}
+              <View style={styles.reviewChip}>
+                <Text style={styles.reviewChipLabel}>CATEGORY</Text>
+                <Text style={[styles.reviewChipValue, { color: selectedCatObj.color }]}>{selectedCategory}</Text>
+              </View>
+              <View style={styles.reviewChip}>
+                <Text style={styles.reviewChipLabel}>PAYMENT</Text>
+                <Text style={styles.reviewChipValue}>{paymentMode.toUpperCase()}</Text>
+              </View>
+              <View style={styles.reviewChip}>
+                <Text style={styles.reviewChipLabel}>DATE</Text>
+                <Text style={styles.reviewChipValue}>
+                  {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Large Amount Input */}
           <View style={styles.amountContainer}>
@@ -121,7 +191,6 @@ export default function AddExpenseScreen() {
               keyboardType="decimal-pad"
               value={amount}
               onChangeText={setAmount}
-              autoFocus
             />
           </View>
 
@@ -307,18 +376,18 @@ export default function AddExpenseScreen() {
               onChangeText={setNotes}
             />
           </View>
-
-          {/* Submit */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.8}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
-              <Text style={styles.submitButtonText}>Log Transaction</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
+
+        {/* Floating bottom action — Windfall-style add button */}
+        <View style={styles.floatingBar}>
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.85}>
+            <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
+            <Text style={styles.submitButtonText}>Log Transaction</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
 
       <DateTimePicker
@@ -338,7 +407,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   keyboardView: { flex: 1 },
-  scrollContent: { padding: spacing.containerPadding, gap: spacing.stackGapLg, paddingBottom: 40 },
+  scrollContent: { padding: spacing.containerPadding, gap: spacing.stackGapLg, paddingBottom: 24 },
   appBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,11 +416,75 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, borderRadius: rounded.full },
   appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
+  smartPanel: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: rounded.lg,
+    padding: 12,
+    gap: 8,
+  },
+  smartInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    height: 46,
+  },
+  smartInput: {
+    flex: 1,
+    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  smartGoBtn: {
+    backgroundColor: colors.primaryContainer,
+    width: 30,
+    height: 30,
+    borderRadius: rounded.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  smartHint: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+  },
+  reviewChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  reviewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceContainer,
+    borderColor: colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: rounded.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  reviewChipLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.5,
+  },
+  reviewChipValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
   amountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 16,
     gap: 8,
   },
   currencySymbol: { fontSize: 48, fontWeight: '700', color: colors.primary },
@@ -411,7 +544,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   categoryText: { fontSize: 12, fontWeight: '500', color: colors.onSurfaceVariant },
-  dateTimeRow: { flexDirection: 'row', gap: 10 },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -424,7 +556,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   datePickerText: { fontSize: 14, color: colors.onSurface, fontWeight: '600' },
-  buttonContainer: { gap: 10, paddingTop: 8 },
+  floatingBar: {
+    paddingHorizontal: spacing.containerPadding,
+    paddingTop: 10,
+    paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: 6,
+    backgroundColor: colors.background,
+  },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -440,7 +580,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   submitButtonText: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  cancelButton: { alignItems: 'center', paddingVertical: 12 },
+  cancelButton: { alignItems: 'center', paddingVertical: 8 },
   cancelButtonText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '500' },
   dropdownList: {
     backgroundColor: colors.surfaceContainer,
