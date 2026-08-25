@@ -59,3 +59,53 @@ describe('smartParse — natural language transaction parsing', () => {
     expect(r.notes).toBe('');
   });
 });
+
+describe('smartParse — bank SMS formats (issue #9)', () => {
+  it('parses a UPI debit SMS', () => {
+    const r = smartParse('Rs.5000 debited from HDFC Bank A/c XX1234 on 12-Mar-25 via UPI. Available bal: Rs.25000');
+    expect(r.amount).toBe(5000);
+    expect(r.type).toBe('expense');
+    expect(r.paymentMode).toBe('upi');
+    expect(r.date).not.toBeNull();
+    expect(r.date!.getMonth()).toBe(2); // March
+    expect(r.date!.getDate()).toBe(12);
+  });
+
+  it('parses a UPI credit SMS as income', () => {
+    const r = smartParse('Rs.10000 credited to HDFC Bank A/c XX1234 on 12/03/25. Ref no. 847201');
+    expect(r.amount).toBe(10000);
+    expect(r.type).toBe('income');
+    expect(r.date).not.toBeNull();
+    expect(r.date!.getDate()).toBe(12);
+  });
+
+  it('parses a card swipe SMS with merchant', () => {
+    const r = smartParse('Your card XX1234 used at SWIGGY for INR 345.00 on 12-Mar-25. Avl limit Rs.50000');
+    expect(r.amount).toBe(345);
+    expect(r.type).toBe('expense');
+    expect(r.paymentMode).toBe('card');
+    expect(r.category).toBe('Food & Dining');
+    expect(r.notes).toContain('SWIGGY');
+  });
+
+  it('parses a card payment to a merchant', () => {
+    const r = smartParse('INR 1200.00 spent on your card XX1234 at STARBUCKS COFFEE on 15 Mar 25');
+    expect(r.amount).toBe(1200);
+    expect(r.paymentMode).toBe('card');
+    expect(r.notes).toContain('STARBUCKS');
+    expect(r.category).toBe('Food & Dining');
+  });
+
+  it('parses salary credit SMS', () => {
+    const r = smartParse('Salary of Rs.45000 credited to your account on 01-Mar-25');
+    expect(r.amount).toBe(45000);
+    expect(r.type).toBe('income');
+    expect(r.category).toBe('Salary');
+  });
+
+  it('ignores the available-balance amount after the txn amount', () => {
+    const r = smartParse('Rs.3000 debited from A/c XX1234 on 12-Mar-25 via UPI. Available bal: Rs.25000');
+    expect(r.amount).toBe(3000);
+    expect(r.notes).not.toMatch(/25000|balance/i);
+  });
+});

@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -56,15 +57,12 @@ export default function AddExpenseScreen() {
   const [selectedPaymentAccount, setSelectedPaymentAccount] = useState<string>('');
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
   const [smartUsed, setSmartUsed] = useState(false);
+  const [smsModalVisible, setSmsModalVisible] = useState(false);
+  const [smsText, setSmsText] = useState('');
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
-  const applySmartParse = () => {
-    const parsed = smartParse(smartInput);
-    if (parsed.amount === null && !parsed.notes) {
-      alert('Add an amount, e.g. "Lunch 300 upi" or "Salary 45000"');
-      return;
-    }
+  const applyParsed = (parsed: ReturnType<typeof smartParse>) => {
     setTransactionType(parsed.type);
     setIsManualCategory(false);
     if (parsed.amount !== null) setAmount(String(parsed.amount));
@@ -75,6 +73,26 @@ export default function AddExpenseScreen() {
     else if (parsed.paymentMode === 'upi' || parsed.paymentMode === 'bank') setPaymentMode('upi');
     if (parsed.date) setSelectedDate(parsed.date);
     setSmartUsed(true);
+  };
+
+  const applySmartParse = () => {
+    const parsed = smartParse(smartInput);
+    if (parsed.amount === null && !parsed.notes) {
+      alert('Add an amount, e.g. "Lunch 300 upi" or "Salary 45000"');
+      return;
+    }
+    applyParsed(parsed);
+  };
+
+  const applySmsParse = () => {
+    const parsed = smartParse(smsText);
+    if (parsed.amount === null) {
+      alert('Could not find an amount in the SMS. Paste a bank alert like "Rs.5000 debited ... on 12-Mar-25 via UPI".');
+      return;
+    }
+    applyParsed(parsed);
+    setSmsModalVisible(false);
+    setSmsText('');
   };
 
   const handleNameChange = (name: string) => {
@@ -152,7 +170,13 @@ export default function AddExpenseScreen() {
                 <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.smartHint}>Type it naturally — amount, category and payment are filled for you to review.</Text>
+            <View style={styles.smartHintRow}>
+              <Text style={styles.smartHint}>Type it naturally — amount, category and payment are filled for you to review.</Text>
+              <TouchableOpacity style={styles.smsBtn} onPress={() => setSmsModalVisible(true)} activeOpacity={0.8}>
+                <Ionicons name="chatbox-ellipses-outline" size={13} color={colors.primary} />
+                <Text style={styles.smsBtnText}>Paste SMS</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Review chips — shown once smart entry has filled fields */}
@@ -396,6 +420,36 @@ export default function AddExpenseScreen() {
         onSelect={(d) => { setSelectedDate(d); setShowDateTimePicker(false); }}
         onClose={() => setShowDateTimePicker(false)}
       />
+
+      {/* Paste SMS modal — paste a bank alert, parser fills the form */}
+      <Modal visible={smsModalVisible} transparent animationType="slide" onRequestClose={() => setSmsModalVisible(false)}>
+        <View style={styles.smsModalOverlay}>
+          <View style={styles.smsModalCard}>
+            <Text style={styles.smsModalTitle}>Paste bank SMS</Text>
+            <Text style={styles.smsModalSubtitle}>
+              Paste a bank alert like “Rs.5,000 debited from HDFC Bank on 12-Mar-25 via UPI” — we'll fill the form for you to review.
+            </Text>
+            <TextInput
+              style={styles.smsTextInput}
+              multiline
+              numberOfLines={5}
+              placeholder="Paste SMS text here…"
+              placeholderTextColor={colors.onSurfaceVariant}
+              value={smsText}
+              onChangeText={setSmsText}
+            />
+            <View style={styles.smsModalActions}>
+              <TouchableOpacity style={styles.smsCancelBtn} onPress={() => { setSmsModalVisible(false); setSmsText(''); }} activeOpacity={0.8}>
+                <Text style={styles.smsCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smsParseBtn} onPress={applySmsParse} activeOpacity={0.8}>
+                <Ionicons name="sparkles" size={14} color={colors.textPrimary} />
+                <Text style={styles.smsParseText}>Parse</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -452,6 +506,92 @@ const styles = StyleSheet.create({
   smartHint: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
+    flex: 1,
+  },
+  smartHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  smsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: `${colors.primary}14`,
+    borderRadius: rounded.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  smsBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  smsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: spacing.containerPadding,
+  },
+  smsModalCard: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: rounded.lg,
+    padding: spacing.containerPadding,
+    gap: 10,
+  },
+  smsModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  smsModalSubtitle: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    lineHeight: 17,
+  },
+  smsTextInput: {
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: rounded.DEFAULT,
+    padding: 12,
+    minHeight: 110,
+    color: colors.onSurface,
+    fontSize: 14,
+    textAlignVertical: 'top',
+  },
+  smsModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  smsCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  smsCancelText: {
+    color: colors.onSurfaceVariant,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  smsParseBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: colors.primaryContainer,
+  },
+  smsParseText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   reviewChips: {
     flexDirection: 'row',
