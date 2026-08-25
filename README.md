@@ -63,9 +63,10 @@ meridian/
 │   │   ├── navigation/    ← Navigator setup
 │   │   └── services/      ← API clients, sync queue, notifications, backups
 │   └── android/           ← Android native layer (widgets)
+├── web/                   ← Web app (Vite + React + TS + Tailwind + TanStack Query + Recharts)
 └── supabase/
     ├── config.toml         ← Supabase project config
-    ├── migrations/        ← SQL migration files (26 migrations)
+    ├── migrations/        ← SQL migration files (29 migrations)
     └── functions/         ← Deno Edge Functions
 ```
 
@@ -173,9 +174,24 @@ Wealth holdings get live prices automatically:
 | Phase | Status |
 |---|---|
 | Phase 0–9 (mobile: finance, garage, tasks, wealth, AI, personal, polish) | 🟢 100% |
-| **Phase 10 — Web App** | 🟡 Planned |
+| **Phase 10 — Web App** | 🟢 100% |
 
-**Phase 10 — Web App (planned):** A full-featured website mirroring the mobile app — same Supabase data, same modules, same functionality. Reuses the existing Supabase backend (tables, RLS, edge functions) with no new backend. Email + password login via Supabase Auth (same accounts as the app). All free resources only (free hosting on Vercel/Netlify/Cloudflare Pages, existing Supabase free tier, existing Groq AI). Candidate stack: React + Vite or Next.js, TypeScript, deployed free. Mobile app keeps working unchanged. Details in `AGENTS.md` § Phase 10.
+**Phase 10 — Web App (built):** A full-featured website mirroring the mobile app — same Supabase data, same modules (Finance, Garage, Tasks, Wealth, Personal, Career, Meals, Diary), same functionality. Reuses the existing Supabase backend (tables, RLS, edge functions) with no new backend; all AI calls go through `supabase.functions.invoke`. Email + password login via Supabase Auth (same accounts as the app). Built with Vite + React + TypeScript + Tailwind CSS v4 + TanStack Query + Recharts, dark dashboard with Supabase Realtime sync (mobile edits appear on web instantly and vice-versa). Deployed on Netlify (free tier).
+
+```bash
+cd web
+npm install
+cp .env.example .env        # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+npm run dev                 # local dev server
+npm run typecheck && npm run lint && npm run build   # verify before deploy
+```
+
+## CI/CD
+
+GitHub Actions (`build-apk.yml`) builds the Android APK and deploys the web app:
+
+- **Pull request → main:** runs type-check, lint, unit + E2E tests, and builds a **release APK** uploaded as a build artifact — download it from the workflow run to test the PR.
+- **Push → main / manual dispatch:** full production pipeline — Supabase migrations, smoke tests, release APK, and Netlify deploy of the web app.
 
 ## License
 
