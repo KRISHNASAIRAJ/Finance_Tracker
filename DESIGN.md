@@ -163,6 +163,11 @@ surface-container-highest (#2d2d3c) ← Top-layer overlays, chips
 
 **Rule: These 4 semantic roles are locked. No exceptions.**
 
+### UX Behavior Rules
+- **Credit card bill payments (`type: credit_card_bill`) must never appear in "Recent Transactions", spend lists, or category breakdowns** — they are liability transfers, not spending (issue #3). They remain visible on the card's own transaction list.
+- **Wallet Loads** and **Fuel** (garage fills merged as pseudo-transactions) are likewise excluded from Recent Transactions.
+- **Category budgets** (issue #7): a category's spent-vs-limit progress turns from success (`#4fdbcc`) to error (`#ff6b6b`) once spent exceeds the limit; both mobile and web show the same behavior.
+
 ### Card Styling (dark mode)
 ```
 bg: surface-container (#1e1e2a)
@@ -262,6 +267,53 @@ Label: persistent above field, `label-md secondary`
 
 **Date inputs MUST use a native date-picker or calendar picker component — never a free-text field.** Every date-related input (due dates, billing dates, reminder dates, etc.) must display a calendar picker on tap. This ensures valid date entries and consistent UX across all modules.
 
+### Smart Add Panel (transaction entry — Windfall-style)
+The Add Transaction screen leads with a natural-language entry panel (Windfall-inspired redesign, issue #10):
+```
+bg-surface-container (#1e1e2a)  rounded-lg  p-3  border-outline-variant
+├─ row: sparkles icon + text input + circular "go" button (primary-container)
+└─ caption: "Type it naturally — amount, category and payment are filled for you to review."
+      + "Paste SMS" pill button (primary @ 8% tint bg, primary text)
+```
+- Parsing is **offline + pure** (`smartParse.ts`) — no AI call, no permissions.
+- Trigger parse on submit/enter; parsed fields auto-fill the form below.
+
+### Review Chips
+Shown after smart/SMS parse fills the form — confirms what will be saved:
+```
+pill: rounded-full, surface-container bg, outline-variant border, px-3 py-1
+label: label-sm uppercase, on-surface-variant
+value: label-md bold, on-surface (category value uses its category color)
+chips: AMOUNT · CATEGORY · PAYMENT · DATE
+```
+
+### Floating Bottom Action Bar
+Primary save action pinned at the bottom (outside the scroll):
+```
+bg-surface, border-t outline-variant, px-16 pb-16 pt-10, gap-6
+├─ Primary button (primary-container, "Log Transaction", checkmark icon, shadow)
+└─ Text link "Cancel" (on-surface-variant)
+```
+
+### SMS Paste Modal
+Accessed via "Paste SMS" pill in the Smart Add panel (issue #9):
+```
+Modal bottom-sheet: bg-surface-container, rounded-lg, p-16
+title: "Paste bank SMS" (headline-md)
+caption: hints to paste a bank alert like "Rs.5,000 debited from HDFC Bank on 12-Mar-25 via UPI"
+multiline input: min-h-110, surface bg, outline border
+actions: Cancel (secondary) | Parse (primary-container, sparkles icon)
+```
+Bank SMS parsing understands: `debited/credited/spent/used`, SMS dates (`12-Mar-25`, `12/03/25`), merchants (`used at SWIGGY`), payment modes (`via UPI`), and strips balance/limit/ref boilerplate.
+
+### Limit Progress Row (category budgets — issue #7)
+```
+row: category icon (tinted bg) + name + spent/limit caption
+progress track: h-5px rounded-full bg-surface
+progress fill: bg-success (#4fdbcc); bg-error (#ff6b6b) when over limit
+actions: edit (pencil, primary @ 8%) + delete (trash, error @ 8%) icon buttons
+```
+
 ### Status Chip (dark)
 ```
 rounded-full px-3 py-1 font-label-sm
@@ -319,6 +371,20 @@ These are the canonical screens to implement. Title starts with "Meridian:" in S
 | 14 | Meridian: Personal Notes | `01927f8f` | Personal | 7 |
 | 15 | Meridian: Recipes Library | `9ae1a2ca` | Personal | 7 |
 | 16 | Meridian: Diet Plan Tracker | `ea8ee4d1` | Personal | 7 |
+| 17 | Meridian: Finance Dashboard (Glass Noir) | `58b4140f` | Finance | 1 |
+| 18 | Meridian: Finance Dashboard (Segmented Chart) | `dd18ce1f` | Finance | 1 |
+| 19 | Meridian: Vertical Card Stack | `517ebdea` | Finance | 1 |
+| 20 | Meridian: Explore Menu | `d5e3e9c8` | Finance | 1 |
+| 21 | Meridian: Date Picker | `1fc1fe7d` | Finance | 1 |
+| 22 | Meridian: Date & Time Picker | `05ee1ef4` | Finance | 1 |
+| 23 | Meridian: Brand Logo | `157c814d` | Brand | — |
+| 24 | Meridian Logo (Monochrome Mark) | `f0c28a5d` | Brand | — |
+
+> **Updated implementations (v3/main — no new Stitch screen yet, code-led):**
+> - **Add Transaction** (`AddExpenseScreen`) — Windfall-style Smart Add panel + review chips + floating bottom Log button + "Paste SMS" modal (issues #9, #10). Stitch screen `d7ccc69b` remains the layout base.
+> - **Category Budgets** (`CategoryBudgetsScreen`, Finance) — per-category monthly spend limits with spent/limit progress bars, add/edit/delete modal (issue #7). Web equivalent: "Category limits" panel on Finance Home.
+> - **Web app** — the same screens exist as web pages; the finance home additionally shows category-limit progress and the transaction form has the same smart-add input.
+> - **App icon** — adaptive icon foreground/monochrome from `android-icon-foreground.png` / `android-icon-monochrome.png`, pure-black background, brand primary `#2346d5` (issue #2).
 
 ### 🟡 Light Mode — Use Layout Only, Convert Colors to Dark Tokens
 These exist in Stitch but are pre-rename light screens. Use for layout/component reference; apply dark tokens during implementation.
@@ -367,7 +433,8 @@ Bottom Tab: Finance
       ├─ [Lent/Borrow] → Meridian: Lent & Borrowed
       ├─ [Recurring] → Meridian: Recurring Expenses
       ├─ [Reports] → Meridian: Finance Reports
-      └─ [FAB +] → Meridian: Add Expense Form
+      ├─ [Monthly Spend] → Category Budgets (per-category limits, code-native)
+      └─ [FAB +] → Meridian: Add Expense Form (Smart Add + Paste SMS)
 
 Bottom Tab: Garage
   └─ Meridian: Garage Dashboard → Fuel Fill | Vehicle Spend | Reports
