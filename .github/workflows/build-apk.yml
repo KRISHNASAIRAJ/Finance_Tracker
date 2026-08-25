@@ -1,8 +1,10 @@
 name: Build & Deploy (APK + Web)
 
 on:
+  pull_request:
+    branches: [main]
   push:
-    branches: [main, v3]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +29,7 @@ jobs:
   migrate-db:
     name: 1 — Database Migration
     needs: [validate-env]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -140,7 +143,7 @@ jobs:
 
   build-apk:
     name: 5 — Build APK
-    needs: [validate-env, migrate-db, smoke, tests, e2e]
+    needs: [validate-env, smoke, tests, e2e]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -219,6 +222,7 @@ jobs:
   deploy-web:
     name: 6 — Deploy Web (Netlify)
     needs: [validate-env, smoke, tests]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     defaults:
       run:
