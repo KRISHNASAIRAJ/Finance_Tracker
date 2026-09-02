@@ -2,9 +2,9 @@ name: Build & Deploy (APK + Web)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, v4]
   push:
-    branches: [main]
+    branches: [main, v4]
   workflow_dispatch:
 
 concurrency:
