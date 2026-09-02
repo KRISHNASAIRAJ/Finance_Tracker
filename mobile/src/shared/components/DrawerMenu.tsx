@@ -1,11 +1,13 @@
 /**
- * DrawerMenu — global slide-in sidebar that replaces the More tab.
+ * DrawerMenu — global slide-in sidebar.
+ *
  * Core Animated only (no reanimated/gesture-handler deps):
  *  - springs open from the left with a fading backdrop
  *  - left-edge swipe to open, drawer swipe/backdrop/back-button to close
  *  - staggered row entrance driven by the same progress value
+ *  - active route highlight so you always know where you are
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
@@ -23,7 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tc, glass } from '../theme/tracend';
+import { tc } from '../theme/tracend';
 import { useDrawerStore } from '../useDrawerStore';
 import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
@@ -32,9 +34,8 @@ import { useAuth } from '../../services/AuthProvider';
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 const SCREEN_W = Dimensions.get('window').width;
-const DRAWER_W = Math.min(320, SCREEN_W * 0.84);
+const DRAWER_W = Math.min(300, SCREEN_W * 0.80);
 
-/** Walk the navigation state to the focused screen name. */
 function getActiveRouteName(state: any): string | undefined {
   if (!state) return undefined;
   const route = state.routes?.[state.index ?? 0];
@@ -52,6 +53,14 @@ type Item = {
   grad?: readonly [string, string];
 };
 
+const ACTIVE_MAP: Record<string, string> = {
+  FinanceTab: 'home',
+  FinanceHome: 'home',
+  GarageTab: 'garage',
+  TasksTab: 'tasks',
+  InvestmentsTab: 'wealth',
+};
+
 export default function DrawerMenu() {
   const navigation = useNavigation<RootNav>();
   const { isOpen, open, close, toggle } = useDrawerStore();
@@ -59,8 +68,6 @@ export default function DrawerMenu() {
   const insets = useSafeAreaInsets();
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);
 
-  // Only the FinanceHome screen shows the drawer trigger — every other
-  // screen has its own headers/back buttons and the pill would overlap them.
   const [activeRouteName, setActiveRouteName] = useState<string | undefined>(() => {
     try {
       return getActiveRouteName(navigation.getState());
@@ -82,6 +89,7 @@ export default function DrawerMenu() {
 
   const isHomeScreen = activeRouteName === 'FinanceHome';
   const showTrigger = isOnboarded && isHomeScreen;
+  const activeId = activeRouteName ? ACTIVE_MAP[activeRouteName] : undefined;
 
   const progress = useRef(new Animated.Value(0)).current;
   const dragX = useRef(new Animated.Value(0)).current;
@@ -94,13 +102,12 @@ export default function DrawerMenu() {
   );
   const backdropOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
-  // Per-row entrance: each item starts fading/sliding at a slightly later progress threshold.
   const rowOpacity = (i: number) =>
-    progress.interpolate({ inputRange: [0, 0.2 + i * 0.055, 0.55 + i * 0.055], outputRange: [0, 0, 1] });
+    progress.interpolate({ inputRange: [0, 0.18 + i * 0.045, 0.5 + i * 0.045], outputRange: [0, 0, 1] });
   const rowOffset = (i: number) =>
     progress.interpolate({
-      inputRange: [0, 0.2 + i * 0.055, 0.55 + i * 0.055],
-      outputRange: [-14, -14, 0],
+      inputRange: [0, 0.18 + i * 0.045, 0.5 + i * 0.045],
+      outputRange: [-12, -12, 0],
     });
 
   const openAnim = useCallback(() => {
@@ -108,16 +115,16 @@ export default function DrawerMenu() {
     Animated.spring(progress, {
       toValue: 1,
       useNativeDriver: true,
-      damping: 22,
-      stiffness: 180,
-      mass: 0.9,
+      damping: 24,
+      stiffness: 200,
+      mass: 0.85,
     }).start();
   }, [progress, dragX]);
 
   const closeAnim = useCallback(() => {
     Animated.timing(progress, {
       toValue: 0,
-      duration: 220,
+      duration: 200,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(() => dragX.setValue(0));
@@ -128,7 +135,6 @@ export default function DrawerMenu() {
     else closeAnim();
   }, [isOpen, openAnim, closeAnim]);
 
-  // Android hardware back closes the drawer first.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isOpenRef.current) {
@@ -140,8 +146,6 @@ export default function DrawerMenu() {
     return () => sub.remove();
   }, [close]);
 
-  // Snap to a state: syncs the store (so pointerEvents/back-key stay correct)
-  // AND always runs the animation even when the store value didn't change.
   const snap = useCallback(
     (toOpen: boolean) => {
       if (toOpen) {
@@ -155,7 +159,6 @@ export default function DrawerMenu() {
     [open, close, openAnim, closeAnim]
   );
 
-  // Left-edge swipe strip → open the drawer.
   const edgeResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => !isOpenRef.current && g.dx > 12 && Math.abs(g.dx) > Math.abs(g.dy),
@@ -174,7 +177,6 @@ export default function DrawerMenu() {
     })
   ).current;
 
-  // Drawer panel drag → follows finger, closes past a threshold.
   const panelResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => g.dx < 0 && Math.abs(g.dx) > Math.abs(g.dy),
@@ -193,7 +195,7 @@ export default function DrawerMenu() {
 
   const go = (action: () => void) => {
     close();
-    setTimeout(action, 120); // let the drawer begin closing before the screen swaps
+    setTimeout(action, 120);
   };
 
   const signOutWithConfirm = () => {
@@ -202,10 +204,26 @@ export default function DrawerMenu() {
   };
 
   const primaryItems: Item[] = [
-    { id: 'home', label: 'Home', icon: 'home-outline', grad: ['#7b8eff', '#3a4fc9'], onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab' })) },
-    { id: 'garage', label: 'Garage', icon: 'bicycle-outline', grad: ['#5ee6ff', '#007d8f'], onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'GarageTab' })) },
-    { id: 'tasks', label: 'Tasks', icon: 'checkbox-outline', grad: ['#ffd9a0', '#e2a45c'], onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'TasksTab' })) },
-    { id: 'wealth', label: 'Wealth', icon: 'trending-up-outline', grad: ['#4fdbcc', '#007d73'], onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'InvestmentsTab' })) },
+    {
+      id: 'home', label: 'Home', icon: 'home-outline',
+      grad: ['#7b8eff', '#3a4fc9'] as const,
+      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab' })),
+    },
+    {
+      id: 'garage', label: 'Garage', icon: 'bicycle-outline',
+      grad: ['#5ee6ff', '#007d8f'] as const,
+      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'GarageTab' })),
+    },
+    {
+      id: 'tasks', label: 'Tasks', icon: 'checkbox-outline',
+      grad: ['#ffd9a0', '#e2a45c'] as const,
+      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'TasksTab' })),
+    },
+    {
+      id: 'wealth', label: 'Wealth', icon: 'trending-up-outline',
+      grad: ['#4fdbcc', '#007d73'] as const,
+      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'InvestmentsTab' })),
+    },
   ];
 
   const toolItems: Item[] = [
@@ -228,53 +246,71 @@ export default function DrawerMenu() {
       : []),
   ];
 
-  const rows = [
-    ...primaryItems.map((it) => ({ ...it, group: 'primary' })),
-    ...toolItems.map((it) => ({ ...it, group: 'tools' })),
-    ...systemItems.map((it) => ({ ...it, group: 'system' })),
-  ];
+  const rows = useMemo(() => [
+    ...primaryItems.map((it) => ({ ...it, group: 'primary' as const })),
+    ...toolItems.map((it) => ({ ...it, group: 'tools' as const })),
+    ...systemItems.map((it) => ({ ...it, group: 'system' as const })),
+  ], []);
+
   const indexOf = (id: string) => rows.findIndex((r) => r.id === id);
 
-  const renderRow = (item: Item, i: number) => (
-    <Animated.View
-      key={item.id}
-      style={{ opacity: rowOpacity(i), transform: [{ translateX: rowOffset(i) }] }}
-    >
-      <TouchableOpacity
-        style={styles.row}
-        activeOpacity={0.6}
-        onPress={item.onPress}
-        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+  const initials = user?.email
+    ? user.email.split('@')[0].split(/[._-]/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+    : 'M';
+
+  const renderRow = (item: Item, i: number) => {
+    const isActive = item.id === activeId && !item.danger;
+    return (
+      <Animated.View
+        key={item.id}
+        style={{ opacity: rowOpacity(i), transform: [{ translateX: rowOffset(i) }] }}
       >
-        <View style={[styles.rowIcon, item.grad ? undefined : styles.rowIconPlain, item.danger && { backgroundColor: `${tc.attention}18` }]}>
-          {item.grad ? (
-            <LinearGradient colors={[item.grad[0], item.grad[1]]} style={styles.rowIconGrad}>
+        <TouchableOpacity
+          style={[styles.row, isActive && styles.rowActive]}
+          activeOpacity={0.65}
+          onPress={item.onPress}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+        >
+          {isActive && <View style={styles.activeBar} />}
+          <View
+            style={[
+              styles.rowIcon,
+              item.grad ? undefined : styles.rowIconPlain,
+              item.danger && { backgroundColor: `${tc.attention}18` },
+              isActive && !item.grad && styles.rowIconActive,
+            ]}
+          >
+            {item.grad ? (
+              <LinearGradient colors={[item.grad[0], item.grad[1]]} style={styles.rowIconGrad}>
+                <Ionicons name={item.icon} size={18} color="#ffffff" />
+              </LinearGradient>
+            ) : (
               <Ionicons
                 name={item.icon}
-                size={18}
-                color="#ffffff"
+                size={20}
+                color={item.danger ? tc.attention : isActive ? tc.action : 'rgba(255,255,255,0.65)'}
               />
-            </LinearGradient>
-          ) : (
-            <Ionicons
-              name={item.icon}
-              size={20}
-              color={item.danger ? tc.attention : tc.textPrimary}
-            />
-          )}
-        </View>
-        <Text style={[styles.rowLabel, item.danger && { color: tc.attention }]}>{item.label}</Text>
-        <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-      </TouchableOpacity>
-    </Animated.View>
-  );
+            )}
+          </View>
+          <Text
+            style={[
+              styles.rowLabel,
+              item.danger && { color: tc.attention },
+              isActive && styles.rowLabelActive,
+            ]}
+            numberOfLines={1}
+          >
+            {item.label}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   return (
     <>
-      {/* Left-edge swipe strip — home screen only */}
       {showTrigger && <View style={styles.edgeStrip} {...edgeResponder.panHandlers} />}
 
-      {/* Floating trigger pill — home screen only */}
       {showTrigger && (
         <TouchableOpacity
           style={[styles.trigger, { top: insets.top + 29 }]}
@@ -285,7 +321,6 @@ export default function DrawerMenu() {
         </TouchableOpacity>
       )}
 
-      {/* Drawer layer — pointerEvents active only while open */}
       <View
         style={[StyleSheet.absoluteFill, styles.layer]}
         pointerEvents={isOpen ? 'auto' : 'none'}
@@ -299,20 +334,33 @@ export default function DrawerMenu() {
         </TouchableOpacity>
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]} {...panelResponder.panHandlers}>
+          {/* Premium accent line at the top */}
           <LinearGradient
-            colors={['rgba(123,142,255,0.14)', 'rgba(0,0,0,0)']}
-            style={styles.panelGlow}
-            pointerEvents="none"
+            colors={['#7b8eff', '#4fdbcc', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.topAccent}
           />
-          <View style={[styles.panelHeader, { paddingTop: insets.top + 20 }]}>
-            <LinearGradient colors={['#7b8eff', '#4a5cc8']} style={styles.brandMark}>
-              <Text style={styles.brandLetter}>M</Text>
-            </LinearGradient>
-            <View style={styles.brandTextWrap}>
-              <Text style={styles.brandName}>Meridian</Text>
-              <Text style={styles.brandSub} numberOfLines={1}>
-                {user?.email ?? 'Offline · sign in to sync'}
+
+          {/* Header */}
+          <View style={[styles.panelHeader, { paddingTop: insets.top + 24 }]}>
+            <View style={styles.avatarRing}>
+              <LinearGradient colors={['#7b8eff', '#4fdbcc']} style={styles.avatarGrad}>
+                <View style={styles.avatarInner}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              </LinearGradient>
+            </View>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {user?.email ? user.email.split('@')[0] : 'Guest'}
               </Text>
+              <View style={styles.headerStatusRow}>
+                <View style={[styles.statusDot, user ? styles.statusOnline : undefined]} />
+                <Text style={styles.headerSub} numberOfLines={1}>
+                  {user ? 'Synced' : 'Offline'}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -361,8 +409,10 @@ export default function DrawerMenu() {
             })}
           </Animated.ScrollView>
 
-          <Animated.View style={[styles.panelFooter, { opacity: rowOpacity(rows.length), paddingBottom: insets.bottom + 10 }]}>
-            <Text style={styles.footerText}>MERIDIAN v3 · OFFLINE-FIRST</Text>
+          <Animated.View
+            style={[styles.panelFooter, { opacity: rowOpacity(rows.length), paddingBottom: insets.bottom + 10 }]}
+          >
+            <Text style={styles.footerText}>MERIDIAN</Text>
           </Animated.View>
         </Animated.View>
       </View>
@@ -382,13 +432,13 @@ const styles = StyleSheet.create({
   trigger: {
     position: 'absolute',
     left: 0,
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     borderTopRightRadius: 999,
     borderBottomRightRadius: 999,
-    backgroundColor: 'rgba(18, 18, 18, 0.92)',
+    backgroundColor: 'rgba(16, 16, 22, 0.92)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderLeftWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
@@ -403,7 +453,7 @@ const styles = StyleSheet.create({
     zIndex: 60,
   },
   backdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.62)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
   panel: {
     position: 'absolute',
@@ -411,100 +461,144 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_W,
-    backgroundColor: '#0d0d12',
+    backgroundColor: '#0A0A10',
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: glass.border,
+    borderRightColor: 'rgba(255,255,255,0.06)',
     shadowColor: '#000000',
     shadowOffset: { width: 12, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 24,
     elevation: 24,
   },
-  panelGlow: {
+  topAccent: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 220,
+    height: 2,
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: glass.border,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  brandMark: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  avatarRing: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#0A0A10',
+    borderWidth: 2,
+    borderColor: 'rgba(123, 142, 255, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7b8eff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 6,
   },
-  brandLetter: {
-    fontSize: 18,
-    fontWeight: '800',
+  avatarGrad: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInner: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#ffffff',
+    letterSpacing: 0.5,
   },
-  brandTextWrap: { flex: 1 },
-  brandName: {
-    fontSize: 16,
+  headerTextWrap: { flex: 1 },
+  headerName: {
+    fontSize: 15,
     fontWeight: '700',
     color: tc.textPrimary,
     letterSpacing: -0.2,
   },
-  brandSub: {
+  headerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  statusOnline: {
+    backgroundColor: tc.stable,
+  },
+  headerSub: {
     fontSize: 11,
     color: tc.textMuted,
-    marginTop: 1,
   },
   scrollContent: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingHorizontal: 10,
+    paddingTop: 10,
   },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: tc.textMuted,
-    letterSpacing: 1.4,
-    marginTop: 18,
-    marginBottom: 4,
-    marginLeft: 12,
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 1.8,
+    marginTop: 20,
+    marginBottom: 2,
+    marginLeft: 14,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: tc.border,
-    marginVertical: 10,
-    marginHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 8,
+    marginHorizontal: 14,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 11,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  rowActive: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  activeBar: {
+    position: 'absolute',
+    left: 0,
+    top: 8,
+    bottom: 8,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: tc.action,
   },
   rowIcon: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowIconPlain: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  rowIconActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   rowIconGrad: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -513,18 +607,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
+  },
+  rowLabelActive: {
+    fontWeight: '600',
     color: tc.textPrimary,
   },
   panelFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tc.border,
+    borderTopColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 20,
     paddingTop: 12,
+    alignItems: 'center',
   },
   footerText: {
     fontSize: 9,
-    fontWeight: '600',
-    color: tc.textMuted,
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.25)',
+    letterSpacing: 2,
   },
 });
