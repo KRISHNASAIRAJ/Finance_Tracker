@@ -107,7 +107,7 @@ export default function AddExpenseScreen() {
       paymentMode: paymentMode === 'upi' ? `upi:${accountName}` : `card:${accountName}`,
     }, user?.id);
 
-    navigation.navigate('ExpenseConfirmation', { transactionId: newId });
+    navigation.replace('ExpenseConfirmation', { transactionId: newId });
   };
 
   const selectedCatObj = categoriesList.find((c) => c.name === selectedCategory) || categoriesList[0];
