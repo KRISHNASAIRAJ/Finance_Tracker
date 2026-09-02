@@ -1,9 +1,11 @@
-﻿/**
- * FinanceHomeScreen — finance home tab: net-worth hero, spend/card stats,
+/**
+ * FinanceHomeScreen � finance home tab: net-worth hero, spend/card stats,
  * expense-distribution donut and recent transactions.
  */
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
+  Alert,
+  Animated,
   StyleSheet,
   Text,
   View,
@@ -12,29 +14,32 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Easing,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, G as SvgG, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
+import GlassCard from '../../../shared/components/GlassCard';
+import GlowText from '../../../shared/components/GlowText';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { getCategoryColor } from '../../../shared/categoryMap';
-import CategoryIcon from '../../../shared/CategoryIcon';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
 import { useFinanceSync } from '../hooks/useFinanceSync';
-import DraggableFab from '../../../shared/components/DraggableFab';
+import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
+import { useAuth } from '../../../services/AuthProvider';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
 
 export default function FinanceHomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const garageFills = useGarageStore((s) => s.fills);
-  // Mounts the finance sync hook — pulls cloud data into the store on mount
+  // Mounts the finance sync hook � pulls cloud data into the store on mount
   // (critical on fresh installs, where the local store is empty)
   useFinanceSync();
   const {
@@ -46,7 +51,9 @@ export default function FinanceHomeScreen() {
     notifications,
     getTotalBalance,
     getMonthlyExpenses,
+    deleteTransaction,
   } = useFinanceStore();
+  const { user } = useAuth();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -59,6 +66,19 @@ export default function FinanceHomeScreen() {
   useEffect(() => {
     scheduleAllReminders();
   }, []);
+
+  // Donut entrance: spins in with a soft fade once on mount.
+  const donutAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(donutAnim, {
+      toValue: 1,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [donutAnim]);
+  const donutRotate = donutAnim.interpolate({ inputRange: [0, 1], outputRange: ['-90deg', '0deg'] });
+  const donutOpacity = donutAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   const totalBalance = getTotalBalance();
   const totalMinBalance = accounts.reduce((sum: number, acc: any) => sum + getMinBalanceForAccount(acc.title), 0);
@@ -155,6 +175,11 @@ export default function FinanceHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={['rgba(123,142,255,0.09)', 'rgba(0,0,0,0)']}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top App Bar */}
         <View style={styles.appBar}>
@@ -172,108 +197,155 @@ export default function FinanceHomeScreen() {
 
         {/* Hero Section: Total Net Worth */}
         <TouchableOpacity
-          style={styles.heroPanel}
           onPress={() => navigation.navigate('BalanceSummary')}
           activeOpacity={0.9}
         >
-          <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
-          <View style={styles.heroRow}>
-            <Text style={styles.heroValue}>{formatCurrency(totalNetWorth)}</Text>
-          </View>
+          <GlassCard glow={totalNetWorth < 0 ? 'pink' : 'indigo'} radius={32} pad={false}>
+            <View style={styles.heroBody}>
+              <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
+              <GlowText
+                glow={totalNetWorth < 0 ? 'pink' : 'indigo'}
+                size={42}
+                weight="800"
+              >
+                {formatCurrency(totalNetWorth)}
+              </GlowText>
+            </View>
+          </GlassCard>
         </TouchableOpacity>
 
         {/* Primary Cards Grid */}
         <View style={styles.grid2}>
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('MonthlySpend')}
             activeOpacity={0.85}
           >
-            <Ionicons name="pricetags-outline" size={26} color="#ffb2b9" />
-            <Text style={styles.statValue}>{formatCompact(monthlyExpenses)}</Text>
-            <Text style={styles.statLabel}>Monthly Spends</Text>
+            <GlassCard glow="pink" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#ffb2b9', '#ea6479']} style={styles.statIconChip}>
+                  <Ionicons name="pricetags-outline" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="pink" size={26} weight="700">{formatCompact(monthlyExpenses)}</GlowText>
+                <Text style={styles.statLabel}>Monthly Spends</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('CreditCards')}
             activeOpacity={0.85}
           >
-            <Ionicons name="receipt-outline" size={26} color="#5ee6ff" />
-            <Text style={styles.statValue}>{formatCompact(cardOutstandingTotal)}</Text>
-            <Text style={styles.statLabel}>CC Bills</Text>
+            <GlassCard glow="cyan" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#5ee6ff', '#00a8d6']} style={styles.statIconChip}>
+                  <Ionicons name="receipt-outline" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="cyan" size={26} weight="700">{formatCompact(cardOutstandingTotal)}</GlowText>
+                <Text style={styles.statLabel}>CC Bills</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('BankAccounts')}
             activeOpacity={0.85}
           >
-            <Ionicons name="business-outline" size={26} color="#ea6479" />
-            <Text style={styles.statValue}>{formatCompact(totalBalance)}</Text>
-            <Text style={styles.statLabel}>Bank Acc</Text>
+            <GlassCard glow="teal" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#ea6479', '#ffb2b9']} style={styles.statIconChip}>
+                  <Ionicons name="business-outline" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="teal" size={26} weight="700">{formatCompact(totalBalance)}</GlowText>
+                <Text style={styles.statLabel}>Bank Acc</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('LentBorrowed')}
             activeOpacity={0.85}
           >
-            <Ionicons name="people-outline" size={26} color="#d0bcff" />
-            <Text style={styles.statValue}>{formatCompact(totalLent)}</Text>
-            <Text style={styles.statLabel}>Net Lent/Debit</Text>
+            <GlassCard glow="indigo" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#d0bcff', '#7b8eff']} style={styles.statIconChip}>
+                  <Ionicons name="people-outline" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="indigo" size={26} weight="700">{formatCompact(totalLent)}</GlowText>
+                <Text style={styles.statLabel}>Net Lent/Debit</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
         </View>
 
         {/* Fixed Exp + Wallets */}
         <View style={styles.grid2}>
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('FixedExpenses')}
             activeOpacity={0.85}
           >
-            <Ionicons name="lock-closed-outline" size={26} color="#ffdadc" />
-            <Text style={styles.statValue}>{formatCompact(unpaidFixedExpensesTotal)}</Text>
-            <Text style={styles.statLabel}>Fixed Exp</Text>
+            <GlassCard glow="amber" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#ffd9a0', '#e2a45c']} style={styles.statIconChip}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="amber" size={26} weight="700">{formatCompact(unpaidFixedExpensesTotal)}</GlowText>
+                <Text style={styles.statLabel}>Fixed Exp</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.glassPanel, styles.statCard]}
+            style={styles.statCard}
             onPress={() => navigation.navigate('PayzappWallet')}
             activeOpacity={0.85}
           >
-            <Ionicons name="wallet" size={26} color="#00cbe6" />
-            <Text style={styles.statValue}>{formatCompact(payzappMonthlyLoad)}</Text>
-            <Text style={styles.statLabel}>Wallets</Text>
+            <GlassCard glow="cyan" radius={28} pad={false} style={styles.statCardInner}>
+              <View style={styles.statBody}>
+                <LinearGradient colors={['#00cbe6', '#007d8f']} style={styles.statIconChip}>
+                  <Ionicons name="wallet" size={18} color="#fff" />
+                </LinearGradient>
+                <GlowText glow="cyan" size={26} weight="700">{formatCompact(payzappMonthlyLoad)}</GlowText>
+                <Text style={styles.statLabel}>Wallets</Text>
+              </View>
+            </GlassCard>
           </TouchableOpacity>
         </View>
 
         {/* Expense Distribution */}
         <TouchableOpacity
-          style={[styles.glassPanel, styles.distributionPanel]}
+          style={styles.distributionPanel}
           onPress={() => navigation.navigate('FinanceReports')}
           activeOpacity={0.95}
         >
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Expense Distribution</Text>
-          </View>
+          <GlassCard glow="indigo" radius={28} pad>
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>Expense Distribution</Text>
+            </View>
 
           <View style={styles.distributionContent}>
             <View style={styles.donutSvgWrap}>
-              <Svg width={140} height={140} viewBox="0 0 100 100">
+              <Animated.View
+                style={{ opacity: donutOpacity, transform: [{ rotate: donutRotate }] }}
+              >
+                <Svg width={140} height={140} viewBox="0 0 100 100">
                 <Defs>
-                  <LinearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <SvgGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%">
                     <Stop offset="0%" stopColor="#ffb2b9" />
                     <Stop offset="100%" stopColor="#d0bcff" />
-                  </LinearGradient>
-                  <LinearGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
+                  </SvgGradient>
+                  <SvgGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
                     <Stop offset="0%" stopColor="#5ee6ff" />
                     <Stop offset="100%" stopColor="#00cbe6" />
-                  </LinearGradient>
-                  <LinearGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+                  </SvgGradient>
+                  <SvgGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
                     <Stop offset="0%" stopColor="#ea6479" />
                     <Stop offset="100%" stopColor="#ffdadc" />
-                  </LinearGradient>
+                  </SvgGradient>
                 </Defs>
 
                 {/* Background track */}
@@ -318,6 +390,7 @@ export default function FinanceHomeScreen() {
                   });
                 })()}
               </Svg>
+              </Animated.View>
               {categoriesSorted.length > 0 ? (
                 <View style={styles.donutCenter}>
                   <Text
@@ -354,18 +427,20 @@ export default function FinanceHomeScreen() {
               </View>
             )}
           </View>
+          </GlassCard>
         </TouchableOpacity>
 
         {/* Recent Transactions */}
-        <View style={[styles.glassPanel, styles.listPanel]}>
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Recent Transactions</Text>
-            {transactions.length > 5 && (
-              <TouchableOpacity onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.7}>
-                <Text style={styles.viewAllBtn}>View All</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+        <GlassCard radius={28} pad={false}>
+          <View style={styles.listPanel}>
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>Recent Transactions</Text>
+              {transactions.length > 5 && (
+                <TouchableOpacity onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.7}>
+                  <Text style={styles.viewAllBtn}>View All</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           <View style={styles.cardRows}>
             {(() => {
               const filteredTxs = transactions.filter(
@@ -384,49 +459,47 @@ export default function FinanceHomeScreen() {
                 .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .slice(0, 4);
 
-              return combined.map((tx: any) => {
-                const isIncome = tx.type === 'income';
-                const catColor = getCategoryColor(tx.category, isIncome);
-                return (
-                  <TouchableOpacity
-                    key={tx.id}
-                    style={styles.cardRow}
-                    onPress={() => {
-                      if (tx.id?.startsWith('fill-')) {
-                        navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
-                      } else {
-                        navigation.navigate('EditTransaction', { transactionId: tx.id });
-                      }
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.cardRowIcon, styles.txIcon, { backgroundColor: `${catColor}15` }]}>
-                      <CategoryIcon category={tx.category} size={16} color={catColor} />
-                    </View>
-                    <View style={styles.cardRowDetails}>
-                      <Text style={styles.cardRowName}>{tx.notes || tx.category}</Text>
-                      <Text style={styles.cardRowDue}>
-                        {tx.category} • {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </Text>
-                    </View>
-                    <Text style={styles.cardRowAmount}>
-                      {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              });
+              return combined.map((tx: any) => (
+                <ExpandableTransactionCard
+                  key={tx.id}
+                  tx={tx}
+                  formatAmount={formatCurrencyDetailed}
+                  onPressEdit={() => {
+                    if (tx.id?.startsWith('fill-')) {
+                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
+                    } else {
+                      navigation.navigate('EditTransaction', { transactionId: tx.id });
+                    }
+                  }}
+                  onPressDelete={() => {
+                    const isFill = tx.id?.startsWith('fill-');
+                    const { useGarageStore: garageStore } = require('../../garage/store');
+                    Alert.alert(
+                      'Delete Transaction',
+                      `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => {
+                            if (isFill) {
+                              garageStore.getState().deleteFuelFill(tx.id.replace('fill-', ''), user?.id);
+                            } else {
+                              deleteTransaction(tx.id, user?.id);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                />
+              ));
             })()}
           </View>
-        </View>
+          </View>
+          </GlassCard>
       </ScrollView>
-
-      {/* Floating AI Button — draggable */}
-      <DraggableFab
-        icon="sparkles"
-        color={colors.textPrimary}
-        storageKey="meridian-fab-home"
-        onPress={() => navigation.navigate('CardChat')}
-      />
     </SafeAreaView>
   );
 }
@@ -477,74 +550,52 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FFFFFF',
   },
-  heroPanel: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 32,
-    padding: 24,
-    overflow: 'hidden',
-  },
-heroLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  heroRow: {
-    flexDirection: 'row',
+  heroBody: {
+    padding: 26,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  heroValue: {
-    fontSize: 38,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -1,
-    flexShrink: 1,
-    textAlign: 'center',
+    gap: 4,
   },
   grid2: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
   },
-  glassPanel: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 32,
-    overflow: 'hidden',
+  heroLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   statCard: {
     flex: 1,
     minWidth: '45%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    gap: 8,
     aspectRatio: 1,
   },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+  statCardInner: {
+    flex: 1,
+  },
+  statBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+  },
+  statIconChip: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.7)',
-  },
-  statSub: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: -4,
+    textAlign: 'center',
   },
   listPanel: {
     padding: 16,
@@ -612,7 +663,6 @@ heroLabel: {
     color: '#FFFFFF',
 },
   distributionPanel: {
-    padding: 16,
     marginTop: 8,
   },
   distributionContent: {

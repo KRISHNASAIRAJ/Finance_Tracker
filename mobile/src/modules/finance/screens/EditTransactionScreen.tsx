@@ -161,7 +161,7 @@ export default function EditTransactionScreen() {
 
           {/* Description */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>DESCRIPTION / NAME</Text>
+            <Text style={styles.inputLabel}>TRANSACTION NAME</Text>
             <TextInput
               style={styles.textInput}
               placeholder="e.g. Swiggy lunch, Salary"

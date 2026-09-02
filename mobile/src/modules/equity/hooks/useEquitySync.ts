@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } fr
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
-import { useInvestmentsStore, Holding, InvestmentGoal } from "../store";
+import { useInvestmentsStore, Holding, InvestmentGoal, Loan } from "../store";
 
 interface SyncState {
   loading: boolean;
@@ -81,7 +81,7 @@ async function doPull(userId: string) {
       quantity: Number(r.quantity) || 0,
       avgPrice: (r.avg_buy_price as number) ?? 0,
       currentPrice: (r.current_price as number) ?? 0,
-      prevClose: (r.prev_close as number) ?? undefined,
+      prevClose: (r.prev_close as number) > 0 ? (r.prev_close as number) : undefined,
       source: (r.source as Holding["source"]) ?? "manual",
       folio: (r.folio_number as string) ?? undefined,
       amc: (r.amc as string) ?? undefined,
@@ -183,6 +183,34 @@ async function doPull(userId: string) {
 
   if (!planErr && planData?.content !== undefined && planData.content !== null) {
     store.setState({ portfolioActionPlan: planData.content as string });
+  }
+
+  // --- LOANS ---
+  const { data: loansData, error: loansErr } = await supabase
+    .from("loans")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!loansErr && loansData) {
+    const mapped: Loan[] = (loansData as Array<Record<string, unknown>>).map((r) => ({
+      id: r.id as string,
+      name: (r.name as string) ?? "",
+      amount: Number(r.amount) || 0,
+    }));
+    store.setState({ loans: mapped });
+
+    // Push loans missing in cloud (brand-new offline loans)
+    const cloudLoanIds = new Set(loansData.map((r: any) => r.id as string));
+    const localOnlyLoans = store.getState().loans.filter((l) => !cloudLoanIds.has(l.id));
+    if (localOnlyLoans.length > 0) {
+      const rows = localOnlyLoans.map((l) => ({
+        id: l.id, user_id: userId, name: l.name, amount: l.amount,
+        updated_at: new Date().toISOString(),
+      }));
+      supabase.from("loans").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[EquitySync] pushMissing loans:', error.message);
+      });
+    }
   }
 
   store.getState().setLastEquitySyncedAt(new Date().toISOString());

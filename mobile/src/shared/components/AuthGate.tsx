@@ -11,13 +11,13 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
-  ActivityIndicator,
   KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { rounded } from '../theme/spacing';
 import { useAuth } from '../../services/AuthProvider';
+import EKGLoader from './EKGLoader';
 
 interface Props {
   children: React.ReactNode;
@@ -36,7 +36,7 @@ export default function AuthGate({ children }: Props) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <EKGLoader size={200} />
         </View>
       </SafeAreaView>
     );
@@ -123,7 +123,7 @@ export default function AuthGate({ children }: Props) {
             disabled={busy}
           >
             {busy ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <EKGLoader size={44} />
             ) : (
               <Text style={styles.primaryBtnText}>Sign In</Text>
             )}

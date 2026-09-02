@@ -10,6 +10,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 
 import RootNavigator from './src/navigation/RootNavigator';
+import DrawerMenu from './src/shared/components/DrawerMenu';
 import { navigationTheme } from './src/shared/theme/colors';
 import RestorePrompt from './src/shared/components/RestorePrompt';
 import AuthGate from './src/shared/components/AuthGate';
@@ -68,7 +69,7 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           } else if (data.screen === 'LentBorrowed') {
             nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'LentBorrowed' } });
           } else if (data.screen === 'MealLogger') {
-            nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'MealLogger' } });
+            nav.navigate('MoreStack', { screen: 'MealLogger' });
           } else if (data.screen === 'AllMaintenance') {
             nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AllMaintenance' } });
           } else if (data.type === 'PORTFOLIO_REPORT') {
@@ -90,7 +91,7 @@ if (data.screen === 'TaskDetail' && data.taskId) {
       } else if (url.includes('add-task')) {
         nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
       } else if (url.includes('combined-report')) {
-        nav.navigate('MainTabs', { screen: 'MoreTab', params: { screen: 'CombinedReport' } });
+        nav.navigate('MoreStack', { screen: 'CombinedReport' });
       }
     };
 
@@ -121,6 +122,7 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             <StatusBar style="light" />
             <RestorePrompt />
             <RootNavigator />
+            <DrawerMenu />
           </NavigationContainer>
         </SafeAreaProvider>
       </AuthGate>

@@ -50,11 +50,18 @@ export interface PortfolioSnapshot {
   allocation: Record<string, number>;
 }
 
+export interface Loan {
+  id: string;
+  name: string;
+  amount: number; // outstanding principal in paise
+}
+
 interface InvestmentsState {
   lastEquitySyncedAt: string | null;
   setLastEquitySyncedAt: (iso: string) => void;
   holdings: Holding[];
   goals: InvestmentGoal[];
+  loans: Loan[];
   snapshots: PortfolioSnapshot[];
   chatHistory: ChatMessage[];
   portfolioActionPlan: string;
@@ -65,12 +72,17 @@ interface InvestmentsState {
   addGoal: (goal: Omit<InvestmentGoal, 'id'>) => string;
   updateGoal: (id: string, updates: Partial<InvestmentGoal>, userId?: string) => void;
   deleteGoal: (id: string, userId?: string) => void;
+  addLoan: (loan: Omit<Loan, 'id'>, userId?: string) => string;
+  updateLoan: (id: string, updates: Partial<Loan>, userId?: string) => void;
+  deleteLoan: (id: string, userId?: string) => void;
   setSnapshots: (snapshots: PortfolioSnapshot[]) => void;
   deleteSnapshot: (date: string) => void;
   addChatMessage: (sender: 'user' | 'assistant', text: string) => void;
   clearChatHistory: () => void;
   getPortfolioValue: () => number;
   getTodayPnL: () => number;
+  getTotalLoans: () => number;
+  getNetWorth: () => number;
 }
 
 function uid(): string {
@@ -100,6 +112,7 @@ export const useInvestmentsStore = create<InvestmentsState>()(
       snapshots: [],
       chatHistory: [],
       portfolioActionPlan: '',
+      loans: [],
       addHolding: (holding) => {
         const id = uid();
         set((state) => ({
@@ -166,6 +179,37 @@ export const useInvestmentsStore = create<InvestmentsState>()(
           enqFlush('investment_goals', 'delete', { id, user_id: userId || null });
         } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
+      addLoan: (loan, userId) => {
+        const id = uid();
+        set((state) => ({
+          loans: [...state.loans, { ...loan, id } as Loan],
+        }));
+        enqFlush('loans', 'create', {
+          id, user_id: userId || null, name: loan.name, amount: loan.amount,
+        });
+        return id;
+      },
+      updateLoan: (id, updates, userId) => {
+        set((state) => ({
+          loans: state.loans.map((l) => (l.id === id ? { ...l, ...updates } : l)),
+        }));
+        try {
+          const loan = get().loans.find((l) => l.id === id);
+          if (loan) {
+            const data: Record<string, unknown> = { id, user_id: userId || null };
+            if (loan.name !== undefined) data.name = loan.name;
+            if (loan.amount !== undefined) data.amount = loan.amount;
+            data.updated_at = new Date().toISOString();
+            enqFlush('loans', 'update', data);
+          }
+        } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+      },
+      deleteLoan: (id, userId) => {
+        set((state) => ({
+          loans: state.loans.filter((l) => l.id !== id),
+        }));
+        enqFlush('loans', 'delete', { id, user_id: userId || null });
+      },
       setSnapshots: (snapshots) => set({ snapshots }),
       deleteSnapshot: (date) => set((state) => ({
         snapshots: state.snapshots.filter((s) => s.date !== date),
@@ -190,9 +234,16 @@ export const useInvestmentsStore = create<InvestmentsState>()(
       },
       getTodayPnL: () => {
         return get().holdings.reduce((sum, h) => {
-          if (!h.prevClose) return sum;
+          if (!h.prevClose || h.prevClose <= 0) return sum;
           return sum + h.quantity * (h.currentPrice - h.prevClose);
         }, 0);
+      },
+      getTotalLoans: () => {
+        return get().loans.reduce((sum, l) => sum + (l.amount || 0), 0);
+      },
+      getNetWorth: () => {
+        return get().holdings.reduce((sum, h) => sum + h.quantity * h.currentPrice, 0)
+          - get().loans.reduce((sum, l) => sum + (l.amount || 0), 0);
       },
     }),
     {

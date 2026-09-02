@@ -10,7 +10,7 @@ import { getMinBalanceForAccount } from '../store';
 describe('Finance Store — getMinBalanceForAccount', () => {
   it('returns the minimum balance floor for known banks', () => {
     expect(getMinBalanceForAccount('HDFC Salary Account')).toBe(260000); // ₹2,600
-    expect(getMinBalanceForAccount('Axis Bank')).toBe(1000000); // ₹10,000
+    expect(getMinBalanceForAccount('Axis Bank')).toBe(1010000); // ₹10,000
     expect(getMinBalanceForAccount('SBI Savings')).toBe(210000); // ₹2,100
     expect(getMinBalanceForAccount('BOB Current')).toBe(250000); // ₹2,500
   });

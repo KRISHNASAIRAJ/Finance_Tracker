@@ -1,6 +1,7 @@
 /**
  * Sidebar — fold.money-inspired left nav with icons + labels.
  */
+import { motion } from 'framer-motion'
 import { NavLink } from 'react-router-dom'
 import {
   Home,
@@ -41,21 +42,26 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 py-4">
         {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-white/10 text-white'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/80'
-              )
-            }
-          >
-            <item.icon className="h-4.5 w-4.5" strokeWidth={1.5} />
-            {item.label}
+          <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+            {({ isActive }) => (
+              <motion.span
+                className={cn(
+                  'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive ? 'text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                )}
+                whileTap={{ scale: 0.97 }}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-active-pill"
+                    className="absolute inset-0 rounded-xl bg-white/10"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <item.icon className="relative h-4.5 w-4.5" strokeWidth={1.5} />
+                <span className="relative">{item.label}</span>
+              </motion.span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -2,6 +2,7 @@
  * Toast — lightweight global toast notifications.
  */
 import { create } from 'zustand'
+import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, XCircle, Info } from 'lucide-react'
 
 type ToastKind = 'success' | 'error' | 'info'
@@ -41,17 +42,24 @@ export function ToastHost() {
   const toasts = useToastStore((s) => s.toasts)
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className="pop-in flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white shadow-2xl"
-        >
-          {t.kind === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#59D6C7]" />}
-          {t.kind === 'error' && <XCircle className="h-4 w-4 shrink-0 text-[#FF887D]" />}
-          {t.kind === 'info' && <Info className="h-4 w-4 shrink-0 text-[#9BA5FF]" />}
-          <span>{t.message}</span>
-        </div>
-      ))}
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            layout
+            initial={{ opacity: 0, x: 24, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 24, scale: 0.96 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white shadow-2xl"
+          >
+            {t.kind === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#59D6C7]" />}
+            {t.kind === 'error' && <XCircle className="h-4 w-4 shrink-0 text-[#FF887D]" />}
+            {t.kind === 'info' && <Info className="h-4 w-4 shrink-0 text-[#9BA5FF]" />}
+            <span>{t.message}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   )
 }

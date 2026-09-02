@@ -21,6 +21,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useGarageStore, FuelFill } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
@@ -217,6 +218,11 @@ export default function GarageDashboardScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Mileage Hero */}
         <View style={styles.heroCard}>
+          <ExpoLinearGradient
+            colors={['rgba(94,230,255,0.09)', 'rgba(0,0,0,0)']}
+            style={styles.heroGradient}
+            pointerEvents="none"
+          />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleTabsRow}>
             {vehicles.map((v) => {
               const isSelected = selectedVehicle === v;
@@ -580,14 +586,17 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   heroCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.14)',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.lg,
     padding: 20,
     alignItems: 'flex-start',
     gap: 4,
     overflow: 'hidden',
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
   heroLabel: {
     fontSize: 11,
@@ -767,13 +776,13 @@ const styles = StyleSheet.create({
   },
   floatValueBadge: {
     position: 'absolute',
-    backgroundColor: colors.action,
+    backgroundColor: 'rgba(18,18,24,0.92)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: rounded.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.action,
-    shadowColor: colors.action,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -782,7 +791,7 @@ const styles = StyleSheet.create({
   floatValueText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.action,
   },
   logsSection: {
     gap: 8,

@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   heroCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.16)',
     borderRadius: 32,
@@ -527,12 +527,12 @@ const styles = StyleSheet.create({
   },
   heroGlow: {
     position: 'absolute',
-    top: -60,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    top: -80,
+    right: -50,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(123,142,255,0.10)',
   },
   heroLabel: {
     fontSize: 10,
@@ -566,6 +566,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.5,
+    textShadowColor: 'rgba(123,142,255,0.35)',
+    textShadowRadius: 10,
   },
   trendBadge: {
     flexDirection: 'row',

@@ -5,8 +5,10 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, NavigatorScreenParams } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { View } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
 import { useFinanceStore } from '../modules/finance/store';
@@ -143,11 +145,10 @@ export type MoreStackParamList = {
 };
 
 export type RootTabParamList = {
-  FinanceTab: undefined;
-  GarageTab: undefined;
-  TasksTab: undefined;
-  InvestmentsTab: undefined;
-  MoreTab: undefined;
+  FinanceTab: NavigatorScreenParams<FinanceStackParamList> | undefined;
+  GarageTab: NavigatorScreenParams<GarageStackParamList> | undefined;
+  TasksTab: NavigatorScreenParams<TasksStackParamList> | undefined;
+  InvestmentsTab: NavigatorScreenParams<InvestmentsStackParamList> | undefined;
 };
 
 export type RootStackParamList = {
@@ -155,8 +156,9 @@ export type RootStackParamList = {
   NameEntry: undefined;
   GoalSelection: { name: string };
   IdentityDetails: { name: string; goals: string[] };
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
   Notifications: undefined;
+  MoreStack: NavigatorScreenParams<MoreStackParamList> | undefined;
 };
 
 const FinanceStack = createNativeStackNavigator<FinanceStackParamList>();
@@ -187,7 +189,6 @@ const TAB_BAR_SCREENS = new Set([
   'GarageDashboard',
   'TasksDashboard',
   'InvestmentsDashboard',
-  'MoreMenu',
 ]);
 
 function FinanceStackNavigator() {
@@ -283,7 +284,7 @@ function TabNavigator() {
         const showTabBar = focusedRouteName === '' || TAB_BAR_SCREENS.has(focusedRouteName);
 
         return {
-          tabBarIcon: ({ color, size }) => {
+          tabBarIcon: ({ color, size, focused }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'card-outline';
 
           if (route.name === 'FinanceTab') {
@@ -294,11 +295,19 @@ function TabNavigator() {
             iconName = 'checkbox-outline';
           } else if (route.name === 'InvestmentsTab') {
             iconName = 'trending-up-outline';
-          } else if (route.name === 'MoreTab') {
-            iconName = 'ellipsis-horizontal-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+              {focused && (
+                <LinearGradient
+                  colors={['rgba(123,142,255,0.35)', 'rgba(74,92,200,0.15)']}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18, width: 56, height: 36 }]}
+                />
+              )}
+              <Ionicons name={iconName} size={size} color={focused ? '#ffffff' : color} />
+            </View>
+          );
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.outline,
@@ -308,19 +317,19 @@ function TabNavigator() {
                 left: 12,
                 right: 12,
                 bottom: 10,
-                height: 76,
-                paddingBottom: 12,
-                paddingTop: 10,
+                height: 68,
+                paddingBottom: 8,
+                paddingTop: 8,
                 borderRadius: 28,
-                backgroundColor: 'rgba(15, 15, 17, 0.85)',
+                backgroundColor: 'rgba(15, 15, 20, 0.82)',
                 borderTopColor: 'rgba(255, 255, 255, 0.12)',
                 borderTopWidth: StyleSheet.hairlineWidth,
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: 'rgba(255, 255, 255, 0.12)',
-                shadowColor: '#000000',
-                shadowOffset: { width: 0, height: 12 },
-                shadowOpacity: 0.5,
-                shadowRadius: 24,
+                shadowColor: '#4a5cc8',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.3,
+                shadowRadius: 18,
                 elevation: 12,
               }
             : { display: 'none' },
@@ -352,11 +361,6 @@ function TabNavigator() {
         name="InvestmentsTab"
         component={InvestmentsStackNavigator}
         options={{ tabBarLabel: 'Wealth' }}
-      />
-      <Tab.Screen
-        name="MoreTab"
-        component={MoreStackNavigator}
-        options={{ tabBarLabel: 'More' }}
       />
     </Tab.Navigator>
   );
@@ -390,6 +394,7 @@ export default function RootNavigator() {
       ) : (
         <>
           <RootStack.Screen name="MainTabs" component={TabNavigator} />
+          <RootStack.Screen name="MoreStack" component={MoreStackNavigator} />
           <RootStack.Screen name="Notifications" component={NotificationsScreen} options={modalScreenOptions} />
         </>
       )}

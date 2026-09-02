@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Alert,
   Platform,
   StatusBar,
   Dimensions,
@@ -29,13 +30,14 @@ import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
 import { useAuth } from '../../../services/AuthProvider';
 import { useGarageStore } from '../../garage/store';
+import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'MonthlySpend'>;
 
 export default function MonthlySpendScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
-  const { transactions, monthlyBudget, setMonthlyBudget, fixedExpenses } = useFinanceStore();
+  const { transactions, monthlyBudget, setMonthlyBudget, fixedExpenses, categoryBudgets, deleteTransaction } = useFinanceStore();
   const { fills: garageFills } = useGarageStore();
 
   const now = new Date();
@@ -62,6 +64,14 @@ export default function MonthlySpendScreen() {
   const monthGarageFills = garageFills.filter((f) => new Date(f.date) >= startOfMonth);
   const fuelFillAmount = monthGarageFills.reduce((sum, f) => sum + f.amount, 0);
   const totalSpend = expenseTxs.reduce((sum, tx) => sum + tx.amount, 0) + fuelFillAmount;
+
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const spentByCategory = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.type === 'income' || tx.type === 'credit_card_bill') continue;
+    if (!tx.date.startsWith(monthKey)) continue;
+    spentByCategory.set(tx.category, (spentByCategory.get(tx.category) ?? 0) + tx.amount);
+  }
 
   const budgetPaise = (monthlyBudget || 0) * 100;
   const budgetExceeded = budgetPaise > 0 && totalSpend > budgetPaise;
@@ -211,6 +221,48 @@ export default function MonthlySpendScreen() {
           )}
         </View>
 
+        {/* Category Limits */}
+        {categoryBudgets.length > 0 && (
+          <View style={styles.chartCard}>
+            <View style={styles.budgetRow}>
+              <Text style={styles.sectionTitle}>CATEGORY LIMITS</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('CategoryBudgets')} activeOpacity={0.7}>
+                <Text style={styles.editBudgetText}>Manage</Text>
+              </TouchableOpacity>
+            </View>
+            {categoryBudgets.map((budget) => {
+              const spent = spentByCategory.get(budget.category) ?? 0;
+              const pct = budget.amountPaise > 0 ? Math.min(100, (spent / budget.amountPaise) * 100) : 0;
+              const over = spent > budget.amountPaise;
+              const catColor = getCategoryColor(budget.category, false);
+              return (
+                <View key={budget.category} style={styles.catLimitRow}>
+                  <View style={styles.catLimitTop}>
+                    <View style={styles.catLimitNameRow}>
+                      <CategoryIcon category={budget.category} size={14} color={catColor} />
+                      <Text style={[styles.catLimitName, { color: over ? colors.error : colors.onSurface }]}>
+                        {budget.category}
+                      </Text>
+                    </View>
+                    <Text style={[styles.catLimitSpent, { color: over ? colors.error : colors.onSurfaceVariant }]}>
+                      {formatCurrency(spent)} / {formatCurrency(budget.amountPaise)}
+                      {over ? ' · over' : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.catLimitTrack}>
+                    <View
+                      style={[
+                        styles.catLimitFill,
+                        { width: `${pct}%`, backgroundColor: over ? colors.error : colors.success },
+                      ]}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Area Graph */}
         {dailySums.some((v) => v > 0) && (
           <View style={styles.chartCard}>
@@ -289,43 +341,41 @@ export default function MonthlySpendScreen() {
                 <Text style={styles.emptyText}>No transactions logged this month</Text>
               </View>
             ) : (
-              allMonthTxs.slice(0, 5).map((tx: any) => {
-                const isIncome = tx.type === 'income';
-                const catColor = getCategoryColor(tx.category, isIncome);
-                const isFuelFill = tx.id?.startsWith('fill-');
-                return (
-                  <TouchableOpacity
-                    key={tx.id}
-                    style={styles.rowItem}
-                    onPress={() => {
-                      if (isFuelFill) {
-                        navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: (tx.id as string).replace('fill-', '') } });
-                      } else {
-                        navigation.navigate('EditTransaction', { transactionId: tx.id });
-                      }
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.itemLeft}>
-                      <View style={[styles.iconWrapper, { backgroundColor: `${catColor}15` }]}>
-                        <CategoryIcon category={tx.category} size={18} color={catColor} />
-                      </View>
-                      <View>
-                        <Text style={styles.itemTitle}>{tx.notes || tx.category}</Text>
-                        <Text style={styles.itemSubtitle}>{tx.category}{isFuelFill ? ' · Garage' : ''}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.itemRight}>
-                      <Text style={styles.itemAmount}>
-                        {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
-                      </Text>
-                      <Text style={styles.itemDate}>
-                        {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
+              allMonthTxs.slice(0, 5).map((tx: any) => (
+                <ExpandableTransactionCard
+                  key={tx.id}
+                  tx={tx}
+                  formatAmount={formatCurrencyDetailed}
+                  onPressEdit={() => {
+                    if (tx.id?.startsWith('fill-')) {
+                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: (tx.id as string).replace('fill-', '') } });
+                    } else {
+                      navigation.navigate('EditTransaction', { transactionId: tx.id });
+                    }
+                  }}
+                  onPressDelete={() => {
+                    const isFill = tx.id?.startsWith('fill-');
+                    Alert.alert(
+                      'Delete Transaction',
+                      `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => {
+                            if (isFill) {
+                              useGarageStore.getState().deleteFuelFill((tx.id as string).replace('fill-', ''), user?.id);
+                            } else {
+                              deleteTransaction(tx.id, user?.id);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                />
+              ))
             )}
             {allMonthTxs.length > 5 && (
               <TouchableOpacity style={styles.viewAllBtn} onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.8}>
@@ -400,6 +450,38 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
     overflow: 'hidden',
+  },
+  catLimitRow: {
+    gap: 6,
+  },
+  catLimitTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  catLimitNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  catLimitName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  catLimitSpent: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  catLimitTrack: {
+    height: 5,
+    borderRadius: rounded.full,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+  },
+  catLimitFill: {
+    height: '100%',
+    borderRadius: rounded.full,
   },
   tooltip: {
     position: 'absolute',

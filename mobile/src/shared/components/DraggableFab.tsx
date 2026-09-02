@@ -31,6 +31,7 @@ export default function DraggableFab({ icon, color, size = 24, storageKey, onPre
   const initialY = screenH - FAB_SIZE - BOTTOM_PADDING;
 
   const pan = useRef(new Animated.ValueXY({ x: initialX, y: initialY })).current;
+  const scale = useRef(new Animated.Value(1)).current;
   const positionRef = useRef({ x: initialX, y: initialY });
   const pressedRef = useRef(false);
   const savedRef = useRef(false);
@@ -89,12 +90,14 @@ export default function DraggableFab({ icon, color, size = 24, storageKey, onPre
 
   return (
     <Animated.View
-      style={[styles.wrapper, { transform: pan.getTranslateTransform() }]}
+      style={[styles.wrapper, { transform: [...pan.getTranslateTransform(), { scale }] }]}
       {...panResponder.panHandlers}
     >
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.85}
+        onPressIn={() => Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, damping: 10, stiffness: 300 }).start()}
+        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 8, stiffness: 400 }).start()}
         onPress={() => { if (!pressedRef.current) onPress(); }}
       >
         <Ionicons name={icon} size={size} color={color} />

@@ -85,13 +85,18 @@ export function TrendArea({
         </defs>
         <XAxis dataKey={xKey} hide />
         <YAxis hide domain={['auto', 'auto']} />
-        <Tooltip content={<AxisTooltip formatter={formatter} />} />
+        <Tooltip
+          content={<AxisTooltip formatter={formatter} />}
+          cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeDasharray: '4 4' }}
+        />
         <Area
           type="monotone"
           dataKey={yKey}
           stroke={color}
           strokeWidth={2}
           fill={`url(#${gid})`}
+          animationDuration={900}
+          animationEasing="ease-out"
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -119,7 +124,14 @@ export function TrendBars({
         <XAxis dataKey={xKey} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
         <YAxis hide />
         <Tooltip content={<AxisTooltip formatter={formatter} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-        <Bar dataKey={yKey} fill={color} radius={[6, 6, 0, 0]} maxBarSize={28} />
+        <Bar
+          dataKey={yKey}
+          fill={color}
+          radius={[6, 6, 0, 0]}
+          maxBarSize={28}
+          animationDuration={700}
+          animationEasing="ease-out"
+        />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -153,6 +165,8 @@ export function Donut({
             outerRadius={outerRadius}
             paddingAngle={2}
             strokeWidth={0}
+            animationDuration={700}
+            animationEasing="ease-out"
           >
             {data.map((d) => (
               <Cell key={d.name} fill={d.color} />
@@ -191,7 +205,16 @@ export function TrendLine({
         <XAxis dataKey={xKey} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} axisLine={false} tickLine={false} />
         <YAxis hide domain={['auto', 'auto']} />
         <Tooltip content={<AxisTooltip formatter={formatter} />} />
-        <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color, strokeWidth: 0 }} />
+        <Line
+          type="monotone"
+          dataKey={yKey}
+          stroke={color}
+          strokeWidth={2}
+          dot={{ r: 3, fill: color, strokeWidth: 0 }}
+          activeDot={{ r: 5, fill: color, stroke: '#101010', strokeWidth: 2 }}
+          animationDuration={900}
+          animationEasing="ease-out"
+        />
       </LineChart>
     </ResponsiveContainer>
   )

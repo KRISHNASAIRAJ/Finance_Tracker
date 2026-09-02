@@ -25,6 +25,7 @@ import { askCardTnC } from '../../../services/aiServices';
 import { saveAIChatToFile } from '../../../services/chatExportService';
 import { useFinanceStore } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
+import EKGLoader from '../../../shared/components/EKGLoader';
 
 type CardChatRouteProp = RouteProp<FinanceStackParamList, 'CardChat'>;
 
@@ -286,7 +287,7 @@ ${recent || '- none'}`;
         })}
         {loading && (
           <View style={[styles.messageBubble, styles.assistantBubble]}>
-            <ActivityIndicator size="small" color={colors.primary} />
+            <EKGLoader size={120} />
           </View>
         )}
       </ScrollView>
@@ -314,7 +315,7 @@ ${recent || '- none'}`;
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={colors.textPrimary} />
+              <EKGLoader size={40} />
             ) : (
               <Ionicons name="send" size={18} color={colors.textPrimary} />
             )}

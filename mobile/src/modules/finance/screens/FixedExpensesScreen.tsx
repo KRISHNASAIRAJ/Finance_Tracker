@@ -50,7 +50,7 @@ export default function FixedExpensesScreen() {
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const ORDER = ['rent', 'electricity', 'flexi', 'midcap', 'small cap'];
+  const ORDER = ['rent', 'electricity', 'flexi', 'midcap', 'small cap', 'emergency'];
   const orderedExpenses = [...fixedExpenses].sort((a, b) => {
     const rank = (name: string) => {
       const n = name.toLowerCase();
@@ -122,7 +122,9 @@ export default function FixedExpensesScreen() {
                       <Text style={styles.itemSubtitle}>
                         {isPaid
                           ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
-                          : `Due on ${ordinal(item.billingDay)} of every month`}
+                          : item.billingDay === 31
+                            ? `Due on the last day of every month`
+                            : `Due on ${ordinal(item.billingDay)} of every month`}
                       </Text>
                     </View>
                   </View>

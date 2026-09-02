@@ -36,6 +36,8 @@ import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
 import { supabase, SUPABASE_URL } from '../../../services/supabaseClient';
 import { processSyncQueue, getSyncStatus, onSyncStatusChange, type SyncStatus } from '../../../services/syncQueue';
 import { generateMonthlyReport } from '../../../services/reportService';
+import EKGLoader from '../../../shared/components/EKGLoader';
+import SyncReconcile from '../../../shared/components/SyncReconcile';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
@@ -301,6 +303,13 @@ export default function MoreMenuScreen() {
     disabled?: boolean;
     onPress: () => void;
   }[] = [
+    {
+      id: 'cardchat',
+      label: 'AI Card Chat',
+      icon: 'sparkles-outline',
+      iconColor: ICON_COLOR,
+      onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CardChat' } }),
+    },
     {
       id: 'report',
       label: 'Monthly Report',

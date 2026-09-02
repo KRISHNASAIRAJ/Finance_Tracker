@@ -4,6 +4,7 @@
  */
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTransactions } from '../hooks/data/useTransactions'
@@ -16,6 +17,7 @@ import { useFuelFills } from '../hooks/data/useGarage'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/Shared'
 import { TrendArea } from '../components/charts/Charts'
+import { AnimatedNumber, staggerContainer, riseItem } from '../components/motion/shared'
 import { getCategoryIcon } from '../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../lib/format'
 import { istMonthKey, istNow } from '../lib/istDate'
@@ -125,29 +127,37 @@ export function HomePage() {
   const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 8)
 
   return (
-    <div className="space-y-6 fade-up">
+    <motion.div
+      className="space-y-6"
+      initial="hidden"
+      animate="show"
+      variants={staggerContainer(0.07)}
+    >
       {/* Row of stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Balance" value={paiseToRupeesCompact(totalBalance)} />
+      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Total Balance" value={totalBalance} format={paiseToRupeesCompact} />
         <StatCard
           label="Card Outstanding"
-          value={paiseToRupeesCompact(totalCardOutstanding)}
+          value={totalCardOutstanding}
+          format={paiseToRupeesCompact}
           change={totalCardOutstanding > 0 ? undefined : 'clear'}
         />
         <StatCard
           label="Portfolio"
-          value={paiseToRupeesCompact(portfolioValue)}
+          value={portfolioValue}
+          format={paiseToRupeesCompact}
           color="#9BA5FF"
         />
         <StatCard
           label="Net Worth"
-          value={paiseToRupeesCompact(netWorth)}
+          value={netWorth}
+          format={paiseToRupeesCompact}
           color={netWorth >= 0 ? '#59D6C7' : '#FF887D'}
         />
-      </div>
+      </motion.div>
 
       {/* 3-column main grid */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Left — upcoming */}
         <div className="space-y-4">
           <Card>
@@ -219,15 +229,19 @@ export function HomePage() {
               <div className="flex items-baseline justify-between">
                 <div>
                   <p className="text-xs font-medium text-white/50">This month</p>
-                  <p className="mt-1 text-3xl font-bold tracking-tight text-white tnum">
-                    {paiseToRupees(monthSpend)}
-                  </p>
+                  <AnimatedNumber
+                    value={monthSpend}
+                    format={paiseToRupees}
+                    className="mt-1 text-3xl font-bold tracking-tight text-white tnum"
+                  />
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-medium text-white/50">Income</p>
-                  <p className="mt-1 text-lg font-semibold text-[#59D6C7] tnum">
-                    {paiseToRupeesCompact(monthIncome)}
-                  </p>
+                  <AnimatedNumber
+                    value={monthIncome}
+                    format={paiseToRupeesCompact}
+                    className="mt-1 text-lg font-semibold text-[#59D6C7] tnum"
+                  />
                 </div>
               </div>
               <div className="mt-4">
@@ -237,11 +251,19 @@ export function HomePage() {
             <div className="grid grid-cols-2 gap-px border-t border-white/10">
               <div className="px-5 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/40">Spent · 30d</p>
-                <p className="text-sm font-semibold text-white">{paiseToRupeesCompact(spent30)}</p>
+                <AnimatedNumber
+                  value={spent30}
+                  format={paiseToRupeesCompact}
+                  className="text-sm font-semibold text-white tnum"
+                />
               </div>
               <div className="border-l border-white/10 px-5 py-3">
                 <p className="text-[11px] uppercase tracking-wide text-white/40">Inflow · 30d</p>
-                <p className="text-sm font-semibold text-[#59D6C7]">{paiseToRupeesCompact(income30)}</p>
+                <AnimatedNumber
+                  value={income30}
+                  format={paiseToRupeesCompact}
+                  className="text-sm font-semibold text-[#59D6C7] tnum"
+                />
               </div>
             </div>
           </Card>
@@ -250,9 +272,12 @@ export function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-white/50">Net Worth</p>
-                <p className="mt-1 text-3xl font-bold tracking-tight tnum" style={{ color: netWorth >= 0 ? '#59D6C7' : '#FF887D' }}>
-                  {paiseToRupees(netWorth)}
-                </p>
+                <AnimatedNumber
+                  value={netWorth}
+                  format={paiseToRupees}
+                  className="mt-1 text-3xl font-bold tracking-tight tnum"
+                  style={{ color: netWorth >= 0 ? '#59D6C7' : '#FF887D' }}
+                />
               </div>
               <Link
                 to="/more/report"
@@ -298,7 +323,7 @@ export function HomePage() {
             })}
           </div>
         </Card>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

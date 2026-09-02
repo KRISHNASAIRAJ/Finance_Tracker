@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { cn } from '../../lib/utils'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
@@ -20,7 +21,11 @@ const sizes: Record<Size, string> = {
   icon: 'h-9 w-9',
 }
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps
+  extends Omit<
+    ButtonHTMLAttributes<HTMLButtonElement>,
+    'onAnimationStart' | 'onDrag' | 'onDragEnd' | 'onDragEnter' | 'onDragExit' | 'onDragLeave' | 'onDragOver' | 'onDragStart' | 'onDrop'
+  > {
   variant?: Variant
   size?: Size
   loading?: boolean
@@ -37,19 +42,21 @@ export function Button({
   ...rest
 }: ButtonProps) {
   return (
-    <button
+    <motion.button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50 disabled:pointer-events-none',
         variants[variant],
         sizes[size],
         className
       )}
       disabled={disabled || loading}
+      whileTap={{ scale: 0.96 }}
+      transition={{ duration: 0.12 }}
       {...rest}
     >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
-    </button>
+    </motion.button>
   )
 }

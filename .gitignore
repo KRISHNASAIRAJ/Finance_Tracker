@@ -68,5 +68,11 @@ mobile/modules/sms-native/android/build/
 # Supabase local CLI metadata (contains org/project refs)
 supabase/.temp/
 
+# Netlify build artifacts
+web/.netlify/
+
+# Session notes
+session-ses_fe14.md
+
 # Reference T&C docs (banks' PDFs — don't commit)
 docs/TnC\ Docs/

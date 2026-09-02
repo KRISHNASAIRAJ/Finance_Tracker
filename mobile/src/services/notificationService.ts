@@ -144,9 +144,6 @@ export async function scheduleLocal(
     return;
   }
 
-  const secondsUntil = Math.floor((triggerDate.getTime() - now.getTime()) / 1000);
-  if (secondsUntil <= 0) return;
-
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -159,8 +156,8 @@ export async function scheduleLocal(
         data: data || {},
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: secondsUntil,
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
       },
     });
   } catch (e) { console.warn('[notificationService] scheduleLocal failed:', title, e); }
@@ -207,8 +204,28 @@ export async function scheduleAllReminders() {
       );
     }
 
-    const { cards, receivables } = useFinanceStore.getState();
+    const { cards, receivables, fixedExpenses } = useFinanceStore.getState();
     const { tasks } = useTasksStore.getState();
+
+    // Fixed-expense due reminders — unpaid obligations get a nudge at 9 AM
+    // on their due date (rent/electricity/SIPs due 1st, Emergency Fund SIP
+    // due on the last day of the month).
+    const currentMonthKey = `${nowIst.getFullYear()}-${String(nowIst.getMonth() + 1).padStart(2, '0')}`;
+    for (const fx of (fixedExpenses || [])) {
+      if (fx.lastPaidMonth === currentMonthKey) continue;
+      const fxDue = new Date(fx.dueDate);
+      if (isNaN(fxDue.getTime())) continue;
+      const fxDueStart = new Date(fxDue.getFullYear(), fxDue.getMonth(), fxDue.getDate(), 9, 0, 0);
+      if (fxDueStart <= nowIst) continue;
+      const fxAmount = `\u20B9${(fx.amount / 100).toLocaleString('en-IN')}`;
+      await scheduleLocal(
+        `\u{1F4B0} ${fx.name} Due Today`,
+        `${fxAmount} due today${fx.name.toLowerCase().includes('emergency') ? ' — SIP into Kite (Zerodha)' : ''}.`,
+        fxDueStart,
+        'bills_due',
+        { screen: 'FixedExpenses' }
+      );
+    }
 
     // Credit card bill reminders
     for (const card of (cards || [])) {

@@ -89,6 +89,15 @@ async function doFullSync(userId: string) {
     await processSyncQueue();
   } catch (_e) { /* sync attempt fails silently — will retry on next CRUD */ }
   await doPull(userId);
+  // Apply one-time fixed-expense due-date fixes (1st / last-day, Emergency
+  // Fund SIP) AFTER the cloud pull so they edit real data, then flush the
+  // enqueued updates back to the cloud.
+  try {
+    const { seedFixedExpenseFixesV3 } = require("../store");
+    await seedFixedExpenseFixesV3(userId);
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue();
+  } catch (_e) { /* seed is guarded by its own flag */ }
   _hasSeeded = true;
 }
 

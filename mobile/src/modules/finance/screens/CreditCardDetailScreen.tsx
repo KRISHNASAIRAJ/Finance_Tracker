@@ -87,6 +87,25 @@ export default function CreditCardDetailScreen() {
     (tx: any) => tx.linkedCardId === cardId || (tx.category === 'Credit Card Bill' && tx.notes?.includes(card.name))
   );
 
+  // Billing-cycle split: purchases up to the current due date belong to the
+  // current statement; anything dated after the due date rolls into the next
+  // statement and must not be mixed into the bill being paid now.
+  const dueDateRef = new Date(card.dueDate);
+  const cycleStartRef = new Date(
+    dueDateRef.getFullYear(),
+    dueDateRef.getMonth() - 1,
+    dueDateRef.getDate()
+  );
+  const currentBillTxs = cardTransactions
+    .filter((tx: any) => {
+      const d = new Date(tx.date);
+      return d >= cycleStartRef && d < dueDateRef;
+    })
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const nextCycleTxs = cardTransactions
+    .filter((tx: any) => new Date(tx.date) >= dueDateRef)
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   const cardLimit = card.cardLimit || 0;
   const utilization = cardLimit > 0 ? (card.balance / cardLimit) * 100 : 0;
 
@@ -404,35 +423,77 @@ export default function CreditCardDetailScreen() {
           {cardTransactions.length === 0 ? (
             <Text style={styles.emptyText}>No transactions found for this card</Text>
           ) : (
-            [...cardTransactions]
-              .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-              .slice(0, 10).map((tx: any, index: number) => (
-              <View
-                key={tx.id}
-                style={[
-                  styles.txItem,
-                  index < cardTransactions.slice(0, 10).length - 1 && styles.txBorder,
-                ]}
-              >
-                <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
-                  <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
-                </View>
-                <View style={styles.txInfo}>
-                  <Text style={styles.txName} numberOfLines={1}>
-                    {tx.notes || tx.category}
-                  </Text>
-                  <Text style={styles.txDate}>
-                    {new Date(tx.date).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </Text>
-                </View>
-                <Text style={[styles.txAmount, { color: tx.type === 'income' ? colors.success : colors.onSurface }]}>
-                  {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                </Text>
-              </View>
-            ))
+            <>
+              <Text style={styles.cycleLabel}>
+                CURRENT BILL · DUE {dueDateRef.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </Text>
+              {currentBillTxs.length === 0 ? (
+                <Text style={styles.emptyText}>No spends in this statement period</Text>
+              ) : (
+                currentBillTxs.slice(0, 10).map((tx: any, index: number) => (
+                  <View
+                    key={tx.id}
+                    style={[
+                      styles.txItem,
+                      index < Math.min(currentBillTxs.length, 10) - 1 && styles.txBorder,
+                    ]}
+                  >
+                    <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
+                      <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
+                    </View>
+                    <View style={styles.txInfo}>
+                      <Text style={styles.txName} numberOfLines={1}>
+                        {tx.notes || tx.category}
+                      </Text>
+                      <Text style={styles.txDate}>
+                        {new Date(tx.date).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={[styles.txAmount, { color: tx.type === 'income' ? colors.success : colors.onSurface }]}>
+                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                    </Text>
+                  </View>
+                ))
+              )}
+
+              <Text style={[styles.cycleLabel, { marginTop: 10 }]}>
+                NEXT CYCLE · AFTER {dueDateRef.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </Text>
+              {nextCycleTxs.length === 0 ? (
+                <Text style={styles.emptyText}>No spends after the statement date yet</Text>
+              ) : (
+                nextCycleTxs.slice(0, 10).map((tx: any, index: number) => (
+                  <View
+                    key={tx.id}
+                    style={[
+                      styles.txItem,
+                      index < Math.min(nextCycleTxs.length, 10) - 1 && styles.txBorder,
+                    ]}
+                  >
+                    <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
+                      <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
+                    </View>
+                    <View style={styles.txInfo}>
+                      <Text style={styles.txName} numberOfLines={1}>
+                        {tx.notes || tx.category}
+                      </Text>
+                      <Text style={styles.txDate}>
+                        {new Date(tx.date).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={[styles.txAmount, { color: tx.type === 'income' ? colors.success : colors.onSurface }]}>
+                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -581,6 +642,14 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
   infoValue: { fontSize: 13, fontWeight: '600', color: colors.onSurface, marginTop: 1 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 12 },
+  cycleLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+    marginTop: 4,
+    marginBottom: 2,
+  },
   txItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   txBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   txIcon: { width: 36, height: 36, borderRadius: rounded.DEFAULT, alignItems: 'center', justifyContent: 'center' },

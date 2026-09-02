@@ -146,7 +146,7 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
 export const getMinBalanceForAccount = (title: string): number => {
   const norm = title.toLowerCase();
   if (norm.includes('hdfc')) return 260000; // ₹2,600
-  if (norm.includes('axis')) return 1000000; // ₹10,000
+  if (norm.includes('axis')) return 1010000; // ₹10,100
   if (norm.includes('sbi')) return 210000; // ₹2,100
   if (norm.includes('hsbc')) return 0;
   if (norm.includes('slice')) return 0;
@@ -287,11 +287,16 @@ export const useFinanceStore = create<FinanceState>()(
         if (paidAmount <= 0) return;
 
         const currentDueDate = new Date(currentExp.dueDate);
-        const nextDueDate = new Date(
-          currentDueDate.getFullYear(),
-          currentDueDate.getMonth() + 1,
-          currentDueDate.getDate()
-        );
+        // Last-day-of-month expenses (billingDay 31 convention) roll to the
+        // actual last day of the following month — never the 30th/28th.
+        const nextDueDate =
+          currentExp.billingDay === 31
+            ? new Date(currentDueDate.getFullYear(), currentDueDate.getMonth() + 2, 0)
+            : new Date(
+                currentDueDate.getFullYear(),
+                currentDueDate.getMonth() + 1,
+                currentDueDate.getDate()
+              );
 
         const generatedTxId = Math.random().toString(36).substring(2, 9);
         const newTransaction: Transaction = {
@@ -485,14 +490,27 @@ export const useFinanceStore = create<FinanceState>()(
         const billLeft = Math.max(0, billAmt - paidAmt);
 
         if (billLeft <= 0) {
-          const currentDue = new Date(card.dueDate);
           const billingDay = card.billingDay;
-          const nextMonth = currentDue.getMonth() + 1;
-          const nextYear = currentDue.getFullYear();
-          const lastDayOfNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-          const safeDay = Math.min(billingDay, lastDayOfNextMonth);
-          const nextDueDate = new Date(nextYear, nextMonth, safeDay);
+
+          // Next due date = the next occurrence of the billing day strictly
+          // after today. (Old logic did currentDue + 1 month, which could
+          // land on the month-after-next when the bill was paid right after
+          // the due date passed — e.g. paid on the 1st for a 25th due.)
+          const today = new Date();
+          const nextDueDate = new Date(today.getFullYear(), today.getMonth(), billingDay);
           nextDueDate.setHours(0, 0, 0, 0);
+          if (nextDueDate <= today) {
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+          }
+          // Clamp to the actual last day for 29/30/31 billing days
+          const lastDayOfMonth = new Date(
+            nextDueDate.getFullYear(),
+            nextDueDate.getMonth() + 1,
+            0
+          ).getDate();
+          if (billingDay > lastDayOfMonth) {
+            nextDueDate.setDate(lastDayOfMonth);
+          }
 
           const generatedTxId = Math.random().toString(36).substring(2, 9);
           const newTransaction: Transaction = {
@@ -590,14 +608,17 @@ export const useFinanceStore = create<FinanceState>()(
           fixedExpenses: state.fixedExpenses.map((f) => {
             if (f.id !== id) return f;
             const currentDueDate = new Date(f.dueDate);
+            const prevDue = f.billingDay === 31
+              ? new Date(currentDueDate.getFullYear(), currentDueDate.getMonth(), 0)
+              : new Date(
+                  currentDueDate.getFullYear(),
+                  currentDueDate.getMonth() - 1,
+                  currentDueDate.getDate()
+                );
             return {
               ...f,
               lastPaidMonth: '',
-              dueDate: new Date(
-                currentDueDate.getFullYear(),
-                currentDueDate.getMonth() - 1,
-                currentDueDate.getDate()
-              ).toISOString(),
+              dueDate: prevDue.toISOString(),
             };
           }),
         }));
@@ -685,17 +706,18 @@ export const useFinanceStore = create<FinanceState>()(
       },
       deleteCategoryBudget: (category, userId) => {
         const trimmed = (category || '').trim();
+        const existing = get().categoryBudgets.find((c) => c.category === trimmed);
         set((state) => ({
           categoryBudgets: state.categoryBudgets.filter((c) => c.category !== trimmed),
         }));
-        try {
-          const item = get().categoryBudgets.find((c) => c.category === trimmed);
-          enqFlush("category_budgets", "delete", {
-            id: item?.id ?? null,
-            category: trimmed,
-            user_id: userId || null,
-          });
-        } catch (e) { console.warn('[FinanceStore] category budget sync failed:', e); }
+        if (existing) {
+          try {
+            enqFlush("category_budgets", "delete", {
+              id: existing.id,
+              user_id: userId || null,
+            });
+          } catch (e) { console.warn('[FinanceStore] category budget sync failed:', e); }
+        }
       },
       getCategoryBudgetFor: (category) =>
         get().categoryBudgets.find((c) => c.category === category),
@@ -778,6 +800,117 @@ export async function seedFixedExpenseFixes(): Promise<void> {
     await AsyncStorage.setItem(FIXED_EXPENSES_FIX_FLAG, 'done');
   } catch (e) {
     console.warn('[FinanceStore] seedFixedExpenseFixes failed:', e);
+  }
+}
+
+const FIXED_EXPENSES_FIX_V3_FLAG = 'meridian-fixed-expense-fixes-v3';
+
+/**
+ * Next occurrence of a day-of-month strictly after today. For last-day
+ * expenses (day 31 convention) the target is the actual last day of the
+ * month, so Feb gets the 28th/29th and 30-day months get the 30th.
+ */
+function nextDayOfMonth(day: number, isLastDay = false): Date {
+  const now = new Date();
+  const lastDayThis = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const targetDay = isLastDay ? lastDayThis : Math.min(day, lastDayThis);
+  let d = new Date(now.getFullYear(), now.getMonth(), targetDay);
+  d.setHours(0, 0, 0, 0);
+  if (d <= now) {
+    const lastDayNext = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+    d = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      isLastDay ? lastDayNext : Math.min(day, lastDayNext)
+    );
+    d.setHours(0, 0, 0, 0);
+  }
+  return d;
+}
+
+/**
+ * One-time data fix (v3): fixed monthly obligations must be due on the 1st
+ * (rent, electricity, Parag Parikh Flexi Cap, HDFC Midcap, Nippon Small Cap)
+ * and adds the ₹120 "Emergency Fund SIP" (Kite/Zerodha) due on the last day
+ * of each month. Runs AFTER the cloud pull so it edits real cloud data, and
+ * enqueues each change so it syncs back to the cloud (no local-only edits).
+ * Guarded by its own AsyncStorage flag.
+ */
+export async function seedFixedExpenseFixesV3(userId?: string): Promise<void> {
+  try {
+    const flag = await AsyncStorage.getItem(FIXED_EXPENSES_FIX_V3_FLAG);
+    if (flag === 'done') return;
+
+    const state = useFinanceStore.getState();
+    const fixedExpenses = [...state.fixedExpenses];
+    const changes: Array<{ id: string; action: 'create' | 'update'; data: Record<string, unknown> }> = [];
+
+    const FIRST_OF_MONTH_KEYS = ['rent', 'electricity', 'parag', 'flexi', 'midcap', 'mid cap', 'nippon', 'small cap'];
+
+    for (const f of fixedExpenses) {
+      const name = (f.name || '').toLowerCase();
+      const isFirst = FIRST_OF_MONTH_KEYS.some((k) => name.includes(k));
+      const patch: Record<string, unknown> = {};
+      if (isFirst && f.billingDay !== 1) {
+        patch.billing_day = 1;
+      }
+      if (isFirst) {
+        const due = nextDayOfMonth(1);
+        if (new Date(f.dueDate).getTime() !== due.getTime()) {
+          patch.due_date = due.toISOString();
+        }
+      }
+      if (name.includes('rent') && f.amount !== 1040000) {
+        patch.amount = 1040000;
+      }
+      if (Object.keys(patch).length > 0) {
+        const idx = fixedExpenses.findIndex((x) => x.id === f.id);
+        if (idx !== -1) {
+          fixedExpenses[idx] = { ...fixedExpenses[idx], ...patch };
+        }
+        changes.push({ id: f.id, action: 'update', data: { id: f.id, ...patch } });
+      }
+    }
+
+    // Emergency Fund SIP — ₹120 into Kite (Zerodha) on the last day of each month
+    const hasEmergency = fixedExpenses.some((f) => (f.name || '').toLowerCase().includes('emergency'));
+    if (!hasEmergency) {
+      const due = nextDayOfMonth(31, true);
+      const newFix: FixedExpense = {
+        id: `fx_emergency_${Math.random().toString(36).substring(2, 8)}`,
+        name: 'Emergency Fund SIP',
+        amount: 12000,
+        billingDay: 31,
+        category: 'Investments',
+        lastPaidMonth: '',
+        dueDate: due.toISOString(),
+      };
+      fixedExpenses.push(newFix);
+      changes.push({
+        id: newFix.id,
+        action: 'create',
+        data: {
+          id: newFix.id,
+          name: newFix.name,
+          amount: newFix.amount,
+          billing_day: newFix.billingDay,
+          category: newFix.category,
+          last_paid_month: newFix.lastPaidMonth,
+          due_date: newFix.dueDate,
+        },
+      });
+    }
+
+    if (changes.length > 0) {
+      useFinanceStore.setState({ fixedExpenses });
+      console.log('[FinanceStore] Applied fixed expense fixes v3 (due 1st / last-day, Emergency Fund SIP ₹120)');
+      for (const c of changes) {
+        enqFlush('fixed_expenses', c.action, { ...c.data, user_id: userId || null });
+      }
+    }
+    await AsyncStorage.setItem(FIXED_EXPENSES_FIX_V3_FLAG, 'done');
+  } catch (e) {
+    console.warn('[FinanceStore] seedFixedExpenseFixesV3 failed:', e);
   }
 }
 

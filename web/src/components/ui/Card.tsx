@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
 
 export function Card({
@@ -12,17 +13,21 @@ export function Card({
   onClick?: () => void
   hover?: boolean
 }) {
+  const interactive = hover || Boolean(onClick)
   return (
-    <div
+    <motion.div
       onClick={onClick}
       className={cn(
         'rounded-2xl border border-white/10 bg-[#101010]',
-        hover && 'cursor-pointer transition-colors hover:border-white/25',
+        interactive && 'cursor-pointer transition-colors hover:border-white/25',
         className
       )}
+      whileHover={interactive ? { y: -2 } : undefined}
+      whileTap={interactive ? { scale: 0.99 } : undefined}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
       {children}
-    </div>
+    </motion.div>
   )
 }
 

@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Alert,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -22,12 +23,15 @@ import { useFinanceStore } from '../store';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
 import { useGarageStore } from '../../garage/store';
+import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';
+import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
 
 export default function FinanceReportsScreen() {
-  const navigation = useNavigation();
-  const { transactions, fixedExpenses } = useFinanceStore();
+  const navigation = useNavigation<any>();
+  const { transactions, fixedExpenses, deleteTransaction } = useFinanceStore();
   const garageFills = useGarageStore((s) => s.fills);
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [chartMonth, setChartMonth] = useState(() => {
     const n = new Date();
@@ -217,32 +221,41 @@ export default function FinanceReportsScreen() {
               {selectedCategory.toUpperCase()} TRANSACTIONS ({allFiltered.length})
             </Text>
             <View style={styles.listContainer}>
-              {allFiltered.map((tx: any) => {
-                const isIncome = tx.type === 'income';
-                const catColor = getCategoryColor(tx.category);
-                return (
-                  <View key={tx.id} style={styles.txRow}>
-                    <View style={styles.txLeft}>
-                      <View style={[styles.txIcon, { backgroundColor: `${catColor}15` }]}>
-                        <CategoryIcon category={tx.category} size={16} color={catColor} />
-                      </View>
-                      <View>
-                        <Text style={styles.txTitle}>{tx.notes || tx.category}</Text>
-                        <Text style={styles.txDate}>
-                          {new Date(tx.date).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.txAmount, { color: catColor }]}>
-                      {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
-                    </Text>
-                  </View>
-                );
-              })}
+              {allFiltered.map((tx: any) => (
+                <ExpandableTransactionCard
+                  key={tx.id}
+                  tx={tx}
+                  formatAmount={formatCurrencyDetailed}
+                  onPressEdit={() => {
+                    if (tx.id?.startsWith('fill-')) {
+                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: (tx.id as string).replace('fill-', '') } });
+                    } else {
+                      navigation.navigate('EditTransaction', { transactionId: tx.id });
+                    }
+                  }}
+                  onPressDelete={() => {
+                    const isFill = tx.id?.startsWith('fill-');
+                    Alert.alert(
+                      'Delete Transaction',
+                      `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => {
+                            if (isFill) {
+                              useGarageStore.getState().deleteFuelFill((tx.id as string).replace('fill-', ''), user?.id);
+                            } else {
+                              deleteTransaction(tx.id, user?.id);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                />
+              ))}
             </View>
           </View>
           );

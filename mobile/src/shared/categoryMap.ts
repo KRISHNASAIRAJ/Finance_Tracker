@@ -103,6 +103,7 @@ export function autoDetectCategory(text: string, type: "expense" | "income"): st
     n.includes("pizza") || n.includes("burger") || n.includes("cafe") || n.includes("tiffin") ||
     n.includes("lunch") || n.includes("dinner") || n.includes("breakfast") ||
     n.includes("dosa") || n.includes("biryani") || n.includes("idly") || n.includes("chapati") || n.includes("rice") ||
+    n.includes("kachori") || n.includes("samosa") || n.includes("puri") || n.includes("paratha") ||
     n.includes("starbucks") || n.includes("coffee") || n.includes("tea") || n.includes("ccd") ||
     n.includes("costa") || n.includes("chaayos") || n.includes("chai")
   )

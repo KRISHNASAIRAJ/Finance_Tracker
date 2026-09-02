@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  Alert,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -21,16 +22,47 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { useGarageStore } from '../../garage/store';
-import { getCategoryColor } from '../../../shared/categoryMap';
-import CategoryIcon from '../../../shared/CategoryIcon';
+import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
+import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AllTransactions'>;
 
 export default function AllTransactionsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { transactions } = useFinanceStore();
-  const { fills: garageFills } = useGarageStore();
+  const { transactions, deleteTransaction } = useFinanceStore();
+  const { fills: garageFills, deleteFuelFill } = useGarageStore();
+  const { user } = useAuth();
+
+  const handleEdit = (tx: any) => {
+    if (typeof tx.id === 'string' && tx.id.startsWith('fill-')) {
+      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
+    } else {
+      navigation.navigate('EditTransaction', { transactionId: tx.id });
+    }
+  };
+
+  const handleDelete = (tx: any) => {
+    const isFill = typeof tx.id === 'string' && tx.id.startsWith('fill-');
+    Alert.alert(
+      'Delete Transaction',
+      `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (isFill) {
+              deleteFuelFill(tx.id.replace('fill-', ''), user?.id);
+            } else {
+              deleteTransaction(tx.id, user?.id);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const formatCurrencyDetailed = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', {
@@ -87,41 +119,14 @@ export default function AllTransactionsScreen() {
     }
 
     const { tx } = item;
-    const isIncome = tx.type === 'income';
-    const catColor = getCategoryColor(tx.category, isIncome);
 
     return (
-      <TouchableOpacity
-        style={styles.txRow}
-        onPress={() => {
-          if (typeof tx.id === 'string' && tx.id.startsWith('fill-')) {
-            navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
-          } else {
-            navigation.navigate('EditTransaction', { transactionId: tx.id });
-          }
-        }}
-        activeOpacity={0.8}
-      >
-        <View style={styles.txLeft}>
-          <View style={[styles.txIcon, { backgroundColor: `${catColor}18` }]}>
-            <CategoryIcon category={tx.category} size={18} color={catColor} />
-          </View>
-          <View style={styles.txDetails}>
-            <Text style={styles.txTitle} numberOfLines={1}>
-              {tx.notes || tx.category}
-            </Text>
-            <Text style={styles.txSubtitle}>
-              {tx.category} • {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.txRight}>
-          <Text style={[styles.txAmount, { color: catColor }]}>
-            {isIncome ? '+' : '-'}{formatCurrencyDetailed(tx.amount)}
-          </Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.outline} />
-        </View>
-      </TouchableOpacity>
+      <ExpandableTransactionCard
+        tx={tx}
+        formatAmount={formatCurrencyDetailed}
+        onPressEdit={() => handleEdit(tx)}
+        onPressDelete={() => handleDelete(tx)}
+      />
     );
   };
 

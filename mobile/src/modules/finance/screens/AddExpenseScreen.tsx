@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -33,7 +32,7 @@ import {
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import DateTimePicker from '../../../shared/components/DateTimePicker';
 import CategoryIcon from '../../../shared/CategoryIcon';
-import { smartParse } from '../smartParse';
+import SlideToUnlock from '../../../shared/components/SlideToUnlock';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'AddExpense'>;
 
@@ -42,9 +41,10 @@ export default function AddExpenseScreen() {
   const addTransaction = useFinanceStore((state) => state.addTransaction);
   const accounts = useFinanceStore((state) => state.accounts);
   const cards = useFinanceStore((state) => state.cards);
+  const categoryBudgets = useFinanceStore((state) => state.categoryBudgets);
+  const transactions = useFinanceStore((state) => state.transactions);
   const { user } = useAuth();
 
-  const [smartInput, setSmartInput] = useState('');
   const [amount, setAmount] = useState('');
   const [expenseName, setExpenseName] = useState('');
   const [notes, setNotes] = useState('');
@@ -53,47 +53,20 @@ export default function AddExpenseScreen() {
   const [isManualCategory, setIsManualCategory] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'upi' | 'card' | 'cash'>('cash');
+  const [paymentMode, setPaymentMode] = useState<'upi' | 'card'>('card');
   const [selectedPaymentAccount, setSelectedPaymentAccount] = useState<string>('');
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
-  const [smartUsed, setSmartUsed] = useState(false);
-  const [smsModalVisible, setSmsModalVisible] = useState(false);
-  const [smsText, setSmsText] = useState('');
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+
+  // Default to the Slice card when available (or the first card)
+  const defaultCardId = cards.find((c) => c.name.toLowerCase().includes('slice'))?.id
+    ?? cards[0]?.id
+    ?? '';
+  const effectiveCardId = selectedPaymentAccount || defaultCardId;
 
   const categoriesList = transactionType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-
-  const applyParsed = (parsed: ReturnType<typeof smartParse>) => {
-    setTransactionType(parsed.type);
-    setIsManualCategory(false);
-    if (parsed.amount !== null) setAmount(String(parsed.amount));
-    if (parsed.notes) setExpenseName(parsed.notes);
-    setSelectedCategory(parsed.category);
-    if (parsed.paymentMode === 'cash') setPaymentMode('cash');
-    else if (parsed.paymentMode === 'card') setPaymentMode('card');
-    else if (parsed.paymentMode === 'upi' || parsed.paymentMode === 'bank') setPaymentMode('upi');
-    if (parsed.date) setSelectedDate(parsed.date);
-    setSmartUsed(true);
-  };
-
-  const applySmartParse = () => {
-    const parsed = smartParse(smartInput);
-    if (parsed.amount === null && !parsed.notes) {
-      alert('Add an amount, e.g. "Lunch 300 upi" or "Salary 45000"');
-      return;
-    }
-    applyParsed(parsed);
-  };
-
-  const applySmsParse = () => {
-    const parsed = smartParse(smsText);
-    if (parsed.amount === null) {
-      alert('Could not find an amount in the SMS. Paste a bank alert like "Rs.5000 debited ... on 12-Mar-25 via UPI".');
-      return;
-    }
-    applyParsed(parsed);
-    setSmsModalVisible(false);
-    setSmsText('');
-  };
+  const VISIBLE_CATEGORIES = 6;
+  const shownCategories = categoriesExpanded ? categoriesList : categoriesList.slice(0, VISIBLE_CATEGORIES);
 
   const handleNameChange = (name: string) => {
     setExpenseName(name);
@@ -120,8 +93,9 @@ export default function AddExpenseScreen() {
     if (!expenseName.trim()) { alert('Please enter an expense/income name'); return; }
 
     const amountInPaise = Math.round(rawVal * 100);
-    const accountName = paymentMode === 'upi' ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'UPI') :
-      paymentMode === 'card' ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Card') : '';
+    const accountName = paymentMode === 'upi'
+      ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'UPI')
+      : (cards.find(c => c.id === effectiveCardId)?.name || 'Card');
     const newId = addTransaction({
       type: transactionType,
       amount: amountInPaise,
@@ -130,13 +104,24 @@ export default function AddExpenseScreen() {
       notes: expenseName.trim() + (notes.trim() ? ` — ${notes.trim()}` : ''),
       source: 'manual',
       date: selectedDate.toISOString(),
-      paymentMode: paymentMode === 'cash' ? 'cash' : `${paymentMode}:${accountName}`,
+      paymentMode: paymentMode === 'upi' ? `upi:${accountName}` : `card:${accountName}`,
     }, user?.id);
 
     navigation.navigate('ExpenseConfirmation', { transactionId: newId });
   };
 
   const selectedCatObj = categoriesList.find((c) => c.name === selectedCategory) || categoriesList[0];
+
+  // Category limit warning — spent this month + this amount vs the set limit
+  const budgetForCategory = categoryBudgets.find((b) => b.category === selectedCategory);
+  const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const spentThisMonth = transactions
+    .filter((tx) => tx.type === 'expense' && tx.category === selectedCategory && tx.date.startsWith(monthKey))
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const newAmountPaise = isNaN(parseFloat(amount)) ? 0 : Math.round(parseFloat(amount) * 100);
+  const limitWarning = budgetForCategory
+    ? spentThisMonth + newAmountPaise > budgetForCategory.amountPaise
+    : false;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,60 +137,7 @@ export default function AddExpenseScreen() {
             <View style={{ width: 40 }} />
           </View>
 
-          {/* Smart Add — Windfall-style natural language entry */}
-          <View style={styles.smartPanel}>
-            <View style={styles.smartInputRow}>
-              <Ionicons name="sparkles" size={16} color={colors.primary} />
-              <TextInput
-                style={styles.smartInput}
-                placeholder="Type it — try “Lunch at Starbucks 300 UPI”"
-                placeholderTextColor={colors.onSurfaceVariant}
-                value={smartInput}
-                onChangeText={setSmartInput}
-                onSubmitEditing={applySmartParse}
-                returnKeyType="go"
-                autoCapitalize="sentences"
-              />
-              <TouchableOpacity style={styles.smartGoBtn} onPress={applySmartParse} activeOpacity={0.8}>
-                <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.smartHintRow}>
-              <Text style={styles.smartHint}>Type it naturally — amount, category and payment are filled for you to review.</Text>
-              <TouchableOpacity style={styles.smsBtn} onPress={() => setSmsModalVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="chatbox-ellipses-outline" size={13} color={colors.primary} />
-                <Text style={styles.smsBtnText}>Paste SMS</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Review chips — shown once smart entry has filled fields */}
-          {smartUsed && (
-            <View style={styles.reviewChips}>
-              {amount !== '' && (
-                <View style={styles.reviewChip}>
-                  <Text style={styles.reviewChipLabel}>AMOUNT</Text>
-                  <Text style={styles.reviewChipValue}>₹{amount}</Text>
-                </View>
-              )}
-              <View style={styles.reviewChip}>
-                <Text style={styles.reviewChipLabel}>CATEGORY</Text>
-                <Text style={[styles.reviewChipValue, { color: selectedCatObj.color }]}>{selectedCategory}</Text>
-              </View>
-              <View style={styles.reviewChip}>
-                <Text style={styles.reviewChipLabel}>PAYMENT</Text>
-                <Text style={styles.reviewChipValue}>{paymentMode.toUpperCase()}</Text>
-              </View>
-              <View style={styles.reviewChip}>
-                <Text style={styles.reviewChipLabel}>DATE</Text>
-                <Text style={styles.reviewChipValue}>
-                  {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Large Amount Input */}
+          {/* Large Amount Input — compact & up top */}
           <View style={styles.amountContainer}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
@@ -216,26 +148,6 @@ export default function AddExpenseScreen() {
               value={amount}
               onChangeText={setAmount}
             />
-          </View>
-
-          {/* Type Toggle */}
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleButton, transactionType === 'expense' && styles.toggleActiveExpense]}
-              onPress={() => handleTypeChange('expense')}
-            >
-              <Text style={[styles.toggleText, transactionType === 'expense' && styles.toggleTextActive]}>
-                Expense
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleButton, transactionType === 'income' && styles.toggleActiveIncome]}
-              onPress={() => handleTypeChange('income')}
-            >
-              <Text style={[styles.toggleText, transactionType === 'income' && styles.toggleTextActive]}>
-                Income
-              </Text>
-            </TouchableOpacity>
           </View>
 
           {/* Name Input */}
@@ -250,37 +162,23 @@ export default function AddExpenseScreen() {
             />
           </View>
 
-          {/* Category Grid */}
+          {/* Date & Time Picker */}
           <View style={styles.formSection}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.inputLabel}>CATEGORY</Text>
-              {!isManualCategory && expenseName.trim() !== '' && (
-                <View style={styles.autoDetectBadge}>
-                  <Ionicons name="flash" size={10} color={selectedCatObj.color} />
-                  <Text style={[styles.detectedLabel, { color: selectedCatObj.color }]}>Auto-detected</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.categoryGrid}>
-              {categoriesList.map((cat) => {
-                const isSelected = selectedCategory === cat.name;
-                return (
-                  <TouchableOpacity
-                    key={cat.name}
-                    style={[
-                      styles.categoryChip,
-                      isSelected && { backgroundColor: `${cat.color}20`, borderColor: cat.color },
-                    ]}
-                    onPress={() => handleCategorySelect(cat.name)}
-                  >
-                    <CategoryIcon category={cat.name} size={14} color={isSelected ? cat.color : colors.onSurfaceVariant} />
-                    <Text style={[styles.categoryText, isSelected && { color: cat.color, fontWeight: '700' }]}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <Text style={styles.inputLabel}>DATE & TIME</Text>
+            <TouchableOpacity
+              style={styles.datePickerTrigger}
+              onPress={() => setShowDateTimePicker(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.datePickerText}>
+                {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </Text>
+              <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+              <Text style={styles.datePickerText}>
+                {selectedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Payment Mode */}
@@ -290,25 +188,19 @@ export default function AddExpenseScreen() {
               <View style={styles.toggleRow}>
                 <TouchableOpacity
                   style={[styles.toggleButton, paymentMode === 'upi' && styles.toggleActiveExpense]}
-                  onPress={() => { setPaymentMode('upi'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                  onPress={() => setPaymentMode('upi')}
                 >
                   <Text style={[styles.toggleText, paymentMode === 'upi' && styles.toggleTextActive]}>UPI</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.toggleButton, paymentMode === 'card' && styles.toggleActiveExpense]}
-                  onPress={() => { setPaymentMode('card'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
+                  onPress={() => setPaymentMode('card')}
                 >
                   <Text style={[styles.toggleText, paymentMode === 'card' && styles.toggleTextActive]}>Card</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.toggleButton, paymentMode === 'cash' && styles.toggleActiveExpense]}
-                  onPress={() => { setPaymentMode('cash'); setSelectedPaymentAccount(''); setShowPaymentDropdown(false); }}
-                >
-                  <Text style={[styles.toggleText, paymentMode === 'cash' && styles.toggleTextActive]}>Cash</Text>
-                </TouchableOpacity>
               </View>
 
-              {paymentMode === 'upi' && (
+              {paymentMode === 'upi' && accounts.length > 0 && (
                 <TouchableOpacity
                   style={styles.datePickerTrigger}
                   onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
@@ -316,7 +208,9 @@ export default function AddExpenseScreen() {
                 >
                   <Ionicons name="wallet-outline" size={18} color={colors.primary} />
                   <Text style={styles.datePickerText}>
-                    {selectedPaymentAccount ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'Select Account') : 'Select Account'}
+                    {selectedPaymentAccount
+                      ? (accounts.find(a => a.id === selectedPaymentAccount)?.title || 'Select Account')
+                      : 'UPI (no account selected)'}
                   </Text>
                   <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
@@ -330,7 +224,7 @@ export default function AddExpenseScreen() {
                 >
                   <Ionicons name="card-outline" size={18} color={colors.primary} />
                   <Text style={styles.datePickerText}>
-                    {selectedPaymentAccount ? (cards.find(c => c.id === selectedPaymentAccount)?.name || 'Select Card') : 'Select Card'}
+                    {cards.find(c => c.id === effectiveCardId)?.name || 'Select Card'}
                   </Text>
                   <Ionicons name={showPaymentDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
@@ -357,10 +251,10 @@ export default function AddExpenseScreen() {
                   {cards.map((c) => (
                     <TouchableOpacity
                       key={c.id}
-                      style={[styles.dropdownItem, selectedPaymentAccount === c.id && styles.dropdownItemActive]}
+                      style={[styles.dropdownItem, effectiveCardId === c.id && styles.dropdownItemActive]}
                       onPress={() => { setSelectedPaymentAccount(c.id); setShowPaymentDropdown(false); }}
                     >
-                      <Text style={[styles.dropdownItemText, selectedPaymentAccount === c.id && styles.dropdownItemTextActive]}>
+                      <Text style={[styles.dropdownItemText, effectiveCardId === c.id && styles.dropdownItemTextActive]}>
                         {c.name} (•• {c.endingWith})
                       </Text>
                     </TouchableOpacity>
@@ -370,23 +264,101 @@ export default function AddExpenseScreen() {
             </View>
           )}
 
-          {/* Date & Time Picker */}
+          {/* Category Grid */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>DATE & TIME</Text>
-            <TouchableOpacity
-              style={styles.datePickerTrigger}
-              onPress={() => setShowDateTimePicker(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-              <Text style={styles.datePickerText}>
-                {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </Text>
-              <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
-              <Text style={styles.datePickerText}>
-                {selectedDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.rowBetween}>
+              <Text style={styles.inputLabel}>CATEGORY</Text>
+              {!isManualCategory && expenseName.trim() !== '' && (
+                <View style={styles.autoDetectBadge}>
+                  <Ionicons name="flash" size={10} color={selectedCatObj.color} />
+                  <Text style={[styles.detectedLabel, { color: selectedCatObj.color }]}>Auto-detected</Text>
+                </View>
+              )}
+            </View>
+                        {/* Collapsed: horizontal scroll of recent categories + View all at the end */}
+            {!categoriesExpanded && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryRow}
+              >
+                {shownCategories.map((cat) => {
+                  const isSelected = selectedCategory === cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.name}
+                      style={[
+                        styles.categoryChip,
+                        isSelected && { backgroundColor: `${cat.color}20`, borderColor: cat.color },
+                      ]}
+                      onPress={() => handleCategorySelect(cat.name)}
+                    >
+                      <CategoryIcon category={cat.name} size={14} color={isSelected ? cat.color : colors.onSurfaceVariant} />
+                      <Text style={[styles.categoryText, isSelected && { color: cat.color, fontWeight: '700' }]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {categoriesList.length > VISIBLE_CATEGORIES && (
+                  <TouchableOpacity
+                    style={styles.categoryExpandChip}
+                    onPress={() => setCategoriesExpanded(true)}
+                  >
+                    <View style={styles.categoryExpandIcon}>
+                      <Ionicons name="chevron-down" size={14} color={colors.textPrimary} />
+                    </View>
+                    <Text style={styles.categoryExpandText}>
+                      View all ({categoriesList.length})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            )}
+
+            {/* Expanded: all categories wrapped below, full grid */}
+            {categoriesExpanded && (
+              <View style={styles.categoryGrid}>
+                {categoriesList.map((cat) => {
+                  const isSelected = selectedCategory === cat.name;
+                  return (
+                    <TouchableOpacity
+                      key={cat.name}
+                      style={[
+                        styles.categoryChip,
+                        isSelected && { backgroundColor: `${cat.color}20`, borderColor: cat.color },
+                      ]}
+                      onPress={() => handleCategorySelect(cat.name)}
+                    >
+                      <CategoryIcon category={cat.name} size={14} color={isSelected ? cat.color : colors.onSurfaceVariant} />
+                      <Text style={[styles.categoryText, isSelected && { color: cat.color, fontWeight: '700' }]}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={styles.categoryExpandChip}
+                  onPress={() => setCategoriesExpanded(false)}
+                >
+                  <View style={styles.categoryExpandIcon}>
+                    <Ionicons name="chevron-up" size={14} color={colors.textPrimary} />
+                  </View>
+                  <Text style={styles.categoryExpandText}>Show less</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {limitWarning && budgetForCategory && (
+              <View style={styles.limitWarning}>
+                <Ionicons name="warning" size={14} color={colors.error} />
+                <Text style={styles.limitWarningText}>
+                  This exceeds your {selectedCategory} limit of ₹
+                  {(budgetForCategory.amountPaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })} —
+                  {((spentThisMonth + newAmountPaise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent
+                  this month vs the limit.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Notes */}
@@ -400,14 +372,31 @@ export default function AddExpenseScreen() {
               onChangeText={setNotes}
             />
           </View>
+
+          {/* Type Toggle — moved to bottom, compact */}
+          <View style={[styles.toggleRow, styles.typeToggleBottom]}>
+            <TouchableOpacity
+              style={[styles.toggleButton, transactionType === 'expense' && styles.toggleActiveExpense]}
+              onPress={() => handleTypeChange('expense')}
+            >
+              <Text style={[styles.toggleText, transactionType === 'expense' && styles.toggleTextActive]}>
+                Expense
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleButton, transactionType === 'income' && styles.toggleActiveIncome]}
+              onPress={() => handleTypeChange('income')}
+            >
+              <Text style={[styles.toggleText, transactionType === 'income' && styles.toggleTextActive]}>
+                Income
+              </Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
 
         {/* Floating bottom action — Windfall-style add button */}
         <View style={styles.floatingBar}>
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} activeOpacity={0.85}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.textPrimary} />
-            <Text style={styles.submitButtonText}>Log Transaction</Text>
-          </TouchableOpacity>
+          <SlideToUnlock onComplete={handleSubmit} label="Add transaction" completeLabel="Adding…" />
           <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -420,36 +409,6 @@ export default function AddExpenseScreen() {
         onSelect={(d) => { setSelectedDate(d); setShowDateTimePicker(false); }}
         onClose={() => setShowDateTimePicker(false)}
       />
-
-      {/* Paste SMS modal — paste a bank alert, parser fills the form */}
-      <Modal visible={smsModalVisible} transparent animationType="slide" onRequestClose={() => setSmsModalVisible(false)}>
-        <View style={styles.smsModalOverlay}>
-          <View style={styles.smsModalCard}>
-            <Text style={styles.smsModalTitle}>Paste bank SMS</Text>
-            <Text style={styles.smsModalSubtitle}>
-              Paste a bank alert like “Rs.5,000 debited from HDFC Bank on 12-Mar-25 via UPI” — we'll fill the form for you to review.
-            </Text>
-            <TextInput
-              style={styles.smsTextInput}
-              multiline
-              numberOfLines={5}
-              placeholder="Paste SMS text here…"
-              placeholderTextColor={colors.onSurfaceVariant}
-              value={smsText}
-              onChangeText={setSmsText}
-            />
-            <View style={styles.smsModalActions}>
-              <TouchableOpacity style={styles.smsCancelBtn} onPress={() => { setSmsModalVisible(false); setSmsText(''); }} activeOpacity={0.8}>
-                <Text style={styles.smsCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.smsParseBtn} onPress={applySmsParse} activeOpacity={0.8}>
-                <Ionicons name="sparkles" size={14} color={colors.textPrimary} />
-                <Text style={styles.smsParseText}>Parse</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -624,15 +583,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
+    paddingVertical: 6,
+    gap: 6,
   },
-  currencySymbol: { fontSize: 48, fontWeight: '700', color: colors.primary },
+  currencySymbol: { fontSize: 26, fontWeight: '700', color: colors.primary },
   amountInput: {
-    fontSize: 48,
+    fontSize: 30,
     fontWeight: '700',
     color: colors.onSurface,
-    minWidth: 120,
+    minWidth: 100,
     textAlign: 'center',
   },
   toggleRow: {
@@ -641,15 +600,18 @@ const styles = StyleSheet.create({
     borderRadius: rounded.lg,
     padding: 4,
   },
+  typeToggleBottom: {
+    marginTop: 4,
+  },
   toggleButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     borderRadius: rounded.DEFAULT,
   },
   toggleActiveExpense: { backgroundColor: colors.errorContainer },
   toggleActiveIncome: { backgroundColor: colors.successContainer },
-  toggleText: { fontSize: 14, fontWeight: '600', color: colors.onSurfaceVariant },
+  toggleText: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant },
   toggleTextActive: { color: colors.textPrimary },
   formSection: { gap: 10 },
   inputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
@@ -665,6 +627,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  limitWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${colors.error}14`,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: `${colors.error}30`,
+    borderRadius: rounded.DEFAULT,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  limitWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.error,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
   autoDetectBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   detectedLabel: { fontSize: 11, fontWeight: '600' },
   categoryGrid: {
@@ -684,6 +665,40 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   categoryText: { fontSize: 12, fontWeight: '500', color: colors.onSurfaceVariant },
+  categoryExpandChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: rounded.full,
+    backgroundColor: `${colors.primary}14`,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: `${colors.primary}30`,
+  },
+  categoryExpandChipBlock: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  categoryExpandIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryExpandText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',

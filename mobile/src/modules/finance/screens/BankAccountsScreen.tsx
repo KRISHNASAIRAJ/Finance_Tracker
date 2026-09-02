@@ -31,6 +31,7 @@ export default function BankAccountsScreen() {
 
   const [selectedAcc, setSelectedAcc] = useState<BankAccount | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [quickValue, setQuickValue] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
 
   const totalBalance = getTotalBalance();
@@ -45,7 +46,22 @@ export default function BankAccountsScreen() {
   const handleEditClick = (acc: BankAccount) => {
     setSelectedAcc(acc);
     setEditValue((acc.amount / 100).toString());
+    setQuickValue('');
     setModalVisible(true);
+  };
+
+  const applyQuickAmount = (mode: 'plus' | 'minus') => {
+    const typed = parseFloat(quickValue);
+    if (isNaN(typed) || typed <= 0) {
+      alert('Enter the quick amount first');
+      return;
+    }
+    const typedPaise = Math.round(typed * 100);
+    const current = parseFloat(editValue) || 0;
+    const base = Math.round(current * 100);
+    const result = mode === 'plus' ? base + typedPaise : Math.max(0, base - typedPaise);
+    setEditValue((result / 100).toString());
+    setQuickValue('');
   };
 
   const handleSave = () => {
@@ -147,6 +163,34 @@ export default function BankAccountsScreen() {
                 onChangeText={setEditValue}
                 autoFocus
               />
+            </View>
+
+            <View style={styles.quickMathGroup}>
+              <Text style={styles.quickMathLabel}>QUICK AMOUNT (₹)</Text>
+              <TextInput
+                style={styles.quickMathInput}
+                value={quickValue}
+                onChangeText={setQuickValue}
+                keyboardType="decimal-pad"
+                placeholder="Enter amount to add/subtract"
+                placeholderTextColor={colors.outline}
+              />
+              <View style={styles.quickMathRow}>
+                <TouchableOpacity
+                  style={[styles.quickMathBtn, { borderColor: 'rgba(89,214,199,0.6)' }]}
+                  onPress={() => applyQuickAmount('plus')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.quickMathBtnText, { color: '#59D6C7' }]}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickMathBtn, { borderColor: 'rgba(255,136,125,0.6)' }]}
+                  onPress={() => applyQuickAmount('minus')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.quickMathBtnText, { color: '#FF887D' }]}>−</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -287,6 +331,46 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.error,
+  },
+  quickMathGroup: {
+    gap: 8,
+    padding: 12,
+    borderRadius: rounded.DEFAULT,
+    backgroundColor: colors.surfaceContainer,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  quickMathLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  quickMathInput: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    height: 40,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quickMathRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickMathBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  quickMathBtnText: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,

@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { AnimatedNumber } from '../motion/shared'
 import type { ReactNode } from 'react'
 
 export function Badge({
@@ -56,26 +57,35 @@ export function StatCard({
   changeLabel,
   color,
   compact,
+  format,
 }: {
   label: string
-  value: string
+  value: number | string
   change?: string
   changeLabel?: string
   color?: string
   compact?: boolean
+  format?: (n: number) => string
 }) {
+  const valueCls = cn(
+    'mt-1 font-bold tracking-tight text-white',
+    compact ? 'text-2xl' : 'text-3xl'
+  )
   return (
     <div className={cn('rounded-2xl border border-white/10 bg-[#101010]', compact ? 'p-4' : 'p-5')}>
       <p className="text-xs font-medium text-white/50">{label}</p>
-      <p
-        className={cn(
-          'mt-1 font-bold tracking-tight text-white',
-          compact ? 'text-2xl' : 'text-3xl'
-        )}
-        style={color ? { color } : undefined}
-      >
-        {value}
-      </p>
+      {typeof value === 'number' ? (
+        <AnimatedNumber
+          value={value}
+          format={format ?? ((n) => n.toLocaleString('en-IN'))}
+          className={valueCls}
+          style={color ? { color } : undefined}
+        />
+      ) : (
+        <p className={valueCls} style={color ? { color } : undefined}>
+          {value}
+        </p>
+      )}
       {(change || changeLabel) && (
         <p className="mt-1 text-xs text-white/40">
           {change && (

@@ -1,6 +1,7 @@
 /**
  * Topbar — app header with back navigation, page title, search, logout.
  */
+import { motion } from 'framer-motion'
 import { ArrowLeft, LogOut, Search } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
@@ -30,13 +31,14 @@ export function Topbar({ title }: { title?: string }) {
     <header className="flex h-14 items-center justify-between border-b border-white/10 bg-black px-6">
       <div className="flex items-center gap-3">
         {isSubPage && (
-          <button
+          <motion.button
             onClick={goBack}
+            whileTap={{ scale: 0.88 }}
             className="rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
             title="Go back"
           >
             <ArrowLeft className="h-4.5 w-4.5" />
-          </button>
+          </motion.button>
         )}
         <h1 className="text-base font-semibold text-white">{title ?? 'Dashboard'}</h1>
       </div>
@@ -48,13 +50,14 @@ export function Topbar({ title }: { title?: string }) {
         {user && (
           <div className="flex items-center gap-2 text-sm text-white/50">
             <span className="hidden sm:inline">{user.email}</span>
-            <button
+            <motion.button
               onClick={signOut}
+              whileTap={{ scale: 0.88 }}
               className="rounded-lg p-1.5 transition-colors hover:bg-white/10 hover:text-white"
               title="Sign out"
             >
               <LogOut className="h-4 w-4" />
-            </button>
+            </motion.button>
           </div>
         )}
       </div>

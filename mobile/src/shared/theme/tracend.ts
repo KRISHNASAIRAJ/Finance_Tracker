@@ -110,6 +110,39 @@ export const tc = {
   background: '#000000',
 } as const;
 
+// ─── Glass Noir 2.0 — depth + glow tokens ────────────────
+export const glass = {
+  fill: 'rgba(255, 255, 255, 0.055)',
+  fillStrong: 'rgba(255, 255, 255, 0.09)',
+  border: 'rgba(255, 255, 255, 0.14)',
+  borderSoft: 'rgba(255, 255, 255, 0.08)',
+  highlight: 'rgba(255, 255, 255, 0.24)',
+  track: 'rgba(255, 255, 255, 0.06)',
+} as const;
+
+export const glow = {
+  indigo: '#7B8EFF',
+  teal: '#4FDBCC',
+  pink: '#FFB2B9',
+  cyan: '#5EE6FF',
+  amber: '#FFD9A0',
+  chartreuse: '#BCE85D',
+} as const;
+
+// LinearGradient color pairs for chips, heroes and accents
+export const grad = {
+  indigo: ['#7b8eff', '#3a4fc9'] as const,
+  teal: ['#4fdbcc', '#007d73'] as const,
+  pink: ['#ffb2b9', '#ea6479'] as const,
+  cyan: ['#5ee6ff', '#00a8d6'] as const,
+  lavender: ['#d0bcff', '#7b8eff'] as const,
+  amber: ['#ffd9a0', '#e2a45c'] as const,
+  rose: ['#ffdadc', '#ea6479'] as const,
+  surface: ['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.03)'] as const,
+  heroIndigo: ['rgba(123,142,255,0.32)', 'rgba(30,32,58,0.72)'] as const,
+  heroTeal: ['rgba(79,219,204,0.22)', 'rgba(16,40,42,0.72)'] as const,
+} as const;
+
 // Legacy alias - some files import `colors` from here
 export const colors = tc;
 

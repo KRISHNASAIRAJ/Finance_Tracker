@@ -227,7 +227,9 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: rounded.lg,
     padding: 4,
     marginHorizontal: spacing.containerPadding,
@@ -240,7 +242,9 @@ const styles = StyleSheet.create({
     borderRadius: rounded.DEFAULT,
   },
   tabActive: {
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: 'rgba(123,142,255,0.22)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(123,142,255,0.35)',
   },
   tabText: {
     fontSize: 13,

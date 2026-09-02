@@ -139,6 +139,93 @@ async function refreshQueueCount() {
   emitStatus();
 }
 
+/**
+ * Column-name normalization per entity: maps local camelCase fields to the
+ * snake_case DB columns PostgREST expects. Historic queue items (e.g. a
+ * transaction enqueued with `paymentMode`) fail silently against the schema
+ * cache, so every payload is normalized before it hits Supabase. Unknown
+ * keys are dropped so a single bad column can never wedge an item forever.
+ */
+const FIELD_ALIASES: Record<string, Record<string, string>> = {
+  transactions: {
+    paymentMode: 'payment_mode',
+    linkedCardId: 'linked_card_id',
+    linkedVehicleId: 'linked_vehicle_id',
+    linkedHoldingId: 'linked_holding_id',
+  },
+  credit_cards: {
+    endingWith: 'ending_with',
+    billingDay: 'billing_day',
+    dueDate: 'due_date',
+    cardLimit: 'card_limit',
+    currentOutstanding: 'current_outstanding',
+    billAmount: 'bill_amount',
+    paidAmount: 'paid_amount',
+    annualCharge: 'annual_charge',
+    annualChargeDate: 'annual_charge_date',
+    isLtf: 'is_ltf',
+  },
+  bank_accounts: {},
+  receivables: {
+    personName: 'person_name',
+    paidAmount: 'paid_amount',
+    dueDate: 'due_date',
+  },
+  fixed_expenses: {
+    billingDay: 'billing_day',
+    lastPaidMonth: 'last_paid_month',
+    dueDate: 'due_date',
+  },
+  payzapp_loads: {},
+  expected_incomes: {},
+  category_budgets: {
+    amountPaise: 'amount_paise',
+  },
+  user_settings: {},
+  holdings: {
+    avgPrice: 'avg_buy_price',
+    currentPrice: 'current_price',
+    prevClose: 'prev_close',
+    currentValue: 'current_value',
+    fundName: 'fund_name',
+    folio: 'folio_number',
+    schemeCode: 'scheme_code',
+    sipAmount: 'sip_amount',
+    sipDay: 'sip_day',
+    allocation: 'allocation_category',
+  },
+  investment_goals: {
+    goalName: 'goal_name',
+    targetAmount: 'target_amount',
+    currentProgress: 'current_progress',
+    targetDate: 'target_date',
+    linkedHoldingIds: 'linked_holding_ids',
+  },
+  tasks: {
+    dueDate: 'due_date',
+    isCompleted: 'is_completed',
+    completedAt: 'completed_at',
+  },
+};
+
+function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {
+  const aliases = FIELD_ALIASES[entity];
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === 'id') {
+      out.id = value;
+      continue;
+    }
+    const mapped = aliases ? (aliases[key] ?? key) : key;
+    if (aliases && !aliases[key] && /[A-Z]/.test(key)) {
+      // camelCase key with no alias — not a valid DB column, skip it
+      continue;
+    }
+    out[mapped] = value;
+  }
+  return out;
+}
+
 export async function processSyncQueue(): Promise<{ succeeded: number; failed: number; dropped: number; error?: string }> {
   if (_processing) return { succeeded: 0, failed: 0, dropped: 0, error: 'Sync already in progress' };
   _processing = true;
@@ -211,9 +298,10 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
         item.retryCount = 0;
       }
 
+      const normalized = normalizePayload(item.entity, item.data);
       const resolvedData = {
-        ...item.data,
-        user_id: item.data.user_id || sessionUser.id,
+        ...normalized,
+        user_id: normalized.user_id || sessionUser.id,
         updated_at: new Date().toISOString(),
       };
 
@@ -231,9 +319,10 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
           // UPDATE by id — partial rows (e.g. card balance, paid amount)
           // must NOT go through upsert, whose INSERT branch fails on
           // NOT NULL columns not present in the payload.
+          const normalizedUpdate = normalizePayload(item.entity, item.data);
           const fields: Record<string, unknown> = {
-            ...item.data,
-            user_id: item.data.user_id || sessionUser.id,
+            ...normalizedUpdate,
+            user_id: normalizedUpdate.user_id || sessionUser.id,
             updated_at: new Date().toISOString(),
           };
           delete fields.id;
