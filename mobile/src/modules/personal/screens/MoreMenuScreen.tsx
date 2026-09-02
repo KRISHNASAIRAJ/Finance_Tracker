@@ -2,7 +2,7 @@
  * MoreMenuScreen — Settings hub with backup, sync, notifications, and module shortcuts.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,8 +36,11 @@ import { useTasksSync, syncTasksNow } from '../../tasks/hooks/useTasksSync';
 import { supabase, SUPABASE_URL } from '../../../services/supabaseClient';
 import { processSyncQueue, getSyncStatus, onSyncStatusChange, type SyncStatus } from '../../../services/syncQueue';
 import { generateMonthlyReport } from '../../../services/reportService';
+import { useInvestmentsStore } from '../../equity/store';
+import { usePersonalStore } from '../store';
 import EKGLoader from '../../../shared/components/EKGLoader';
 import SyncReconcile from '../../../shared/components/SyncReconcile';
+import SyncStatusCard from '../../../shared/components/SyncStatusCard';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
@@ -78,6 +81,26 @@ export default function MoreMenuScreen() {
     return unsub;
   }, []);
 
+  const financeLastSync = useFinanceStore((s) => s.lastSyncedAt);
+  const equityLastSync = useInvestmentsStore((s) => s.lastEquitySyncedAt);
+  const personalLastSync = usePersonalStore((s) => s.lastPersonalSyncedAt);
+
+  const lastSyncedAt = useMemo(() => {
+    const candidates = [financeLastSync, equityLastSync, personalLastSync].filter(Boolean) as string[];
+    if (candidates.length === 0) return null;
+    return candidates.reduce((latest, c) => (new Date(c).getTime() > new Date(latest).getTime() ? c : latest));
+  }, [financeLastSync, equityLastSync, personalLastSync]);
+
+  const syncPhase = syncing
+    ? 'spending'
+    : syncStatus.lastError && syncStatus.queueCount > 0
+      ? 'recovering'
+      : syncStatus.queueCount > 0
+        ? 'recovering'
+        : syncStatus.lastError
+          ? 'idle'
+          : 'synced';
+
   const monthlyBudget = useFinanceStore((s) => s.monthlyBudget);
   const setMonthlyBudget = useFinanceStore((s) => s.setMonthlyBudget);
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
@@ -96,7 +119,7 @@ export default function MoreMenuScreen() {
     if (!user || syncing) return;
     setSyncing(true);
     setSyncResultMsg(null);
-    const pqResult = await processSyncQueue();
+    const pqResult = await processSyncQueue(true /* force — ignore backoff */);
     await syncNow(user.id);
     await syncPersonalNow(user.id);
     await syncEquityNow(user.id);
@@ -104,15 +127,17 @@ export default function MoreMenuScreen() {
     const status = getSyncStatus();
     if (pqResult.error) {
       setSyncResultMsg(pqResult.error);
+    } else if (pqResult.failed > 0) {
+      setSyncResultMsg(`Synced ${pqResult.succeeded}, ${pqResult.failed} failed, ${status.queueCount} pending`);
     } else if (pqResult.succeeded > 0) {
-      setSyncResultMsg(`Synced ${pqResult.succeeded} items${pqResult.failed > 0 ? `, ${pqResult.failed} failed` : ''}${status.queueCount > 0 ? `, ${status.queueCount} pending` : ''}`);
+      setSyncResultMsg(`Synced ${pqResult.succeeded} items${status.queueCount > 0 ? `, ${status.queueCount} pending` : ''}`);
     } else if (status.queueCount > 0) {
-      setSyncResultMsg(`${status.queueCount} items pending`);
+      setSyncResultMsg(`${status.queueCount} items still pending — check your connection`);
     } else {
       setSyncResultMsg('Up to date');
     }
     setSyncing(false);
-    setTimeout(() => setSyncResultMsg(null), 5000);
+    setTimeout(() => setSyncResultMsg(null), 8000);
   };
 
   const handleBackupNow = async () => {
@@ -518,21 +543,15 @@ export default function MoreMenuScreen() {
           </View>
 
           {user && (
-            <>
-              {syncStatus.queueCount > 0 && !syncResultMsg && (
-                <View style={styles.pendingBar}>
-                  <Ionicons name="hourglass-outline" size={14} color={colors.warning} />
-                  <Text style={styles.pendingText}>
-                    {syncStatus.queueCount} item{syncStatus.queueCount > 1 ? 's' : ''} waiting to sync
-                  </Text>
-                </View>
-              )}
-              {syncStatus.lastError && (
-                <Text style={styles.syncError} numberOfLines={2}>
-                  {syncStatus.lastError}
-                </Text>
-              )}
-            </>
+            <SyncStatusCard
+              phase={syncPhase}
+              queueCount={syncStatus.queueCount}
+              lastError={syncStatus.lastError}
+              lastAttemptAt={syncStatus.lastAttemptAt}
+              lastSyncedAt={lastSyncedAt}
+              syncing={syncing}
+              onSyncNow={handleSyncNow}
+            />
           )}
 
           {showAuth && !user && (

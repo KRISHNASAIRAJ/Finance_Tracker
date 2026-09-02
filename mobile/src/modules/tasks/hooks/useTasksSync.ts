@@ -48,7 +48,24 @@ function getStore() {
   return storeModule.useTasksStore;
 }
 
+async function flushQueueForce() {
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue(true);
+  } catch (_e) { /* will retry on next pull / CRUD */ }
+}
+
 async function doPull(userId: string) {
+  // Flush local changes to the cloud FIRST so the pull cannot resurrect stale
+  // cloud data over edits the user just made (completing a task, deleting one).
+  await flushQueueForce();
+
+  let pendingIds: Set<string> = new Set();
+  try {
+    const { getPendingEntityIds } = require("../../../services/syncQueue");
+    pendingIds = await getPendingEntityIds();
+  } catch (_e) { /* no pending protection available — proceed */ }
+
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
@@ -111,11 +128,15 @@ async function doPull(userId: string) {
     };
   });
 
+  // Protect rows with pending local ops from being overwritten by the cloud.
+  // Their local state is newer and still waiting to sync.
+  const safeRemote = remoteTasks.filter((r) => !pendingIds.has(`tasks|${r.id}`));
+
   // Cloud-wins merge: replace matching local tasks with cloud versions,
   // keep local-only tasks (they were just pushed above)
-  const remoteById = new Map(remoteTasks.map((r) => [r.id, r]));
+  const remoteById = new Map(safeRemote.map((r) => [r.id, r]));
   const merged = localState.tasks.map((t: Task) => remoteById.get(t.id) ?? t);
-  for (const r of remoteTasks) {
+  for (const r of safeRemote) {
     if (!localState.tasks.some((t: Task) => t.id === r.id)) merged.push(r);
   }
   store.setState({ tasks: merged });

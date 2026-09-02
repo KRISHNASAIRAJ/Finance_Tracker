@@ -697,7 +697,7 @@ export const useFinanceStore = create<FinanceState>()(
         try {
           const item = get().categoryBudgets.find((c) => c.category === trimmed);
           if (item) {
-            enqFlush("category_budgets", "upsert", {
+            enqFlush("category_budgets", "create", {
               id: item.id, user_id: userId || null,
               category: item.category, amount_paise: item.amountPaise,
             });

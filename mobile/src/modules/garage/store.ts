@@ -101,7 +101,7 @@ export const useGarageStore = create<GarageState>()(
           fills: state.fills.map((f) => (f.vehicle === oldName ? { ...f, vehicle: newName } : f)),
           maintenance: state.maintenance.map((m) => (m.vehicle === oldName ? { ...m, vehicle: newName } : m)),
         }));
-        queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId || null, old_name: oldName });
+        queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId || null });
       },
       deleteVehicle: (name, userId) => {
         set((state) => ({

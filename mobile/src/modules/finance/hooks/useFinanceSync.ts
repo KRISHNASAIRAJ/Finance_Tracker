@@ -83,10 +83,17 @@ export async function syncNow(userId: string): Promise<SyncState> {
   return state;
 }
 
+async function flushQueueForce() {
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue(true);
+  } catch (_e) { /* will retry on next pull / CRUD */ }
+}
+
 async function doFullSync(userId: string) {
   try {
     const { processSyncQueue } = require("../../../services/syncQueue");
-    await processSyncQueue();
+    await processSyncQueue(true);
   } catch (_e) { /* sync attempt fails silently — will retry on next CRUD */ }
   await doPull(userId);
   // Apply one-time fixed-expense due-date fixes (1st / last-day, Emergency
@@ -96,12 +103,25 @@ async function doFullSync(userId: string) {
     const { seedFixedExpenseFixesV3 } = require("../store");
     await seedFixedExpenseFixesV3(userId);
     const { processSyncQueue } = require("../../../services/syncQueue");
-    await processSyncQueue();
+    await processSyncQueue(true);
   } catch (_e) { /* seed is guarded by its own flag */ }
   _hasSeeded = true;
 }
 
 async function doPull(userId: string) {
+  // Flush local changes to the cloud FIRST, then pull. Without this the pull
+  // reads stale cloud data and resurrects rows the user deleted/edited locally.
+  await flushQueueForce();
+
+  // Rows with pending local ops must NOT be overwritten by the cloud — their
+  // local state is newer and still waiting to sync. Pulling them back would
+  // undo the user's edits (paid status reverting, deleted rows reappearing).
+  let pendingIds: Set<string> = new Set();
+  try {
+    const { getPendingEntityIds } = require("../../../services/syncQueue");
+    pendingIds = await getPendingEntityIds();
+  } catch (_e) { /* no pending protection available — proceed */ }
+
   for (const table of TABLE_MAP) {
     const { data, error } = await supabase
       .from(table.supabaseTable)
@@ -114,9 +134,10 @@ async function doPull(userId: string) {
     }
 
     const rows = (data ?? []) as Record<string, unknown>[];
+    const safeRows = rows.filter((r) => !pendingIds.has(`${table.supabaseTable}|${r.id}`));
 
-    if (rows.length > 0) {
-      table.mergeIntoStore(rows);
+    if (safeRows.length > 0) {
+      table.mergeIntoStore(safeRows);
     }
 
     // Push only rows that are missing in cloud (brand-new offline rows).

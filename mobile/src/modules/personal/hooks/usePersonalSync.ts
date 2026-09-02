@@ -71,7 +71,24 @@ async function doFullSync(userId: string) {
   _hasPersonalSeeded = true;
 }
 
+async function flushQueueForce() {
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue(true);
+  } catch (_e) { /* will retry on next pull / CRUD */ }
+}
+
 async function doPull(userId: string) {
+  // Flush local changes to the cloud FIRST so the pull cannot resurrect stale
+  // cloud data over edits the user just made.
+  await flushQueueForce();
+
+  let pendingIds: Set<string> = new Set();
+  try {
+    const { getPendingEntityIds } = require("../../../services/syncQueue");
+    pendingIds = await getPendingEntityIds();
+  } catch (_e) { /* no pending protection available — proceed */ }
+
   const store = usePersonalStore;
 
   // --- GOALS ---
@@ -84,6 +101,7 @@ async function doPull(userId: string) {
     const existingIds = new Set(store.getState().goals.map((g: PersonalGoal) => g.id));
     const newGoals: PersonalGoal[] = (goalsData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
+      .filter((r) => !pendingIds.has(`goals|${r.id}`))
       .map((r) => ({
         id: r.id as string,
         name: r.title as string,
@@ -119,6 +137,7 @@ async function doPull(userId: string) {
     const existingIds = new Set(store.getState().notes.map((n: Note) => n.id));
     const newNotes: Note[] = (notesData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
+      .filter((r) => !pendingIds.has(`notes|${r.id}`))
       .map((r) => ({
         id: r.id as string,
         title: r.title as string,
@@ -155,6 +174,7 @@ async function doPull(userId: string) {
     const existingIds = new Set(store.getState().recipes.map((r: Recipe) => r.id));
     const newRecipes: Recipe[] = (recipesData as Array<Record<string, unknown>>)
       .filter((r) => !existingIds.has(r.id as string))
+      .filter((r) => !pendingIds.has(`recipes|${r.id}`))
       .map((r) => ({
         id: r.id as string,
         title: r.title as string,

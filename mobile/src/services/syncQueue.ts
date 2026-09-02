@@ -2,7 +2,20 @@
  * syncQueue — Offline-first write queue with retry/backoff, persisted to AsyncStorage.
  * Data safety: items are NEVER dropped. They stay queued with exponential backoff
  * until a sync succeeds, so local changes are never lost.
+ *
+ * v2 hardening:
+ *  - `processSyncQueue(force = true)` ignores backoff pacing so a manual "Sync
+ *    Now" actually retries immediately instead of silently skipping items.
+ *  - Fixes a data-loss race: items enqueued while a process run is in flight
+ *    were overwritten by `saveQueue(remaining)`. Now remaining items are merged
+ *    with whatever was added during processing.
+ *  - Compacts the queue to one operation per (entity, id) before processing, so
+ *    stale intermediate ops can never overwrite newer data and the queue cannot
+ *    balloon out of control.
+ *  - Exposes `getPendingEntityIds()` so cloud pulls can protect rows that still
+ *    have unsynced local changes (prevents old data resurrecting over edits).
  */
+
 const SYNC_QUEUE_KEY = "meridian_sync_queue";
 
 /** Soft cap for retry bookkeeping (never drops items, only paces retries). */
@@ -152,6 +165,7 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     linkedCardId: 'linked_card_id',
     linkedVehicleId: 'linked_vehicle_id',
     linkedHoldingId: 'linked_holding_id',
+    linkedAccountId: 'linked_account_id',
   },
   credit_cards: {
     endingWith: 'ending_with',
@@ -226,7 +240,101 @@ function normalizePayload(entity: string, raw: Record<string, unknown>): Record<
   return out;
 }
 
-export async function processSyncQueue(): Promise<{ succeeded: number; failed: number; dropped: number; error?: string }> {
+/**
+ * Some tables are keyed by something other than `id` (vehicles is deduped by
+ * user_id+name). Upserts use the right conflict target per entity so they can
+ * never wedge on a unique-constraint violation.
+ */
+const ON_CONFLICT_TARGET: Record<string, string> = {
+  vehicles: 'user_id,name',
+  user_settings: 'user_id',
+};
+
+/**
+ * Collapse the queue to ONE operation per (entity, id) before processing.
+ * This guarantees the newest local intent wins and stale intermediate writes
+ * can never clobber newer data on the cloud after a retry.
+ *
+ * Merging rules (last write wins, oldest → newest):
+ *  - If the newest op for a row is `delete`, only the delete is kept.
+ *  - Otherwise all ops are merged; payloads are layered in order so the merged
+ *    item carries the full intended row state. If any op in the group was a
+ *    `create` (full row), the merged action stays `create` (upsert). If the
+ *    group only ever had partial `update`s, it stays `update`.
+ */
+function compactQueue(items: SyncQueueItem[]): SyncQueueItem[] {
+  if (items.length <= 1) return items;
+
+  const groups = new Map<string, SyncQueueItem[]>();
+  const order: string[] = [];
+  for (const item of items) {
+    const id = item.data?.id as string | undefined;
+    if (!id) {
+      // No id — cannot group; keep as-is
+      order.push(`__solo__${item.id}`);
+      groups.set(`__solo__${item.id}`, [item]);
+      continue;
+    }
+    const key = `${item.entity}\u0000${id}`;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(item);
+  }
+
+  const out: SyncQueueItem[] = [];
+  for (const key of order) {
+    const ops = groups.get(key)!;
+    if (ops.length === 1) {
+      out.push(ops[0]);
+      continue;
+    }
+
+    const latest = ops[ops.length - 1];
+    if (latest.action === 'delete') {
+      out.push(latest);
+      continue;
+    }
+
+    let mergedData: Record<string, unknown> = {};
+    let hasCreate = false;
+    let finalAction: SyncQueueItem["action"] = latest.action;
+    for (const op of ops) {
+      if (op.action === 'create') hasCreate = true;
+      if (op.action === 'delete') continue;
+      mergedData = { ...mergedData, ...op.data };
+    }
+    if (hasCreate) finalAction = 'create';
+
+    out.push({
+      ...latest,
+      action: finalAction,
+      data: mergedData,
+      retryCount: 0,
+      nextAttemptAt: undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * Rows that still have unsynced local operations in the queue.
+ * Returns a Set of `entity|id` strings. Cloud pulls must NOT overwrite these
+ * rows (their local state is newer and still waiting to sync), otherwise old
+ * data resurrects over the user's edits.
+ */
+export async function getPendingEntityIds(): Promise<Set<string>> {
+  const items = await getQueue();
+  const out = new Set<string>();
+  for (const item of items) {
+    const id = item.data?.id as string | undefined;
+    if (id) out.add(`${item.entity}|${id}`);
+  }
+  return out;
+}
+
+export async function processSyncQueue(force = false): Promise<{ succeeded: number; failed: number; dropped: number; error?: string }> {
   if (_processing) return { succeeded: 0, failed: 0, dropped: 0, error: 'Sync already in progress' };
   _processing = true;
   _status.isProcessing = true;
@@ -234,12 +342,12 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
   emitStatus();
 
   try {
-    const items = await getQueue();
-    _status.queueCount = items.length;
+    const rawItems = await getQueue();
 
-    if (items.length === 0) {
+    if (rawItems.length === 0) {
       _status.lastResult = { succeeded: 0, failed: 0, dropped: 0 };
       _status.lastError = null;
+      _status.queueCount = 0;
       _status.isProcessing = false;
       emitStatus();
       return { succeeded: 0, failed: 0, dropped: 0 };
@@ -269,12 +377,19 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
     if (!sessionUser) {
       const errMsg = 'Not signed in — sync requires authentication. Please sign in to sync your data.';
       _status.lastError = errMsg;
-      _status.lastResult = { succeeded: 0, failed: items.length, dropped: 0 };
+      _status.lastResult = { succeeded: 0, failed: rawItems.length, dropped: 0 };
       _status.isProcessing = false;
       _processing = false;
       emitStatus();
       console.warn('[SyncQueue]', errMsg);
-      return { succeeded: 0, failed: items.length, dropped: 0, error: errMsg };
+      return { succeeded: 0, failed: rawItems.length, dropped: 0, error: errMsg };
+    }
+
+    // Compact the queue (oldest → newest intent wins), and when force is set,
+    // clear backoff pacing so every item is attempted right now.
+    let items = compactQueue(rawItems);
+    if (force) {
+      items = items.map((item) => ({ ...item, retryCount: 0, nextAttemptAt: undefined }));
     }
 
     let succeeded = 0;
@@ -285,8 +400,8 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
     const now = Date.now();
 
     for (const item of items) {
-      // Backoff pacing — skip items not yet due for retry
-      if (item.nextAttemptAt && Date.parse(item.nextAttemptAt) > now) {
+      // Backoff pacing — skip items not yet due for retry (only when not forced)
+      if (!force && item.nextAttemptAt && Date.parse(item.nextAttemptAt) > now) {
         remaining.push(item);
         continue;
       }
@@ -307,13 +422,26 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
 
       try {
         if (item.action === "delete") {
-          const { error } = await supabase
-            .from(item.entity)
-            .delete()
-            .eq("id", item.data.id as string);
-          if (error) {
-            errorMessages.push(`delete ${item.entity}/${item.data.id}: ${error.message}`);
-            throw error;
+          // vehicles is name-keyed (no stable local id) — delete by name.
+          if (item.entity === 'vehicles') {
+            const { error } = await supabase
+              .from(item.entity)
+              .delete()
+              .eq("name", item.data.name as string)
+              .eq("user_id", item.data.user_id as string);
+            if (error) {
+              errorMessages.push(`delete ${item.entity}/${item.data.name}: ${error.message}`);
+              throw error;
+            }
+          } else {
+            const { error } = await supabase
+              .from(item.entity)
+              .delete()
+              .eq("id", item.data.id as string);
+            if (error) {
+              errorMessages.push(`delete ${item.entity}/${item.data.id}: ${error.message}`);
+              throw error;
+            }
           }
         } else if (item.action === "update") {
           // UPDATE by id — partial rows (e.g. card balance, paid amount)
@@ -335,11 +463,12 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
             throw error;
           }
         } else {
+          const conflictTarget = ON_CONFLICT_TARGET[item.entity] ?? "id";
           const { error } = await supabase
             .from(item.entity)
-            .upsert(resolvedData, { onConflict: "id" });
+            .upsert(resolvedData, { onConflict: conflictTarget });
           if (error) {
-            errorMessages.push(`${item.action} ${item.entity}/${item.data.id}: ${error.message}`);
+            errorMessages.push(`${item.action} ${item.entity}/${item.data.id ?? ''}: ${error.message}`);
             throw error;
           }
         }
@@ -356,10 +485,24 @@ export async function processSyncQueue(): Promise<{ succeeded: number; failed: n
       }
     }
 
-    await saveQueue(remaining);
+    // CRITICAL — never overwrite items enqueued while we were processing, and
+    // never re-add items from THIS run (they are already handled above: the
+    // successes are done, the failures live in `remaining`).
+    // Items that were already in storage at the start of the run are filtered
+    // out; only genuinely new items (added mid-run) are kept and appended AFTER
+    // the failed ones so intent order is preserved.
+    const rawIds = new Set(rawItems.map((i) => i.id));
+    const newlyAdded = (await getQueue()).filter((i) => !rawIds.has(i.id));
+    const newIds = new Set(newlyAdded.map((i) => i.id));
+    const merged: SyncQueueItem[] = [
+      ...remaining.filter((r) => !newIds.has(r.id)),
+      ...newlyAdded,
+    ];
+
+    await saveQueue(merged);
     _status.lastResult = { succeeded, failed, dropped };
     _status.lastError = errorMessages.length > 0 ? errorMessages.join('; ') : null;
-    _status.queueCount = remaining.length;
+    _status.queueCount = merged.length;
     _status.isProcessing = false;
     emitStatus();
 

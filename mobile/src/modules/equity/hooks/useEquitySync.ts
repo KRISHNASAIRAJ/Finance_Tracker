@@ -63,7 +63,24 @@ async function doFullSync(userId: string) {
   await doPull(userId);
 }
 
+async function flushQueueForce() {
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue(true);
+  } catch (_e) { /* will retry on next pull / CRUD */ }
+}
+
 async function doPull(userId: string) {
+  // Flush local changes to the cloud FIRST so the pull cannot resurrect stale
+  // cloud data over edits the user just made.
+  await flushQueueForce();
+
+  let pendingIds: Set<string> = new Set();
+  try {
+    const { getPendingEntityIds } = require("../../../services/syncQueue");
+    pendingIds = await getPendingEntityIds();
+  } catch (_e) { /* no pending protection available — proceed */ }
+
   const store = useInvestmentsStore;
 
   // --- HOLDINGS ---
@@ -73,7 +90,9 @@ async function doPull(userId: string) {
     .eq("user_id", userId);
 
   if (!holdingsErr && holdingsData && holdingsData.length > 0) {
-    const merged: Holding[] = (holdingsData as Array<Record<string, unknown>>).map((r) => ({
+    const merged: Holding[] = (holdingsData as Array<Record<string, unknown>>)
+      .filter((r) => !pendingIds.has(`holdings|${r.id}`))
+      .map((r) => ({
       id: r.id as string,
       symbol: r.symbol as string,
       name: (r.fund_name as string) ?? (r.symbol as string),
@@ -91,7 +110,10 @@ async function doPull(userId: string) {
       sipDay: (r.sip_day as number) ?? undefined,
       allocation: (r.allocation_category as string) ?? undefined,
     }));
-    store.setState({ holdings: merged });
+    // Rows with pending local ops keep their (newer) local state instead of
+    // being replaced by the cloud's stale copy.
+    const localProtected = store.getState().holdings.filter((h) => pendingIds.has(`holdings|${h.id}`));
+    store.setState({ holdings: [...merged, ...localProtected] });
   } else if (holdingsData && holdingsData.length === 0) {
     await seedHoldings(userId);
   }
@@ -128,6 +150,7 @@ async function doPull(userId: string) {
 
   if (!goalsErr && goalsData && goalsData.length > 0) {
     const goals: InvestmentGoal[] = (goalsData as Array<Record<string, unknown>>)
+      .filter((r) => !pendingIds.has(`investment_goals|${r.id}`))
       .map((r) => ({
         id: r.id as string,
         name: r.goal_name as string,
@@ -136,7 +159,9 @@ async function doPull(userId: string) {
         dueDate: (r.target_date as string) ?? "",
         priority: (r.priority as InvestmentGoal["priority"]) ?? "medium",
       }));
-    store.setState({ goals });
+    // Rows with pending local ops keep their (newer) local state.
+    const localProtected = store.getState().goals.filter((g) => pendingIds.has(`investment_goals|${g.id}`));
+    store.setState({ goals: [...goals, ...localProtected] });
   } else if (_hasEquitySeeded && goalsData && goalsData.length === 0) {
     store.setState({ goals: [] });
   }
@@ -192,12 +217,16 @@ async function doPull(userId: string) {
     .eq("user_id", userId);
 
   if (!loansErr && loansData) {
-    const mapped: Loan[] = (loansData as Array<Record<string, unknown>>).map((r) => ({
+    const mapped: Loan[] = (loansData as Array<Record<string, unknown>>)
+      .filter((r) => !pendingIds.has(`loans|${r.id}`))
+      .map((r) => ({
       id: r.id as string,
       name: (r.name as string) ?? "",
       amount: Number(r.amount) || 0,
     }));
-    store.setState({ loans: mapped });
+    // Rows with pending local ops keep their (newer) local state.
+    const localProtected = store.getState().loans.filter((l) => pendingIds.has(`loans|${l.id}`));
+    store.setState({ loans: [...mapped, ...localProtected] });
 
     // Push loans missing in cloud (brand-new offline loans)
     const cloudLoanIds = new Set(loansData.map((r: any) => r.id as string));
