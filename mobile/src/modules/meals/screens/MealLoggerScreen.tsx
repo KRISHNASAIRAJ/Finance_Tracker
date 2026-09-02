@@ -20,7 +20,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Path, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { useMealStore, MealLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { getTodayDateString, addDays, isToday, formatDate, formatDateFull } from '../../../shared/istDate';
@@ -223,6 +223,7 @@ export default function MealLoggerScreen() {
 
   const activeGraphData = graphMode === 'week' ? weekOverview : monthOverview;
   const maxGraphCal = Math.max(dailyCalorieTarget, ...activeGraphData.map((d) => d.calories), 1);
+  const maxGraphProt = Math.max(dailyProteinTarget, ...activeGraphData.map((d) => d.protein), 1);
 
   const generateDailyReport = async () => {
     setReportGenerating(true);
@@ -438,9 +439,11 @@ export default function MealLoggerScreen() {
 
             const protPoints = data.map((d, i) => {
               const x = padX + i * 40;
-              const y = padT + chartH - (d.protein / maxV) * chartH;
+              const y = padT + chartH - (d.protein / maxGraphProt) * chartH;
               return { x, y };
             });
+
+            const protTargetY = padT + chartH - (dailyProteinTarget / maxGraphProt) * chartH;
 
             let protPath = '';
             if (protPoints.length > 1) {
@@ -461,7 +464,28 @@ export default function MealLoggerScreen() {
                 </Defs>
                 {calFill ? <Path d={calFill} fill="url(#calGrad)" /> : null}
                 {calPath ? <Path d={calPath} stroke="#f59e0b" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
-                {protPath ? <Path d={protPath} stroke={tc.action} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4,3" /> : null}
+                {dailyProteinTarget > 0 && (
+                  <Path
+                    d={`M ${padX} ${protTargetY} L ${padX + (data.length - 1) * 40} ${protTargetY}`}
+                    stroke={tc.action}
+                    strokeWidth="1"
+                    strokeOpacity="0.35"
+                    fill="none"
+                    strokeDasharray="2,4"
+                  />
+                )}
+                {protPath ? <Path d={protPath} stroke={tc.action} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
+                {protPoints.map((p, i) => (
+                  <Circle
+                    key={`p-${data[i].date}`}
+                    cx={p.x}
+                    cy={p.y}
+                    r="3"
+                    fill={tc.action}
+                    stroke={tc.canvas}
+                    strokeWidth="1.5"
+                  />
+                ))}
                 {data.map((d, i) => (
                   <SvgText
                     key={d.date}
