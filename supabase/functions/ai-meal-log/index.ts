@@ -51,6 +51,34 @@ JSON RESPONSE FORMAT (exactly this structure):
   "isComplete": true
 }`;
 
+const MANAGE_SYSTEM_PROMPT = `You are a nutritionist AI assistant for Meridian that helps the user MANAGE their existing food log.
+The user will tell you what they want to ADD, DELETE, or MODIFY in TODAY'S food log.
+
+You are given the user's current food log for today (with entry IDs). Respond with proposed changes.
+
+The user is a 23-year-old male (54kg, 170.6cm, BMI 18.5 underweight) targeting weight gain to 65kg at ~0.4 kg/week.
+
+RULES:
+1. Return ONLY a valid JSON object with a "proposedChanges" array.
+2. Each change has: type ("add" | "modify" | "delete"), entryId (for modify/delete), reason, and for "add" and "modify": items array with nutrition estimates.
+3. For "add": include mealType ("breakfast"/"lunch"/"snack"/"dinner") and items.
+4. For "modify": include entryId (from the log) and the new items array.
+5. For "delete": include entryId (from the log).
+6. Be honest about uncertainty. Ask clarifying questions via the "message" field.
+7. Respect the user's health profile and targets.
+
+JSON RESPONSE FORMAT:
+{
+  "message": "I'll remove the extra chapati and add a banana with 100 calories.",
+  "proposedChanges": [
+    { "type": "delete", "entryId": "abc123", "reason": "Remove extra chapati" },
+    { "type": "add", "mealType": "lunch", "items": [{ "name": "Banana", "quantity": "1 medium", "calories": 105, "protein": 1, "carbs": 27, "fat": 0 }], "reason": "Add banana for potassium" },
+    { "type": "modify", "entryId": "def456", "items": [{ "name": "Rice", "quantity": "150g", "calories": 195, "protein": 3, "carbs": 43, "fat": 0 }], "reason": "Reduce rice portion" }
+  ],
+  "hasQuestions": false,
+  "isComplete": true
+}`;
+
 const DAILY_LIMIT = 50;
 const RATE_LIMIT_KV: { date: string; count: number } = { date: "", count: 0 };
 
@@ -109,6 +137,7 @@ function parseResponse(raw: string) {
 
     return {
       items,
+      proposedChanges: parsed.proposedChanges,
       message: String(parsed.message || raw.substring(0, 300)),
       hasQuestions: Boolean(parsed.hasQuestions),
       isComplete: Boolean(parsed.isComplete),
@@ -228,6 +257,7 @@ Deno.serve(async (req: Request) => {
     const conversation = body.conversation as Array<{ role: string; content: string }> | undefined;
     const healthProfile = (body.healthProfile as string)?.trim() || "";
     const todayContext = (body.todayContext as string)?.trim() || "";
+    const manageMode = body.manageMode === true;
 
     const image = sanitizeBase64(rawImage);
     const hasImage = image.length > 100; // minimum length for a valid base64 image
@@ -235,7 +265,61 @@ Deno.serve(async (req: Request) => {
 
     let response: string;
 
-    if (hasImage) {
+    if (manageMode && text) {
+      // MANAGE mode — user asks to add/delete/modify items in today's log.
+      console.log("ai-meal-log: manage mode");
+      const groqText = createGroqClient();
+      const contextBlock = [
+        healthProfile ? `HEALTH PROFILE:\n${healthProfile}` : "",
+        todayContext ? `CURRENT FOOD LOG FOR TODAY:\n${todayContext}` : "CURRENT FOOD LOG FOR TODAY: (empty)",
+      ].filter(Boolean).join("\n\n");
+
+      const userMessage = `${contextBlock}
+
+USER'S REQUEST:
+${text}
+
+Decide what to add/delete/modify. Return ONLY the JSON with proposedChanges. If the request is ambiguous, ask one clarifying question in the message field and leave proposedChanges empty.`;
+
+      const groqResponse = await groqText.complete({
+        systemPrompt: MANAGE_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+        maxTokens: 1800,
+        temperature: 0.2,
+      });
+
+      const parsed = parseResponse(groqResponse);
+      // Normalize proposedChanges shape
+      const proposedChanges = Array.isArray(parsed.proposedChanges)
+        ? parsed.proposedChanges.map((ch: any) => ({
+            type: String(ch.type || "add"),
+            entryId: ch.entryId ? String(ch.entryId) : undefined,
+            mealType: ch.mealType ? String(ch.mealType) : undefined,
+            reason: String(ch.reason || ""),
+            items: Array.isArray(ch.items)
+              ? ch.items.map((item: any) => ({
+                  name: String(item.name || ""),
+                  quantity: String(item.quantity || ""),
+                  calories: Number(item.calories || 0),
+                  protein: Number(item.protein || 0),
+                  carbs: Number(item.carbs || 0),
+                  fat: Number(item.fat || 0),
+                }))
+              : [],
+          }))
+        : [];
+
+      return new Response(
+        JSON.stringify({
+          items: [],
+          message: parsed.message || "Here's what I propose.",
+          proposedChanges,
+          hasQuestions: Boolean(parsed.hasQuestions),
+          isComplete: parsed.proposedChanges === undefined ? Boolean(parsed.isComplete) : true,
+        }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    } else if (hasImage) {
       console.log("ai-meal-log: processing image, length:", image.length);
 
       const contextBlock = [

@@ -220,6 +220,24 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     isCompleted: 'is_completed',
     completedAt: 'completed_at',
   },
+  loans: {},
+  notes: {},
+  goals: {},
+  recipes: {
+    prepTime: 'prep_time',
+  },
+  diet_plans: {},
+  fuel_fills: {
+    pricePerLiter: 'price_per_liter',
+  },
+  maintenance_logs: {},
+  vehicles: {},
+  meal_logs: {},
+  weight_logs: {
+    weightKg: 'weight_kg',
+  },
+  career_events: {},
+  weekly_diary: {},
 };
 
 function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {

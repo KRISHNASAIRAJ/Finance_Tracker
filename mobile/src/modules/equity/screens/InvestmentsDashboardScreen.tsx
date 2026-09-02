@@ -33,9 +33,11 @@ type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'Inve
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { holdings, goals, getPortfolioValue, getTodayPnL, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
+  const { holdings, goals, loans, getPortfolioValue, getTodayPnL, getTotalLoans, getNetWorth, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
   const todayPnL = getTodayPnL();
+  const totalLoans = getTotalLoans();
+  const netWorth = getNetWorth();
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [activeTab, setActiveTab] = useState<'equity' | 'mf'>('equity');
   const { pullFromCloud } = useEquitySync();
@@ -159,6 +161,13 @@ export default function InvestmentsDashboardScreen() {
               </Text>
               <Text style={styles.heroMetaLabel}>Returns</Text>
             </View>
+            <View style={styles.heroMetaDivider} />
+            <View style={styles.heroMetaItem}>
+              <Text style={[styles.heroMetaValue, { color: netWorth >= 0 ? colors.success : colors.attention }]}>
+                {formatCurrency(netWorth)}
+              </Text>
+              <Text style={styles.heroMetaLabel}>Net Worth</Text>
+            </View>
           </View>
 
           {/* Snapshot info inside the hero — computed live from holdings */}
@@ -184,6 +193,53 @@ export default function InvestmentsDashboardScreen() {
             );
           })()}
         </TouchableOpacity>
+
+        {/* Net Worth + Loans — Glass card */}
+        {loans.length > 0 && (() => {
+          return (
+            <View style={styles.loansCard}>
+              <View style={styles.loansHeaderRow}>
+                <View style={styles.loansTitleRow}>
+                  <Ionicons name="wallet-outline" size={15} color={colors.attention} />
+                  <Text style={styles.loansTitle}>LOANS</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('LoansManager')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.loansNetWorthRow}>
+                <View style={styles.loansNetWorthBlock}>
+                  <Text style={styles.loansNetWorthLabel}>NET WORTH</Text>
+                  <Text style={[styles.loansNetWorthValue, { color: netWorth >= 0 ? colors.success : colors.attention }]}>
+                    {formatCurrency(netWorth)}
+                  </Text>
+                  <Text style={styles.loansNetWorthSub}>Investments − Loans</Text>
+                </View>
+                <View style={styles.loansNetDivider} />
+                <View style={styles.loansNetWorthBlock}>
+                  <Text style={styles.loansNetWorthLabel}>TOTAL LOANS</Text>
+                  <Text style={[styles.loansNetWorthValue, { color: colors.attention }]}>
+                    −{formatCurrency(totalLoans)}
+                  </Text>
+                  <Text style={styles.loansNetWorthSub}>{loans.length} active</Text>
+                </View>
+              </View>
+              <View style={styles.loansList}>
+                {loans.map((l) => (
+                  <View key={l.id} style={styles.loanRow}>
+                    <View style={styles.loanDot} />
+                    <Text style={styles.loanName} numberOfLines={1}>{l.name}</Text>
+                    <Text style={styles.loanAmount}>−{formatCurrency(l.amount)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Allocation Donut — segmented gradient design */}
         {holdings.length > 0 && (() => {
@@ -656,6 +712,88 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.6,
+  },
+  loansCard: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(255,136,125,0.14)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: rounded.xl,
+    padding: spacing.cardPadding,
+    gap: 14,
+  },
+  loansHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  loansTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  loansTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.6,
+  },
+  loansNetWorthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loansNetWorthBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  loansNetWorthLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 1,
+  },
+  loansNetWorthValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  loansNetWorthSub: {
+    fontSize: 10,
+    color: colors.outline,
+  },
+  loansNetDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  loansList: {
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    paddingTop: 10,
+  },
+  loanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loanDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.attention,
+  },
+  loanName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.onSurface,
+  },
+  loanAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.attention,
   },
   donutHeaderRow: {
     flexDirection: 'row',

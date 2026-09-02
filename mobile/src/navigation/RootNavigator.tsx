@@ -62,6 +62,7 @@ import AddEditHoldingScreen from '../modules/equity/screens/AddEditHoldingScreen
 import AddEditGoalScreen from '../modules/equity/screens/AddEditGoalScreen';
 import HoldingsListScreen from '../modules/equity/screens/HoldingsListScreen';
 import AllocationDetailScreen from '../modules/equity/screens/AllocationDetailScreen';
+import LoansManagerScreen from '../modules/equity/screens/LoansManagerScreen';
 
 import MoreMenuScreen from '../modules/personal/screens/MoreMenuScreen';
 import PersonalNotesScreen from '../modules/personal/screens/PersonalNotesScreen';
@@ -74,6 +75,8 @@ import MealLoggerScreen from '../modules/meals/screens/MealLoggerScreen';
 import MealAISuggestionsScreen from '../modules/meals/screens/MealAISuggestionsScreen';
 import MealAIConfirmScreen from '../modules/meals/screens/MealAIConfirmScreen';
 import MealEditScreen from '../modules/meals/screens/MealEditScreen';
+import QuickMealsScreen from '../modules/meals/screens/QuickMealsScreen';
+import MealChatScreen from '../modules/meals/screens/MealChatScreen';
 import WeightTrackerScreen from '../modules/meals/screens/WeightTrackerScreen';
 import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
 import WeeklyDiaryScreen from '../modules/diary/screens/WeeklyDiaryScreen';
@@ -125,6 +128,7 @@ export type InvestmentsStackParamList = {
   AddEditHolding: { holdingId?: string } | undefined;
   AddEditGoal: { goalId?: string } | undefined;
   AllocationDetail: undefined;
+  LoansManager: undefined;
 };
 
 export type MoreStackParamList = {
@@ -139,6 +143,8 @@ export type MoreStackParamList = {
   MealAISuggestions: undefined;
   MealAIConfirm: { imageBase64?: string; textDescription?: string; mealType?: string } | undefined;
   MealEdit: { entryId?: string; date?: string; mealType?: string } | undefined;
+  QuickMeals: { date?: string } | undefined;
+  MealChat: { date?: string } | undefined;
   WeightTracker: undefined;
   DietViewer: undefined;
   WeeklyDiary: undefined;
@@ -251,6 +257,7 @@ function InvestmentsStackNavigator() {
       <InvestmentsStack.Screen name="AddEditGoal" component={AddEditGoalScreen} />
       <InvestmentsStack.Screen name="HoldingsList" component={HoldingsListScreen} />
       <InvestmentsStack.Screen name="AllocationDetail" component={AllocationDetailScreen} />
+      <InvestmentsStack.Screen name="LoansManager" component={LoansManagerScreen} />
     </InvestmentsStack.Navigator>
   );
 }
@@ -269,6 +276,8 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MealAISuggestions" component={MealAISuggestionsScreen} />
       <MoreStack.Screen name="MealAIConfirm" component={MealAIConfirmScreen} />
       <MoreStack.Screen name="MealEdit" component={MealEditScreen} />
+      <MoreStack.Screen name="QuickMeals" component={QuickMealsScreen} />
+      <MoreStack.Screen name="MealChat" component={MealChatScreen} />
       <MoreStack.Screen name="WeightTracker" component={WeightTrackerScreen} />
       <MoreStack.Screen name="DietViewer" component={DietViewerScreen} />
       <MoreStack.Screen name="WeeklyDiary" component={WeeklyDiaryScreen} />

@@ -112,6 +112,22 @@ export interface MealAnalysisResult {
   error?: string;
 }
 
+export interface ProposedChange {
+  type: 'add' | 'modify' | 'delete';
+  entryId?: string;
+  mealType?: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  reason: string;
+  items: MealFoodItem[];
+}
+
+export interface MealManageResult {
+  message: string;
+  proposedChanges: ProposedChange[];
+  hasQuestions: boolean;
+  isComplete: boolean;
+  error?: string;
+}
+
 export interface ConversationTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -185,6 +201,37 @@ export async function analyzeMealText(
     return data as MealAnalysisResult;
   } catch (e: any) {
     return { items: [], message: `AI service error: ${e?.message || 'Unknown error'}`, hasQuestions: false, isComplete: true, error: e?.message };
+  }
+}
+
+export async function analyzeMealManage(
+  userRequest: string,
+  todayContext: string,
+  healthProfile?: string,
+): Promise<MealManageResult> {
+  const allowed = await checkDailyLimit(RATE_LIMIT_KEY_MEAL, DAILY_LIMIT_MEAL);
+  if (!allowed) {
+    return { message: 'Daily AI query limit reached (50/day). Try again tomorrow.', proposedChanges: [], hasQuestions: false, isComplete: true };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('ai-meal-log', {
+      body: {
+        manageMode: true,
+        text: userRequest,
+        todayContext,
+        healthProfile: healthProfile || '',
+      },
+    });
+
+    if (error || !data) {
+      const errMsg = error?.message || 'No data returned';
+      return { message: `AI analysis failed: ${errMsg}`, proposedChanges: [], hasQuestions: false, isComplete: true, error: errMsg };
+    }
+
+    return data as MealManageResult;
+  } catch (e: any) {
+    return { message: `AI service error: ${e?.message || 'Unknown error'}`, proposedChanges: [], hasQuestions: false, isComplete: true, error: e?.message };
   }
 }
 

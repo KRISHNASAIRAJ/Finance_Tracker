@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   Linking,
   Modal,
   StyleSheet,
@@ -54,14 +55,22 @@ export default function MoreMenuScreen() {
   const { pullFromCloud: pullTasks } = useTasksSync();
   const scrollRef = useRef<ScrollView>(null);
   const modalAnim = useRef(new Animated.Value(0)).current;
+  const entrance = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
+      entrance.setValue(0);
+      Animated.timing(entrance, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
       pullPersonal();
       pullEquity();
       pullTasks();
       processSyncQueue().catch((e: Error) => console.warn('[MoreMenu] syncQueue flush failed:', e));
-    }, [pullPersonal, pullEquity, pullTasks])
+    }, [pullPersonal, pullEquity, pullTasks, entrance])
   );
   const notifications = useFinanceStore((state) => state.notifications);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -409,6 +418,17 @@ export default function MoreMenuScreen() {
   const modalScale = modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] });
   const modalOpacity = modalAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
+  // Staggered section entrance on focus (including back navigation)
+  const sectionAnim = (i: number) => ({
+    opacity: entrance.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+    transform: [{
+      translateY: entrance.interpolate({
+        inputRange: [0, 1],
+        outputRange: [24 + i * 10, 0],
+      }),
+    }],
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -417,19 +437,50 @@ export default function MoreMenuScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Grid Sections */}
-        {GRID_SECTIONS.map((section) => (
-          <View key={section.title} style={styles.section}>
-            <Text style={styles.sectionLabel}>{section.title}</Text>
+        {GRID_SECTIONS.map((section, si) => (
+          <Animated.View key={section.title} style={sectionAnim(si)}>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>{section.title}</Text>
+              <View style={styles.grid}>
+                {section.items.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.gridItem}
+                    onPress={item.onPress}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.gridCircle}>
+                      <Ionicons name={item.icon as any} size={28} color={ICON_COLOR} />
+                    </View>
+                    <Text style={styles.gridLabel} numberOfLines={2}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
+        ))}
+
+        {/* Tools Section */}
+        <Animated.View style={sectionAnim(GRID_SECTIONS.length)}>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>TOOLS</Text>
             <View style={styles.grid}>
-              {section.items.map((item) => (
+              {TOOL_ITEMS.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.gridItem}
                   onPress={item.onPress}
                   activeOpacity={0.7}
+                  disabled={item.disabled}
                 >
                   <View style={styles.gridCircle}>
-                    <Ionicons name={item.icon as any} size={28} color={ICON_COLOR} />
+                    {item.spinner ? (
+                      <ActivityIndicator color={colors.primary} size="small" />
+                    ) : (
+                      <Ionicons name={item.icon as any} size={28} color={item.iconColor} />
+                    )}
                   </View>
                   <Text style={styles.gridLabel} numberOfLines={2}>
                     {item.label}
@@ -438,155 +489,95 @@ export default function MoreMenuScreen() {
               ))}
             </View>
           </View>
-        ))}
-
-        {/* Tools Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>TOOLS</Text>
-          <View style={styles.grid}>
-            {TOOL_ITEMS.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.gridItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-                disabled={item.disabled}
-              >
-                <View style={styles.gridCircle}>
-                  {item.spinner ? (
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  ) : (
-                    <Ionicons name={item.icon as any} size={28} color={item.iconColor} />
-                  )}
-                </View>
-                <Text style={styles.gridLabel} numberOfLines={2}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        </Animated.View>
 
         {/* Cloud Sync */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>CLOUD SYNC</Text>
-          <View style={styles.grid}>
-            <View style={styles.gridItem}>
-              <View style={[styles.gridCircle, { borderColor: user ? 'rgba(89,214,199,0.35)' : 'rgba(255,136,125,0.35)' }]}>
-                <Ionicons
-                  name={user ? 'cloud-done-outline' : 'cloud-offline-outline'}
-                  size={28}
-                  color={user ? colors.success : colors.error}
-                />
+        <Animated.View style={sectionAnim(GRID_SECTIONS.length + 1)}>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>ACCOUNT</Text>
+            {!user ? (
+              <View style={styles.grid}>
+                <TouchableOpacity
+                  style={styles.gridItem}
+                  onPress={() => setShowAuth(!showAuth)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.gridCircle}>
+                    <Ionicons name="log-in-outline" size={28} color={ICON_COLOR} />
+                  </View>
+                  <Text style={styles.gridLabel} numberOfLines={2}>Sign In</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.gridLabel} numberOfLines={2}>
-                {user ? 'Cloud Synced' : 'Sign In to Sync'}
-              </Text>
-            </View>
-
-            {user ? (
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={handleSyncNow}
-                disabled={syncing}
-                activeOpacity={0.7}
-              >
-                <View style={styles.gridCircle}>
-                  {syncing ? (
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  ) : (
-                    <Ionicons
-                      name="sync-outline"
-                      size={28}
-                      color={syncStatus.lastError ? colors.error : ICON_COLOR}
-                    />
-                  )}
-                </View>
-                <Text style={styles.gridLabel} numberOfLines={2}>
-                  {syncing ? 'Syncing...' : syncResultMsg || 'Sync Now'}
-                </Text>
-              </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => setShowAuth(!showAuth)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.gridCircle}>
-                  <Ionicons name="log-in-outline" size={28} color={ICON_COLOR} />
-                </View>
-                <Text style={styles.gridLabel} numberOfLines={2}>Sign In</Text>
-              </TouchableOpacity>
+              <View style={styles.grid}>
+                <TouchableOpacity
+                  style={styles.gridItem}
+                  onPress={() => {
+                    Alert.alert(
+                      'Logout',
+                      'Are you sure you want to sign out? Your local data will remain on device.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Logout', style: 'destructive', onPress: () => signOut() },
+                      ]
+                    );
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.gridCircle, { borderColor: 'rgba(255,136,125,0.35)' }]}>
+                    <Ionicons name="power-outline" size={28} color={colors.error} />
+                  </View>
+                  <Text style={[styles.gridLabel, { color: colors.error }]}>Logout</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {user && (
-              <TouchableOpacity
-                style={styles.gridItem}
-                onPress={() => {
-                  Alert.alert(
-                    'Logout',
-                    'Are you sure you want to sign out? Your local data will remain on device.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Logout', style: 'destructive', onPress: () => signOut() },
-                    ]
-                  );
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.gridCircle, { borderColor: 'rgba(255,136,125,0.35)' }]}>
-                  <Ionicons name="power-outline" size={28} color={colors.error} />
-                </View>
-                <Text style={[styles.gridLabel, { color: colors.error }]}>Logout</Text>
-              </TouchableOpacity>
+              <SyncStatusCard
+                phase={syncPhase}
+                queueCount={syncStatus.queueCount}
+                lastError={syncStatus.lastError}
+                lastAttemptAt={syncStatus.lastAttemptAt}
+                lastSyncedAt={lastSyncedAt}
+                syncing={syncing}
+                onSyncNow={handleSyncNow}
+              />
+            )}
+
+            {showAuth && !user && (
+              <View style={styles.authCard}>
+                <TextInput
+                  style={styles.authInput}
+                  placeholder="Email"
+                  placeholderTextColor={colors.outline}
+                  value={emailInput}
+                  onChangeText={setEmailInput}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.authInput}
+                  placeholder="Password"
+                  placeholderTextColor={colors.outline}
+                  value={passwordInput}
+                  onChangeText={setPasswordInput}
+                  secureTextEntry
+                />
+                <TouchableOpacity
+                  style={styles.authButton}
+                  onPress={async () => {
+                    const { error } = await signIn(emailInput, passwordInput);
+                    if (error) alert(error);
+                    else setShowAuth(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.authButtonText}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
-
-          {user && (
-            <SyncStatusCard
-              phase={syncPhase}
-              queueCount={syncStatus.queueCount}
-              lastError={syncStatus.lastError}
-              lastAttemptAt={syncStatus.lastAttemptAt}
-              lastSyncedAt={lastSyncedAt}
-              syncing={syncing}
-              onSyncNow={handleSyncNow}
-            />
-          )}
-
-          {showAuth && !user && (
-            <View style={styles.authCard}>
-              <TextInput
-                style={styles.authInput}
-                placeholder="Email"
-                placeholderTextColor={colors.outline}
-                value={emailInput}
-                onChangeText={setEmailInput}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.authInput}
-                placeholder="Password"
-                placeholderTextColor={colors.outline}
-                value={passwordInput}
-                onChangeText={setPasswordInput}
-                secureTextEntry
-              />
-              <TouchableOpacity
-                style={styles.authButton}
-                onPress={async () => {
-                  const { error } = await signIn(emailInput, passwordInput);
-                  if (error) alert(error);
-                  else setShowAuth(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.authButtonText}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Budget Modal */}

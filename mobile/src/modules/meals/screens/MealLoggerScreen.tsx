@@ -165,6 +165,16 @@ export default function MealLoggerScreen() {
     (navigation as any).navigate('MealEdit', { date: selectedDate, mealType: logMealType });
   };
 
+  const handleQuickMeal = () => {
+    setShowLogOptions(false);
+    (navigation as any).navigate('QuickMeals', { date: selectedDate });
+  };
+
+  const handleMealChat = () => {
+    setShowLogOptions(false);
+    (navigation as any).navigate('MealChat', { date: selectedDate });
+  };
+
   const openEdit = (entry: MealLogEntry) => {
     (navigation as any).navigate('MealEdit', { entryId: entry.id, date: selectedDate });
   };
@@ -197,12 +207,55 @@ export default function MealLoggerScreen() {
 
   const [graphMode, setGraphMode] = useState<'week' | 'month'>('week');
 
+  const currentMonthKey = getTodayDateString().slice(0, 7);
+  const [graphMonthKey, setGraphMonthKey] = useState(currentMonthKey);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  const earliestMonthKey = useMemo(() => {
+    let min = currentMonthKey;
+    for (const e of entries) {
+      const k = (e.date || '').slice(0, 7);
+      if (k.length === 7 && k < min) min = k;
+    }
+    return min;
+  }, [entries, currentMonthKey]);
+
+  // All months from earliest to current, newest first for the picker
+  const monthList = useMemo(() => {
+    const keys: string[] = [];
+    let d = new Date(parseInt(currentMonthKey.slice(0, 4)), parseInt(currentMonthKey.slice(5, 7)) - 1, 1);
+    const end = new Date(d);
+    d = new Date(parseInt(earliestMonthKey.slice(0, 4)), parseInt(earliestMonthKey.slice(5, 7)) - 1, 1);
+    while (d <= end) {
+      keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+      d.setMonth(d.getMonth() + 1);
+    }
+    keys.reverse();
+    return keys;
+  }, [earliestMonthKey, currentMonthKey]);
+
+  const shiftGraphMonth = (dir: -1 | 1) => {
+    const [y, m] = graphMonthKey.split('-').map(Number);
+    const d = new Date(y, m - 1 + dir, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (key > currentMonthKey) return;
+    setGraphMonthKey(key);
+  };
+
+  const monthLabel = useMemo(() => {
+    const [y, m] = graphMonthKey.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }, [graphMonthKey]);
+
   const monthOverview = useMemo(() => {
+    const [year, month] = graphMonthKey.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const isCurrent = graphMonthKey === currentMonthKey;
     const today = new Date(`${getTodayDateString()}T00:00:00+05:30`);
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = isCurrent ? today.getDate() : daysInMonth;
     const days: { date: string; label: string; calories: number; protein: number }[] = [];
-    for (let d = new Date(firstDay); d <= today; d.setDate(d.getDate() + 1)) {
-      const ds = d.toISOString().slice(0, 10);
+    for (let d = 1; d <= lastDay; d++) {
+      const ds = `${graphMonthKey}-${String(d).padStart(2, '0')}`;
       const dayEntries = entries.filter((e) => e.date.slice(0, 10) === ds);
       const totals = dayEntries.reduce((acc, e) => {
         for (const item of e.items) {
@@ -213,13 +266,13 @@ export default function MealLoggerScreen() {
       }, { calories: 0, protein: 0 });
       days.push({
         date: ds,
-        label: String(d.getDate()),
+        label: String(d),
         calories: totals.calories,
         protein: totals.protein,
       });
     }
     return days;
-  }, [entries]);
+  }, [entries, graphMonthKey, currentMonthKey]);
 
   const activeGraphData = graphMode === 'week' ? weekOverview : monthOverview;
   const maxGraphCal = Math.max(dailyCalorieTarget, ...activeGraphData.map((d) => d.calories), 1);
@@ -394,12 +447,33 @@ export default function MealLoggerScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.toggleChip, graphMode === 'month' && styles.toggleChipActive]}
-                onPress={() => setGraphMode('month')}
+                onPress={() => { setGraphMode('month'); }}
               >
                 <Text style={[styles.toggleChipText, graphMode === 'month' && styles.toggleChipTextActive]}>30D</Text>
               </TouchableOpacity>
             </View>
           </View>
+          {graphMode === 'month' && (
+            <View style={styles.monthNavRow}>
+              <TouchableOpacity onPress={() => shiftGraphMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="chevron-back" size={18} color={tc.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.monthPickerBtn} onPress={() => setShowMonthPicker(true)}>
+                <Text style={styles.monthPickerText}>{monthLabel}</Text>
+                <Ionicons name="chevron-down" size={12} color={tc.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => shiftGraphMonth(1)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={graphMonthKey >= currentMonthKey ? 'rgba(255,255,255,0.15)' : tc.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.graphLegend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
@@ -585,6 +659,42 @@ export default function MealLoggerScreen() {
         )}
       </ScrollView>
 
+      {/* Month Picker — Bottom Sheet */}
+      <Modal visible={showMonthPicker} transparent animationType="slide" onRequestClose={() => setShowMonthPicker(false)}>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetTitleRow}>
+              <Text style={styles.sheetTitle}>Select Month</Text>
+              <TouchableOpacity onPress={() => setShowMonthPicker(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={20} color={tc.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              {monthList.map((key) => {
+                const [y, m] = key.split('-').map(Number);
+                const label = new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                const selected = key === graphMonthKey;
+                const isCurrent = key === currentMonthKey;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.monthOption, selected && styles.monthOptionActive]}
+                    onPress={() => { setGraphMonthKey(key); setShowMonthPicker(false); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.monthOptionText, selected && styles.monthOptionTextActive]}>
+                      {label}{isCurrent ? ' · This month' : ''}
+                    </Text>
+                    {selected && <Ionicons name="checkmark" size={18} color={tc.action} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Log Options — Bottom Sheet */}
       <Modal visible={showLogOptions} transparent animationType="slide" onRequestClose={() => setShowLogOptions(false)}>
         <View style={styles.sheetOverlay}>
@@ -648,6 +758,22 @@ export default function MealLoggerScreen() {
                 </View>
                 <Text style={styles.sheetTileTitle}>Enter Manually</Text>
                 <Text style={styles.sheetTileSub}>Add items by hand</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sheetTile} onPress={handleQuickMeal} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: tc.carbsBg }]}>
+                  <Ionicons name="bookmark-outline" size={22} color={tc.carbs} />
+                </View>
+                <Text style={styles.sheetTileTitle}>Quick Meals</Text>
+                <Text style={styles.sheetTileSub}>Log a saved recipe</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sheetTile} onPress={handleMealChat} activeOpacity={0.7}>
+                <View style={[styles.sheetTileIcon, { backgroundColor: 'rgba(123,142,255,0.14)' }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color="#9ba5ff" />
+                </View>
+                <Text style={styles.sheetTileTitle}>Meal Chat</Text>
+                <Text style={styles.sheetTileSub}>AI edits your log</Text>
               </TouchableOpacity>
             </View>
 
@@ -967,6 +1093,48 @@ const styles = StyleSheet.create({
   },
   toggleChipTextActive: {
     color: tc.action,
+  },
+  monthNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 2,
+  },
+  monthPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: tr.full,
+    backgroundColor: 'rgba(244,247,251,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  monthPickerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: tc.textPrimary,
+  },
+  monthOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: tr.DEFAULT,
+  },
+  monthOptionActive: {
+    backgroundColor: tc.actionDim,
+  },
+  monthOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tc.textPrimary,
+  },
+  monthOptionTextActive: {
+    fontWeight: '700',
   },
   graphLegend: {
     flexDirection: 'row',

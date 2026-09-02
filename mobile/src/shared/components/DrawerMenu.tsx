@@ -6,6 +6,7 @@
  *  - left-edge swipe to open, drawer swipe/backdrop/back-button to close
  *  - staggered row entrance driven by the same progress value
  *  - active route highlight so you always know where you are
+ *  - trigger is visible on ALL main tabs as soon as the store hydrates
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,7 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tc } from '../theme/tracend';
+import { tc, glass, tr } from '../theme/tracend';
 import { useDrawerStore } from '../useDrawerStore';
 import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
@@ -34,7 +35,7 @@ import { useAuth } from '../../services/AuthProvider';
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 const SCREEN_W = Dimensions.get('window').width;
-const DRAWER_W = Math.min(300, SCREEN_W * 0.80);
+const DRAWER_W = Math.min(304, SCREEN_W * 0.82);
 
 function getActiveRouteName(state: any): string | undefined {
   if (!state) return undefined;
@@ -53,12 +54,13 @@ type Item = {
   grad?: readonly [string, string];
 };
 
+const TAB_NAMES = new Set(['FinanceHome', 'GarageDashboard', 'TasksDashboard', 'InvestmentsDashboard']);
+
 const ACTIVE_MAP: Record<string, string> = {
-  FinanceTab: 'home',
   FinanceHome: 'home',
-  GarageTab: 'garage',
-  TasksTab: 'tasks',
-  InvestmentsTab: 'wealth',
+  GarageDashboard: 'garage',
+  TasksDashboard: 'tasks',
+  InvestmentsDashboard: 'wealth',
 };
 
 export default function DrawerMenu() {
@@ -66,7 +68,21 @@ export default function DrawerMenu() {
   const { isOpen, open, close, toggle } = useDrawerStore();
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
+
+  // Hydration-aware onboarding gate: until the finance store finishes
+  // hydrating, assume onboarded so the trigger is never delayed on launch.
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    const store = useFinanceStore;
+    if (store.persist?.hasHydrated?.()) {
+      setHydrated(true);
+      return;
+    }
+    const unsub = store.persist?.onFinishHydration?.(() => setHydrated(true));
+    return () => { unsub?.(); };
+  }, []);
+  const effectiveOnboarded = isOnboarded || !hydrated;
 
   const [activeRouteName, setActiveRouteName] = useState<string | undefined>(() => {
     try {
@@ -87,8 +103,8 @@ export default function DrawerMenu() {
     return unsub;
   }, [navigation]);
 
-  const isHomeScreen = activeRouteName === 'FinanceHome';
-  const showTrigger = isOnboarded && isHomeScreen;
+  const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
+  const showTrigger = effectiveOnboarded && isTabScreen;
   const activeId = activeRouteName ? ACTIVE_MAP[activeRouteName] : undefined;
 
   const progress = useRef(new Animated.Value(0)).current;
@@ -317,7 +333,9 @@ export default function DrawerMenu() {
           activeOpacity={0.7}
           onPress={toggle}
         >
-          <Ionicons name="menu" size={20} color={tc.textPrimary} />
+          <LinearGradient colors={['#8b95ff', '#5ee6ff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.triggerGrad}>
+            <Ionicons name="menu" size={18} color="#0A0A10" />
+          </LinearGradient>
         </TouchableOpacity>
       )}
 
@@ -334,23 +352,26 @@ export default function DrawerMenu() {
         </TouchableOpacity>
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]} {...panelResponder.panHandlers}>
-          {/* Premium accent line at the top */}
           <LinearGradient
-            colors={['#7b8eff', '#4fdbcc', 'transparent']}
+            colors={['rgba(123,142,255,0.10)', 'rgba(94,230,255,0.04)', 'rgba(0,0,0,0)']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.topAccent}
+            end={{ x: 1, y: 1 }}
+            style={styles.panelGlow}
+            pointerEvents="none"
           />
 
           {/* Header */}
           <View style={[styles.panelHeader, { paddingTop: insets.top + 24 }]}>
-            <View style={styles.avatarRing}>
-              <LinearGradient colors={['#7b8eff', '#4fdbcc']} style={styles.avatarGrad}>
-                <View style={styles.avatarInner}>
-                  <Text style={styles.avatarText}>{initials}</Text>
-                </View>
-              </LinearGradient>
-            </View>
+            <LinearGradient
+              colors={['#8b95ff', '#5ee6ff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatarRing}
+            >
+              <View style={styles.avatarInner}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            </LinearGradient>
             <View style={styles.headerTextWrap}>
               <Text style={styles.headerName} numberOfLines={1}>
                 {user?.email ? user.email.split('@')[0] : 'Guest'}
@@ -362,6 +383,9 @@ export default function DrawerMenu() {
                 </Text>
               </View>
             </View>
+            <TouchableOpacity style={styles.closeBtn} onPress={close} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={18} color={tc.textMuted} />
+            </TouchableOpacity>
           </View>
 
           <Animated.ScrollView
@@ -432,28 +456,35 @@ const styles = StyleSheet.create({
   trigger: {
     position: 'absolute',
     left: 0,
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderTopRightRadius: 999,
     borderBottomRightRadius: 999,
-    backgroundColor: 'rgba(16, 16, 22, 0.92)',
+    backgroundColor: 'rgba(16, 16, 22, 0.95)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(139,149,255,0.35)',
     borderLeftWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 30,
-    shadowColor: '#000000',
-    shadowOffset: { width: 3, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    shadowColor: '#7b8eff',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 10,
+  },
+  triggerGrad: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   layer: {
     zIndex: 60,
   },
   backdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.68)',
   },
   panel: {
     position: 'absolute',
@@ -463,50 +494,46 @@ const styles = StyleSheet.create({
     width: DRAWER_W,
     backgroundColor: '#0A0A10',
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255,255,255,0.06)',
+    borderRightColor: 'rgba(255,255,255,0.07)',
     shadowColor: '#000000',
     shadowOffset: { width: 12, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 24,
     elevation: 24,
   },
-  topAccent: {
+  panelGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 2,
+    bottom: 0,
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingBottom: 18,
+    gap: 13,
+    paddingHorizontal: 18,
+    paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: 'rgba(255,255,255,0.07)',
   },
   avatarRing: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#0A0A10',
-    borderWidth: 2,
-    borderColor: 'rgba(123, 142, 255, 0.35)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarGrad: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
+    shadowColor: '#7b8eff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
   },
   avatarInner: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#101018',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -542,6 +569,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: tc.textMuted,
   },
+  closeBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: {
     paddingHorizontal: 10,
     paddingTop: 10,
@@ -572,7 +607,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rowActive: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(139,149,255,0.09)',
   },
   activeBar: {
     position: 'absolute',
@@ -581,7 +616,7 @@ const styles = StyleSheet.create({
     bottom: 8,
     width: 3,
     borderRadius: 2,
-    backgroundColor: tc.action,
+    backgroundColor: '#8b95ff',
   },
   rowIcon: {
     width: 36,
@@ -594,7 +629,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   rowIconActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(139,149,255,0.14)',
   },
   rowIconGrad: {
     width: 36,
