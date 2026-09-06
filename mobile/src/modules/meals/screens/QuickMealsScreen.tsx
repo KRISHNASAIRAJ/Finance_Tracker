@@ -3,7 +3,7 @@
  * Lists recipes as presets; tapping one opens a confirm sheet (meal type, date,
  * editable calories/macros) before logging.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -65,9 +65,35 @@ export default function QuickMealsScreen() {
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [item, setItem] = useState<DraftItem | null>(null);
   const [estimating, setEstimating] = useState(false);
+  const [portion, setPortion] = useState<1 | 0.5>(1);
+  const baseMacros = useRef<{ calories: number; protein: number; carbs: number; fat: number } | null>(null);
+
+  const applyPortion = (p: 1 | 0.5) => {
+    setPortion(p);
+    if (!item) return;
+    if (!baseMacros.current) {
+      baseMacros.current = {
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+      };
+    }
+    const base = baseMacros.current;
+    setItem({
+      ...item,
+      quantity: p === 1 ? '1 serving' : '0.5 serving',
+      calories: Math.round(base.calories * p),
+      protein: Math.round(base.protein * p * 10) / 10,
+      carbs: Math.round(base.carbs * p * 10) / 10,
+      fat: Math.round(base.fat * p * 10) / 10,
+    });
+  };
 
   const openRecipe = (title: string, cal: string, ingredients: string[]) => {
     setSelectedTitle(title);
+    setPortion(1);
+    baseMacros.current = null;
     setItem({
       name: title,
       quantity: '1 serving',
@@ -94,13 +120,22 @@ Return ONLY JSON: {"name":"...","quantity":"1 serving","calories":N,"protein":N,
     try {
       const result = await analyzeMealText(prompt);
       if (result.items && result.items[0]) {
-        setItem({
-          name: selectedTitle,
-          quantity: result.items[0].quantity || '1 serving',
+        // AI returns macros for 1 full serving — store as the new base and
+        // re-apply the selected portion.
+        const full = {
           calories: result.items[0].calories || item.calories,
           protein: result.items[0].protein || 0,
           carbs: result.items[0].carbs || 0,
           fat: result.items[0].fat || 0,
+        };
+        baseMacros.current = full;
+        setItem({
+          name: selectedTitle,
+          quantity: portion === 1 ? (result.items[0].quantity || '1 serving') : '0.5 serving',
+          calories: Math.round(full.calories * portion),
+          protein: Math.round(full.protein * portion * 10) / 10,
+          carbs: Math.round(full.carbs * portion * 10) / 10,
+          fat: Math.round(full.fat * portion * 10) / 10,
         });
       }
     } catch {
@@ -115,7 +150,13 @@ Return ONLY JSON: {"name":"...","quantity":"1 serving","calories":N,"protein":N,
       setItem({ ...item, [field]: value });
     } else {
       const n = parseFloat(value);
-      setItem({ ...item, [field]: isNaN(n) ? 0 : n });
+      const v = isNaN(n) ? 0 : n;
+      setItem({ ...item, [field]: v });
+      // Manual edits become the new portion-relative base
+      if (!baseMacros.current) {
+        baseMacros.current = { calories: item.calories, protein: item.protein, carbs: item.carbs, fat: item.fat };
+      }
+      baseMacros.current = { ...baseMacros.current, [field]: v / portion };
     }
   };
 
@@ -225,6 +266,27 @@ Return ONLY JSON: {"name":"...","quantity":"1 serving","calories":N,"protein":N,
                   >
                     <Ionicons name={m.icon as any} size={13} color={sel ? m.color : tc.textMuted} />
                     <Text style={[styles.mealTypeText, sel && { color: m.color }]}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[labelMuted, { marginTop: 4 }]}>PORTION</Text>
+            <View style={styles.portionRow}>
+              {([
+                { label: 'Full', sub: '1 serving', value: 1 as const },
+                { label: 'Half', sub: '0.5 serving', value: 0.5 as const },
+              ]).map((p) => {
+                const sel = portion === p.value;
+                return (
+                  <TouchableOpacity
+                    key={p.label}
+                    style={[styles.portionChip, sel && styles.portionChipActive]}
+                    onPress={() => applyPortion(p.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.portionText, sel && styles.portionTextActive]}>{p.label}</Text>
+                    <Text style={[styles.portionSub, sel && styles.portionTextActive]}>{p.sub}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -370,6 +432,24 @@ const styles = StyleSheet.create({
     borderColor: tc.border,
   },
   mealTypeText: { fontSize: 11, fontWeight: '600', color: tc.textMuted },
+  portionRow: { flexDirection: 'row', gap: 6 },
+  portionChip: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 9,
+    borderRadius: tr.DEFAULT,
+    backgroundColor: tc.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  portionChipActive: {
+    backgroundColor: 'rgba(94,230,255,0.12)',
+    borderColor: tc.action,
+  },
+  portionText: { fontSize: 12, fontWeight: '600', color: tc.textMuted },
+  portionSub: { fontSize: 10, color: tc.textMuted },
+  portionTextActive: { color: tc.action },
   nutriRow: { flexDirection: 'row', gap: 6 },
   nutriField: { flex: 1, alignItems: 'center', gap: 4 },
   nutriLabel: {

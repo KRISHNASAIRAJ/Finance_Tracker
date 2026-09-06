@@ -208,6 +208,8 @@ export async function analyzeMealManage(
   userRequest: string,
   todayContext: string,
   healthProfile?: string,
+  conversation?: ConversationTurn[],
+  currentItems?: MealFoodItem[],
 ): Promise<MealManageResult> {
   const allowed = await checkDailyLimit(RATE_LIMIT_KEY_MEAL, DAILY_LIMIT_MEAL);
   if (!allowed) {
@@ -215,14 +217,20 @@ export async function analyzeMealManage(
   }
 
   try {
-    const { data, error } = await supabase.functions.invoke('ai-meal-log', {
-      body: {
-        manageMode: true,
-        text: userRequest,
-        todayContext,
-        healthProfile: healthProfile || '',
-      },
-    });
+    const body: Record<string, unknown> = {
+      manageMode: true,
+      text: userRequest,
+      todayContext,
+      healthProfile: healthProfile || '',
+    };
+    if (conversation && conversation.length > 0) {
+      body.conversation = conversation;
+    }
+    if (currentItems && currentItems.length > 0) {
+      body.currentItems = currentItems;
+    }
+
+    const { data, error } = await supabase.functions.invoke('ai-meal-log', { body });
 
     if (error || !data) {
       const errMsg = error?.message || 'No data returned';
@@ -299,5 +307,68 @@ export async function askPortfolioRecommend(
       disclaimer: 'For informational purposes only. This is not investment advice.',
       error: e?.message,
     };
+  }
+}
+
+// --- Daily Report ---
+
+export interface DailyReportSection {
+  title: string;
+  body: string;
+}
+
+export interface DailyReportContent {
+  headline: string;
+  summary: string;
+  sections: DailyReportSection[];
+  disclaimer: string;
+}
+
+export interface DailyReport {
+  id: string;
+  reportDate: string;
+  mode: 'evening' | 'morning';
+  content: DailyReportContent;
+}
+
+/**
+ * Fetch the latest daily reports from Supabase (pulled by cron). Optionally
+ * ask the edge function to generate today's report on demand (manual trigger).
+ */
+export async function fetchDailyReports(): Promise<DailyReport[]> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) return [];
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data, error } = await supabase
+    .from('daily_reports')
+    .select('id, report_date, mode, content')
+    .eq('user_id', userId)
+    .gte('report_date', new Date(Date.parse(today) - 3 * 86400000).toISOString().split('T')[0])
+    .order('report_date', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as Array<Record<string, unknown>>).map((r) => ({
+    id: r.id as string,
+    reportDate: r.report_date as string,
+    mode: (r.mode as 'evening' | 'morning') ?? 'evening',
+    content: (r.content as DailyReportContent) ?? { headline: '', summary: '', sections: [], disclaimer: '' },
+  }));
+}
+
+export async function triggerDailyReport(mode: 'evening' | 'morning'): Promise<boolean> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id;
+  if (!userId) return false;
+
+  try {
+    const { error } = await supabase.functions.invoke('ai-daily-report', {
+      body: { mode, user_id: userId },
+    });
+    return !error;
+  } catch {
+    return false;
   }
 }

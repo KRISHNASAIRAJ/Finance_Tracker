@@ -93,14 +93,37 @@ export default function DrawerMenu() {
   });
 
   useEffect(() => {
-    const unsub = navigation.addListener('state', () => {
+    const read = () => {
       try {
         setActiveRouteName(getActiveRouteName(navigation.getState()));
       } catch {
         setActiveRouteName(undefined);
       }
-    });
-    return unsub;
+    };
+    const unsub = navigation.addListener('state', read);
+    // On launch, the navigator sets its initial state BEFORE this effect runs,
+    // so the 'state' listener won't fire until the first navigation. Poll until
+    // the initial route state is available so the trigger shows by default.
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts += 1;
+      let name: string | undefined;
+      try {
+        name = getActiveRouteName(navigation.getState());
+      } catch {
+        name = undefined;
+      }
+      if (name) {
+        setActiveRouteName(name);
+        clearInterval(timer);
+      } else if (attempts >= 30) {
+        clearInterval(timer);
+      }
+    }, 100);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
   }, [navigation]);
 
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
@@ -253,6 +276,9 @@ export default function DrawerMenu() {
     { id: 'diet', label: 'Project 65 Diet', icon: 'fitness-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'DietViewer' })) },
     { id: 'recipes', label: 'Recipes Library', icon: 'book-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'RecipesLibrary' })) },
     { id: 'report', label: 'Combined Report', icon: 'bar-chart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CombinedReport' })) },
+    { id: 'dailyreport', label: 'Daily Report', icon: 'newspaper-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'DailyReport' })) },
+    { id: 'buylist', label: 'Buy List', icon: 'cart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'BuyList' })) },
+    { id: 'grocerylist', label: 'Grocery List', icon: 'basket-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'GroceryList' })) },
   ];
 
   const systemItems: Item[] = [

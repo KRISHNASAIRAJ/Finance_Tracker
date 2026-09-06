@@ -69,8 +69,16 @@ export default function MonthlySpendScreen() {
   const spentByCategory = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.type === 'income' || tx.type === 'credit_card_bill') continue;
+    // Fuel is counted from garage fills below (single source of truth — avoids double count)
+    if (tx.type === 'fuel_purchase') continue;
     if (!tx.date.startsWith(monthKey)) continue;
     spentByCategory.set(tx.category, (spentByCategory.get(tx.category) ?? 0) + tx.amount);
+  }
+  // Include garage fuel fills so the Fuel category bar reflects fills even when
+  // the linked fuel_purchase transaction is missing (e.g. added while signed out)
+  for (const f of garageFills) {
+    if (!f.date || !f.date.startsWith(monthKey)) continue;
+    spentByCategory.set('Fuel', (spentByCategory.get('Fuel') ?? 0) + f.amount);
   }
 
   const budgetPaise = (monthlyBudget || 0) * 100;

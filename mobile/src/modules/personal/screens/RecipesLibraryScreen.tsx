@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   StatusBar,
+  Share,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +55,26 @@ export default function RecipesLibraryScreen() {
     setIngredientsText(recipe.ingredients.join('\n'));
     setStepsText(recipe.steps.join('\n'));
     setModalVisible(true);
+  };
+
+  const shareRecipe = async (recipe: Recipe) => {
+    const lines: string[] = [
+      `🍳 ${recipe.title}`,
+      `⏱ Prep: ${recipe.prepTime}    🔥 ${recipe.calories}`,
+      '',
+      'INGREDIENTS',
+      ...recipe.ingredients.map((ing) => `• ${ing}`),
+    ];
+    if (recipe.steps.length > 0) {
+      lines.push('', 'STEPS');
+      recipe.steps.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
+    }
+    lines.push('', 'Shared from Meridian');
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch {
+      // user cancelled or share unavailable
+    }
   };
 
   const handleSave = () => {
@@ -113,6 +134,9 @@ export default function RecipesLibraryScreen() {
             <View style={styles.recipeHeader}>
               <Text style={styles.recipeTitle}>{recipe.title}</Text>
               <View style={styles.recipeActions}>
+                <TouchableOpacity onPress={() => shareRecipe(recipe)} style={{ padding: 4 }}>
+                  <Ionicons name="share-social-outline" size={16} color={colors.onSurfaceVariant} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => openEdit(recipe)} style={{ padding: 4 }}>
                   <Ionicons name="create-outline" size={16} color={colors.primary} />
                 </TouchableOpacity>

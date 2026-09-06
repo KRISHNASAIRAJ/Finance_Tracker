@@ -6,6 +6,7 @@ import { useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { useMealStore } from '../modules/meals/store';
 import { useGarageStore } from '../modules/garage/store';
+import { usePersonalStore } from '../modules/personal/store';
 import { isExpoGo } from '../shared/isExpoGo';
 
 const WALLET_TARGET = 4000000;
@@ -397,6 +398,37 @@ export async function scheduleAllReminders() {
           `${completed} loaded. ${left} left to reach \u20B940K target this month. Load via HDFC Millennia debit for 1% cashback.`,
           nextThu,
           'bills_due'
+        );
+      }
+    }
+
+    // Buy List / Grocery List date reminders — ONE 9 AM nudge on the item's
+    // date (incomplete items only, next 60 days max — no spam).
+    const { buyListItems, groceryItems } = usePersonalStore.getState();
+    const listEntities: Array<{ entity: 'buy_list_items' | 'grocery_items'; items: Array<{ id: string; name: string; itemDate: string | null; completed: boolean; quantity?: string }> }> = [
+      { entity: 'buy_list_items', items: buyListItems || [] },
+      { entity: 'grocery_items', items: groceryItems || [] },
+    ];
+    for (const { entity, items } of listEntities) {
+      for (const item of items) {
+        if (item.completed || !item.itemDate) continue;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(item.itemDate)) continue;
+        const itemDay = new Date(item.itemDate + 'T00:00:00');
+        if (isNaN(itemDay.getTime())) continue;
+        // Cap: only schedule for dates within the next 60 days
+        const nowIst = istNow();
+        const daysAhead = Math.ceil((itemDay.getTime() - nowIst.getTime()) / 86400000);
+        if (daysAhead < 0 || daysAhead > 60) continue;
+        const trigger = new Date(itemDay.getFullYear(), itemDay.getMonth(), itemDay.getDate(), 9, 0, 0);
+        if (trigger <= nowIst) continue;
+        const label = entity === 'grocery_items' ? 'Grocery' : 'Buy List';
+        const qty = 'quantity' in item && item.quantity ? ` (${item.quantity})` : '';
+        await scheduleLocal(
+          `${label}: ${item.name}`,
+          `On your ${label.toLowerCase()} list for today${qty}. Time to get it!`,
+          trigger,
+          'bills_due',
+          { screen: entity === 'grocery_items' ? 'GroceryList' : 'BuyList' }
         );
       }
     }

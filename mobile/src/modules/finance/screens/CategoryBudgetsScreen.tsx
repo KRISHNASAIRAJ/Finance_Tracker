@@ -24,6 +24,7 @@ import { useFinanceStore } from '../store';
 import { EXPENSE_CATEGORIES, getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
 import { useAuth } from '../../../services/AuthProvider';
+import { useGarageStore } from '../../garage/store';
 
 const formatCurrency = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
@@ -32,6 +33,7 @@ export default function CategoryBudgetsScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { transactions, categoryBudgets, setCategoryBudget, deleteCategoryBudget } = useFinanceStore();
+  const { fills: garageFills } = useGarageStore();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
@@ -44,11 +46,19 @@ export default function CategoryBudgetsScreen() {
     const map = new Map<string, number>();
     for (const tx of transactions) {
       if (tx.type === 'income' || tx.type === 'credit_card_bill') continue;
+      // Fuel is counted from garage fills below (single source of truth — avoids double count)
+      if (tx.type === 'fuel_purchase') continue;
       if (!tx.date.startsWith(monthKey)) continue;
       map.set(tx.category, (map.get(tx.category) ?? 0) + tx.amount);
     }
+    // Include garage fuel fills so the Fuel bar reflects fills even when
+    // the linked fuel_purchase transaction is missing (e.g. added while signed out)
+    for (const f of garageFills) {
+      if (!f.date || !f.date.startsWith(monthKey)) continue;
+      map.set('Fuel', (map.get('Fuel') ?? 0) + f.amount);
+    }
     return map;
-  }, [transactions, monthKey]);
+  }, [transactions, garageFills, monthKey]);
 
   const totalLimits = categoryBudgets.reduce((sum, b) => sum + b.amountPaise, 0);
 

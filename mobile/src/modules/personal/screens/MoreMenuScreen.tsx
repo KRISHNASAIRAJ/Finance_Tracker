@@ -191,6 +191,18 @@ export default function MoreMenuScreen() {
           icon: 'journal-outline',
           onPress: () => navigation.navigate('WeeklyDiary'),
         },
+        {
+          id: 'buylist',
+          label: 'Buy List',
+          icon: 'cart-outline',
+          onPress: () => navigation.navigate('BuyList'),
+        },
+        {
+          id: 'grocerylist',
+          label: 'Grocery List',
+          icon: 'basket-outline',
+          onPress: () => navigation.navigate('GroceryList'),
+        },
       ],
     },
     {
@@ -357,6 +369,13 @@ export default function MoreMenuScreen() {
       icon: 'bar-chart-outline',
       iconColor: ICON_COLOR,
       onPress: () => navigation.navigate('CombinedReport'),
+    },
+    {
+      id: 'daily-report',
+      label: 'Daily Report',
+      icon: 'newspaper-outline',
+      iconColor: ICON_COLOR,
+      onPress: () => navigation.navigate('DailyReport'),
     },
     {
       id: 'backup',

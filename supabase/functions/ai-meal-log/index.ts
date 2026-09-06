@@ -54,7 +54,7 @@ JSON RESPONSE FORMAT (exactly this structure):
 const MANAGE_SYSTEM_PROMPT = `You are a nutritionist AI assistant for Meridian that helps the user MANAGE their existing food log.
 The user will tell you what they want to ADD, DELETE, or MODIFY in TODAY'S food log.
 
-You are given the user's current food log for today (with entry IDs). Respond with proposed changes.
+You are given the user's current food log for today (with entry IDs), optionally prior conversation turns, and optionally the items already staged in the current editing session ("CURRENT SESSION ITEMS"). Respond with proposed changes.
 
 The user is a 23-year-old male (54kg, 170.6cm, BMI 18.5 underweight) targeting weight gain to 65kg at ~0.4 kg/week.
 
@@ -64,8 +64,11 @@ RULES:
 3. For "add": include mealType ("breakfast"/"lunch"/"snack"/"dinner") and items.
 4. For "modify": include entryId (from the log) and the new items array.
 5. For "delete": include entryId (from the log).
-6. Be honest about uncertainty. Ask clarifying questions via the "message" field.
-7. Respect the user's health profile and targets.
+6. ESTIMATE NUTRITION YOURSELF. For every "add" or "modify", you MUST estimate calories, protein, carbs and fat from typical Indian portion sizes. NEVER ask the user to enter calories, protein or macros manually. Only ask clarifying questions about the FOOD itself (e.g. which dish, portion size) — never about nutrition numbers.
+7. You may propose MULTIPLE changes in one response. If the user says "add X too" or "add another item", propose a new "add" change with your own nutrition estimates.
+8. Use the prior conversation turns to understand references like "it", "that dish", "another one". If the user adds a second item in the same session, propose an "add" change for it — do not repeat or duplicate items already present in the log or in CURRENT SESSION ITEMS unless the user explicitly asks.
+9. Be honest about uncertainty. Ask clarifying questions via the "message" field.
+10. Respect the user's health profile and targets.
 
 JSON RESPONSE FORMAT:
 {
@@ -258,6 +261,7 @@ Deno.serve(async (req: Request) => {
     const healthProfile = (body.healthProfile as string)?.trim() || "";
     const todayContext = (body.todayContext as string)?.trim() || "";
     const manageMode = body.manageMode === true;
+    const currentItems = body.currentItems as Array<Record<string, unknown>> | undefined;
 
     const image = sanitizeBase64(rawImage);
     const hasImage = image.length > 100; // minimum length for a valid base64 image
@@ -272,18 +276,26 @@ Deno.serve(async (req: Request) => {
       const contextBlock = [
         healthProfile ? `HEALTH PROFILE:\n${healthProfile}` : "",
         todayContext ? `CURRENT FOOD LOG FOR TODAY:\n${todayContext}` : "CURRENT FOOD LOG FOR TODAY: (empty)",
+        currentItems && currentItems.length > 0
+          ? `CURRENT SESSION ITEMS (already staged by the user in this conversation):\n${JSON.stringify(currentItems)}`
+          : "",
       ].filter(Boolean).join("\n\n");
+
+      const historyMessages = (conversation ?? []).map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+      }));
 
       const userMessage = `${contextBlock}
 
 USER'S REQUEST:
 ${text}
 
-Decide what to add/delete/modify. Return ONLY the JSON with proposedChanges. If the request is ambiguous, ask one clarifying question in the message field and leave proposedChanges empty.`;
+Decide what to add/delete/modify. Estimate nutrition yourself — never ask the user for calories or macros. Return ONLY the JSON with proposedChanges. If the request is ambiguous about the FOOD (not the numbers), ask one clarifying question in the message field and leave proposedChanges empty.`;
 
       const groqResponse = await groqText.complete({
         systemPrompt: MANAGE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userMessage }],
+        messages: [...historyMessages, { role: "user", content: userMessage }],
         maxTokens: 1800,
         temperature: 0.2,
       });

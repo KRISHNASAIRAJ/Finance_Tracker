@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } fr
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
-import { usePersonalStore, PersonalGoal, Note, Recipe, MealPlan } from "../store";
+import { usePersonalStore, PersonalGoal, Note, Recipe, MealPlan, BuyListItem, GroceryItem } from "../store";
 
 interface SyncState {
   loading: boolean;
@@ -273,6 +273,85 @@ async function doPull(userId: string) {
         weightStore.setState({ entries: merged });
       }
     } catch (_e) {}
+  }
+
+  // --- BUY LIST ITEMS ---
+  const { data: buyData, error: buyErr } = await supabase
+    .from("buy_list_items")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!buyErr && buyData) {
+    const existingIds = new Set(store.getState().buyListItems.map((i: BuyListItem) => i.id));
+    const newItems: BuyListItem[] = (buyData as Array<Record<string, unknown>>)
+      .filter((r) => !existingIds.has(r.id as string))
+      .filter((r) => !pendingIds.has(`buy_list_items|${r.id}`))
+      .map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        price: Number(r.price ?? 0),
+        itemDate: (r.item_date as string | null) ?? null,
+        link: (r.link as string | null) ?? '',
+        notes: (r.notes as string | null) ?? '',
+        completed: Boolean(r.completed),
+      }));
+    if (newItems.length > 0) {
+      store.setState({ buyListItems: [...newItems, ...store.getState().buyListItems] });
+    }
+  }
+
+  // Push only buy items missing in cloud
+  const cloudBuyIds = new Set((buyData ?? []).map((r: any) => r.id as string));
+  const localOnlyBuy = store.getState().buyListItems.filter((i) => !cloudBuyIds.has(i.id));
+  if (localOnlyBuy.length > 0) {
+    const rows = localOnlyBuy.map((i) => ({
+      id: i.id, user_id: userId, name: i.name, price: i.price,
+      item_date: i.itemDate, link: i.link || null, notes: i.notes || null,
+      completed: i.completed, updated_at: new Date().toISOString(),
+    }));
+    supabase.from("buy_list_items").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[PersonalSync] pushMissing buy_list_items:', error.message);
+    });
+  }
+
+  // --- GROCERY ITEMS ---
+  const { data: groceryData, error: groceryErr } = await supabase
+    .from("grocery_items")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!groceryErr && groceryData) {
+    const existingIds = new Set(store.getState().groceryItems.map((i: GroceryItem) => i.id));
+    const newItems: GroceryItem[] = (groceryData as Array<Record<string, unknown>>)
+      .filter((r) => !existingIds.has(r.id as string))
+      .filter((r) => !pendingIds.has(`grocery_items|${r.id}`))
+      .map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        quantity: (r.quantity as string | null) ?? '',
+        price: Number(r.price ?? 0),
+        itemDate: (r.item_date as string | null) ?? null,
+        link: (r.link as string | null) ?? '',
+        notes: (r.notes as string | null) ?? '',
+        completed: Boolean(r.completed),
+      }));
+    if (newItems.length > 0) {
+      store.setState({ groceryItems: [...newItems, ...store.getState().groceryItems] });
+    }
+  }
+
+  // Push only grocery items missing in cloud
+  const cloudGroceryIds = new Set((groceryData ?? []).map((r: any) => r.id as string));
+  const localOnlyGrocery = store.getState().groceryItems.filter((i) => !cloudGroceryIds.has(i.id));
+  if (localOnlyGrocery.length > 0) {
+    const rows = localOnlyGrocery.map((i) => ({
+      id: i.id, user_id: userId, name: i.name, quantity: i.quantity, price: i.price,
+      item_date: i.itemDate, link: i.link || null, notes: i.notes || null,
+      completed: i.completed, updated_at: new Date().toISOString(),
+    }));
+    supabase.from("grocery_items").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+      if (error) console.warn('[PersonalSync] pushMissing grocery_items:', error.message);
+    });
   }
 
   store.getState().setLastPersonalSyncedAt(new Date().toISOString());

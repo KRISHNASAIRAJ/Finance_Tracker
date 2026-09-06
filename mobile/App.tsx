@@ -72,6 +72,12 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MoreStack', { screen: 'MealLogger' });
           } else if (data.screen === 'AllMaintenance') {
             nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AllMaintenance' } });
+          } else if (data.screen === 'DailyReport') {
+            nav.navigate('MoreStack', { screen: 'DailyReport' });
+          } else if (data.screen === 'BuyList') {
+            nav.navigate('MoreStack', { screen: 'BuyList' });
+          } else if (data.screen === 'GroceryList') {
+            nav.navigate('MoreStack', { screen: 'GroceryList' });
           } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }

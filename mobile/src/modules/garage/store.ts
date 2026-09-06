@@ -68,7 +68,6 @@ function queueGarageSync(entity: string, operation: string, payload: Record<stri
 }
 
 function addFuelTransaction(userId: string | undefined, fill: FuelFill) {
-  if (!userId) return;
   useFinanceStore.getState().addTransaction(
     {
       type: 'fuel_purchase',
@@ -81,6 +80,36 @@ function addFuelTransaction(userId: string | undefined, fill: FuelFill) {
     },
     userId
   );
+}
+
+/**
+ * Keep the linked fuel_purchase finance transaction in sync when a fuel fill
+ * is edited or deleted (unified transactions spine).
+ * Matching key: type 'fuel_purchase' + original date + original amount.
+ */
+function syncFuelTransaction(prevFill: FuelFill, newFill: FuelFill | undefined, userId?: string) {
+  try {
+    const financeState = useFinanceStore.getState();
+    const tx = financeState.transactions.find(
+      (t) => t.type === 'fuel_purchase' && t.date === prevFill.date && t.amount === prevFill.amount
+    );
+    if (!tx) return;
+    if (!newFill) {
+      financeState.deleteTransaction(tx.id, userId);
+    } else {
+      financeState.editTransaction(
+        tx.id,
+        {
+          amount: newFill.amount,
+          notes: `${Number(newFill.liters).toFixed(2)}L Fuel`,
+          date: newFill.date,
+        },
+        userId
+      );
+    }
+  } catch (e) {
+    console.warn('[GarageStore] sync fuel transaction failed:', e);
+  }
 }
 
 export const useGarageStore = create<GarageState>()(
@@ -136,6 +165,7 @@ export const useGarageStore = create<GarageState>()(
         return newFill.id;
       },
       editFuelFill: (id, updated, userId) => {
+        const prevFill = get().fills.find((f) => f.id === id);
         set((state) => ({
           fills: state.fills.map((f) => (f.id === id ? { ...f, ...updated } : f)),
         }));
@@ -153,12 +183,15 @@ export const useGarageStore = create<GarageState>()(
             station: fill.station ?? null,
             note: fill.note ?? null,
           });
+          if (prevFill) syncFuelTransaction(prevFill, fill, userId);
         }
       },
       deleteFuelFill: (id, userId) => {
+        const prevFill = get().fills.find((f) => f.id === id);
         set((state) => ({
           fills: state.fills.filter((f) => f.id !== id),
         }));
+        if (prevFill) syncFuelTransaction(prevFill, undefined, userId);
         queueGarageSync('fuel_fills', 'delete', { id, user_id: userId || null });
         const { supabase } = require('../../services/supabaseClient');
         supabase.from('fuel_fills').delete().eq('id', id).then(({ error }: any) => {

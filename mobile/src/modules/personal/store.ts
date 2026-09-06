@@ -36,6 +36,43 @@ export interface MealPlan {
   snack: string;
 }
 
+export interface BuyListItem {
+  id: string;
+  name: string;
+  price: number; // paise
+  itemDate: string | null; // YYYY-MM-DD, optional reminder/buy-by date
+  link: string;
+  notes: string;
+  completed: boolean;
+}
+
+export interface GroceryItem {
+  id: string;
+  name: string;
+  quantity: string;
+  price: number; // paise
+  itemDate: string | null;
+  link: string;
+  notes: string;
+  completed: boolean;
+}
+
+type BuyOrGrocery = Partial<BuyListItem & GroceryItem> & { id: string };
+
+/** snake_case row for the sync queue (unknown camelCase keys are dropped by syncQueue). */
+function listRow(userId: string | null | undefined, item: BuyOrGrocery): Record<string, unknown> {
+  const row: Record<string, unknown> = { id: item.id, user_id: userId ?? null };
+  if (item.name !== undefined) row.name = item.name;
+  if (item.price !== undefined) row.price = item.price;
+  if (item.itemDate !== undefined) row.item_date = item.itemDate;
+  if (item.link !== undefined) row.link = item.link;
+  if (item.notes !== undefined) row.notes = item.notes;
+  if (item.completed !== undefined) row.completed = item.completed;
+  if (item.quantity !== undefined) row.quantity = item.quantity;
+  row.updated_at = new Date().toISOString();
+  return row;
+}
+
 export interface PersonalSyncMeta {
   lastPersonalSyncedAt: string | null;
   setLastPersonalSyncedAt: (iso: string) => void;
@@ -63,6 +100,8 @@ interface PersonalState extends PersonalSyncMeta {
   notes: Note[];
   recipes: Recipe[];
   meals: MealPlan[];
+  buyListItems: BuyListItem[];
+  groceryItems: GroceryItem[];
   toggleGoal: (id: string, userId?: string) => void;
   addGoal: (name: string, userId?: string) => PersonalGoal;
   deleteGoal: (id: string, userId?: string) => void;
@@ -73,6 +112,14 @@ interface PersonalState extends PersonalSyncMeta {
   deleteRecipe: (id: string, userId?: string) => void;
   updateRecipe: (id: string, recipe: Partial<Recipe>, userId?: string) => void;
   updateMealSlot: (day: string, slot: 'breakfast' | 'lunch' | 'dinner' | 'snack', name: string, userId?: string) => void;
+  addBuyItem: (item: Omit<BuyListItem, 'id' | 'completed'>, userId?: string) => string;
+  updateBuyItem: (id: string, item: Partial<BuyListItem>, userId?: string) => void;
+  deleteBuyItem: (id: string, userId?: string) => void;
+  toggleBuyItem: (id: string, userId?: string) => void;
+  addGroceryItem: (item: Omit<GroceryItem, 'id' | 'completed'>, userId?: string) => string;
+  updateGroceryItem: (id: string, item: Partial<GroceryItem>, userId?: string) => void;
+  deleteGroceryItem: (id: string, userId?: string) => void;
+  toggleGroceryItem: (id: string, userId?: string) => void;
 }
 
 export const usePersonalStore = create<PersonalState>()(
@@ -83,6 +130,8 @@ export const usePersonalStore = create<PersonalState>()(
       goals: [],
       notes: [],
       recipes: [],
+      buyListItems: [],
+      groceryItems: [],
       meals: [
         { day: 'Monday', breakfast: 'Overnight oats: Greek yoghurt, fruit, walnuts, peanut butter, seed dose', lunch: 'Rice + rasam + airfryer chicken (double batch) + sautéed cabbage (tiffin)', dinner: 'Reheat chicken + 2 ragi dosa with chutney', snack: 'Roasted chana + nuts (10:45) | Peanuts + seeds (5:30pm)' },
         { day: 'Tuesday', breakfast: 'Dosa + tomato chutney + 1 boiled egg, seed dose', lunch: 'Rice + sambar + airfryer chicken + carrot poriyal (tiffin)', dinner: 'Reheat chicken + fresh chapati', snack: 'Protein smoothie (10:45) | Makhana in ghee + seeds (5:30pm)' },
@@ -194,6 +243,66 @@ export const usePersonalStore = create<PersonalState>()(
           user_id: userId || null, day, meal_type: slot,
           meal_name: name, updated_at: new Date().toISOString(),
         });
+      },
+      // --- BUY LIST ---
+      addBuyItem: (item, userId) => {
+        const id = Math.random().toString(36).substring(2, 15);
+        const newItem: BuyListItem = { ...item, id, completed: false };
+        set((state) => ({ buyListItems: [newItem, ...state.buyListItems] }));
+        enqueueSync('buy_list_items', 'create', listRow(userId, newItem));
+        return id;
+      },
+      updateBuyItem: (id, item, userId) => {
+        set((state) => ({
+          buyListItems: state.buyListItems.map((i) => (i.id === id ? { ...i, ...item } : i)),
+        }));
+        const updated = get().buyListItems.find((i) => i.id === id);
+        if (updated) enqueueSync('buy_list_items', 'create', listRow(userId, updated));
+      },
+      deleteBuyItem: (id, userId) => {
+        set((state) => ({
+          buyListItems: state.buyListItems.filter((i) => i.id !== id),
+        }));
+        enqueueSync('buy_list_items', 'delete', { id, user_id: userId || null });
+      },
+      toggleBuyItem: (id, userId) => {
+        set((state) => ({
+          buyListItems: state.buyListItems.map((i) =>
+            i.id === id ? { ...i, completed: !i.completed } : i
+          ),
+        }));
+        const updated = get().buyListItems.find((i) => i.id === id);
+        if (updated) enqueueSync('buy_list_items', 'create', listRow(userId, updated));
+      },
+      // --- GROCERY LIST ---
+      addGroceryItem: (item, userId) => {
+        const id = Math.random().toString(36).substring(2, 15);
+        const newItem: GroceryItem = { ...item, id, completed: false };
+        set((state) => ({ groceryItems: [newItem, ...state.groceryItems] }));
+        enqueueSync('grocery_items', 'create', listRow(userId, newItem));
+        return id;
+      },
+      updateGroceryItem: (id, item, userId) => {
+        set((state) => ({
+          groceryItems: state.groceryItems.map((i) => (i.id === id ? { ...i, ...item } : i)),
+        }));
+        const updated = get().groceryItems.find((i) => i.id === id);
+        if (updated) enqueueSync('grocery_items', 'create', listRow(userId, updated));
+      },
+      deleteGroceryItem: (id, userId) => {
+        set((state) => ({
+          groceryItems: state.groceryItems.filter((i) => i.id !== id),
+        }));
+        enqueueSync('grocery_items', 'delete', { id, user_id: userId || null });
+      },
+      toggleGroceryItem: (id, userId) => {
+        set((state) => ({
+          groceryItems: state.groceryItems.map((i) =>
+            i.id === id ? { ...i, completed: !i.completed } : i
+          ),
+        }));
+        const updated = get().groceryItems.find((i) => i.id === id);
+        if (updated) enqueueSync('grocery_items', 'create', listRow(userId, updated));
       },
     }),
     {

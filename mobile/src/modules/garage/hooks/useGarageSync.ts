@@ -16,7 +16,6 @@ interface SyncState {
 }
 
 let _hasSeeded = false;
-let _fuelCleanupRan = false;
 
 export function useGarageSync() {
   const { user } = useAuth();
@@ -33,19 +32,6 @@ export function useGarageSync() {
     const hydrateAndSync = () => {
       if (synced.current) return;
       synced.current = true;
-      if (!_fuelCleanupRan) {
-        _fuelCleanupRan = true;
-        try {
-          const { useFinanceStore } = require('../../finance/store');
-          const financeState = useFinanceStore.getState();
-          const cleaned = financeState.transactions.filter(
-            (t: { type: string }) => t.type !== 'fuel_purchase'
-          );
-          if (cleaned.length !== financeState.transactions.length) {
-            useFinanceStore.setState({ transactions: cleaned });
-          }
-        } catch (e) { console.warn('[GarageSync] fuel cleanup failed:', e); }
-      }
       doFullSync(user.id);
     };
 
