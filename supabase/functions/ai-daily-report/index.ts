@@ -192,8 +192,9 @@ async function dailyLifeReport(body: Record<string, unknown>): Promise<Response>
     const mode: "evening" | "morning" = body?.mode === "morning" ? "morning" : "evening";
     const manualUserId: string | undefined = body?.user_id;
 
-    // report_date: at both fire times the UTC date equals the IST date.
-    const reportDate = new Date().toISOString().split("T")[0];
+    // report_date in IST so manual "Generate Now" between 00:00-05:29 IST
+    // files under the user's calendar day (matches the app's Today chip).
+    const reportDate = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().split("T")[0];
 
     // Determine target users: manual single user, or everyone with a device token.
     let userIds: string[] = [];
@@ -216,15 +217,24 @@ async function dailyLifeReport(body: Record<string, unknown>): Promise<Response>
     const results: Record<string, unknown>[] = [];
 
     for (const userId of userIds) {
-      // Anti-spam / idempotency: skip if this report already exists.
-      const { data: existing } = await supabase
+      // Anti-spam / idempotency: skip if this report already exists AND is
+      // non-empty. A wedged empty row (e.g. failed insert of JSONB default)
+      // is regenerated instead of permanently blocking the date.
+      const { data: existing, error: existingErr } = await supabase
         .from("daily_reports")
-        .select("id")
+        .select("id, content")
         .eq("user_id", userId)
         .eq("report_date", reportDate)
         .eq("mode", mode)
         .maybeSingle();
-      if (existing) {
+      if (existingErr) {
+        // Table missing or unreadable — surface honestly instead of silent skip.
+        console.error("daily_reports select failed:", existingErr.message);
+        results.push({ user_id: userId, error: "db_failed", detail: existingErr.message });
+        continue;
+      }
+      const hasContent = !!(existing as any)?.content?.headline;
+      if (existing && hasContent) {
         results.push({ user_id: userId, skipped: "already generated" });
         continue;
       }
@@ -375,8 +385,19 @@ async function dailyLifeReport(body: Record<string, unknown>): Promise<Response>
       results.push({ user_id: userId, generated: true, mode });
     }
 
+    // Manual single-user invocations surface per-user failure honestly so the
+    // app can tell the user WHY generation failed (cron path ignores this).
+    const isManual = !!manualUserId;
+    const failed = results.filter((r) => (r as any).error);
+    const ok = failed.length === 0 || (isManual ? false : true) || results.some((r) => (r as any).generated);
     return new Response(
-      JSON.stringify({ ok: true, date: reportDate, mode, users: userIds.length, results }),
+      JSON.stringify({
+        ok: isManual ? ok : true,
+        date: reportDate,
+        mode,
+        users: userIds.length,
+        results,
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
 }

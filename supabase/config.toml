@@ -34,6 +34,9 @@ verify_jwt = false
 [functions.portfolio-snapshot]
 verify_jwt = false
 
+[functions.ai-daily-report]
+verify_jwt = false
+
 [analytics]
 enabled = false
 

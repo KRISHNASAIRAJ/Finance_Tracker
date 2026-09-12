@@ -264,7 +264,7 @@ Estimate realistic nutrition values for this specific item.`;
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <ScrollView
           ref={scrollRef}
@@ -455,14 +455,17 @@ Estimate realistic nutrition values for this specific item.`;
             </>
           )}
 
-          {/* Notes */}
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Notes (optional)"
-            placeholderTextColor={tc.textMuted}
-          />
+          {/* Notes — only shown once items are staged (not during AI Q&A,
+              where the bottom reply row is the input) */}
+          {items.length > 0 && (
+            <TextInput
+              style={styles.notesInput}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Notes (optional)"
+              placeholderTextColor={tc.textMuted}
+            />
+          )}
         </ScrollView>
 
         {/* Reply Input — always available after analysis so the user can ask

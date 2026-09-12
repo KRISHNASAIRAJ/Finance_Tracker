@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { History, Plus, RefreshCw, Sparkles, Target } from 'lucide-react'
+import { History, Plus, RefreshCw, Sparkles, Target, Wallet } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   useHoldings,
   useInvestmentGoals,
+  useLoans,
   useRefreshPrices,
   investKeys,
 } from '../../hooks/data/useInvestments'
@@ -34,6 +35,7 @@ export function WealthDashboardPage() {
   const qc = useQueryClient()
   const { data: holdings, isLoading } = useHoldings(userId)
   const { data: goals } = useInvestmentGoals(userId)
+  const { data: loans } = useLoans(userId)
   const { data: plan } = usePortfolioActionPlan(userId)
   const savePlan = useSavePortfolioActionPlan(userId)
   const refreshPrices = useRefreshPrices()
@@ -68,6 +70,9 @@ export function WealthDashboardPage() {
     () => (holdings ?? []).reduce((s, h) => s + h.quantity * h.avg_buy_price, 0),
     [holdings]
   )
+
+  const totalLoans = useMemo(() => (loans ?? []).reduce((s, l) => s + (l.amount || 0), 0), [loans])
+  const netWealth = portfolioValue - totalLoans
 
   const totalReturn = portfolioValue - totalCost
   const returnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
@@ -131,6 +136,16 @@ export function WealthDashboardPage() {
             <History className="h-4 w-4" /> View history
           </Button>
         </Link>
+        <Link to="/wealth/loans">
+          <Button size="sm" variant="secondary" className="gap-1.5">
+            <Wallet className="h-4 w-4" /> Loans
+            {(loans ?? []).length > 0 && (
+              <span className="rounded-full bg-[#FF887D]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF887D]">
+                {loans?.length}
+              </span>
+            )}
+          </Button>
+        </Link>
         <Link to="/wealth/ai">
           <Button size="sm" variant="secondary" className="gap-1.5">
             <Sparkles className="h-4 w-4" /> AI recommendations
@@ -142,6 +157,53 @@ export function WealthDashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {isLoading ? (
+        <Skeleton className="h-36 w-full" />
+      ) : (
+        <Card className="relative overflow-hidden border-white/15 bg-[#101014] p-6">
+          <div
+            className="pointer-events-none absolute -top-24 -left-16 h-64 w-[420px] rounded-full opacity-70"
+            style={{
+              background:
+                'radial-gradient(closest-side, rgba(79,219,204,0.16), rgba(123,142,255,0.08), transparent)',
+            }}
+          />
+          <div className="relative flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.15em] text-white/60">NET WEALTH</p>
+              <p className="mt-2 text-4xl font-extrabold tracking-tight text-white tnum">
+                {paiseToRupees(netWealth)}
+              </p>
+              <p className="mt-1 text-xs text-white/40">Investments − Loans</p>
+            </div>
+            <Link to="/wealth/loans">
+              <Button size="sm" variant="secondary" className="gap-1.5">
+                <Wallet className="h-3.5 w-3.5" />
+                {(loans ?? []).length > 0 ? 'Manage loans' : 'Add loan'}
+              </Button>
+            </Link>
+          </div>
+          <div className="relative mt-5 flex items-center gap-6 border-t border-white/10 pt-5">
+            <div className="flex items-center gap-2">
+              <span className="text-[#59D6C7]">▲</span>
+              <p className="text-sm font-semibold text-[#59D6C7] tnum">+{paiseToRupees(portfolioValue)}</p>
+              <p className="text-[11px] text-white/40">Investments</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#FF887D]">▼</span>
+              <p className="text-sm font-semibold text-[#FF887D] tnum">
+                {totalLoans > 0 ? `−${paiseToRupees(totalLoans)}` : '₹0.00'}
+              </p>
+              <p className="text-[11px] text-white/40">
+                {(loans ?? []).length > 0
+                  ? `${loans?.length} loan${(loans ?? []).length > 1 ? 's' : ''}`
+                  : 'No loans'}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

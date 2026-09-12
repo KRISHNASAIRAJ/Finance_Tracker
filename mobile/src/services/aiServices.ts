@@ -340,7 +340,8 @@ export async function fetchDailyReports(): Promise<DailyReport[]> {
   const userId = sessionData.session?.user?.id;
   if (!userId) return [];
 
-  const today = new Date().toISOString().split('T')[0];
+  const istNow = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const today = istNow.toISOString().split('T')[0];
   const { data, error } = await supabase
     .from('daily_reports')
     .select('id, report_date, mode, content')
@@ -358,17 +359,34 @@ export async function fetchDailyReports(): Promise<DailyReport[]> {
   }));
 }
 
-export async function triggerDailyReport(mode: 'evening' | 'morning'): Promise<boolean> {
+/**
+ * Trigger an on-demand daily report generation. Returns a human-readable
+ * failure reason on failure (or null on success) — the edge function reports
+ * per-user failures honestly (db_failed / ai_failed / etc).
+ */
+export async function triggerDailyReport(
+  mode: 'evening' | 'morning'
+): Promise<{ ok: boolean; reason: string | null }> {
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
-  if (!userId) return false;
+  if (!userId) return { ok: false, reason: 'Not signed in — tap Generate after the app syncs.' };
 
   try {
-    const { error } = await supabase.functions.invoke('ai-daily-report', {
+    const { data, error } = await supabase.functions.invoke('ai-daily-report', {
       body: { mode, user_id: userId },
     });
-    return !error;
-  } catch {
-    return false;
+    if (error) return { ok: false, reason: `Server error: ${error.message}` };
+
+    const results = (data as { ok?: boolean; results?: Array<Record<string, unknown>> }) ?? {};
+    const mine = Array.isArray(results.results) ? results.results[0] : undefined;
+    if (mine?.skipped) return { ok: true, reason: null };
+    if (mine?.error) {
+      const detail = typeof mine.detail === 'string' ? ` (${mine.detail})` : '';
+      return { ok: false, reason: `Report failed: ${mine.error}${detail}` };
+    }
+    if (results.ok === false) return { ok: false, reason: 'Report failed on the server. Try again in a minute.' };
+    return { ok: true, reason: null };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ? `Network error: ${e.message}` : 'Network error — check your connection.' };
   }
 }

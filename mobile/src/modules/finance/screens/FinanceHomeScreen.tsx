@@ -24,6 +24,7 @@ import Svg, { Circle, G as SvgG, Defs, LinearGradient as SvgGradient, Stop } fro
 
 import { colors } from '../../../shared/theme/colors';
 import GlassCard from '../../../shared/components/GlassCard';
+import Entrance from '../../../shared/components/Entrance';
 import GlowText from '../../../shared/components/GlowText';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
@@ -196,25 +197,28 @@ export default function FinanceHomeScreen() {
         </View>
 
         {/* Hero Section: Total Net Worth */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate('BalanceSummary')}
-          activeOpacity={0.9}
-        >
-          <GlassCard glow={totalNetWorth < 0 ? 'pink' : 'indigo'} radius={32} pad={false}>
-            <View style={styles.heroBody}>
-              <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
-              <GlowText
-                glow={totalNetWorth < 0 ? 'pink' : 'indigo'}
-                size={42}
-                weight="800"
-              >
-                {formatCurrency(totalNetWorth)}
-              </GlowText>
-            </View>
-          </GlassCard>
-        </TouchableOpacity>
+        <Entrance index={0}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('BalanceSummary')}
+            activeOpacity={0.9}
+          >
+            <GlassCard glow={totalNetWorth < 0 ? 'pink' : 'indigo'} radius={32} pad={false}>
+              <View style={styles.heroBody}>
+                <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
+                <GlowText
+                  glow={totalNetWorth < 0 ? 'pink' : 'indigo'}
+                  size={42}
+                  weight="800"
+                >
+                  {formatCurrency(totalNetWorth)}
+                </GlowText>
+              </View>
+            </GlassCard>
+          </TouchableOpacity>
+        </Entrance>
 
         {/* Primary Cards Grid */}
+        <Entrance index={1}>
         <View style={styles.grid2}>
           <TouchableOpacity
             style={styles.statCard}
@@ -315,8 +319,10 @@ export default function FinanceHomeScreen() {
             </GlassCard>
           </TouchableOpacity>
         </View>
+        </Entrance>
 
         {/* Expense Distribution */}
+        <Entrance index={2}>
         <TouchableOpacity
           style={styles.distributionPanel}
           onPress={() => navigation.navigate('FinanceReports')}
@@ -429,8 +435,10 @@ export default function FinanceHomeScreen() {
           </View>
           </GlassCard>
         </TouchableOpacity>
+        </Entrance>
 
         {/* Recent Transactions */}
+        <Entrance index={3}>
         <GlassCard radius={28} pad={false}>
           <View style={styles.listPanel}>
             <View style={styles.panelHeader}>
@@ -499,6 +507,7 @@ export default function FinanceHomeScreen() {
           </View>
           </View>
           </GlassCard>
+        </Entrance>
       </ScrollView>
     </SafeAreaView>
   );

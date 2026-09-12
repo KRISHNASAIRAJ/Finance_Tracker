@@ -26,6 +26,7 @@ import { useTasksSync } from '../hooks/useTasksSync';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { processSyncQueue } from '../../../services/syncQueue';
+import Entrance from '../../../shared/components/Entrance';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TasksDashboard'>;
 
@@ -91,12 +92,13 @@ export default function TasksDashboardScreen() {
     }
   };
 
-  const renderTaskItem = ({ item }: { item: Task }) => {
+  const renderTaskItem = ({ item, index }: { item: Task; index: number }) => {
     const subtasks = item.subtasks || [];
     const completedSubtasks = subtasks.filter((st) => st.completed).length;
     const totalSubtasks = subtasks.length;
 
     return (
+      <Entrance index={index} step={45} distance={14}>
       <TouchableOpacity
         style={styles.taskCard}
         onPress={() => navigation.navigate('TaskDetail', { taskId: item.id })}
@@ -158,6 +160,7 @@ export default function TasksDashboardScreen() {
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.outline} />
       </TouchableOpacity>
+      </Entrance>
     );
   };
 

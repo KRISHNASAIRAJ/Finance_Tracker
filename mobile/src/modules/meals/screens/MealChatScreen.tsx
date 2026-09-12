@@ -166,7 +166,7 @@ export default function MealChatScreen() {
         <Ionicons name="sparkles" size={18} color={tc.action} />
       </View>
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <FlatList
           ref={listRef}
           data={messages}

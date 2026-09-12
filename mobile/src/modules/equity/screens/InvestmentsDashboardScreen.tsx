@@ -18,6 +18,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import Entrance from '../../../shared/components/Entrance';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -133,12 +135,62 @@ export default function InvestmentsDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* NET WEALTH Hero — Investments − Loans, always visible */}
+        <Entrance index={0}>
+          <View style={styles.netWealthCard}>
+          <ExpoLinearGradient
+            colors={['rgba(79,219,204,0.18)', 'rgba(123,142,255,0.10)', 'rgba(0,0,0,0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.netWealthGlow}
+          />
+          <View style={styles.netWealthTopRow}>
+            <Text style={styles.netWealthLabel}>NET WEALTH</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('LoansManager')}
+              activeOpacity={0.7}
+              style={styles.netWealthManageBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={loans.length > 0 ? 'wallet-outline' : 'add-circle-outline'}
+                size={16}
+                color={colors.primary}
+              />
+              <Text style={styles.netWealthManageText}>
+                {loans.length > 0 ? 'Manage Loans' : 'Add Loan'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.netWealthValue}>{formatCurrency(netWorth)}</Text>
+          <Text style={styles.netWealthFormula}>Investments − Loans</Text>
+          <View style={styles.netWealthBreakRow}>
+            <View style={styles.netWealthBreakItem}>
+              <Ionicons name="trending-up-outline" size={13} color={colors.success} />
+              <Text style={[styles.netWealthBreakValue, { color: colors.success }]}>
+                +{formatCurrency(portfolioValue)}
+              </Text>
+              <Text style={styles.netWealthBreakLabel}>Investments</Text>
+            </View>
+            <View style={styles.netWealthBreakDivider} />
+            <View style={styles.netWealthBreakItem}>
+              <Ionicons name="wallet-outline" size={13} color={colors.attention} />
+              <Text style={[styles.netWealthBreakValue, { color: colors.attention }]}>
+                {totalLoans > 0 ? `−${formatCurrency(totalLoans)}` : formatCurrency(0)}
+              </Text>
+              <Text style={styles.netWealthBreakLabel}>{loans.length > 0 ? `${loans.length} loan${loans.length > 1 ? 's' : ''}` : 'No loans'}</Text>
+            </View>
+          </View>
+          </View>
+        </Entrance>
+
         {/* Portfolio Value Hero — Glass Noir panel, tappable → history */}
-        <TouchableOpacity
-          style={styles.heroCard}
-          onPress={() => navigation.navigate('PortfolioHistory')}
-          activeOpacity={0.9}
-        >
+        <Entrance index={1}>
+          <TouchableOpacity
+            style={styles.heroCard}
+            onPress={() => navigation.navigate('PortfolioHistory')}
+            activeOpacity={0.9}
+          >
           <View style={styles.heroGlow} />
           <View style={styles.heroTopRow}>
             <Text style={styles.heroLabel}>TOTAL PORTFOLIO VALUE</Text>
@@ -181,13 +233,6 @@ export default function InvestmentsDashboardScreen() {
               </Text>
               <Text style={styles.heroMetaLabel}>Returns</Text>
             </View>
-            <View style={styles.heroMetaDivider} />
-            <View style={styles.heroMetaItem}>
-              <Text style={[styles.heroMetaValue, { color: netWorth >= 0 ? colors.success : colors.attention }]}>
-                {formatCurrency(netWorth)}
-              </Text>
-              <Text style={styles.heroMetaLabel}>Net Worth</Text>
-            </View>
           </View>
 
           {/* Snapshot info inside the hero — computed live from holdings */}
@@ -213,15 +258,17 @@ export default function InvestmentsDashboardScreen() {
             );
           })()}
         </TouchableOpacity>
+        </Entrance>
 
-        {/* Net Worth + Loans — Glass card */}
+        {/* Loans list — quick view (NET WEALTH lives in the card above) */}
         {loans.length > 0 && (() => {
           return (
+            <Entrance index={2}>
             <View style={styles.loansCard}>
               <View style={styles.loansHeaderRow}>
                 <View style={styles.loansTitleRow}>
                   <Ionicons name="wallet-outline" size={15} color={colors.attention} />
-                  <Text style={styles.loansTitle}>LOANS</Text>
+                  <Text style={styles.loansTitle}>LOANS · {formatCurrency(totalLoans)}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => navigation.navigate('LoansManager')}
@@ -230,23 +277,6 @@ export default function InvestmentsDashboardScreen() {
                 >
                   <Ionicons name="add-circle" size={22} color={colors.primary} />
                 </TouchableOpacity>
-              </View>
-              <View style={styles.loansNetWorthRow}>
-                <View style={styles.loansNetWorthBlock}>
-                  <Text style={styles.loansNetWorthLabel}>NET WORTH</Text>
-                  <Text style={[styles.loansNetWorthValue, { color: netWorth >= 0 ? colors.success : colors.attention }]}>
-                    {formatCurrency(netWorth)}
-                  </Text>
-                  <Text style={styles.loansNetWorthSub}>Investments − Loans</Text>
-                </View>
-                <View style={styles.loansNetDivider} />
-                <View style={styles.loansNetWorthBlock}>
-                  <Text style={styles.loansNetWorthLabel}>TOTAL LOANS</Text>
-                  <Text style={[styles.loansNetWorthValue, { color: colors.attention }]}>
-                    −{formatCurrency(totalLoans)}
-                  </Text>
-                  <Text style={styles.loansNetWorthSub}>{loans.length} active</Text>
-                </View>
               </View>
               <View style={styles.loansList}>
                 {loans.map((l) => (
@@ -258,6 +288,7 @@ export default function InvestmentsDashboardScreen() {
                 ))}
               </View>
             </View>
+            </Entrance>
           );
         })()}
 
@@ -591,6 +622,89 @@ const styles = StyleSheet.create({
     gap: spacing.stackGapLg,
     paddingBottom: 100,
   },
+  netWealthCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.20)',
+    borderRadius: 32,
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+    gap: 6,
+  },
+  netWealthGlow: {
+    position: 'absolute',
+    top: -90,
+    left: -60,
+    right: -60,
+    bottom: -90,
+  },
+  netWealthLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 1.5,
+  },
+  netWealthTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  netWealthManageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(123,142,255,0.14)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(123,142,255,0.35)',
+  },
+  netWealthManageText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  netWealthValue: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: colors.onSurface,
+    letterSpacing: -0.5,
+    marginTop: 4,
+  },
+  netWealthFormula: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  netWealthBreakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.10)',
+  },
+  netWealthBreakItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  netWealthBreakDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  netWealthBreakValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  netWealthBreakLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
   heroCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: StyleSheet.hairlineWidth,
@@ -756,36 +870,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.6,
-  },
-  loansNetWorthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loansNetWorthBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  loansNetWorthLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
-  },
-  loansNetWorthValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
-  },
-  loansNetWorthSub: {
-    fontSize: 10,
-    color: colors.outline,
-  },
-  loansNetDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   loansList: {
     gap: 8,

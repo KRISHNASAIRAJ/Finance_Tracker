@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  Alert,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -21,7 +22,15 @@ import { useFinanceStore } from '../../finance/store';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const { notifications, markNotificationRead, markAllNotificationsRead } = useFinanceStore();
+  const { notifications, markNotificationRead, markAllNotificationsRead, clearNotifications } = useFinanceStore();
+
+  const handleClearAll = () => {
+    if (notifications.length === 0) return;
+    Alert.alert('Clear Notifications', 'Remove all notifications? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear All', style: 'destructive', onPress: clearNotifications },
+    ]);
+  };
 
   const getRelativeTime = (isoString: string) => {
     const diffMs = Date.now() - new Date(isoString).getTime();
@@ -64,9 +73,19 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.logoText}>Notifications</Text>
-        <TouchableOpacity style={styles.markReadButton} onPress={markAllNotificationsRead}>
-          <Text style={styles.markReadText}>Read All</Text>
-        </TouchableOpacity>
+        <View style={styles.appBarActions}>
+          <TouchableOpacity style={styles.markReadButton} onPress={markAllNotificationsRead}>
+            <Text style={styles.markReadText}>Read All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.markReadButton, styles.clearButton]}
+            onPress={handleClearAll}
+            disabled={notifications.length === 0}
+          >
+            <Ionicons name="trash-outline" size={13} color={colors.error} />
+            <Text style={[styles.markReadText, { color: colors.error }]}>Clear</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Notifications List */}
@@ -112,11 +131,24 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: rounded.full,
   },
+  appBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   markReadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 12,
     backgroundColor: colors.primaryContainer,
     borderRadius: 8,
+  },
+  clearButton: {
+    backgroundColor: 'rgba(239,68,68,0.10)',
+    borderColor: 'rgba(239,68,68,0.25)',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   markReadText: {
     fontSize: 12,

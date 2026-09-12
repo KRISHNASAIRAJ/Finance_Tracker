@@ -3,12 +3,13 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import type { Holding, InvestmentGoal, PortfolioSnapshot } from '../../types'
+import type { Holding, InvestmentGoal, PortfolioSnapshot, Loan } from '../../types'
 
 export const investKeys = {
   holdings: (userId: string) => ['holdings', userId] as const,
   goals: (userId: string) => ['investment_goals', userId] as const,
   snapshots: (userId: string) => ['portfolio_snapshots', userId] as const,
+  loans: (userId: string) => ['loans', userId] as const,
 }
 
 // ─── Holdings ────────────────────────────────────────────
@@ -174,4 +175,62 @@ export function useRefreshPrices() {
       return data
     },
   })
+}
+
+// ─── Loans ───────────────────────────────────────────────
+
+export function useLoans(userId: string) {
+  return useQuery({
+    queryKey: investKeys.loans(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('loans')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Loan[]
+    },
+    enabled: !!userId,
+  })
+}
+
+function useLoanMutations(userId: string) {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: investKeys.loans(userId) })
+
+  const upsert = useMutation({
+    mutationFn: async ({ row, id }: { row: Partial<Loan>; id?: string }) => {
+      const payload: Partial<Loan> = { ...row, user_id: userId }
+      if (id) payload.id = id
+      const { data, error } = await supabase
+        .from('loans')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: invalidate,
+  })
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('loans').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+
+  return { upsert, remove }
+}
+
+export function useCreateLoan(userId: string) {
+  return useLoanMutations(userId).upsert
+}
+export function useUpdateLoan(userId: string) {
+  return useLoanMutations(userId).upsert
+}
+export function useDeleteLoan(userId: string) {
+  return useLoanMutations(userId).remove
 }

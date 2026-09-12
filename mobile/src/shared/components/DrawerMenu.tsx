@@ -101,9 +101,9 @@ export default function DrawerMenu() {
       }
     };
     const unsub = navigation.addListener('state', read);
-    // On launch, the navigator sets its initial state BEFORE this effect runs,
-    // so the 'state' listener won't fire until the first navigation. Poll until
-    // the initial route state is available so the trigger shows by default.
+    // On launch, the navigator may not have mounted its tab state yet, and the
+    // conditional WelcomeSplash→MainTabs swap doesn't emit a 'state' event.
+    // Keep polling until a real TAB name appears so the trigger shows on first open.
     let attempts = 0;
     const timer = setInterval(() => {
       attempts += 1;
@@ -113,10 +113,10 @@ export default function DrawerMenu() {
       } catch {
         name = undefined;
       }
-      if (name) {
+      if (name && TAB_NAMES.has(name)) {
         setActiveRouteName(name);
         clearInterval(timer);
-      } else if (attempts >= 30) {
+      } else if (attempts >= 100) {
         clearInterval(timer);
       }
     }, 100);
@@ -124,7 +124,7 @@ export default function DrawerMenu() {
       unsub();
       clearInterval(timer);
     };
-  }, [navigation]);
+  }, [navigation, isOnboarded]);
 
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
   const showTrigger = effectiveOnboarded && isTabScreen;

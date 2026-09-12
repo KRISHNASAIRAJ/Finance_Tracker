@@ -83,9 +83,6 @@ export default function AllMaintenanceScreen() {
       new Date() >= new Date(nextService.dueDate.getTime() - 14 * 86400000)
     : false;
 
-  const intervalKm = reminderSettings?.intervalKm ?? 3000;
-  const intervalMonths = reminderSettings?.intervalMonths ?? 3;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
@@ -164,9 +161,6 @@ export default function AllMaintenanceScreen() {
                 <Text style={styles.nextServiceOdo}>now at {currentOdometer.toLocaleString('en-IN')} km</Text>
               </View>
             </View>
-            <Text style={styles.nextServiceHint}>
-              Counts only '{'General Service'}' logs · every {intervalKm.toLocaleString('en-IN')} km or {intervalMonths} months
-            </Text>
             {serviceDueSoon && (
               <View style={styles.dueSoonBadge}>
                 <Ionicons name="alert-circle" size={12} color={colors.error} />
@@ -436,10 +430,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: colors.primary,
-  },
-  nextServiceHint: {
-    fontSize: 10,
-    color: colors.onSurfaceVariant,
   },
   nextServiceTitle: {
     fontSize: 10,

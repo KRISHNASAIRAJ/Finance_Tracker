@@ -241,6 +241,15 @@ export interface InvestmentGoal {
   updated_at?: string
 }
 
+export interface Loan {
+  id: string
+  user_id: string
+  name: string
+  amount: number
+  created_at?: string
+  updated_at?: string
+}
+
 export interface PortfolioSnapshot {
   id: string
   user_id: string
@@ -256,6 +265,25 @@ export interface PortfolioActionPlan {
   user_id: string
   content: string
   updated_at?: string
+}
+
+export interface DailyReportSection {
+  title: string
+  body: string
+}
+
+export interface DailyReportContent {
+  headline: string
+  summary: string
+  sections: DailyReportSection[]
+  disclaimer: string
+}
+
+export interface DailyReport {
+  id: string
+  reportDate: string
+  mode: 'evening' | 'morning'
+  content: DailyReportContent
 }
 
 // ─── Personal ────────────────────────────────────────────

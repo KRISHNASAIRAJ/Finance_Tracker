@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
 import { useCreditCards } from '../../hooks/data/useCreditCards'
 import { useReceivables } from '../../hooks/data/useReceivables'
-import { useHoldings } from '../../hooks/data/useInvestments'
+import { useHoldings, useLoans } from '../../hooks/data/useInvestments'
 import { useTransactions } from '../../hooks/data/useTransactions'
 import { useFuelFills, useMaintenanceLogs } from '../../hooks/data/useGarage'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
@@ -23,6 +23,7 @@ export function CombinedReportPage() {
   const { data: cards } = useCreditCards(userId)
   const { data: receivables } = useReceivables(userId)
   const { data: holdings } = useHoldings(userId)
+  const { data: loans } = useLoans(userId)
   const { data: txns } = useTransactions(userId)
   const { data: fuelFills } = useFuelFills(userId)
   const { data: maintenanceLogs } = useMaintenanceLogs(userId)
@@ -36,7 +37,9 @@ export function CombinedReportPage() {
   const borrowedOutstanding = (receivables ?? [])
     .filter((r) => r.type === 'borrowed' && r.status !== 'paid')
     .reduce((s, r) => s + (r.amount - (r.paid_amount ?? 0)), 0)
-  const netWorth = totalBalance - totalCardOutstanding + portfolioValue + lentOutstanding - borrowedOutstanding
+  const loansOutstanding = (loans ?? []).reduce((s, l) => s + (l.amount ?? 0), 0)
+  const netWorth =
+    totalBalance - totalCardOutstanding + portfolioValue + lentOutstanding - borrowedOutstanding - loansOutstanding
 
   const monthKey = istMonthKey()
   const monthTxns = useMemo(() => (txns ?? []).filter((t) => t.date.slice(0, 7) === monthKey), [txns, monthKey])
@@ -100,6 +103,9 @@ export function CombinedReportPage() {
                 <div><span className="text-white/70">Cards</span> −{paiseToRupeesCompact(totalCardOutstanding)}</div>
                 <div><span className="text-white/70">Portfolio</span> {paiseToRupeesCompact(portfolioValue)}</div>
                 <div><span className="text-white/70">Lent/Borrowed</span> {paiseToRupeesCompact(lentOutstanding - borrowedOutstanding)}</div>
+                {loansOutstanding > 0 && (
+                  <div><span className="text-white/70">Loans</span> −{paiseToRupeesCompact(loansOutstanding)}</div>
+                )}
               </div>
             </Card>
             <Card className="p-5">

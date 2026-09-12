@@ -24,6 +24,7 @@ import {
   MoreHorizontal,
   ShieldCheck,
   PiggyBank,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -37,6 +38,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: 'Food & Dining', icon: UtensilsCrossed, color: '#ffb2b9' },
   { name: 'Grocery', icon: ShoppingBag, color: '#5ee6ff' },
   { name: 'Fuel', icon: Fuel, color: '#ea6479' },
+  { name: 'Vehicle Maintenance', icon: Wrench, color: '#59d6c7' },
   { name: 'Travel', icon: Plane, color: '#d0bcff' },
   { name: 'Shopping', icon: ShoppingBag, color: '#ffdadc' },
   { name: 'Bills & Recharge', icon: Receipt, color: '#00cbe6' },

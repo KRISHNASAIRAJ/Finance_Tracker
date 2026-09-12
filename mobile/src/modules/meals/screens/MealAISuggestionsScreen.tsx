@@ -132,7 +132,7 @@ export default function MealAISuggestionsScreen() {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
         {aiMessages.length === 0 ? (

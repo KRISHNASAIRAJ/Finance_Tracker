@@ -28,6 +28,7 @@ import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import { useGarageSync } from '../hooks/useGarageSync';
 import { processSyncQueue } from '../../../services/syncQueue';
 import Svg, { Path, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
+import Entrance from '../../../shared/components/Entrance';
 
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'GarageDashboard'>;
@@ -217,6 +218,7 @@ export default function GarageDashboardScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Mileage Hero */}
+        <Entrance index={0}>
         <View style={styles.heroCard}>
           <ExpoLinearGradient
             colors={['rgba(94,230,255,0.09)', 'rgba(0,0,0,0)']}
@@ -268,8 +270,10 @@ export default function GarageDashboardScreen() {
             <Text style={styles.heroSubText}>Last fill: {lastFillDate}</Text>
           </View>
         </View>
+        </Entrance>
 
         {/* Bento Spend Grid */}
+        <Entrance index={1}>
         <View style={styles.gridSection}>
           <TouchableOpacity
             style={styles.gridCard}
@@ -319,8 +323,10 @@ export default function GarageDashboardScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
         </View>
+        </Entrance>
 
         {/* Mileage Trend Chart */}
+        <Entrance index={2}>
         <View style={styles.chartCard}>
           <View style={styles.chartHeaderRow}>
             <View>
@@ -408,8 +414,10 @@ export default function GarageDashboardScreen() {
             )}
           </View>
         </View>
+        </Entrance>
 
         {/* Recent Fuel Logs */}
+        <Entrance index={3}>
         <View style={styles.logsSection}>
           <View style={styles.logsHeaderRow}>
             <Text style={styles.sectionTitle}>RECENT FUEL LOGS</Text>
@@ -460,6 +468,7 @@ export default function GarageDashboardScreen() {
             )}
           </View>
         </View>
+        </Entrance>
       </ScrollView>
 
       {/* Vehicle Add/Edit/Delete Modal */}

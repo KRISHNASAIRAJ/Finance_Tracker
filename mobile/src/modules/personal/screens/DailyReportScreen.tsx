@@ -14,6 +14,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -48,8 +49,7 @@ export default function DailyReportScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
 
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);  const [generating, setGenerating] = useState(false);
   const [reports, setReports] = useState<DailyReportData[]>([]);
   const [selectedDate, setSelectedDate] = useState(istToday());
   const [mode, setMode] = useState<'evening' | 'morning'>('evening');
@@ -75,14 +75,16 @@ export default function DailyReportScreen() {
   const activeMode = active?.mode ?? mode;
 
   const handleGenerate = async () => {
-    if (generating || !user) return;
+    if (generating) return;
     setGenerating(true);
     setErrMsg(null);
-    const ok = await triggerDailyReport(mode);
-    if (ok) {
+    const res = await triggerDailyReport(mode);
+    if (res.ok) {
       await load();
     } else {
-      setErrMsg('Could not generate the report. Check your connection and try again.');
+      const reason = res.reason || 'Unknown error';
+      setErrMsg(reason);
+      Alert.alert('Report Failed', reason);
     }
     setGenerating(false);
   };

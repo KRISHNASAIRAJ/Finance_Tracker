@@ -36,6 +36,7 @@ import { TaskDetailPage, TaskFormPage } from './pages/tasks/TaskPages'
 import { WealthDashboardPage } from './pages/wealth/WealthDashboardPage'
 import { HoldingsListPage, HoldingFormPage } from './pages/wealth/HoldingsPages'
 import { GoalsPage, GoalFormPage } from './pages/wealth/GoalsPages'
+import { LoansPage } from './pages/wealth/LoansPage'
 import { PortfolioHistoryPage } from './pages/wealth/PortfolioHistoryPage'
 import { AllocationDetailPage } from './pages/wealth/AllocationDetailPage'
 import { AIRecommendationsPage } from './pages/wealth/AIRecommendationsPage'
@@ -43,6 +44,7 @@ import { AIRecommendationsPage } from './pages/wealth/AIRecommendationsPage'
 // Personal / More
 import { MoreMenuPage } from './pages/personal/MoreMenuPage'
 import { CombinedReportPage } from './pages/personal/CombinedReportPage'
+import { DailyReportPage } from './pages/personal/DailyReportPage'
 import { NotesPage } from './pages/personal/NotesPage'
 import { GoalsTrackerPage } from './pages/personal/GoalsTrackerPage'
 import { RecipesPage } from './pages/personal/RecipesPage'
@@ -118,6 +120,7 @@ export default function App() {
             <Route path="/wealth/goals" element={<GoalsPage />} />
             <Route path="/wealth/goals/new" element={<GoalFormPage />} />
             <Route path="/wealth/goals/:id/edit" element={<GoalFormPage />} />
+            <Route path="/wealth/loans" element={<LoansPage />} />
             <Route path="/wealth/history" element={<PortfolioHistoryPage />} />
             <Route path="/wealth/allocation/:cat" element={<AllocationDetailPage />} />
             <Route path="/wealth/ai" element={<AIRecommendationsPage />} />
@@ -125,6 +128,7 @@ export default function App() {
             {/* Personal */}
             <Route path="/more" element={<MoreMenuPage />} />
             <Route path="/more/report" element={<CombinedReportPage />} />
+            <Route path="/more/daily-report" element={<DailyReportPage />} />
             <Route path="/more/notes" element={<NotesPage />} />
             <Route path="/more/goals" element={<GoalsTrackerPage />} />
             <Route path="/more/recipes" element={<RecipesPage />} />

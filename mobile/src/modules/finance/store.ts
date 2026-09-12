@@ -97,6 +97,7 @@ interface FinanceState {
   addNotification: (title: string, body: string) => void;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
   payzappLoads: Array<{ id: string; amount: number; date: string }>;
   addPayzappLoad: (amount: number) => void;
   editPayzappLoad: (id: string, amount: number) => void;
@@ -370,6 +371,9 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           notifications: state.notifications.map((n) => ({ ...n, read: true })),
         }));
+      },
+      clearNotifications: () => {
+        set({ notifications: [] });
       },
       addPayzappLoad: (amount) => {
         const id = Math.random().toString(36).substring(2, 9);

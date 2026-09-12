@@ -112,12 +112,12 @@ export const tc = {
 
 // ─── Glass Noir 2.0 — depth + glow tokens ────────────────
 export const glass = {
-  fill: 'rgba(255, 255, 255, 0.055)',
-  fillStrong: 'rgba(255, 255, 255, 0.09)',
-  border: 'rgba(255, 255, 255, 0.14)',
-  borderSoft: 'rgba(255, 255, 255, 0.08)',
-  highlight: 'rgba(255, 255, 255, 0.24)',
-  track: 'rgba(255, 255, 255, 0.06)',
+  fill: 'rgba(255, 255, 255, 0.07)',
+  fillStrong: 'rgba(255, 255, 255, 0.11)',
+  border: 'rgba(255, 255, 255, 0.18)',
+  borderSoft: 'rgba(255, 255, 255, 0.10)',
+  highlight: 'rgba(255, 255, 255, 0.30)',
+  track: 'rgba(255, 255, 255, 0.07)',
 } as const;
 
 export const glow = {
