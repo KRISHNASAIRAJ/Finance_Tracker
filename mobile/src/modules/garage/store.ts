@@ -7,6 +7,26 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinanceStore } from '../finance/store';
 
+/** Service types that count toward the next-service reminder calculation. */
+const GENERAL_SERVICE_TYPES = new Set([
+  'General Service',
+  'General service',
+  'general service',
+  'general',
+]);
+
+/** True when this log's service type counts toward service reminders. */
+export function isGeneralService(serviceType: string): boolean {
+  return GENERAL_SERVICE_TYPES.has((serviceType || '').trim());
+}
+
+export interface ServiceReminderSettings {
+  /** km between general services (default 3000). */
+  intervalKm: number;
+  /** months between services (default 3). */
+  intervalMonths: number;
+}
+
 export interface FuelFill {
   id: string;
   vehicle: string;
@@ -41,9 +61,12 @@ interface GarageState {
   vehicles: string[];
   fills: FuelFill[];
   maintenance: MaintenanceLog[];
+  /** Per-vehicle service reminder config, keyed by vehicle name. */
+  serviceReminderSettings: Record<string, ServiceReminderSettings>;
   addVehicle: (name: string, userId?: string) => void;
   editVehicle: (oldName: string, newName: string, userId?: string) => void;
   deleteVehicle: (name: string, userId?: string) => void;
+  setServiceReminderSettings: (vehicle: string, settings: Partial<ServiceReminderSettings>) => void;
   addFuelFill: (fill: Omit<FuelFill, 'id' | 'date'> & { date?: string }, userId?: string) => string;
   editFuelFill: (id: string, updated: Partial<FuelFill>, userId?: string) => void;
   deleteFuelFill: (id: string, userId?: string) => void;
@@ -118,6 +141,18 @@ export const useGarageStore = create<GarageState>()(
       vehicles: [],
       fills: [],
       maintenance: [],
+      serviceReminderSettings: {},
+      setServiceReminderSettings: (vehicle, settings) => {
+        set((state) => ({
+          serviceReminderSettings: {
+            ...state.serviceReminderSettings,
+            [vehicle]: {
+              intervalKm: settings.intervalKm ?? state.serviceReminderSettings[vehicle]?.intervalKm ?? 3000,
+              intervalMonths: settings.intervalMonths ?? state.serviceReminderSettings[vehicle]?.intervalMonths ?? 3,
+            },
+          },
+        }));
+      },
       addVehicle: (name, userId) => {
         set((state) => ({
           vehicles: [...state.vehicles, name],
@@ -129,15 +164,27 @@ export const useGarageStore = create<GarageState>()(
           vehicles: state.vehicles.map((v) => (v === oldName ? newName : v)),
           fills: state.fills.map((f) => (f.vehicle === oldName ? { ...f, vehicle: newName } : f)),
           maintenance: state.maintenance.map((m) => (m.vehicle === oldName ? { ...m, vehicle: newName } : m)),
+          serviceReminderSettings: newName in state.serviceReminderSettings || !(oldName in state.serviceReminderSettings)
+            ? state.serviceReminderSettings
+            : Object.fromEntries(
+                Object.entries(state.serviceReminderSettings).map(([k, v]) => [k === oldName ? newName : k, v])
+              ),
         }));
         queueGarageSync('vehicles', 'upsert', { name: newName, user_id: userId || null });
       },
       deleteVehicle: (name, userId) => {
-        set((state) => ({
-          vehicles: state.vehicles.filter((v) => v !== name),
-          fills: state.fills.filter((f) => f.vehicle !== name),
-          maintenance: state.maintenance.filter((m) => m.vehicle !== name),
-        }));
+        set((state) => {
+          const remainingSettings: Record<string, ServiceReminderSettings> = {};
+          for (const [key, value] of Object.entries(state.serviceReminderSettings)) {
+            if (key !== name) remainingSettings[key] = value;
+          }
+          return {
+            vehicles: state.vehicles.filter((v) => v !== name),
+            fills: state.fills.filter((f) => f.vehicle !== name),
+            maintenance: state.maintenance.filter((m) => m.vehicle !== name),
+            serviceReminderSettings: remainingSettings,
+          };
+        });
         queueGarageSync('vehicles', 'delete', { name, user_id: userId || null });
       },
       addFuelFill: (fill, userId) => {
@@ -267,11 +314,44 @@ export const useGarageStore = create<GarageState>()(
     {
       name: 'meridian-garage-storage-v8',
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
-      migrate: (state) => state as GarageState,
+      version: 2,
+      migrate: (state: any) => ({
+        ...state,
+        serviceReminderSettings: state?.serviceReminderSettings ?? {},
+      }),
     }
   )
 );
+
+/**
+ * Compute the next service reminder for a vehicle.
+ * Only 'General Service' logs count — other service types (oil change,
+ * wash, insurance, etc.) do NOT reset the service clock.
+ * Returns null when the vehicle has no general-service baseline yet.
+ */
+export function getNextServiceInfo(
+  vehicle: string,
+  maintenance: MaintenanceLog[],
+  currentOdometer: number,
+  settings?: ServiceReminderSettings,
+): { dueKm: number | null; dueDate: Date; lastServiceDate: Date } | null {
+  const general = maintenance
+    .filter((m) => m.vehicle === vehicle && isGeneralService(m.serviceType))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  if (general.length === 0) return null;
+
+  const lastService = general[0];
+  const lastKm = typeof lastService.odometer === 'number' ? lastService.odometer : null;
+  const lastDate = new Date(lastService.date);
+  if (isNaN(lastDate.getTime())) return null;
+
+  const intervalKm = settings?.intervalKm && settings.intervalKm > 0 ? settings.intervalKm : 3000;
+  const intervalMonths = settings?.intervalMonths && settings.intervalMonths > 0 ? settings.intervalMonths : 3;
+
+  const dueKm = typeof lastKm === 'number' && lastKm > 0 ? lastKm + intervalKm : null;
+  const dueDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + intervalMonths, lastDate.getDate());
+  return { dueKm, dueDate, lastServiceDate: lastDate };
+}
 
 const SEED_FLAG_KEY = 'meridian-garage-seeded-v1';
 

@@ -57,6 +57,7 @@ import AddEditTaskScreen from '../modules/tasks/screens/AddEditTaskScreen';
 
 import InvestmentsDashboardScreen from '../modules/equity/screens/InvestmentsDashboardScreen';
 import PortfolioHistoryScreen from '../modules/equity/screens/PortfolioHistoryScreen';
+import SnapshotDatesScreen from '../modules/equity/screens/SnapshotDatesScreen';
 import AIRecommendationsScreen from '../modules/equity/screens/AIRecommendationsScreen';
 import AddEditHoldingScreen from '../modules/equity/screens/AddEditHoldingScreen';
 import AddEditGoalScreen from '../modules/equity/screens/AddEditGoalScreen';
@@ -126,6 +127,7 @@ export type TasksStackParamList = {
 export type InvestmentsStackParamList = {
   InvestmentsDashboard: undefined;
   PortfolioHistory: undefined;
+  SnapshotDates: undefined;
   AIRecommendations: undefined;
   HoldingsList: { tab?: 'equity' | 'mf' } | undefined;
   AddEditHolding: { holdingId?: string } | undefined;
@@ -258,6 +260,7 @@ function InvestmentsStackNavigator() {
     <InvestmentsStack.Navigator screenOptions={stackScreenOptions}>
       <InvestmentsStack.Screen name="InvestmentsDashboard" component={InvestmentsDashboardScreen} />
       <InvestmentsStack.Screen name="PortfolioHistory" component={PortfolioHistoryScreen} />
+      <InvestmentsStack.Screen name="SnapshotDates" component={SnapshotDatesScreen} />
       <InvestmentsStack.Screen name="AIRecommendations" component={AIRecommendationsScreen} />
       <InvestmentsStack.Screen name="AddEditHolding" component={AddEditHoldingScreen} />
       <InvestmentsStack.Screen name="AddEditGoal" component={AddEditGoalScreen} />

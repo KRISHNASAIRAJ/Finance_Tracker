@@ -13,6 +13,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: "Food & Dining",       icon: "restaurant-outline",          color: "#ffb2b9" },
   { name: "Grocery",             icon: "basket-outline",              color: "#5ee6ff" },
   { name: "Fuel",                icon: "gas-station-outline",         color: "#ea6479" },
+  { name: "Vehicle Maintenance", icon: "build-outline",               color: "#59d6c7" },
   { name: "Travel",              icon: "airplane-outline",            color: "#d0bcff" },
   { name: "Shopping",            icon: "bag-outline",                 color: "#ffdadc" },
   { name: "Bills & Recharge",    icon: "receipt-outline",             color: "#00cbe6" },
@@ -112,6 +113,11 @@ export function autoDetectCategory(text: string, type: "expense" | "income"): st
   if (n.includes("petrol") || n.includes("fuel") || n.includes("diesel") || n.includes("hp") ||
     n.includes("bpcl") || n.includes("ioc"))
     return "Fuel";
+
+  if (n.includes("service") || n.includes("oil change") || n.includes("engine oil") ||
+    n.includes("spare") || n.includes("puncture") || n.includes("chain lube") ||
+    n.includes("brake") || n.includes("tyre") || n.includes("battery") || n.includes("puc"))
+    return "Vehicle Maintenance";
 
   if (n.includes("rent") || n.includes("pg") || n.includes("apartment") || n.includes("flat"))
     return "Rent";

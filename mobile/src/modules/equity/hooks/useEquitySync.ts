@@ -2,7 +2,7 @@
  * Equity sync hook — pushes/pulls holdings, goals and snapshots to/from Supabase
  * with offline seed data and bidirectional queue integration.
  */
-import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -44,14 +44,7 @@ export function useEquitySync() {
 
 export async function syncEquityNow(userId: string): Promise<SyncState> {
   _hasEquitySeeded = true;
-  let state: SyncState = { loading: true, error: null, lastSyncAt: null };
-  const setter: Dispatch<SetStateAction<SyncState>> = ((s: SetStateAction<SyncState>) => {
-    if (typeof s === 'function') {
-      state = (s as (prev: SyncState) => SyncState)(state);
-    } else {
-      Object.assign(state, s);
-    }
-  }) as Dispatch<SetStateAction<SyncState>>;
+  const state: SyncState = { loading: true, error: null, lastSyncAt: null };
   await doPull(userId);
   state.loading = false;
   state.lastSyncAt = new Date();
@@ -265,20 +258,6 @@ async function seedHoldings(userId: string) {
   }));
   supabase.from("holdings").upsert(rows, { onConflict: "user_id,symbol" }).then(({ error }) => {
     if (error) console.warn('[EquitySync] seed holdings:', error.message);
-  });
-}
-
-async function seedGoals(userId: string) {
-  const items = useInvestmentsStore.getState().goals;
-  if (items.length === 0) return;
-  const rows = items.map((g) => ({
-    id: g.id, user_id: userId, goal_name: g.name,
-    target_amount: g.target, current_progress: g.current,
-    target_date: g.dueDate, priority: g.priority,
-    updated_at: new Date().toISOString(),
-  }));
-  supabase.from("investment_goals").upsert(rows, { onConflict: "id" }).then(({ error }) => {
-    if (error) console.warn('[EquitySync] seed goals:', error.message);
   });
 }
 

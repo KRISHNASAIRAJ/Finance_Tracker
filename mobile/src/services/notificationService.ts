@@ -146,6 +146,22 @@ export async function scheduleLocal(
   }
 
   try {
+    // Dedup guard — if a notification with the same dedupKey is already
+    // scheduled, replace it instead of stacking a second identical one.
+    // This is what prevents duplicate task/meal reminders when
+    // scheduleAllReminders() runs from multiple screens' mounts.
+    const dedupKey = data?.dedupKey;
+    if (dedupKey) {
+      try {
+        const existing = await Notifications.getAllScheduledNotificationsAsync();
+        for (const n of existing) {
+          if (n?.content?.data?.dedupKey === dedupKey) {
+            await Notifications.cancelScheduledNotificationAsync(n.id);
+          }
+        }
+      } catch (e) { console.warn('[notificationService] dedup scan failed:', e); }
+    }
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -162,6 +178,42 @@ export async function scheduleLocal(
       },
     });
   } catch (e) { console.warn('[notificationService] scheduleLocal failed:', title, e); }
+}
+
+/**
+ * Fire a notification immediately (used for live portfolio day-change updates).
+ * Dedupes on `dedupKey` so repeated refreshes never stack duplicates.
+ */
+export async function scheduleImmediate(
+  title: string,
+  body: string,
+  channelId: string = 'portfolio',
+  data?: Record<string, string>,
+) {
+  if (!ensureInit()) return;
+  try {
+    const dedupKey = data?.dedupKey ?? `imm_${title}_${new Date().toISOString().slice(0, 13)}`;
+    try {
+      const existing = await Notifications.getAllScheduledNotificationsAsync();
+      for (const n of existing) {
+        if (n?.content?.data?.dedupKey === dedupKey) {
+          await Notifications.cancelScheduledNotificationAsync(n.id);
+        }
+      }
+    } catch { /* dedup scan is best-effort */ }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        channelId,
+        data: { ...(data || {}), dedupKey },
+      },
+      trigger: null,
+    });
+  } catch (e) { console.warn('[notificationService] scheduleImmediate failed:', title, e); }
 }
 
 export async function scheduleAllReminders() {
@@ -201,7 +253,7 @@ export async function scheduleAllReminders() {
         `Time to log your ${slot === 'lunch' ? 'lunch' : slot} meal!`,
         triggerTime,
         'diet-reminders',
-        { screen: 'MealLogger', slot }
+        { screen: 'MealLogger', slot, dedupKey: `meal_${todayKey}_${slot}` }
       );
     }
 
@@ -449,32 +501,30 @@ export async function scheduleAllReminders() {
         task.description || 'Task due now',
         dueDate,
         'task_reminders',
-        { screen: 'TaskDetail', taskId: task.id }
+        { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
       );
     }
 
-    // Vehicle service reminders — next service at lastServiceKm + 3000 km OR lastServiceDate + 3 months
-    // (whichever comes first). Alert when within 200 km or 14 days of the due window.
-    const { vehicles, fills, maintenance } = useGarageStore.getState();
-    const SERVICE_INTERVAL_KM = 3000;
-    const SERVICE_INTERVAL_MONTHS = 3;
+    // Vehicle service reminders — next service at lastGeneralServiceKm + interval km
+    // OR lastGeneralServiceDate + interval months (whichever first). Only
+    // 'General Service' logs reset the clock; other services (wash, insurance,
+    // tyre...) are ignored. Intervals are user-editable per vehicle.
+    const { vehicles, fills, maintenance, serviceReminderSettings } = useGarageStore.getState();
+    const { getNextServiceInfo } = require('../modules/garage/store');
     const WARN_KM_LEFT = 200;
     const WARN_DAYS_LEFT = 14;
     for (const vehicle of (vehicles || [])) {
       const vMaint = (maintenance || []).filter((m) => m.vehicle === vehicle);
       if (vMaint.length === 0) continue;
-      const lastService = [...vMaint].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-      const lastKm = typeof lastService.odometer === 'number' ? lastService.odometer : null;
-      const lastDate = new Date(lastService.date);
-      if (isNaN(lastDate.getTime())) continue;
 
       const vFills = (fills || []).filter((f) => f.vehicle === vehicle);
       const currentKm = vFills.length > 0 ? Math.max(...vFills.map((f) => f.odometer || 0)) : 0;
 
-      let dueKm: number | null = null;
-      if (typeof lastKm === 'number' && lastKm > 0) dueKm = lastKm + SERVICE_INTERVAL_KM;
+      const info = getNextServiceInfo(vehicle, maintenance || [], currentKm, serviceReminderSettings?.[vehicle]);
+      if (!info) continue;
+      const { dueKm, dueDate, lastServiceDate } = info;
 
-      const dueDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + SERVICE_INTERVAL_MONTHS, lastDate.getDate());
+      const intervalMonths = serviceReminderSettings?.[vehicle]?.intervalMonths ?? 3;
 
       let title: string | null = null;
       let body: string | null = null;
@@ -490,7 +540,7 @@ export async function scheduleAllReminders() {
           : `${kmLeft.toLocaleString('en-IN')} km left until the ${dueKm.toLocaleString('en-IN')} km service mark.`;
       } else if (dateWindow) {
         title = `\u{1F6F5} ${vehicle} Service Due by ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
-        body = `Last service was ${lastDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Book the ${SERVICE_INTERVAL_MONTHS}-month service soon.`;
+        body = `Last general service was ${lastServiceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Book the ${intervalMonths}-month service soon.`;
       }
 
       if (title && body) {
@@ -501,7 +551,7 @@ export async function scheduleAllReminders() {
           body,
           trigger,
           'bills_due',
-          { screen: 'AllMaintenance' }
+          { screen: 'AllMaintenance', dedupKey: `service_${vehicle}` }
         );
       }
     }

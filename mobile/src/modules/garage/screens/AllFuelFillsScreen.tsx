@@ -90,7 +90,11 @@ export default function AllFuelFillsScreen() {
 
       {/* Vehicle tabs */}
       <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.tabScroll, vehicles.length <= 1 && styles.tabScrollCentered]}
+        >
           {vehicles.map((v) => {
             const isSelected = selectedVehicle === v;
             return (
@@ -228,7 +232,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.full,
   },
   tabContainer: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
@@ -237,11 +241,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerPadding,
     gap: 8,
   },
+  tabScrollCentered: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
   tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(155,165,255,0.08)',
     borderColor: colors.border,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,

@@ -79,6 +79,19 @@ async function doFullSync(userId: string) {
 }
 
 async function doPull(userId: string) {
+  // Flush local pending ops FIRST so the pull can never resurrect stale cloud
+  // data over edits the user just made (edits travel via the sync queue).
+  try {
+    const { processSyncQueue } = require("../../../services/syncQueue");
+    await processSyncQueue(true);
+  } catch (_e) { /* will retry on next pull / CRUD */ }
+
+  let pendingIds: Set<string> = new Set();
+  try {
+    const { getPendingEntityIds } = require("../../../services/syncQueue");
+    pendingIds = await getPendingEntityIds();
+  } catch (_e) { /* no pending protection available — proceed */ }
+
   // fuel_fills
   const { data: fillData, error: fillError } = await supabase
     .from("fuel_fills")
@@ -88,7 +101,8 @@ async function doPull(userId: string) {
   if (!fillError) {
     const store = useGarageStore;
     const cloudRows = fillData ?? [];
-    // Cloud-wins merge for fills (same ids → cloud version wins)
+    // Cloud-wins merge for fills (same ids → cloud version wins), EXCEPT rows
+    // with pending local ops — their local state is newer and still unsynced.
     if (cloudRows.length > 0) {
       const cloudById = new Map(
         (cloudRows as Array<Record<string, unknown>>).map((r) => [
@@ -107,9 +121,11 @@ async function doPull(userId: string) {
         ])
       );
       const local = store.getState().fills;
-      const merged = local.map((f) => cloudById.get(f.id) ?? f);
+      const merged = local.map((f) => (pendingIds.has(`fuel_fills|${f.id}`) ? f : cloudById.get(f.id) ?? f));
       for (const [id, fill] of cloudById) {
-        if (!local.some((f) => f.id === id)) merged.push(fill);
+        if (!local.some((f) => f.id === id) || pendingIds.has(`fuel_fills|${id}`)) {
+          if (!merged.some((f) => f.id === id)) merged.push(fill);
+        }
       }
       store.setState({ fills: merged });
     }
@@ -139,7 +155,8 @@ async function doPull(userId: string) {
   if (!maintError) {
     const store = useGarageStore;
     const cloudRows = maintData ?? [];
-    // Cloud-wins merge for maintenance
+    // Cloud-wins merge for maintenance, EXCEPT rows with pending local ops —
+    // their local state is newer and still waiting to sync.
     if (cloudRows.length > 0) {
       const cloudById = new Map(
         (cloudRows as Array<Record<string, unknown>>).map((r) => [
@@ -157,9 +174,11 @@ async function doPull(userId: string) {
       );
       const state = store.getState();
       const local = state.maintenance;
-      const merged = local.map((m) => cloudById.get(m.id) ?? m);
+      const merged = local.map((m) => (pendingIds.has(`maintenance_logs|${m.id}`) ? m : cloudById.get(m.id) ?? m));
       for (const [id, log] of cloudById) {
-        if (!local.some((m) => m.id === id)) merged.push(log);
+        if (!local.some((m) => m.id === id) || pendingIds.has(`maintenance_logs|${id}`)) {
+          if (!merged.some((m) => m.id === id)) merged.push(log);
+        }
       }
       store.setState({ maintenance: merged });
     }
@@ -242,6 +261,7 @@ async function seedMaintenanceLogs(userId: string) {
   const rows = items.map((m) => ({
     id: m.id, user_id: userId, vehicle: m.vehicle, date: m.date,
     amount: m.amount, service_type: m.serviceType, notes: m.notes ?? null,
+    odometer: m.odometer ?? null,
   }));
   supabase.from("maintenance_logs").upsert(rows, { onConflict: "id" }).then(({ error }) => {
     if (error) console.warn('[GarageSync] seed maintenance_logs:', error.message);

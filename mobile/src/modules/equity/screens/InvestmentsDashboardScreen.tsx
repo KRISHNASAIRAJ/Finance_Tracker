@@ -33,7 +33,7 @@ type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'Inve
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { holdings, goals, loans, getPortfolioValue, getTodayPnL, getTotalLoans, getNetWorth, snapshots, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
+  const { holdings, goals, loans, getPortfolioValue, getTodayPnL, getTotalLoans, getNetWorth, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
   const todayPnL = getTodayPnL();
   const totalLoans = getTotalLoans();
@@ -85,6 +85,26 @@ export default function InvestmentsDashboardScreen() {
       await supabase.functions.invoke('refresh-portfolio-prices', { body: {} });
       if (user?.id) {
         await pullFromCloud();
+      }
+
+      // Day-change push — fire immediately after the cloud day-change update
+      // so the user gets the move without waiting for the 8:30 PM snapshot.
+      const store = useInvestmentsStore.getState();
+      const dayPnL = store.getTodayPnL();
+      const totalValue = store.getPortfolioValue();
+      if (dayPnL !== 0) {
+        const { scheduleImmediate } = await import('../../../services/notificationService');
+        const lakhs = (totalValue / 10000000).toFixed(2);
+        const changeStr = `₹${Math.abs(dayPnL / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+        const pct = store.holdings.length > 0
+          ? ((dayPnL / Math.max(1, totalValue - dayPnL)) * 100).toFixed(1)
+          : '0.0';
+        scheduleImmediate(
+          '📈 Portfolio Day Change',
+          `${dayPnL >= 0 ? 'Up' : 'Down'} ${changeStr} (${dayPnL >= 0 ? '+' : ''}${pct}%) · ₹${lakhs}L total`,
+          'portfolio',
+          { type: 'PORTFOLIO_REPORT', dedupKey: `daychange_${new Date().toISOString().slice(0, 13)}` },
+        );
       }
     } catch (e) {
       console.warn('[Investments] refresh prices failed:', e);

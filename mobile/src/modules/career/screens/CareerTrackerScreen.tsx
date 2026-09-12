@@ -2,7 +2,7 @@
  * CareerTrackerScreen — Career milestone timeline with graph, event list, and delete confirm.
  */
 
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,13 +12,14 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useCareerStore, CareerEvent } from '../store';
+import { useCareerStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import CareerGraph from './CareerGraph';
 
@@ -29,7 +30,12 @@ export default function CareerTrackerScreen() {
   const { events, deleteEvent } = useCareerStore();
   const { user } = useAuth();
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const promptDelete = (eventId: string, eventName: string) => {
+    Alert.alert('Delete Event', `Remove "${eventName}" from your career timeline?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteEvent(eventId, user?.id) },
+    ]);
+  };
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
@@ -91,6 +97,7 @@ export default function CareerTrackerScreen() {
                   onPress={() =>
                     navigation.navigate('AddCareerEvent' as any, { eventId: evt.id })
                   }
+                  onLongPress={() => promptDelete(evt.id, evt.name)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.eventHeader}>

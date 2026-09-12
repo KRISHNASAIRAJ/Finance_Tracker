@@ -15,6 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Defs, LinearGradient, Stop, Line, Circle } from 'react-native-svg';
 
@@ -23,15 +24,15 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useInvestmentsStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { deleteCloudSnapshot } from '../hooks/useEquitySync';
+import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 
 const formatCurrency = (paise: number) =>
   `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export default function PortfolioHistoryScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<InvestmentsStackParamList, 'PortfolioHistory'>>();
   const { snapshots, deleteSnapshot } = useInvestmentsStore();
   const { user } = useAuth();
-  const [showAllDates, setShowAllDates] = useState(false);
 
   const handleDeleteSnapshot = (date: string) => {
     Alert.alert(
@@ -176,7 +177,7 @@ export default function PortfolioHistoryScreen() {
         {/* Date Points */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>SNAPSHOT DATES</Text>
-          {points.slice(0, showAllDates ? points.length : Math.min(5, points.length)).map((p, idx) => (
+          {points.slice(0, 5).map((p, idx) => (
             <TouchableOpacity
               key={p.label}
               style={[styles.pointRow, selectedIndex === idx && styles.pointRowActive]}
@@ -189,16 +190,13 @@ export default function PortfolioHistoryScreen() {
               <Text style={styles.pointValue}>{formatCurrency(chartData[idx].totalValue)}</Text>
             </TouchableOpacity>
           ))}
-          {points.length > 5 && !showAllDates && (
-            <TouchableOpacity style={styles.viewMoreBtn} onPress={() => setShowAllDates(true)}>
+          {points.length > 5 && (
+            <TouchableOpacity
+              style={styles.viewMoreBtn}
+              onPress={() => navigation.navigate('SnapshotDates')}
+            >
               <Text style={styles.viewMoreText}>View All ({points.length} dates)</Text>
-              <Ionicons name="chevron-down" size={14} color={colors.primary} />
-            </TouchableOpacity>
-          )}
-          {showAllDates && points.length > 5 && (
-            <TouchableOpacity style={styles.viewMoreBtn} onPress={() => setShowAllDates(false)}>
-              <Text style={styles.viewMoreText}>Show Less</Text>
-              <Ionicons name="chevron-up" size={14} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={14} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>

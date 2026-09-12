@@ -86,7 +86,13 @@ export default function AddMaintenanceScreen() {
     }
 
     const payload: any = { vehicle, serviceType, amount: amountPaise, notes, date: serviceDate.toISOString() };
-    if (typeof odoNum === 'number') payload.odometer = odoNum;
+    if (isEditing) {
+      // Explicit assignment so clearing the field removes the old value
+      // (spread-merge would otherwise keep the previous odometer).
+      payload.odometer = typeof odoNum === 'number' ? odoNum : undefined;
+    } else if (typeof odoNum === 'number') {
+      payload.odometer = odoNum;
+    }
 
     if (isEditing && editId) {
       editMaintenanceLog(editId, payload, user?.id);
@@ -167,7 +173,9 @@ export default function AddMaintenanceScreen() {
             placeholder="e.g. 5600"
             placeholderTextColor={colors.outline}
           />
-          <Text style={styles.hint}>Used for service reminders (next service = this + 3000 km)</Text>
+          <Text style={styles.hint}>
+            Only {'\''}General Service{'\''} logs reset the service reminder clock (next = this km + interval)
+          </Text>
         </View>
 
         {/* Date */}

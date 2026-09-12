@@ -107,7 +107,7 @@ export default function TasksDashboardScreen() {
             style={[styles.checkbox, item.completed && styles.checkboxCompleted]}
             onPress={(e) => { e.stopPropagation(); toggleTaskCompleted(item.id, user?.id); }}
           >
-            {item.completed && <Ionicons name="checkmark" size={14} color={colors.onSurface} />}
+            {item.completed && <Ionicons name="checkmark" size={17} color={colors.onSurface} />}
           </TouchableOpacity>
           <View style={styles.taskDetails}>
             <Text style={[styles.taskName, item.completed && styles.taskNameCompleted]}>
@@ -285,9 +285,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
     borderWidth: 2,
     borderColor: colors.primary,
     alignItems: 'center',

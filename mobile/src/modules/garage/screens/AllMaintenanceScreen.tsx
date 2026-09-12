@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -19,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useGarageStore, MaintenanceLog } from '../store';
+import { useGarageStore, MaintenanceLog, getNextServiceInfo } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'AllMaintenance'>;
@@ -30,8 +32,11 @@ const formatCurrency = (paise: number) => {
 
 export default function AllMaintenanceScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { vehicles, fills, maintenance } = useGarageStore();
+  const { vehicles, fills, maintenance, serviceReminderSettings, setServiceReminderSettings } = useGarageStore();
   const [selectedVehicle, setSelectedVehicle] = React.useState(vehicles[0]);
+  const [reminderModalVisible, setReminderModalVisible] = React.useState(false);
+  const [intervalKmInput, setIntervalKmInput] = React.useState('3000');
+  const [intervalMonthsInput, setIntervalMonthsInput] = React.useState('3');
 
   React.useEffect(() => {
     if (!selectedVehicle && vehicles.length > 0) {
@@ -39,30 +44,47 @@ export default function AllMaintenanceScreen() {
     }
   }, [vehicles, selectedVehicle]);
 
+  React.useEffect(() => {
+    const s = serviceReminderSettings[selectedVehicle];
+    setIntervalKmInput(String(s?.intervalKm ?? 3000));
+    setIntervalMonthsInput(String(s?.intervalMonths ?? 3));
+  }, [selectedVehicle, serviceReminderSettings]);
+
   const vehicleMaint = maintenance
     .filter((m) => m.vehicle === selectedVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
 
-  const lastService = vehicleMaint[0];
   const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
   const currentOdometer = vehicleFills.length > 0 ? Math.max(...vehicleFills.map((f) => f.odometer || 0)) : 0;
 
-  const nextService = (() => {
-    if (!lastService) return null;
-    const lastKm = typeof lastService.odometer === 'number' ? lastService.odometer : null;
-    const lastDate = new Date(lastService.date);
-    if (isNaN(lastDate.getTime())) return null;
-    const dueKm = typeof lastKm === 'number' && lastKm > 0 ? lastKm + 3000 : null;
-    const dueDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 3, lastDate.getDate());
-    return { dueKm, dueDate, currentOdometer };
-  })();
+  const reminderSettings = serviceReminderSettings[selectedVehicle];
+  const nextService = getNextServiceInfo(selectedVehicle, maintenance, currentOdometer, reminderSettings);
+
+  const openReminderModal = () => {
+    const s = serviceReminderSettings[selectedVehicle];
+    setIntervalKmInput(String(s?.intervalKm ?? 3000));
+    setIntervalMonthsInput(String(s?.intervalMonths ?? 3));
+    setReminderModalVisible(true);
+  };
+
+  const saveReminderSettings = () => {
+    const km = Math.round(parseFloat(intervalKmInput));
+    const months = Math.round(parseFloat(intervalMonthsInput));
+    if (!isNaN(km) && km > 0 && !isNaN(months) && months > 0) {
+      setServiceReminderSettings(selectedVehicle, { intervalKm: km, intervalMonths: months });
+    }
+    setReminderModalVisible(false);
+  };
 
   const serviceDueSoon = nextService
-    ? (nextService.dueKm !== null && nextService.dueKm - nextService.currentOdometer <= 200) ||
+    ? (nextService.dueKm !== null && nextService.dueKm - currentOdometer <= 200) ||
       new Date() >= new Date(nextService.dueDate.getTime() - 14 * 86400000)
     : false;
+
+  const intervalKm = reminderSettings?.intervalKm ?? 3000;
+  const intervalMonths = reminderSettings?.intervalMonths ?? 3;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -82,7 +104,11 @@ export default function AllMaintenanceScreen() {
 
       {/* Vehicle tabs */}
       <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.tabScroll, vehicles.length <= 1 && styles.tabScrollCentered]}
+        >
           {vehicles.map((v) => {
             const isSelected = selectedVehicle === v;
             return (
@@ -106,6 +132,15 @@ export default function AllMaintenanceScreen() {
             <View style={styles.nextServiceHeader}>
               <Ionicons name="construct-outline" size={16} color={serviceDueSoon ? colors.error : colors.primary} />
               <Text style={styles.nextServiceTitle}>NEXT SERVICE DUE</Text>
+              <TouchableOpacity
+                style={styles.editReminderBtn}
+                onPress={openReminderModal}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="create-outline" size={13} color={colors.primary} />
+                <Text style={styles.editReminderText}>Edit</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.nextServiceRow}>
               <View style={{ flex: 1, gap: 3 }}>
@@ -122,19 +157,33 @@ export default function AllMaintenanceScreen() {
               </View>
               <View style={{ alignItems: 'flex-end', gap: 3 }}>
                 <Text style={styles.nextServiceKmLeft}>
-                  {nextService.dueKm !== null && nextService.currentOdometer > 0
-                    ? `${Math.max(0, nextService.dueKm - nextService.currentOdometer).toLocaleString('en-IN')} km left`
+                  {nextService.dueKm !== null && currentOdometer > 0
+                    ? `${Math.max(0, nextService.dueKm - currentOdometer).toLocaleString('en-IN')} km left`
                     : '—'}
                 </Text>
-                <Text style={styles.nextServiceOdo}>now at {nextService.currentOdometer.toLocaleString('en-IN')} km</Text>
+                <Text style={styles.nextServiceOdo}>now at {currentOdometer.toLocaleString('en-IN')} km</Text>
               </View>
             </View>
+            <Text style={styles.nextServiceHint}>
+              Counts only '{'General Service'}' logs · every {intervalKm.toLocaleString('en-IN')} km or {intervalMonths} months
+            </Text>
             {serviceDueSoon && (
               <View style={styles.dueSoonBadge}>
                 <Ionicons name="alert-circle" size={12} color={colors.error} />
                 <Text style={styles.dueSoonText}>Service due soon — book it now</Text>
               </View>
             )}
+          </View>
+        )}
+        {!nextService && (
+          <View style={styles.nextServiceCard}>
+            <View style={styles.nextServiceHeader}>
+              <Ionicons name="construct-outline" size={16} color={colors.primary} />
+              <Text style={styles.nextServiceTitle}>NEXT SERVICE DUE</Text>
+            </View>
+            <Text style={styles.nextServiceSub}>
+              Log a '{'General Service'}' with an odometer reading to start reminders.
+            </Text>
           </View>
         )}
 
@@ -210,6 +259,48 @@ export default function AllMaintenanceScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Edit Service Reminder Modal */}
+      <Modal visible={reminderModalVisible} transparent animationType="fade" onRequestClose={() => setReminderModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Service Reminder</Text>
+            <Text style={styles.modalSub}>
+              Only '{'General Service'}' logs count toward the next-service calculation.
+            </Text>
+            <View style={styles.modalField}>
+              <Text style={styles.modalLabel}>SERVICE INTERVAL (KM)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={intervalKmInput}
+                onChangeText={setIntervalKmInput}
+                keyboardType="number-pad"
+                placeholder="3000"
+                placeholderTextColor={colors.outline}
+              />
+            </View>
+            <View style={styles.modalField}>
+              <Text style={styles.modalLabel}>SERVICE INTERVAL (MONTHS)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={intervalMonthsInput}
+                onChangeText={setIntervalMonthsInput}
+                keyboardType="number-pad"
+                placeholder="3"
+                placeholderTextColor={colors.outline}
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setReminderModalVisible(false)}>
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={saveReminderSettings}>
+                <Text style={styles.modalBtnTextSave}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -243,7 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: rounded.full,
   },
   tabContainer: {
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
@@ -252,11 +343,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerPadding,
     gap: 8,
   },
+  tabScrollCentered: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
   tabButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(155,165,255,0.08)',
     borderColor: colors.border,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: rounded.full,
@@ -326,6 +422,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  editReminderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginLeft: 'auto',
+    backgroundColor: `${colors.primary}15`,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: rounded.full,
+  },
+  editReminderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  nextServiceHint: {
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+  },
   nextServiceTitle: {
     fontSize: 10,
     fontWeight: '700',
@@ -379,4 +494,48 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   emptyAddBtnText: { fontSize: 13, fontWeight: '700', color: colors.textInverse },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    padding: 24,
+    gap: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  modalField: { gap: 8 },
+  modalLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  modalInput: {
+    backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    height: 44,
+    paddingHorizontal: 12,
+    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
+  modalBtnCancel: { backgroundColor: 'transparent' },
+  modalBtnSave: { backgroundColor: colors.primaryContainer },
+  modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
 });

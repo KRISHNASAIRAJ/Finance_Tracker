@@ -18,8 +18,8 @@ function flush() {
   setTimeout(() => {
     try {
       const { processSyncQueue } = require('../../services/syncQueue');
-      processSyncQueue().catch((_e: Error) => {});
-    } catch (_e) {}
+      processSyncQueue().catch((_e: Error) => { /* retried on next CRUD/pull */ });
+    } catch (_e) { /* sync queue unavailable offline */ }
   }, 300);
 }
 
@@ -28,7 +28,7 @@ async function enq(entity: string, action: string, data: Record<string, unknown>
     const { enqueue } = require('../../services/syncQueue');
     await enqueue(entity, action as 'create' | 'update' | 'delete', data);
     flush();
-  } catch (_e) {}
+  } catch (_e) { /* queued later on next pull */ }
 }
 
 interface CareerState {
