@@ -147,7 +147,7 @@ export default function SleepDashboardScreen() {
   const promptUsageAccess = () => {
     Alert.alert(
       'Enable auto-detect?',
-      'Meridian can read screen on/off times (Android "Usage access") to suggest your sleep window each morning. No background service — it only looks when you open this screen.',
+      'Meridian can read screen on/off times (Android "Usage access") to suggest your sleep window each morning. No background service — it only looks when you open this screen.\n\nIf Android shows "App was denied access": open the ⋮ menu on the app-info page and tap "Allow restricted settings", then retry.',
       [
         { text: 'Not now', style: 'cancel' },
         { text: 'Open Settings', onPress: () => openUsageAccessSettings() },

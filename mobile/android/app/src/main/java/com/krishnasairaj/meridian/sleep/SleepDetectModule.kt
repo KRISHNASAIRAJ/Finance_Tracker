@@ -60,10 +60,22 @@ class SleepDetectModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun openSettings(promise: Promise) {
     try {
-      val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      reactApplicationContext.startActivity(intent)
-      promise.resolve(true)
+      try {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        reactApplicationContext.startActivity(intent)
+        promise.resolve(true)
+      } catch (e: Exception) {
+        // Some OEM builds block ACTION_USAGE_ACCESS_SETTINGS for sideloaded
+        // apps ("App was denied access"). Fall back to this app's details
+        // page, where the user can use the (⋮) menu -> "Allow restricted
+        // settings" to unblock the Usage access toggle.
+        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+          .setData(android.net.Uri.parse("package:" + reactApplicationContext.packageName))
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        reactApplicationContext.startActivity(details)
+        promise.resolve(true)
+      }
     } catch (e: Exception) {
       promise.reject("E_OPEN_FAILED", e.message ?: "open failed", e)
     }
