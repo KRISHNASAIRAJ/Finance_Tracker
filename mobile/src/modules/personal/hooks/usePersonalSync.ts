@@ -275,6 +275,38 @@ async function doPull(userId: string) {
     } catch (_e) {}
   }
 
+  // --- SLEEP LOGS ---
+  const { data: sleepData, error: sleepErr } = await supabase
+    .from("sleep_logs")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!sleepErr && sleepData) {
+    try {
+      const { useSleepStore } = require("../../sleep/store");
+      const sleepStore = useSleepStore;
+      const existingIds = new Set(sleepStore.getState().entries.map((e: any) => e.id));
+      const newEntries: any[] = (sleepData as Array<Record<string, unknown>>)
+        .filter((r) => !existingIds.has(r.id as string))
+        .filter((r) => !pendingIds.has(`sleep_logs|${r.id}`))
+        .map((r) => ({
+          id: r.id as string,
+          startTime: r.start_time as string,
+          endTime: r.end_time as string,
+          quality: (r.quality as number) ?? null,
+          mood: (r.mood as string) ?? null,
+          interruptions: (r.interruptions as number) ?? 0,
+          notes: (r.notes as string) ?? '',
+          source: (r.source as string) ?? 'manual',
+        }));
+      if (newEntries.length > 0) {
+        const merged = [...newEntries, ...sleepStore.getState().entries];
+        merged.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        sleepStore.setState({ entries: merged });
+      }
+    } catch (_e) {}
+  }
+
   // --- BUY LIST ITEMS ---
   const { data: buyData, error: buyErr } = await supabase
     .from("buy_list_items")

@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation, useNavigationState } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,20 +30,13 @@ import { tc } from '../theme/tracend';
 import { useDrawerStore } from '../useDrawerStore';
 import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
+import { navigationRef, getActiveRouteNameFromRef } from '../../navigation/navigationRef';
 import { useAuth } from '../../services/AuthProvider';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
 const SCREEN_W = Dimensions.get('window').width;
 const DRAWER_W = Math.min(304, SCREEN_W * 0.82);
-
-function getActiveRouteName(state: any): string | undefined {
-  if (!state) return undefined;
-  const route = state.routes?.[state.index ?? 0];
-  if (!route) return undefined;
-  if (route.state) return getActiveRouteName(route.state);
-  return route.name;
-}
 
 type Item = {
   id: string;
@@ -84,28 +77,48 @@ export default function DrawerMenu() {
   }, []);
   const effectiveOnboarded = isOnboarded || !hydrated;
 
-  const [activeRouteName, setActiveRouteName] = useState<string | undefined>(() => {
-    try {
-      return getActiveRouteName(navigation.getState());
-    } catch {
-      return undefined;
-    }
-  });
+  const [activeRouteName, setActiveRouteName] = useState<string | undefined>(() =>
+    getActiveRouteNameFromRef()
+  );
 
   // Reactive route tracking: recomputes on every navigation-state change
   // (tab switches, stack pushes/pops, conditional WelcomeSplash→MainTabs swap).
-  const navStateRouteName = useNavigationState((state) => {
-    try {
-      return getActiveRouteName(state);
-    } catch {
-      return undefined;
-    }
-  });
+  // Uses the shared container ref's 'state' listener instead of
+  // useNavigationState — this component renders OUTSIDE any navigator
+  // (sibling of RootNavigator in App.tsx), where useNavigationState throws
+  // "Couldn't get the navigation state" in React Navigation v7.
   useEffect(() => {
-    setActiveRouteName(navStateRouteName);
-  }, [navStateRouteName]);
+    let mounted = true;
+    let unsub: (() => void) | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const sync = () => {
+      if (mounted) setActiveRouteName(getActiveRouteNameFromRef());
+    };
+    const attach = () => {
+      unsub = navigationRef.addListener('state', sync);
+      sync();
+    };
+    sync();
+    if (navigationRef.isReady()) {
+      attach();
+    } else {
+      // Ref not ready yet: poll until it is, then attach the listener.
+      timer = setInterval(() => {
+        if (navigationRef.isReady()) {
+          if (timer) clearInterval(timer);
+          timer = null;
+          attach();
+        }
+      }, 100);
+    }
+    return () => {
+      mounted = false;
+      if (timer) clearInterval(timer);
+      unsub?.();
+    };
+  }, []);
 
-  // Fallback safety net: if the state selector somehow missed the initial
+  // Fallback safety net: if the state listener somehow missed the initial
   // mount (rare timing on cold start), poll briefly until a real TAB name
   // appears so the trigger always shows on first open.
   useEffect(() => {
@@ -113,12 +126,7 @@ export default function DrawerMenu() {
     let attempts = 0;
     const timer = setInterval(() => {
       attempts += 1;
-      let name: string | undefined;
-      try {
-        name = getActiveRouteName(navigation.getState());
-      } catch {
-        name = undefined;
-      }
+      const name = getActiveRouteNameFromRef();
       if (name && TAB_NAMES.has(name)) {
         setActiveRouteName(name);
         clearInterval(timer);
@@ -127,7 +135,7 @@ export default function DrawerMenu() {
       }
     }, 100);
     return () => clearInterval(timer);
-  }, [navigation, activeRouteName]);
+  }, [activeRouteName]);
 
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
   const showTrigger = effectiveOnboarded && isTabScreen;

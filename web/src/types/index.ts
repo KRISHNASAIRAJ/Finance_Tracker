@@ -398,3 +398,19 @@ export interface DiaryEntry {
   created_at?: string
   updated_at?: string
 }
+
+// ─── Sleep ────────────────────────────────────────────────
+
+export interface SleepEntry {
+  id: string
+  user_id: string
+  start_time: string
+  end_time: string
+  quality?: number | null
+  mood?: string | null
+  interruptions: number
+  notes?: string | null
+  source: 'manual' | 'auto'
+  created_at?: string
+  updated_at?: string
+}

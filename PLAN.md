@@ -131,3 +131,31 @@ rest of the app).
 - `expected_incomes.id` migrated from UUID to TEXT (migration 0032).
 - `category_budgets` table repair migration (0033 — table was missing).
 - Edge function `ai-meal-log` deployed with manage mode.
+
+## 8. ✅ Sleep Tracker (v4)
+
+- **Startup crash fix (regression from 2370e6a):** `DrawerMenu` used
+  `useNavigationState` outside any navigator — throws in React Navigation v7.
+  Extracted shared `navigationRef` (`src/navigation/navigationRef.ts`); DrawerMenu
+  now subscribes via `navigationRef.addListener('state')` with poll fallback.
+  App.tsx re-exports the shared ref.
+- **Schema:** migration `0037_sleep_logs.sql` — sleep_logs (start/end timestamptz,
+  quality 1–5, interruptions, source manual/auto) + RLS + realtime publication.
+- **Mobile module** (`src/modules/sleep/`): Zustand store (weightStore pattern,
+  offline-first via sync queue; reminderTime local-only), Dashboard with one-tap
+  bed/wake session (survives app kill via AsyncStorage), manual log/edit modal
+  with strict time parsing (rejects rolled-over dates like Feb 31), 7-night
+  duration chart, AI insight card, bedtime reminder quick-select (10:30/11/11:30
+  PM + Off), `sleep-reminders` notification channel, wired into MoreStack +
+  MoreMenu + deep links.
+- **Usage-access auto-detect (Digital Wellbeing-style):** native
+  `SleepDetectModule` (Kotlin, UsageStatsManager — passive query on screen open,
+  zero battery) + `PACKAGE_USAGE_STATS` manifest permission + guarded JS bridge
+  (never throws; hides card when unavailable). Morning "Detected last night"
+  card with Save/Dismiss.
+- **AI:** `ai-sleep-insight` edge function (Groq gpt-oss-120b, 20/day limit,
+  caller-supplied nights, no medical advice) + mobile + web UI.
+- **Web mirror:** `/sleep` page (TrendLine chart, CRUD table, AI insight),
+  sidebar/topbar/AppShell routes, realtime sync via existing all-tables channel.
+- **Tests:** mobile 40/40 (store CRUD, duration helpers, strict date parsing,
+  detect-wrapper graceful degradation, app-boot e2e); web 17/17 + build green.

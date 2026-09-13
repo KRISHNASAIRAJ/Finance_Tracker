@@ -103,6 +103,7 @@ async function setupChannels() {
       { id: 'portfolio', name: 'Portfolio Updates', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'bills_due', name: 'Bills & Due Dates', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
       { id: 'diet-reminders', name: 'Diet Reminders', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 250, 250], sound: 'default' },
+      { id: 'sleep-reminders', name: 'Sleep Reminders', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
@@ -504,6 +505,29 @@ export async function scheduleAllReminders() {
         { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
       );
     }
+
+    // Sleep bedtime reminder — nightly at the user's configured time
+    // (Sleep Tracker settings). Default 23:00 IST when unset; off when null.
+    try {
+      const { useSleepStore } = require('../modules/sleep/store');
+      const { reminderTime } = useSleepStore.getState();
+      if (reminderTime) {
+        const t = istNow();
+        const triggerTime = new Date(
+          t.getFullYear(), t.getMonth(), t.getDate(),
+          reminderTime.hour, reminderTime.minute, 0, 0
+        );
+        // If today's time already passed, schedule for tomorrow night.
+        if (triggerTime <= t) triggerTime.setDate(triggerTime.getDate() + 1);
+        await scheduleLocal(
+          '\u{1F319} Bedtime',
+          'Time to wind down — tap "Going to bed" in Sleep Tracker.',
+          triggerTime,
+          'sleep-reminders',
+          { screen: 'SleepTracker', dedupKey: `bedtime_${triggerTime.toISOString().slice(0, 10)}` }
+        );
+      }
+    } catch (e) { console.warn('[notificationService] sleep reminder failed:', e); }
 
     // Vehicle service reminders — next service at lastGeneralServiceKm + interval km
     // OR lastGeneralServiceDate + interval months (whichever first). Only

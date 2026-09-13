@@ -238,6 +238,12 @@ export default function MoreMenuScreen() {
           onPress: () => navigation.navigate('WeightTracker'),
         },
         {
+          id: 'sleep',
+          label: 'Sleep Tracker',
+          icon: 'moon-outline',
+          onPress: () => navigation.navigate('SleepTracker'),
+        },
+        {
           id: 'dietview',
           label: 'Project 65 Diet',
           icon: 'fitness-outline',

@@ -3,7 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import type { CareerEvent, DiaryEntry, Goal2026, MealLogEntry, Note, Recipe, WeightEntry } from '../../types'
+import type { CareerEvent, DiaryEntry, Goal2026, MealLogEntry, Note, Recipe, SleepEntry, WeightEntry } from '../../types'
 
 // ─── Goals 2026 ──────────────────────────────────────────
 
@@ -376,5 +376,51 @@ export function useDeleteDiaryEntry(userId: string) {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: diaryKeys.all(userId) }),
+  })
+}
+
+// ─── Sleep logs ──────────────────────────────────────────
+
+export const sleepKeys = {
+  all: (userId: string) => ['sleep_logs', userId] as const,
+}
+
+export function useSleepLogs(userId: string) {
+  return useQuery({
+    queryKey: sleepKeys.all(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sleep_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('start_time', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as SleepEntry[]
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useUpsertSleepLog(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ row, id }: { row: Partial<SleepEntry>; id?: string }) => {
+      const payload: Partial<SleepEntry> = { ...row, user_id: userId }
+      if (id) payload.id = id
+      const { error } = await supabase.from('sleep_logs').upsert(payload, { onConflict: 'id' })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: sleepKeys.all(userId) }),
+  })
+}
+
+export function useDeleteSleepLog(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('sleep_logs').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: sleepKeys.all(userId) }),
   })
 }

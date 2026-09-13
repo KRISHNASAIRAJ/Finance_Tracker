@@ -5,7 +5,7 @@ import React, { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, LogBox, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 
@@ -22,6 +22,7 @@ import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
+import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes } from './src/modules/finance/store';
 
@@ -39,7 +40,9 @@ LogBox.ignoreLogs([
   /expo-notifications.*removed from Expo Go/,
 ]);
 
-export const navigationRef = createNavigationContainerRef();
+// Shared container ref (re-exported for backwards compatibility with any
+// code importing it from App).
+export { navigationRef };
 
 export default function App() {
   const appState = useRef<AppStateStatus>(AppState.currentState);
@@ -78,6 +81,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MoreStack', { screen: 'BuyList' });
           } else if (data.screen === 'GroceryList') {
             nav.navigate('MoreStack', { screen: 'GroceryList' });
+          } else if (data.screen === 'SleepTracker') {
+            nav.navigate('MoreStack', { screen: 'SleepTracker' });
           } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }

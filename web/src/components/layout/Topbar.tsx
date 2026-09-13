@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 const TOP_LEVEL = new Set([
-  '/', '/finance', '/garage', '/tasks', '/wealth', '/meals', '/career', '/diary', '/more',
+  '/', '/finance', '/garage', '/tasks', '/wealth', '/meals', '/sleep', '/career', '/diary', '/more',
 ])
 
 export function Topbar({ title }: { title?: string }) {

@@ -239,6 +239,10 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   },
   career_events: {},
   weekly_diary: {},
+  sleep_logs: {
+    startTime: 'start_time',
+    endTime: 'end_time',
+  },
 };
 
 function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {

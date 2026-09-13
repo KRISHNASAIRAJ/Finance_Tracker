@@ -13,6 +13,7 @@ import {
   UtensilsCrossed,
   Briefcase,
   BookOpen,
+  Moon,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/wealth', icon: TrendingUp, label: 'Wealth' },
   { to: '/meals', icon: UtensilsCrossed, label: 'Meals' },
+  { to: '/sleep', icon: Moon, label: 'Sleep' },
   { to: '/career', icon: Briefcase, label: 'Career' },
   { to: '/diary', icon: BookOpen, label: 'Diary' },
   { to: '/more', icon: MoreHorizontal, label: 'More' },

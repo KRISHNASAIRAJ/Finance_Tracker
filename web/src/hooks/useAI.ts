@@ -68,3 +68,25 @@ export function useDailyReport() {
     },
   })
 }
+
+export function useSleepInsight() {
+  return useMutation({
+    mutationFn: async ({
+      nights,
+    }: {
+      nights: Array<{
+        startTime: string
+        endTime: string
+        durationHours: number
+        quality: number | null
+        interruptions: number
+      }>
+    }) => {
+      const { data, error } = await supabase.functions.invoke('ai-sleep-insight', {
+        body: { nights },
+      })
+      if (error) throw error
+      return data as { insight?: string; disclaimer?: string }
+    },
+  })
+}

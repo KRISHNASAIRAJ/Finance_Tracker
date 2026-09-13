@@ -84,6 +84,7 @@ import MealChatScreen from '../modules/meals/screens/MealChatScreen';
 import WeightTrackerScreen from '../modules/meals/screens/WeightTrackerScreen';
 import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
 import WeeklyDiaryScreen from '../modules/diary/screens/WeeklyDiaryScreen';
+import SleepDashboardScreen from '../modules/sleep/screens/SleepDashboardScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -156,6 +157,7 @@ export type MoreStackParamList = {
   WeightTracker: undefined;
   DietViewer: undefined;
   WeeklyDiary: undefined;
+  SleepTracker: undefined;
 };
 
 export type RootTabParamList = {
@@ -293,6 +295,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="WeightTracker" component={WeightTrackerScreen} />
       <MoreStack.Screen name="DietViewer" component={DietViewerScreen} />
       <MoreStack.Screen name="WeeklyDiary" component={WeeklyDiaryScreen} />
+      <MoreStack.Screen name="SleepTracker" component={SleepDashboardScreen} />
     </MoreStack.Navigator>
   );
 }

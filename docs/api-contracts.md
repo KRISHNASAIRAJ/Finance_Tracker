@@ -89,6 +89,16 @@ supabase.functions.invoke('ai-meal-suggest', { body: { macrosTarget?, excludeRec
 // → sends Expo push; report stored for in-app Daily Report screen.
 ```
 
+### ai-sleep-insight — Groq sleep coach
+```typescript
+// Caller passes last 14 nights as context (function never reads DB — RLS stays client-side)
+supabase.functions.invoke('ai-sleep-insight', {
+  body: { nights: [{ startTime, endTime, durationHours, quality, interruptions }] }
+})
+// → { insight: string, disclaimer } — one short insight + at most one actionable tip
+// Rate limit: 20/day. No medical advice.
+```
+
 ### kite-holdings-sync / kite-callback — Kite Connect (Zerodha)
 ```typescript
 // OAuth: kite-callback handles Zerodha redirect (state-param verified) → stores tokens in kite_tokens

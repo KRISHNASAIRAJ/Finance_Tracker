@@ -55,6 +55,9 @@ import { MealLoggerPage } from './pages/meals/MealLoggerPage'
 import { MealAISuggestionsPage } from './pages/meals/MealAISuggestionsPage'
 import { WeightTrackerPage } from './pages/meals/WeightTrackerPage'
 
+// Sleep
+import { SleepTrackerPage } from './pages/sleep/SleepTrackerPage'
+
 // Career
 import { CareerTrackerPage, CareerEventFormPage } from './pages/career/CareerPages'
 
@@ -138,6 +141,9 @@ export default function App() {
             <Route path="/meals" element={<MealLoggerPage />} />
             <Route path="/meals/ai" element={<MealAISuggestionsPage />} />
             <Route path="/meals/weight" element={<WeightTrackerPage />} />
+
+            {/* Sleep */}
+            <Route path="/sleep" element={<SleepTrackerPage />} />
 
             {/* Career */}
             <Route path="/career" element={<CareerTrackerPage />} />

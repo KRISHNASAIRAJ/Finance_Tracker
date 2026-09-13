@@ -34,6 +34,7 @@
 | `recipes` | Personal | Recipe book |
 | `diet_plan_entries` | Personal | Weekly meal plan |
 | `device_tokens` | Shared | Expo push notification tokens |
+| `sleep_logs` | Sleep | Sleep sessions: start/end (timestamptz), quality 1–5, interruptions, source (manual/auto) — migration 0037 |
 
 ---
 
