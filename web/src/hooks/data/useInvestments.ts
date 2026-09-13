@@ -3,13 +3,14 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import type { Holding, InvestmentGoal, PortfolioSnapshot, Loan } from '../../types'
+import type { Holding, InvestmentGoal, PortfolioSnapshot, Loan, FixedDeposit } from '../../types'
 
 export const investKeys = {
   holdings: (userId: string) => ['holdings', userId] as const,
   goals: (userId: string) => ['investment_goals', userId] as const,
   snapshots: (userId: string) => ['portfolio_snapshots', userId] as const,
   loans: (userId: string) => ['loans', userId] as const,
+  fds: (userId: string) => ['fixed_deposits', userId] as const,
 }
 
 // ─── Holdings ────────────────────────────────────────────
@@ -233,4 +234,62 @@ export function useUpdateLoan(userId: string) {
 }
 export function useDeleteLoan(userId: string) {
   return useLoanMutations(userId).remove
+}
+
+// ─── Fixed Deposits ──────────────────────────────────────
+
+export function useFDs(userId: string) {
+  return useQuery({
+    queryKey: investKeys.fds(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('fixed_deposits')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as FixedDeposit[]
+    },
+    enabled: !!userId,
+  })
+}
+
+function useFDMutations(userId: string) {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: investKeys.fds(userId) })
+
+  const upsert = useMutation({
+    mutationFn: async ({ row, id }: { row: Partial<FixedDeposit>; id?: string }) => {
+      const payload: Partial<FixedDeposit> = { ...row, user_id: userId }
+      if (id) payload.id = id
+      const { data, error } = await supabase
+        .from('fixed_deposits')
+        .upsert(payload, { onConflict: 'id' })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    },
+    onSuccess: invalidate,
+  })
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('fixed_deposits').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+
+  return { upsert, remove }
+}
+
+export function useCreateFD(userId: string) {
+  return useFDMutations(userId).upsert
+}
+export function useUpdateFD(userId: string) {
+  return useFDMutations(userId).upsert
+}
+export function useDeleteFD(userId: string) {
+  return useFDMutations(userId).remove
 }

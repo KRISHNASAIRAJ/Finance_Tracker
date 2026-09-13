@@ -284,8 +284,10 @@ export default function FinanceHomeScreen() {
             </GlassCard>
           </TouchableOpacity>
         </View>
+        </Entrance>
 
         {/* Fixed Exp + Wallets */}
+        <Entrance index={2}>
         <View style={styles.grid2}>
           <TouchableOpacity
             style={styles.statCard}
@@ -322,7 +324,7 @@ export default function FinanceHomeScreen() {
         </Entrance>
 
         {/* Expense Distribution */}
-        <Entrance index={2}>
+        <Entrance index={3}>
         <TouchableOpacity
           style={styles.distributionPanel}
           onPress={() => navigation.navigate('FinanceReports')}
@@ -438,7 +440,7 @@ export default function FinanceHomeScreen() {
         </Entrance>
 
         {/* Recent Transactions */}
-        <Entrance index={3}>
+        <Entrance index={4}>
         <GlassCard radius={28} pad={false}>
           <View style={styles.listPanel}>
             <View style={styles.panelHeader}>

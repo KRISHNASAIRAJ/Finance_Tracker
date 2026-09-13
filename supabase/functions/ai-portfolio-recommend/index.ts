@@ -2,14 +2,13 @@
  * ai-portfolio-recommend Edge Function
  *
  * Phase 6: Portfolio recommendation — accepts holdings + goals,
- * calls DeepSeek (default) or Groq (fallback) for rebalancing and allocation suggestions.
+ * calls Groq for rebalancing and allocation suggestions.
  *
  * Deploy: supabase functions deploy ai-portfolio-recommend
- * Secrets: supabase secrets set DEEPSEEK_API_KEY=sk_... (preferred) or GROQ_API_KEY=gsk_...
+ * Secrets: supabase secrets set GROQ_API_KEY=gsk_...
  */
 
 import { createGroqClient } from "../_shared/groq.ts";
-import { createDeepSeekClient } from "../_shared/deepseek.ts";
 
 const SYSTEM_PROMPT = `You are a portfolio advisor for Indian retail investors. The user provides current holdings (stocks, MF, ETFs, gold, real estate) and goals. Give concise rebalancing advice. Always:
 1. Flag concentration risk if any single holding > 20%
@@ -105,8 +104,8 @@ Deno.serve(async (req: Request) => {
 
     const userPrompt = `Current Holdings:\n${holdingsSummary}\n\nInvestment Goals:\n${goalsSummary}\n\nUser Question: ${query || "Provide rebalancing recommendations."}\n\nIf the user asked about a specific company, apply the Fundamental Analysis Skill framework. Otherwise, provide portfolio rebalancing advice.`;
 
-    // Use DeepSeek when a key is configured, otherwise fall back to Groq
-    const client = Deno.env.get("DEEPSEEK_API_KEY") ? createDeepSeekClient() : createGroqClient();
+    // Groq-only (DeepSeek removed — its API is not working)
+    const client = createGroqClient();
     const disclaimer = client.DISCLAIMER_PORTFOLIO;
 
     const response = await client.complete({

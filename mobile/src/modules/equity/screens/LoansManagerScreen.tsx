@@ -1,6 +1,6 @@
 /**
- * LoansManagerScreen — view/add/edit/delete outstanding loans.
- * Net worth = investments − loans, reflected on the Wealth dashboard.
+ * LoansManagerScreen — view/add/edit/delete outstanding loans and fixed deposits.
+ * Net worth = investments + FDs − loans, reflected on the Wealth dashboard.
  */
 import React, { useState } from 'react';
 import {
@@ -18,34 +18,43 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useInvestmentsStore, Loan } from '../store';
+import { useInvestmentsStore, Loan, FixedDeposit } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { tc, ts, tr, card } from '../../../shared/theme/tracend';
 
+type EditorTarget =
+  | { kind: 'loan'; item: Loan }
+  | { kind: 'fd'; item: FixedDeposit };
+
 export default function LoansManagerScreen() {
   const navigation = useNavigation();
-  const { loans, addLoan, updateLoan, deleteLoan } = useInvestmentsStore();
+  const { loans, fds, addLoan, updateLoan, deleteLoan, addFD, updateFD, deleteFD } = useInvestmentsStore();
   const { user } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<Loan | null>(null);
+  const [editing, setEditing] = useState<EditorTarget | null>(null);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
 
   const formatCurrency = (paise: number) =>
     `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
 
-  const openAdd = () => {
+  const openAdd = (kind: 'loan' | 'fd') => {
     setEditing(null);
     setName('');
     setAmount('');
+    setKind(kind);
     setShowModal(true);
   };
 
-  const openEdit = (loan: Loan) => {
-    setEditing(loan);
-    setName(loan.name);
-    setAmount((loan.amount / 100).toString());
+  // Track which kind the modal is adding (edit derives it from `editing`).
+  const [kind, setKind] = useState<'loan' | 'fd'>('loan');
+  const effectiveKind: 'loan' | 'fd' = editing ? editing.kind : kind;
+
+  const openEdit = (target: EditorTarget) => {
+    setEditing(target);
+    setName(target.item.name);
+    setAmount((target.item.amount / 100).toString());
     setShowModal(true);
   };
 
@@ -53,27 +62,65 @@ export default function LoansManagerScreen() {
     const trimmed = name.trim();
     const paise = Math.round(parseFloat(amount) * 100);
     if (!trimmed || isNaN(paise) || paise <= 0) {
-      Alert.alert('Invalid input', 'Enter a loan name and a valid amount.');
+      Alert.alert(
+        'Invalid input',
+        `Enter ${effectiveKind === 'loan' ? 'a loan' : 'an FD'} name and a valid amount.`
+      );
       return;
     }
-    if (editing) {
-      updateLoan(editing.id, { name: trimmed, amount: paise }, user?.id);
+    if (effectiveKind === 'loan') {
+      if (editing) updateLoan(editing.item.id, { name: trimmed, amount: paise }, user?.id);
+      else addLoan({ name: trimmed, amount: paise }, user?.id);
     } else {
-      addLoan({ name: trimmed, amount: paise }, user?.id);
+      if (editing) updateFD(editing.item.id, { name: trimmed, amount: paise }, user?.id);
+      else addFD({ name: trimmed, amount: paise }, user?.id);
     }
     setShowModal(false);
   };
 
-  const handleDelete = (loan: Loan) => {
+  const handleDelete = (target: EditorTarget) => {
+    const label = target.kind === 'loan' ? 'loan' : 'FD';
     Alert.alert(
-      'Delete loan',
-      `Remove "${loan.name}"?`,
+      `Delete ${label}`,
+      `Remove "${target.item.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteLoan(loan.id, user?.id) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            target.kind === 'loan'
+              ? deleteLoan(target.item.id, user?.id)
+              : deleteFD(target.item.id, user?.id),
+        },
       ]
     );
   };
+
+  const renderRows = (
+    items: Array<Loan | FixedDeposit>,
+    kind: 'loan' | 'fd'
+  ) =>
+    items.map((item) => {
+      const target: EditorTarget = { kind, item };
+      return (
+        <View key={item.id} style={[card, styles.loanCard]}>
+          <View style={kind === 'loan' ? styles.loanDot : styles.fdDot} />
+          <View style={styles.loanInfo}>
+            <Text style={styles.loanName} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.loanAmount, kind === 'fd' && { color: tc.stable }]}>
+              {kind === 'loan' ? '−' : '+'}{formatCurrency(item.amount)}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.loanAction} onPress={() => openEdit(target)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="create-outline" size={20} color={tc.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.loanAction} onPress={() => handleDelete(target)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="trash-outline" size={20} color={tc.attention} />
+          </TouchableOpacity>
+        </View>
+      );
+    });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -81,35 +128,51 @@ export default function LoansManagerScreen() {
         <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={tc.action} />
         </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Loans</Text>
-        <TouchableOpacity style={styles.iconBtn} onPress={openAdd}>
+        <Text style={styles.appBarTitle}>Loans & FDs</Text>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => openAdd('loan')}>
           <Ionicons name="add" size={24} color={tc.action} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {loans.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={40} color={tc.textMuted} />
-            <Text style={styles.emptyTitle}>No loans tracked</Text>
-            <Text style={styles.emptySub}>Tap + to add an outstanding loan. Net worth = investments − loans.</Text>
+        {/* Loans section */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="wallet-outline" size={15} color={tc.attention} />
+            <Text style={styles.sectionTitle}>LOANS</Text>
           </View>
+          <TouchableOpacity
+            style={styles.sectionAdd}
+            onPress={() => openAdd('loan')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="add-circle" size={22} color={tc.action} />
+          </TouchableOpacity>
+        </View>
+        {loans.length === 0 ? (
+          <Text style={styles.emptySub}>No loans tracked. Net worth = investments + FDs − loans.</Text>
         ) : (
-          loans.map((loan) => (
-            <View key={loan.id} style={[card, styles.loanCard]}>
-              <View style={styles.loanDot} />
-              <View style={styles.loanInfo}>
-                <Text style={styles.loanName} numberOfLines={1}>{loan.name}</Text>
-                <Text style={styles.loanAmount}>−{formatCurrency(loan.amount)}</Text>
-              </View>
-              <TouchableOpacity style={styles.loanAction} onPress={() => openEdit(loan)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="create-outline" size={20} color={tc.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.loanAction} onPress={() => handleDelete(loan)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="trash-outline" size={20} color={tc.attention} />
-              </TouchableOpacity>
-            </View>
-          ))
+          renderRows(loans, 'loan')
+        )}
+
+        {/* FDs section */}
+        <View style={[styles.sectionHeader, styles.fdSectionGap]}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="lock-closed-outline" size={15} color={tc.stable} />
+            <Text style={styles.sectionTitle}>FIXED DEPOSITS</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.sectionAdd}
+            onPress={() => openAdd('fd')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="add-circle" size={22} color={tc.action} />
+          </TouchableOpacity>
+        </View>
+        {fds.length === 0 ? (
+          <Text style={styles.emptySub}>No FDs tracked. FD amounts add to your net worth.</Text>
+        ) : (
+          renderRows(fds, 'fd')
         )}
       </ScrollView>
 
@@ -117,19 +180,23 @@ export default function LoansManagerScreen() {
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{editing ? 'Edit Loan' : 'Add Loan'}</Text>
+            <Text style={styles.modalTitle}>
+              {editing
+                ? editing.kind === 'loan' ? 'Edit Loan' : 'Edit FD'
+                : effectiveKind === 'loan' ? 'Add Loan' : 'Add FD'}
+            </Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Loan name (e.g. Home Loan)"
+              placeholder={effectiveKind === 'loan' ? 'Loan name (e.g. Home Loan)' : 'FD name (e.g. HDFC FD)'}
               placeholderTextColor={tc.textMuted}
             />
             <TextInput
               style={styles.input}
               value={amount}
               onChangeText={setAmount}
-              placeholder="Outstanding amount (₹)"
+              placeholder={effectiveKind === 'loan' ? 'Outstanding amount (₹)' : 'Deposit amount (₹)'}
               placeholderTextColor={tc.textMuted}
               keyboardType="decimal-pad"
             />
@@ -171,9 +238,22 @@ const styles = StyleSheet.create({
   },
   iconBtn: { padding: 8, borderRadius: tr.full },
   scroll: { padding: ts.gutter, gap: 12, paddingBottom: 40 },
-  emptyState: { alignItems: 'center', paddingTop: 80, gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: tc.textPrimary },
-  emptySub: { fontSize: 12, color: tc.textMuted, textAlign: 'center', paddingHorizontal: 24 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: tc.textSecondary,
+    letterSpacing: 0.6,
+  },
+  sectionAdd: { padding: 4 },
+  fdSectionGap: { marginTop: 12 },
+  emptySub: { fontSize: 12, color: tc.textMuted, textAlign: 'center', paddingHorizontal: 24, paddingVertical: 8 },
   loanCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,6 +265,12 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: tc.attention,
+  },
+  fdDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: tc.stable,
   },
   loanInfo: { flex: 1, gap: 2 },
   loanName: { fontSize: 14, fontWeight: '600', color: tc.textPrimary },

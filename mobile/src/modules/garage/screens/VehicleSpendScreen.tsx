@@ -25,7 +25,7 @@ import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'VehicleSpend'>;
 
-const SERVICE_TYPES = ['Oil Change', 'Tyre Replacement', 'General Service', 'Brake Service', 'Battery', 'Accident Repair', 'Other'];
+const SERVICE_TYPES = ['General Service', 'Insurance', 'Part Change', 'Tyre Change', 'PUC', 'AMC', 'Water Wash', 'Battery'];
 
 export default function VehicleSpendScreen() {
   const navigation = useNavigation<NavigationProp>();

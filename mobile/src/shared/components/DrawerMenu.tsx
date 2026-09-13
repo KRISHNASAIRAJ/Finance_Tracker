@@ -20,13 +20,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tc, glass, tr } from '../theme/tracend';
+import { tc } from '../theme/tracend';
 import { useDrawerStore } from '../useDrawerStore';
 import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
@@ -92,18 +92,24 @@ export default function DrawerMenu() {
     }
   });
 
+  // Reactive route tracking: recomputes on every navigation-state change
+  // (tab switches, stack pushes/pops, conditional WelcomeSplash→MainTabs swap).
+  const navStateRouteName = useNavigationState((state) => {
+    try {
+      return getActiveRouteName(state);
+    } catch {
+      return undefined;
+    }
+  });
   useEffect(() => {
-    const read = () => {
-      try {
-        setActiveRouteName(getActiveRouteName(navigation.getState()));
-      } catch {
-        setActiveRouteName(undefined);
-      }
-    };
-    const unsub = navigation.addListener('state', read);
-    // On launch, the navigator may not have mounted its tab state yet, and the
-    // conditional WelcomeSplash→MainTabs swap doesn't emit a 'state' event.
-    // Keep polling until a real TAB name appears so the trigger shows on first open.
+    setActiveRouteName(navStateRouteName);
+  }, [navStateRouteName]);
+
+  // Fallback safety net: if the state selector somehow missed the initial
+  // mount (rare timing on cold start), poll briefly until a real TAB name
+  // appears so the trigger always shows on first open.
+  useEffect(() => {
+    if (activeRouteName && TAB_NAMES.has(activeRouteName)) return;
     let attempts = 0;
     const timer = setInterval(() => {
       attempts += 1;
@@ -120,11 +126,8 @@ export default function DrawerMenu() {
         clearInterval(timer);
       }
     }, 100);
-    return () => {
-      unsub();
-      clearInterval(timer);
-    };
-  }, [navigation, isOnboarded]);
+    return () => clearInterval(timer);
+  }, [navigation, activeRouteName]);
 
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
   const showTrigger = effectiveOnboarded && isTabScreen;
@@ -477,7 +480,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 22,
-    zIndex: 30,
+    zIndex: 100,
+    elevation: 100,
   },
   trigger: {
     position: 'absolute',
@@ -492,12 +496,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 30,
+    zIndex: 100,
+    elevation: 100,
     shadowColor: '#7b8eff',
     shadowOffset: { width: 2, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
-    elevation: 10,
   },
   triggerGrad: {
     width: 26,

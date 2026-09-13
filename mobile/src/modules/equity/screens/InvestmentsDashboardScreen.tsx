@@ -35,10 +35,11 @@ type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'Inve
 
 export default function InvestmentsDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { holdings, goals, loans, getPortfolioValue, getTodayPnL, getTotalLoans, getNetWorth, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
+  const { holdings, goals, loans, fds, getPortfolioValue, getTodayPnL, getTotalLoans, getTotalFDs, getNetWorth, portfolioActionPlan, setPortfolioActionPlan } = useInvestmentsStore();
   const portfolioValue = getPortfolioValue();
   const todayPnL = getTodayPnL();
   const totalLoans = getTotalLoans();
+  const totalFDs = getTotalFDs();
   const netWorth = getNetWorth();
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [activeTab, setActiveTab] = useState<'equity' | 'mf'>('equity');
@@ -135,7 +136,7 @@ export default function InvestmentsDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* NET WEALTH Hero — Investments − Loans, always visible */}
+        {/* NET WEALTH Hero — Investments + FDs − Loans, always visible */}
         <Entrance index={0}>
           <View style={styles.netWealthCard}>
           <ExpoLinearGradient
@@ -146,24 +147,9 @@ export default function InvestmentsDashboardScreen() {
           />
           <View style={styles.netWealthTopRow}>
             <Text style={styles.netWealthLabel}>NET WEALTH</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('LoansManager')}
-              activeOpacity={0.7}
-              style={styles.netWealthManageBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons
-                name={loans.length > 0 ? 'wallet-outline' : 'add-circle-outline'}
-                size={16}
-                color={colors.primary}
-              />
-              <Text style={styles.netWealthManageText}>
-                {loans.length > 0 ? 'Manage Loans' : 'Add Loan'}
-              </Text>
-            </TouchableOpacity>
           </View>
           <Text style={styles.netWealthValue}>{formatCurrency(netWorth)}</Text>
-          <Text style={styles.netWealthFormula}>Investments − Loans</Text>
+          <Text style={styles.netWealthFormula}>Investments + FDs − Loans</Text>
           <View style={styles.netWealthBreakRow}>
             <View style={styles.netWealthBreakItem}>
               <Ionicons name="trending-up-outline" size={13} color={colors.success} />
@@ -171,6 +157,16 @@ export default function InvestmentsDashboardScreen() {
                 +{formatCurrency(portfolioValue)}
               </Text>
               <Text style={styles.netWealthBreakLabel}>Investments</Text>
+            </View>
+            <View style={styles.netWealthBreakDivider} />
+            <View style={styles.netWealthBreakItem}>
+              <Ionicons name="lock-closed-outline" size={13} color={colors.primary} />
+              <Text style={[styles.netWealthBreakValue, { color: colors.primary }]}>
+                +{formatCurrency(totalFDs)}
+              </Text>
+              <Text style={styles.netWealthBreakLabel}>
+                {fds.length > 0 ? `${fds.length} FD${fds.length > 1 ? 's' : ''}` : 'No FDs'}
+              </Text>
             </View>
             <View style={styles.netWealthBreakDivider} />
             <View style={styles.netWealthBreakItem}>
@@ -259,38 +255,6 @@ export default function InvestmentsDashboardScreen() {
           })()}
         </TouchableOpacity>
         </Entrance>
-
-        {/* Loans list — quick view (NET WEALTH lives in the card above) */}
-        {loans.length > 0 && (() => {
-          return (
-            <Entrance index={2}>
-            <View style={styles.loansCard}>
-              <View style={styles.loansHeaderRow}>
-                <View style={styles.loansTitleRow}>
-                  <Ionicons name="wallet-outline" size={15} color={colors.attention} />
-                  <Text style={styles.loansTitle}>LOANS · {formatCurrency(totalLoans)}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('LoansManager')}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="add-circle" size={22} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.loansList}>
-                {loans.map((l) => (
-                  <View key={l.id} style={styles.loanRow}>
-                    <View style={styles.loanDot} />
-                    <Text style={styles.loanName} numberOfLines={1}>{l.name}</Text>
-                    <Text style={styles.loanAmount}>−{formatCurrency(l.amount)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            </Entrance>
-          );
-        })()}
 
         {/* Allocation Donut — segmented gradient design */}
         {holdings.length > 0 && (() => {
@@ -598,6 +562,66 @@ export default function InvestmentsDashboardScreen() {
           )}
         </View>
 
+        {/* Loans list — quick view at the bottom */}
+        {loans.length > 0 && (
+          <Entrance index={2}>
+            <View style={styles.loansCard}>
+              <View style={styles.loansHeaderRow}>
+                <View style={styles.loansTitleRow}>
+                  <Ionicons name="wallet-outline" size={15} color={colors.attention} />
+                  <Text style={styles.loansTitle}>LOANS · {formatCurrency(totalLoans)}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('LoansManager')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.loansList}>
+                {loans.map((l) => (
+                  <View key={l.id} style={styles.loanRow}>
+                    <View style={styles.loanDot} />
+                    <Text style={styles.loanName} numberOfLines={1}>{l.name}</Text>
+                    <Text style={styles.loanAmount}>−{formatCurrency(l.amount)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </Entrance>
+        )}
+
+        {/* FDs list — quick view below Loans */}
+        {fds.length > 0 && (
+          <Entrance index={3}>
+            <View style={styles.fdsCard}>
+              <View style={styles.loansHeaderRow}>
+                <View style={styles.loansTitleRow}>
+                  <Ionicons name="lock-closed-outline" size={15} color={colors.primary} />
+                  <Text style={styles.loansTitle}>FIXED DEPOSITS · {formatCurrency(totalFDs)}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('LoansManager')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.loansList}>
+                {fds.map((f) => (
+                  <View key={f.id} style={styles.loanRow}>
+                    <View style={styles.fdDot} />
+                    <Text style={styles.loanName} numberOfLines={1}>{f.name}</Text>
+                    <Text style={styles.fdAmount}>+{formatCurrency(f.amount)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </Entrance>
+        )}
+
       </ScrollView>
 
       {/* Floating AI Button — draggable */}
@@ -649,22 +673,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  netWealthManageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(123,142,255,0.14)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(123,142,255,0.35)',
-  },
-  netWealthManageText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
   },
   netWealthValue: {
     fontSize: 34,
@@ -855,6 +863,14 @@ const styles = StyleSheet.create({
     padding: spacing.cardPadding,
     gap: 14,
   },
+  fdsCard: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(79,219,204,0.14)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: rounded.xl,
+    padding: spacing.cardPadding,
+    gap: 14,
+  },
   loansHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -888,6 +904,12 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.attention,
   },
+  fdDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
   loanName: {
     flex: 1,
     fontSize: 13,
@@ -898,6 +920,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.attention,
+  },
+  fdAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   donutHeaderRow: {
     flexDirection: 'row',

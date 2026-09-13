@@ -27,19 +27,14 @@ import CalendarPicker from '../../../shared/components/CalendarPicker';
 type RouteProps = RouteProp<GarageStackParamList, 'AddMaintenance'>;
 
 const SERVICE_TYPES = [
-  'Oil Change',
-  'Engine Oil',
-  'Air Filter',
-  'Spark Plug',
-  'Chain Service',
-  'Brake Service',
-  'Tyre Change',
-  'Battery',
   'General Service',
-  'Wash & Polish',
   'Insurance',
+  'Part Change',
+  'Tyre Change',
   'PUC',
-  'Other',
+  'AMC',
+  'Water Wash',
+  'Battery',
 ];
 
 export default function AddMaintenanceScreen() {
@@ -162,21 +157,18 @@ export default function AddMaintenanceScreen() {
           />
         </View>
 
-        {/* Odometer */}
-        <View style={styles.field}>
-          <Text style={styles.label}>ODOMETER (KM) — OPTIONAL</Text>
-          <TextInput
-            style={styles.input}
-            value={odometer}
-            onChangeText={setOdometer}
-            keyboardType="number-pad"
-            placeholder="e.g. 5600"
-            placeholderTextColor={colors.outline}
-          />
-          <Text style={styles.hint}>
-            Only {'\''}General Service{'\''} logs reset the service reminder clock (next = this km + interval)
-          </Text>
-        </View>
+          {/* Odometer */}
+          <View style={styles.field}>
+            <Text style={styles.label}>ODOMETER (KM) — OPTIONAL</Text>
+            <TextInput
+              style={styles.input}
+              value={odometer}
+              onChangeText={setOdometer}
+              keyboardType="number-pad"
+              placeholder="e.g. 5600"
+              placeholderTextColor={colors.outline}
+            />
+          </View>
 
         {/* Date */}
         <View style={styles.field}>
@@ -285,7 +277,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notesInput: { height: 80, paddingTop: 12 },
-  hint: { fontSize: 11, color: colors.onSurfaceVariant },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',

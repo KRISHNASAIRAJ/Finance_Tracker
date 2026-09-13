@@ -212,7 +212,16 @@ export default function ExpenseConfirmationScreen() {
         >
           <TouchableOpacity
             style={styles.doneButton}
-            onPress={() => navigation.navigate('MonthlySpend')}
+            onPress={() => {
+              // Atomic stack reset: AddExpense was `replace`d by this screen, so
+              // a plain navigate() to MonthlySpend pushes a NEW Spends screen on
+              // top of this receipt — then every back-press replays the receipt.
+              // Resetting [FinanceHome, MonthlySpend] destroys the receipt for good.
+              navigation.reset({
+                index: 1,
+                routes: [{ name: 'FinanceHome' }, { name: 'MonthlySpend' }],
+              });
+            }}
             activeOpacity={0.8}
           >
             <Ionicons name="arrow-forward" size={18} color={colors.textPrimary} />

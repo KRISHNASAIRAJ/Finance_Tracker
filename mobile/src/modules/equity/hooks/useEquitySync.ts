@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
-import { useInvestmentsStore, Holding, InvestmentGoal, Loan } from "../store";
+import { useInvestmentsStore, Holding, InvestmentGoal, Loan, FixedDeposit } from "../store";
 
 interface SyncState {
   loading: boolean;
@@ -231,6 +231,38 @@ async function doPull(userId: string) {
       }));
       supabase.from("loans").upsert(rows, { onConflict: "id" }).then(({ error }) => {
         if (error) console.warn('[EquitySync] pushMissing loans:', error.message);
+      });
+    }
+  }
+
+  // --- FIXED DEPOSITS ---
+  const { data: fdsData, error: fdsErr } = await supabase
+    .from("fixed_deposits")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!fdsErr && fdsData) {
+    const mappedFDs: FixedDeposit[] = (fdsData as Array<Record<string, unknown>>)
+      .filter((r) => !pendingIds.has(`fixed_deposits|${r.id}`))
+      .map((r) => ({
+      id: r.id as string,
+      name: (r.name as string) ?? "",
+      amount: Number(r.amount) || 0,
+    }));
+    // Rows with pending local ops keep their (newer) local state.
+    const localProtectedFDs = store.getState().fds.filter((f) => pendingIds.has(`fixed_deposits|${f.id}`));
+    store.setState({ fds: [...mappedFDs, ...localProtectedFDs] });
+
+    // Push FDs missing in cloud (brand-new offline FDs)
+    const cloudFDIds = new Set(fdsData.map((r: any) => r.id as string));
+    const localOnlyFDs = store.getState().fds.filter((f) => !cloudFDIds.has(f.id));
+    if (localOnlyFDs.length > 0) {
+      const rows = localOnlyFDs.map((f) => ({
+        id: f.id, user_id: userId, name: f.name, amount: f.amount,
+        updated_at: new Date().toISOString(),
+      }));
+      supabase.from("fixed_deposits").upsert(rows, { onConflict: "id" }).then(({ error }) => {
+        if (error) console.warn('[EquitySync] pushMissing fds:', error.message);
       });
     }
   }

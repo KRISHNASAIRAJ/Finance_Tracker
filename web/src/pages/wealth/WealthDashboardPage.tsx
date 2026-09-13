@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { History, Plus, RefreshCw, Sparkles, Target, Wallet } from 'lucide-react'
+import { History, Lock, Plus, RefreshCw, Sparkles, Target, Wallet } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
+  useFDs,
   useHoldings,
   useInvestmentGoals,
   useLoans,
@@ -36,6 +37,7 @@ export function WealthDashboardPage() {
   const { data: holdings, isLoading } = useHoldings(userId)
   const { data: goals } = useInvestmentGoals(userId)
   const { data: loans } = useLoans(userId)
+  const { data: fds } = useFDs(userId)
   const { data: plan } = usePortfolioActionPlan(userId)
   const savePlan = useSavePortfolioActionPlan(userId)
   const refreshPrices = useRefreshPrices()
@@ -72,7 +74,8 @@ export function WealthDashboardPage() {
   )
 
   const totalLoans = useMemo(() => (loans ?? []).reduce((s, l) => s + (l.amount || 0), 0), [loans])
-  const netWealth = portfolioValue - totalLoans
+  const totalFDs = useMemo(() => (fds ?? []).reduce((s, f) => s + (f.amount || 0), 0), [fds])
+  const netWealth = portfolioValue + totalFDs - totalLoans
 
   const totalReturn = portfolioValue - totalCost
   const returnPct = totalCost > 0 ? (totalReturn / totalCost) * 100 : 0
@@ -138,10 +141,10 @@ export function WealthDashboardPage() {
         </Link>
         <Link to="/wealth/loans">
           <Button size="sm" variant="secondary" className="gap-1.5">
-            <Wallet className="h-4 w-4" /> Loans
-            {(loans ?? []).length > 0 && (
+            <Wallet className="h-4 w-4" /> Loans & FDs
+            {(loans ?? []).length + (fds ?? []).length > 0 && (
               <span className="rounded-full bg-[#FF887D]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF887D]">
-                {loans?.length}
+                {(loans ?? []).length + (fds ?? []).length}
               </span>
             )}
           </Button>
@@ -175,20 +178,23 @@ export function WealthDashboardPage() {
               <p className="mt-2 text-4xl font-extrabold tracking-tight text-white tnum">
                 {paiseToRupees(netWealth)}
               </p>
-              <p className="mt-1 text-xs text-white/40">Investments − Loans</p>
+              <p className="mt-1 text-xs text-white/40">Investments + FDs − Loans</p>
             </div>
-            <Link to="/wealth/loans">
-              <Button size="sm" variant="secondary" className="gap-1.5">
-                <Wallet className="h-3.5 w-3.5" />
-                {(loans ?? []).length > 0 ? 'Manage loans' : 'Add loan'}
-              </Button>
-            </Link>
           </div>
-          <div className="relative mt-5 flex items-center gap-6 border-t border-white/10 pt-5">
+          <div className="relative mt-5 flex flex-wrap items-center gap-6 border-t border-white/10 pt-5">
             <div className="flex items-center gap-2">
               <span className="text-[#59D6C7]">▲</span>
               <p className="text-sm font-semibold text-[#59D6C7] tnum">+{paiseToRupees(portfolioValue)}</p>
               <p className="text-[11px] text-white/40">Investments</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#9BA5FF]">▲</span>
+              <p className="text-sm font-semibold text-[#9BA5FF] tnum">+{paiseToRupees(totalFDs)}</p>
+              <p className="text-[11px] text-white/40">
+                {(fds ?? []).length > 0
+                  ? `${fds?.length} FD${(fds ?? []).length > 1 ? 's' : ''}`
+                  : 'No FDs'}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[#FF887D]">▼</span>
@@ -297,6 +303,61 @@ export function WealthDashboardPage() {
             )}
           </CardBody>
         </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {(loans ?? []).length > 0 && (
+          <Card>
+            <CardHeader
+              title="Loans"
+              subtitle={`${loans?.length} loan${(loans ?? []).length > 1 ? 's' : ''} · ${paiseToRupees(totalLoans)} outstanding`}
+              action={
+                <Link to="/wealth/loans" className="text-xs text-white/40 transition-colors hover:text-white">
+                  + Manage
+                </Link>
+              }
+            />
+            <CardBody>
+              <div className="space-y-2">
+                {(loans ?? []).map((l) => (
+                  <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FF887D]" />
+                      <span className="truncate text-white/70">{l.name}</span>
+                    </span>
+                    <span className="font-semibold text-[#FF887D] tnum">−{paiseToRupees(l.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
+        {(fds ?? []).length > 0 && (
+          <Card>
+            <CardHeader
+              title="Fixed Deposits"
+              subtitle={`${fds?.length} FD${(fds ?? []).length > 1 ? 's' : ''} · ${paiseToRupees(totalFDs)}`}
+              action={
+                <Link to="/wealth/loans" className="text-xs text-white/40 transition-colors hover:text-white">
+                  + Manage
+                </Link>
+              }
+            />
+            <CardBody>
+              <div className="space-y-2">
+                {(fds ?? []).map((f) => (
+                  <div key={f.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Lock className="h-3 w-3 shrink-0 text-[#4FDBCC]" />
+                      <span className="truncate text-white/70">{f.name}</span>
+                    </span>
+                    <span className="font-semibold text-[#4FDBCC] tnum">+{paiseToRupees(f.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
       </div>
 
       <Card>

@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
 import { useCreditCards } from '../../hooks/data/useCreditCards'
 import { useReceivables } from '../../hooks/data/useReceivables'
-import { useHoldings, useLoans } from '../../hooks/data/useInvestments'
+import { useFDs, useHoldings, useLoans } from '../../hooks/data/useInvestments'
 import { useTransactions } from '../../hooks/data/useTransactions'
 import { useFuelFills, useMaintenanceLogs } from '../../hooks/data/useGarage'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
@@ -24,6 +24,7 @@ export function CombinedReportPage() {
   const { data: receivables } = useReceivables(userId)
   const { data: holdings } = useHoldings(userId)
   const { data: loans } = useLoans(userId)
+  const { data: fds } = useFDs(userId)
   const { data: txns } = useTransactions(userId)
   const { data: fuelFills } = useFuelFills(userId)
   const { data: maintenanceLogs } = useMaintenanceLogs(userId)
@@ -38,8 +39,9 @@ export function CombinedReportPage() {
     .filter((r) => r.type === 'borrowed' && r.status !== 'paid')
     .reduce((s, r) => s + (r.amount - (r.paid_amount ?? 0)), 0)
   const loansOutstanding = (loans ?? []).reduce((s, l) => s + (l.amount ?? 0), 0)
+  const fdsTotal = (fds ?? []).reduce((s, f) => s + (f.amount ?? 0), 0)
   const netWorth =
-    totalBalance - totalCardOutstanding + portfolioValue + lentOutstanding - borrowedOutstanding - loansOutstanding
+    totalBalance - totalCardOutstanding + portfolioValue + fdsTotal + lentOutstanding - borrowedOutstanding - loansOutstanding
 
   const monthKey = istMonthKey()
   const monthTxns = useMemo(() => (txns ?? []).filter((t) => t.date.slice(0, 7) === monthKey), [txns, monthKey])
@@ -79,7 +81,7 @@ export function CombinedReportPage() {
 
   const recentTxns = (txns ?? []).filter((t) => t.type !== 'credit_card_bill').slice(0, 5)
 
-  const isLoading = !txns || !accounts || !cards || !receivables || !holdings
+  const isLoading = !txns || !accounts || !cards || !receivables || !holdings || !fds
 
   return (
     <div className="fade-up space-y-5">
@@ -102,6 +104,9 @@ export function CombinedReportPage() {
                 <div><span className="text-white/70">Balance</span> {paiseToRupeesCompact(totalBalance)}</div>
                 <div><span className="text-white/70">Cards</span> −{paiseToRupeesCompact(totalCardOutstanding)}</div>
                 <div><span className="text-white/70">Portfolio</span> {paiseToRupeesCompact(portfolioValue)}</div>
+                {fdsTotal > 0 && (
+                  <div><span className="text-white/70">FDs</span> {paiseToRupeesCompact(fdsTotal)}</div>
+                )}
                 <div><span className="text-white/70">Lent/Borrowed</span> {paiseToRupeesCompact(lentOutstanding - borrowedOutstanding)}</div>
                 {loansOutstanding > 0 && (
                   <div><span className="text-white/70">Loans</span> −{paiseToRupeesCompact(loansOutstanding)}</div>

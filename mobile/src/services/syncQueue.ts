@@ -221,6 +221,7 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     completedAt: 'completed_at',
   },
   loans: {},
+  fixed_deposits: {},
   notes: {},
   goals: {},
   recipes: {

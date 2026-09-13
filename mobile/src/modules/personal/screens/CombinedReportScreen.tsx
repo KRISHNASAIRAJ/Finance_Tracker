@@ -52,9 +52,11 @@ export default function CombinedReportScreen() {
   const position =
     totalLent + totalExpectedIncome - totalBorrowed - cardOutstanding - unpaidFixed + effectiveBalance;
 
-  // Net worth = liquid position + investments − active loans
-  const equityLoans = useInvestmentsStore.getState().loans.reduce((sum, l) => sum + (l.amount || 0), 0);
-  const netWorth = position + portfolioValue - equityLoans;
+  // Net worth = liquid position + investments + FDs − active loans
+  const equityStore = useInvestmentsStore.getState();
+  const equityLoans = equityStore.loans.reduce((sum, l) => sum + (l.amount || 0), 0);
+  const totalFDs = equityStore.fds.reduce((sum, f) => sum + (f.amount || 0), 0);
+  const netWorth = position + portfolioValue + totalFDs - equityLoans;
 
   // ---- Monthly spend ----
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
