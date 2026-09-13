@@ -1,5 +1,5 @@
 # ARCHITECTURE.md — System Architecture Document
-## Personal Tracker App · Krishna's Tracker · v1.0
+## Meridian · Personal Life Tracker · v1.1 (ADR-008 BaaS-first)
 
 > **Audience**: AI agents and developers implementing features.  
 > **Source of truth for**: data models, system topology, integration patterns, and key design decisions.
@@ -10,31 +10,32 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    KRISHNA'S TRACKER                        │
+│                      MERIDIAN                               │
 │                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │               React Native App (Android)            │   │
-│  │                                                     │   │
-│  │   Finance  │  Garage  │  Tasks  │  Equity  │  More  │   │
-│  │                                                     │   │
-│  │   SQLite local cache (offline reads/writes)         │   │
-│  └────────────────────┬────────────────────────────────┘   │
-│                       │ HTTPS / REST API                    │
-│  ┌────────────────────▼────────────────────────────────┐   │
-│  │              FastAPI Backend (Python)               │   │
-│  │                                                     │   │
-│  │  Routers → Services → ORM Models → PostgreSQL       │   │
-│  │                                                     │   │
-│  │  AI Services       Cron Jobs        FCM Push        │   │
-│  │  (Claude API)      (8:30 PM report) (Firebase)      │   │
-│  └─────┬───────────────────────────────┬───────────────┘   │
-│        │                               │                    │
-│  ┌─────▼──────────┐          ┌─────────▼──────────┐        │
-│  │   Supabase     │          │   External APIs     │        │
-│  │   PostgreSQL   │          │   - Claude API      │        │
-│  │   + Auth       │          │   - Kite Connect    │        │
-│  │   + Storage    │          │   - FCM             │        │
-│  └────────────────┘          └────────────────────┘        │
+│  ┌────────────────────────┐   ┌──────────────────────────┐   │
+│  │  React Native App     │   │  Web App (Vite+React)    │   │
+│  │  (Android, Expo)      │   │  Netlify-hosted SPA      │   │
+│  │  Zustand + AsyncStorage│  │  TanStack Query + Realtime│  │
+│  │  offline queue         │   │                          │   │
+│  └───────────┬────────────┘   └───────────┬──────────────┘   │
+│              │ Supabase JS SDK (PostgREST)│                  │
+┌──────────────┼────────────────────────────┼─────────────────┐│
+│              ▼                              ▼                 ││
+│  ┌─────────────────────────────────────────────────────┐    ││
+│  │                 SUPABASE (BaaS)                     │    ││
+│  │  PostgreSQL + RLS · Auth (JWT) · Storage · Realtime │    ││
+│  │  pg_cron (scheduled jobs)                          │    ││
+│  └───────────────────────┬─────────────────────────────┘    ││
+│                          │ pg_net                            ││
+│  ┌───────────────────────▼─────────────────────────────┐    ││
+│  │           Edge Functions (Deno/TypeScript)           │    ││
+│  │  ai-* (Groq) · kite-* · portfolio-snapshot ·         │    ││
+│  │  refresh-portfolio-prices                            │    ││
+│  └─────┬──────────────┬──────────────┬──────────────────┘    ││
+│        │              │              │                        ││
+│  ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼──────────┐             ││
+│  │ Groq API  │  │Kite Connect│  │Yahoo/AMFI quotes│            ││
+│  └───────────┘  └───────────┘  └────────────────┘             ││
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -44,25 +45,24 @@
 
 | Layer | Technology | Version / Notes |
 |---|---|---|
-| Mobile framework | React Native | 0.74+ with New Architecture |
+| Mobile framework | React Native (Expo) | Managed dev build, Android-first |
 | Mobile language | TypeScript | Strict mode |
-| State management | Zustand | Lightweight, per-module slices |
-| Server state / caching | TanStack Query (React Query) | Offline persistence via SQLite |
-| Local DB | SQLite (via `expo-sqlite` or `op-sqlite`) | Offline-first CRUD queue |
+| State management | Zustand | Per-module stores, AsyncStorage persistence |
+| Offline sync | Central sync queue (`services/syncQueue.ts`) | Retry + exponential backoff, crash-safe |
 | Secure storage | `react-native-keychain` | Tokens, sensitive data — NEVER AsyncStorage |
-| Charts | Victory Native v40+ | Line, donut, bar |
-| Navigation | React Navigation v7 | Stack + Tab + Drawer |
-| Backend | FastAPI (Python 3.12) | Async routes |
-| ORM | SQLAlchemy 2.0 (async) + Alembic | PostgreSQL interactions |
-| DB | PostgreSQL 15 | Hosted on Supabase |
-| Auth | Supabase Auth | JWT tokens |
-| Push notifications | Firebase Cloud Messaging | Server-triggered |
-| Local notifications | `@notifee/react-native` | Task reminders, bill dues |
-| Background scheduler | Android WorkManager (via native module) | 8:30 PM cron on device |
-| AI | Groq API (Llama 3.3 70B + Llama 3.1 8B) — free-tier friendly |
+| Charts | react-native-svg custom | Donut, area, progress components |
+| Navigation | React Navigation | Stack + Bottom Tabs |
+| Backend | Supabase (PostgREST + Edge Functions) | No custom server (ADR-008) |
+| DB | PostgreSQL 15 | Hosted on Supabase, migrations in `supabase/migrations/` |
+| Auth | Supabase Auth | JWT, shared by mobile + web |
+| Push notifications | Expo Push Notifications | Server-triggered via edge functions |
+| Local notifications | expo-notifications | Task reminders, bill dues, diet reminders |
+| Background scheduler | Expo BackgroundFetch + pg_cron (server-side) | Daily snapshots / reports |
+| AI | Groq API — `openai/gpt-oss-120b` (text), `openai/gpt-oss-20b` (fast), `qwen/qwen3.6-27b` (vision) | Edge functions only, free tier |
 | Vector store | pgvector (PostgreSQL extension) | Card T&C document embeddings |
-| Brokerage | Kite Connect API (Zerodha) | Verify pricing before Phase 4 |
-| Hosting | Supabase + small VPS or Railway | Backend FastAPI instance |
+| Brokerage | Kite Connect API (Zerodha) | Read-only holdings sync, OAuth callback via edge function |
+| Price feeds | Yahoo Finance (equities/ETFs) + AMFI (MF NAVs) | `refresh-portfolio-prices` edge function |
+| Web frontend | Vite + React 19 + TypeScript + Tailwind v4 + TanStack Query + Recharts | Netlify free tier |
 
 ---
 
@@ -348,44 +348,37 @@ CREATE TABLE diet_plan_entries (
 
 ---
 
-## 4. Backend Architecture (FastAPI)
+## 4. Backend Architecture (Supabase BaaS — ADR-008)
 
 ### 4.1 Layer Responsibilities
 
 ```
-Request → Router → Service → Repository (SQLAlchemy) → PostgreSQL
-                ↓
-         External Services (Claude API, Kite, FCM)
+Mobile/Web App
+    ↓ PostgREST (supabase-js)
+Supabase PostgreSQL (RLS-enforced tables)
+    ↓ pg_cron → pg_net (scheduled jobs)
+Edge Functions (Deno/TS) → Groq API / Kite / Yahoo / AMFI
 ```
 
 | Layer | Responsibility | Rule |
 |---|---|---|
-| **Router** | HTTP handling, auth validation, request parsing | No business logic here |
-| **Service** | Business logic, orchestration, AI calls | No direct DB queries — use repository |
-| **Repository** | SQLAlchemy queries, DB transactions | No business logic |
-| **Schema** | Pydantic I/O validation | Input sanitization happens here |
-| **AI service** | Claude API calls only | Must follow SAFETY.md rules |
-| **Cron jobs** | Scheduled tasks (portfolio report) | In `jobs/` directory |
+| **Mobile/Web client** | CRUD via supabase-js, optimistic local-first updates | No secrets, no direct external API calls |
+| **PostgREST + RLS** | Row-level auth — every table policy-scoped to `auth.uid()` | Every table must have RLS before use |
+| **Edge Functions** | AI calls, OAuth callbacks, external API sync, push | Must follow SAFETY.md rules; secrets via `supabase secrets` |
+| **pg_cron jobs** | Scheduled tasks (price refresh → portfolio snapshot) | Defined in migrations |
 
-### 4.2 Standard API Response Format
+### 4.2 Standard API Pattern
 
-```json
-{
-  "success": true,
-  "data": { ... },
-  "meta": { "total": 42, "page": 1, "per_page": 20 },
-  "error": null
-}
-```
+CRUD is direct to PostgREST; Edge Functions are reserved for anything needing secrets or external APIs. Client calls use `supabase.functions.invoke('<fn>', { body })`.
 
 ### 4.3 Authentication Flow
 
 ```
-Mobile App → POST /auth/login (Supabase)
-           ← JWT access token + refresh token
-           → Store securely in Keychain (NOT AsyncStorage)
-           → Include in every API call: Authorization: Bearer <token>
-           → Backend validates JWT via Supabase middleware
+Mobile/Web App → Supabase Auth (email + password)
+              ← JWT access token + refresh token
+              → Store securely in Keychain (mobile) — NOT AsyncStorage
+              → Every PostgREST call carries the JWT; RLS scopes rows to auth.uid()
+              → On sign-in: processSyncQueue() flushes offline-queued data
 ```
 
 ---
@@ -416,25 +409,27 @@ mobile/src/modules/finance/
 ```
 User Action
     ↓
-Write to SQLite (immediate, optimistic)
+Write to local Zustand store (immediate, optimistic — AsyncStorage persisted)
     ↓
-Update Zustand store (UI updates instantly)
+Enqueue sync op in meridian_sync_queue (always, regardless of auth state)
     ↓
-Queue sync job (WorkManager)
+processSyncQueue resolves user_id from session at flush time
+    (on focus / on sign-in / via BackgroundFetch)
     ↓
-On connectivity: POST/PATCH to API → update server
+Upsert to Supabase (per-entity ON_CONFLICT_TARGET), retry with backoff (max 5)
     ↓
-On conflict: server wins, re-sync SQLite
+On focus: pull latest from Supabase and merge into local store
 ```
 
 ### 5.3 Notification Architecture
 
 | Notification Type | Mechanism | Trigger |
 |---|---|---|
-| Task reminder | `@notifee` local notification | WorkManager alarm at reminder time |
-| Daily portfolio report | FCM push | Backend cron job at 8:30 PM IST |
-| Fixed expense due | `@notifee` local notification | WorkManager, N days before due |
-| Credit card due | `@notifee` local notification | WorkManager, N days before due |
+| Task reminder | expo-notifications local | Scheduled at task create/edit |
+| Fixed expense / card due | expo-notifications local | N days before due |
+| Diet reminder | expo-notifications local | Diet plan schedule |
+| Daily portfolio report | Expo push (server) | pg_cron → portfolio-snapshot edge fn, 8:30 PM IST |
+| Daily AI report | Expo push (server) | ai-daily-report edge fn, 9:30 PM / 8:30 AM IST |
 
 **Rule**: All notification scheduling must survive app kill. Never use `setTimeout` or `setInterval` for notifications.
 
@@ -442,26 +437,22 @@ On conflict: server wins, re-sync SQLite
 
 ## 6. AI Integration Architecture
 
+All AI goes through Supabase Edge Functions → Groq API. Shared client: `supabase/functions/_shared/groq.ts` (text: `openai/gpt-oss-120b` / `openai/gpt-oss-20b`; vision: `qwen/qwen3.6-27b`).
+
 ### 6.1 Card T&C RAG Pipeline
 
 ```
-User uploads PDF
+User uploads PDF → Supabase Storage
     ↓
-Backend: extract text (PyPDF2 / pdfminer)
-    ↓
-Chunk text (512 tokens, 50-token overlap)
-    ↓
-Embed chunks (Claude embeddings or text-embedding-3-small)
-    ↓
-Store in pgvector (tnc_embeddings table)
+Edge function: extract text, chunk it, store chunks in tnc_embeddings
     ↓
 User asks question
     ↓
-Embed question → cosine similarity search → top-K chunks
+ai-tnc-query: embed question → cosine similarity search → top-K chunks
     ↓
 Build prompt: system + retrieved chunks + user question
     ↓
-Claude API call → grounded answer
+Groq API call → grounded answer (temperature 0.1)
     ↓
 Always append disclaimer to response
 ```
@@ -471,16 +462,22 @@ Always append disclaimer to response
 ```
 User opens AI Recommendations screen
     ↓
-Backend: fetch holdings + investment_goals
+ai-portfolio-recommend: fetch holdings + investment_goals (percentages only, no PII)
     ↓
-Build structured prompt (no raw PII — only aggregated portfolio data)
+Build structured prompt
     ↓
-Claude API call with system prompt defining scope
+Groq API call with system prompt defining scope
     ↓
 Response: plain-language suggestions
     ↓
-Mobile: display with "Not financial advice" disclaimer
+Mobile/web: display with "Not financial advice" disclaimer banner
 ```
+
+### 6.3 Meal AI + Daily Reports
+
+- `ai-meal-log` — vision-model macro analysis of meal photos; `manageMode` returns structured `proposedChanges` (add/delete/modify) applied only after user confirmation
+- `ai-meal-suggest` — meal suggestions from the user's recipes/macros
+- `ai-daily-report` — aggregated day summary (9:30 PM) + morning plan (8:30 AM), delivered via Expo push
 
 ---
 
@@ -499,23 +496,23 @@ Mobile: display with "Not financial advice" disclaimer
 ## 8. Environment Variables Required
 
 ```bash
-# Backend .env
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/krishnas_tracker
-SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_SERVICE_KEY=<service_role_key>
-SUPABASE_ANON_KEY=<anon_key>
+# Supabase Edge Function secrets (set via `supabase secrets set`)
 GROQ_API_KEY=gsk_...
-FIREBASE_SERVICE_ACCOUNT_JSON=<base64 encoded JSON>
-KITE_API_KEY=<key>              # Phase 5 only — verify pricing first
-KITE_API_SECRET=<secret>        # Phase 5 only
-ENCRYPTION_SECRET_KEY=<32-byte hex>
+KITE_API_KEY=<key>
+KITE_API_SECRET=<secret>
+EXPO_PUSH_TOKEN / project refs as needed
 
-# Mobile .env (via react-native-dotenv or expo constants)
-API_BASE_URL=https://<your-backend>.com/api/v1
-SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_ANON_KEY=<anon_key>
-FIREBASE_APP_ID=<android_app_id>
+# Mobile .env (EXPO_PUBLIC_* — no secrets, public values only)
+EXPO_PUBLIC_SUPABASE_URL=https://rkmouoglorsnijmemmcd.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
+EXPO_PUBLIC_KITE_API_KEY=<kite_api_key>   # OAuth launch only
+
+# Web .env (VITE_*)
+VITE_SUPABASE_URL=https://rkmouoglorsnijmemmcd.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon_key>
 ```
+
+> Full template: `.env.example` at repo root. NEVER commit real `.env` files.
 
 ---
 
@@ -523,9 +520,10 @@ FIREBASE_APP_ID=<android_app_id>
 
 | ADR | Decision |
 |---|---|
-| [ADR-001](ADR/ADR-001-tech-stack.md) | React Native + FastAPI over Flutter or Next.js |
+| [ADR-001](ADR/ADR-001-tech-stack.md) | React Native over Flutter/Next.js (original stack decision) |
 | [ADR-002](ADR/ADR-002-unified-transactions.md) | Single `transactions` table spine over per-module tables |
 | [ADR-003](ADR/ADR-003-monetary-integers.md) | Store money as paise integers, never floats |
-| [ADR-004](ADR/ADR-004-offline-first.md) | SQLite queue + WorkManager for offline-first CRUD |
-| [ADR-005](ADR/ADR-005-notification-workmanager.md) | WorkManager/AlarmManager over JS timers |
-| [ADR-006](ADR/ADR-006-ai-scoping.md) | Claude API calls strictly scoped (two use cases only in v1) |
+| [ADR-004](ADR/ADR-004-offline-first.md) | Offline-first CRUD via local store + central sync queue |
+| [ADR-005](ADR/ADR-005-notification-workmanager.md) | Native scheduling over JS timers (now expo-notifications local scheduling) |
+| [ADR-006](ADR/ADR-006-ai-scoping.md) | AI calls strictly scoped and disclaimed (originally Claude; now Groq, see ADR-008) |
+| [ADR-008](ADR/ADR-008-baas-first.md) | **BaaS-first: Supabase replaces FastAPI backend** — current architecture |

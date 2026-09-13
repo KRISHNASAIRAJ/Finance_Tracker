@@ -17,66 +17,50 @@
 
 ---
 
-## Phase Progress (Last assessed: 2026-07-19)
+## Phase Progress (Last assessed: 2026-09-13)
 
 | Phase | % | Status | What's Done | What's Left |
 |-------|---|--------|-------------|-------------|
-| **0 — Foundation** | 100% | 🟢 | 11 migrations (16+ tables), RLS fixed, config.toml, supabase client, syncQueue, AuthProvider, keychain, edge function scaffolds | Nothing |
-| **1 — Finance** | 100% | 🟢 | 15 screens, add-card/delete-card, bank/cardLimit fields, typed store, dynamic donut ring, bidirectional sync | Nothing |
-| **2 — Garage** | 100% | 🟢 | 7 screens, vehicles table + sync, multi-vehicle UI, FAB menu, maintenance screen, sync queue on all CRUD, fuel fill delete, text overflow fixes | Nothing |
-| **3 — Tasks** | 100% | 🟢 | 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on create/edit/delete/toggle | Nothing |
-| **4 — Equity** | 100% | 🟢 | DB tables, Kite OAuth + equity+MF sync, 6 screens (dashboard + add/edit + history + AI recs + goals + holdings list), pg_cron 8:30 PM IST snapshots, portfolio-snapshot edge fn (multi-user + Expo push), goal progress auto-update, allocation donut (Gold/Realty/Equity/MF/ETF), fund name cleaner, MF display fix | Nothing |
-| **5 — SMS** | 100% | 🔴 | Removed from project | Phase 5 SMS auto-capture was removed |
-| **6 — AI Assistants** | 100% | 🟢 | Edge functions wired, T&C chat + portfolio recs screens, rate-limited Groq calls | Nothing |
-| **7 — Personal** | 100% | 🟢 | 10 screens (onboarding + menu + notes/goals/recipes/diet), store, Supabase sync (all 4 modules wired: goals, notes, recipes, diet plans), offline queue, diet notifications | Nothing |
-| **9 — Polish** | 15% | 🔴 | backupService, backupScheduler, dietNotifications, notificationService | No tests, no cross-module reports, no WorkManager integration |
+| **0 — Foundation** | 100% | 🟢 | 36 migrations (24+ tables), RLS on all tables, config.toml, supabase client, syncQueue, AuthProvider, keychain | Nothing |
+| **1 — Finance** | 100% | 🟢 | 15+ screens, add-card/delete-card, bank/cardLimit fields, typed store, dynamic donut ring, bidirectional sync, budgets, expected income, PayZapp loads | Nothing |
+| **2 — Garage** | 100% | 🟢 | Multi-vehicle UI, FAB menu, maintenance screen, fuel fill/service logs, mileage calc, 8 service types, service reminders, sync on all CRUD | Nothing |
+| **3 — Tasks** | 100% | 🟢 | Screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD, buy/grocery lists with date reminders | Nothing |
+| **4 — Equity** | 100% | 🟢 | Kite OAuth + equity+MF sync, allocation donut, pg_cron 8:30 PM IST snapshots, Expo push, goal auto-progress, live prices (Yahoo + AMFI), net worth + loans + FDs | Nothing |
+| **5 — SMS** | — | 🔴 | Removed from project | — |
+| **6 — AI Assistants** | 100% | 🟢 | Card T&C chat (RAG), portfolio recs (goal-aware), meal AI (photo analyze + chat manage + suggest), daily Groq reports | Nothing |
+| **7 — Personal** | 100% | 🟢 | Goals, notes, recipes, diet plans with onboarding flow, diet notifications, Supabase sync on all modules | Nothing |
+| **9 — Polish** | 100% | 🟢 | CombinedReport, lint/typecheck/jest configs, battery optimization prompt, 4 notification channels, sync queue retry+backoff+crash-safety, Android 13 POST_NOTIFICATIONS | Nothing |
+| **10 — Web App** | 100% | 🟢 | `web/` mirrors mobile (all modules + AI), Supabase Realtime, Netlify deploy | Nothing |
 
-### Cross-cutting gaps
-- **No Jest tests anywhere** — zero `__tests__` directories
-- **3/5 edge functions are done** — portfolio-snapshot, kite-holdings-sync, kite-callback done; ai-tnc-query, ai-portfolio-recommend are scaffolds
-- **Equity + Finance + Garage + Personal have Supabase sync** — all modules synced
-- **Expo push notifications** — uses expo-notifications + Expo Push API (https://exp.host); device tokens stored in device_tokens table. No Firebase needed.
-- **No WorkManager/notifee** — using expo-notifications instead
+All phases complete. Work is now maintenance / feature increments on `v4` branch.
 
 ---
 
-## Active Phase
-
-**Currently Active: Phase 9 — Polish & hardening**
-
-Priority order:
-1. Cross-module reports (CombinedReport)
-2. Jest test suite
-3. Offline sync hardening
-4. Notification reliability improvements
-
----
-
-## Architecture (Revised — ADR-008)
+## Architecture (ADR-008 — BaaS-first)
 
 ```
 Mobile (RN) ─── direct ──► Supabase (Postgres + Auth + Storage + Realtime + pg_cron)
-                              │
-                              └── Edge Functions (Deno/TS) ──► Claude API / Kite
+Web (Vite)   ─── direct ──►   │
+                              └── Edge Functions (Deno/TS) ──► Groq API / Kite / Yahoo / AMFI
 ```
 
-**No FastAPI.** CRUD goes to Supabase PostgREST. AI calls go through Edge Functions. All secrets live in Supabase, never in the app.
+**No FastAPI (archived — see ADR-008).** CRUD goes to Supabase PostgREST. AI calls go through Edge Functions. All secrets live in Supabase, never in the app.
 
-Cron: pg_cron at 15:00 UTC (8:30 PM IST) calls portfolio-snapshot via pg_net.
+Cron: pg_cron at 15:00 UTC (8:30 PM IST) refreshes prices → portfolio-snapshot via pg_net.
 
-Edge functions deployed: kite-callback, kite-holdings-sync, portfolio-snapshot (all production-ready). Scaffolds: ai-tnc-query, ai-portfolio-recommend.
+**Deployed edge functions (all production):** `ai-daily-report`, `ai-meal-log`, `ai-meal-suggest`, `ai-portfolio-recommend`, `ai-tnc-query`, `kite-callback`, `kite-holdings-sync`, `portfolio-snapshot`, `refresh-portfolio-prices`.
 
 ---
 
 ## Critical Rules (Summary — Full List in BOUNDARIES.md)
 
 - **App name is Meridian** — use this name in all screen titles, app bar headers, and metadata
-- **Dark mode first** — implement ALL screens using dark tokens from `DESIGN.md`. Never use light colors during Phase 0–8
+- **Dark mode first** — implement ALL screens using dark tokens from `DESIGN.md`
 - **Money = paise integers always** (₹1 = 100 paise). Never floats.
 - **Never AsyncStorage for tokens** — use `react-native-keychain`
-- **Never touch `transactions` table structure** without migration + updating `ARCHITECTURE.md`
-- **Claude API only from Edge Functions** — never from mobile app directly
-- **Every Claude response must include disclaimer** — see `SAFETY.md` Section 4
+- **Never touch `transactions` table structure** without a migration + updating `ARCHITECTURE.md`
+- **Groq API only from Edge Functions** — never from mobile/web app directly
+- **Every AI response must include disclaimer** — see `SAFETY.md` Section 4
 - **Canonical screens = Meridian: prefixed in Stitch** — for screens without that prefix, use layout only and apply dark tokens
 
 ---
@@ -87,6 +71,9 @@ Edge functions deployed: kite-callback, kite-holdings-sync, portfolio-snapshot (
 # Mobile Android dev build
 cd mobile && npm run android
 
+# Web dev
+cd web && npm run dev
+
 # Create new Supabase migration
 supabase migration new <description>
 
@@ -96,14 +83,14 @@ supabase db push
 # Deploy Edge Functions
 supabase functions deploy <fn-name>
 
-# Trigger portfolio snapshot manually
-curl -X POST https://rkmouoglorsnijmemmcd.supabase.co/functions/v1/portfolio-snapshot
-
-# Run mobile linting + typecheck
-cd mobile && npm run lint && npm run typecheck
+# Run mobile linting + typecheck + tests
+cd mobile && npm run lint && npm run typecheck && npm test
 
 # Set Edge Function secrets
 supabase secrets set GROQ_API_KEY=gsk_...
+
+# Link project
+supabase link --project-ref rkmouoglorsnijmemmcd
 ```
 
 ---

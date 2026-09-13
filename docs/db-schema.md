@@ -3,7 +3,7 @@
 
 > Quick-reference for all tables and their columns.  
 > Full schemas with SQL DDL are in `ARCHITECTURE.md` Section 3.  
-> For migrations, see `backend/migrations/`.
+> For migrations, see `supabase/migrations/`.
 
 ---
 

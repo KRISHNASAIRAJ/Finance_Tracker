@@ -11,13 +11,13 @@
 | Field | Value |
 |---|---|
 | **App Name** | Meridian |
-| **Type** | Personal-use mobile app (Android-first) |
-| **Platform** | React Native (Android → iOS later) |
+| **Type** | Personal-use app (Android-first mobile + web mirror) |
+| **Platform** | React Native (Android → iOS later) + Vite/React web |
 | **Backend** | Supabase Edge Functions (Deno/TypeScript) — no FastAPI (see ADR-008) |
-| **Database** | PostgreSQL (Supabase-hosted) + SQLite local cache |
-| **Auth** | Supabase Auth / JWT |
-| **AI Layer** | Groq API (Llama 3.3 70B + Llama 3.1 8B) — free-tier friendly |
-| **Notifications** | Expo Push Notifications + local AlarmManager/WorkManager |
+| **Database** | PostgreSQL (Supabase-hosted), RLS on all tables |
+| **Auth** | Supabase Auth / JWT (shared mobile + web) |
+| **AI Layer** | Groq API — `openai/gpt-oss-120b` + `openai/gpt-oss-20b` (text), `qwen/qwen3.6-27b` (vision) — free-tier friendly |
+| **Notifications** | Expo Push Notifications + expo-notifications local scheduling |
 | **Design** | Dark mode first — all screens implemented in dark. See `DESIGN.md` |
 | **Stitch Project** | https://stitch.withgoogle.com/projects/4997376971246377666 |
 | **PRD Reference** | `PRD.md` — read it before implementing any feature |
@@ -29,6 +29,9 @@
 ```
 krishnas-tracker/
 ├── AGENTS.md                  ← This file (read first)
+├── CLAUDE.md                  ← Claude Code session instructions
+├── COMMIT_RULES.md            ← Commit/branch conventions (incl. [AI] prefix rule)
+├── PLAN.md                    ← Feature implementation plan (v4 feature log)
 ├── PRD.md                     ← Product Requirements Document
 ├── ARCHITECTURE.md            ← System design & data models
 ├── BOUNDARIES.md              ← Hard constraints & off-limits rules
@@ -37,32 +40,42 @@ krishnas-tracker/
 ├── ADR/                       ← Architecture Decision Records
 │   ├── ADR-001-tech-stack.md
 │   ├── ADR-002-unified-transactions.md
-│   └── ...
+│   └── ... (ADR-008 = current BaaS-first architecture)
 ├── docs/
-│   ├── api-contracts.md       ← API endpoint specs
+│   ├── api-contracts.md       ← Edge function contracts
 │   ├── db-schema.md           ← Full DB schema reference
-│   └── notification-flows.md  ← Notification trigger maps
+│   ├── notification-flows.md  ← Notification trigger maps
+│   ├── screens.md             ← Stitch screen index
+│   └── Fundamental_Analysis.md
 ├── mobile/                    ← React Native app
+│   ├── assets/                ← App icons, splash (canonical copies — no dupes at repo root)
 │   ├── src/
-│   │   ├── modules/           ← Feature modules (finance, garage, tasks, equity, personal)
+│   │   ├── modules/           ← Feature modules (finance, garage, tasks, equity, meals, personal, career, diary)
 │   │   ├── shared/            ← Shared components, hooks, utils
 │   │   ├── navigation/        ← React Navigation setup
 │   │   ├── store/             ← Zustand global state
-│   │   └── services/          ← API clients, local DB, notifications
-│   └── android/               ← Android native layer
+│   │   └── services/          ← API clients, sync queue, notifications, backups
+│   └── android/               ← Android native layer (widgets)
+├── web/                        ← Web app (Vite + React + TS + Tailwind + TanStack Query + Recharts)
 ├── supabase/                  ← Supabase project
 │   ├── config.toml             ← Supabase project config
-│   ├── migrations/            ← SQL migration files (replaces Alembic)
-│   │   ├── 0001_init.sql      ← All 14 tables
+│   ├── migrations/            ← SQL migration files (36 as of 2026-09)
+│   │   ├── 0001_init.sql      ← Initial tables
 │   │   ├── 0002_rls.sql       ← Row-Level Security policies
-│   │   └── ...                ← Per-phase add/drop migrations
+│   │   └── ...                ← Per-feature add/drop migrations (up to 0036_fixed_deposits.sql)
 │   └── functions/             ← Deno Edge Functions (hold secrets)
 │       ├── _shared/groq.ts     ← Shared Groq API client
-│       ├── ai-tnc-query/       ← Card T&C chat (Phase 6 — deployed, uses Groq)
-│       ├── ai-portfolio-recommend/  ← Portfolio recs (Phase 6 — deployed, uses Groq)
-│       ├── kite-holdings-sync/ ← Kite Connect sync (Phase 4 — deployed)
-│       ├── kite-callback/      ← Kite OAuth callback (Phase 4 — deployed)
-│       └── portfolio-snapshot/ ← 8:30 PM IST cron (Phase 4 — deployed)
+│       ├── ai-tnc-query/       ← Card T&C chat (RAG)
+│       ├── ai-portfolio-recommend/  ← Portfolio recs (goal-aware)
+│       ├── ai-meal-log/       ← Meal photo analysis + chat manage mode
+│       ├── ai-meal-suggest/   ← Meal suggestions
+│       ├── ai-daily-report/   ← Evening/morning Groq reports + push
+│       ├── kite-holdings-sync/ ← Kite Connect sync
+│       ├── kite-callback/      ← Kite OAuth callback
+│       ├── portfolio-snapshot/ ← 8:30 PM IST cron
+│       └── refresh-portfolio-prices/ ← Yahoo/AMFI live quotes
+├── scripts/
+│   └── install-dev.ps1        ← Windows dev install script
 └── .env.example               ← Required environment variables
 ```
 
@@ -70,20 +83,21 @@ krishnas-tracker/
 
 ## 3. Phased Build Roadmap
 
-Always work within the current phase. Do NOT skip ahead.
+All planned phases are complete. Work is now maintenance / incremental features on the `v4` branch.
 
 | Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟢 100% — 17 migrations (17 tables + RLS), config.toml polished, all services done |
-| **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | 🟢 100% — 15 screens, add-card/delete-card, bank/limit fields, typed store, dynamic donut, bidirectional sync |
-| **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | 🟢 100% — 7 screens, vehicles table + sync, multi-vehicle UI (add/edit/delete), FAB menu, maintenance screen, sync queue |
-| **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — 3 screens, sync hook, edit mode, recurrence auto-create, notification scheduling on all CRUD |
-| **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | 🟢 100% — 6 screens, Kite OAuth + equity+MF sync, allocation donut (Gold/Realty/Equity/MF), pg_cron portfolio snapshots, Expo push notifications, goal auto-progress |
+| **Phase 0** | Foundation — BaaS-first: Supabase schema + RLS + sync queue + edge function scaffolds | 🟢 100% |
+| **Phase 1** | Finance Tracker: CRUD + dashboard + basic charts | 🟢 100% — 15+ screens, budgets, expected income, PayZapp |
+| **Phase 2** | Vehicle Garage: fuel fills, service logs, mileage calc | 🟢 100% — multi-vehicle, 8 service types, service reminders |
+| **Phase 3** | Task Manager: CRUD, subtasks, recurrence, local notifications | 🟢 100% — incl. buy/grocery lists with date reminders |
+| **Phase 4** | Equity/MF Tracker: holdings, Kite integration, goals, 8:30 PM pg_cron | 🟢 100% — live prices (Yahoo+AMFI), net worth + loans + FDs |
 | **Phase 5** | SMS Auto-capture — REMOVED from project | 🔴 Removed |
-| **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation (goal-aware) | 🟢 100% — shared Groq client, both edge functions fully implemented (T&C Q&A + portfolio recs), CardChat + AIRecommendations screens, document upload + RAG via text retrieval, rate-limited Groq calls |
-| **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% — 10 screens, store, Supabase sync on all 4 modules (goals/notes/recipes/diet), offline queue, diet notifications, onboarding flow |
-| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport screen (net worth + allocation + spend), lint/typecheck/jest configs, ESLint, battery optimization prompt, 4 notification channels, sync queue with retry+backoff, sync queue crash-safety (no-dataloss), fixed expense idempotency guard, balance summary min-bal exclusion, task notification catch-up for near-term tasks, Kite OAuth state-param + redirect URI + verify_jwt fix, Android 13 POST_NOTIFICATIONS permission |
-| **Phase 10** | Web App: full-featured website mirroring the mobile app | 🟢 100% — `web/` (Vite + React + TS + Tailwind + TanStack Query + Recharts), all modules (Finance, Garage, Tasks, Wealth, Personal, Meals, Career, Diary), AI features, fold.money-inspired dark dashboard, Supabase Realtime sync, email+password auth, Netlify deploy |
+| **Phase 6** | AI Assistants: Card T&C chat, portfolio recommendation, meal AI, daily reports (all Groq via edge functions) | 🟢 100% |
+| **Phase 7** | Personal Notes & Goals: 2026 goals, notes, recipes, diet plan | 🟢 100% |
+| **Phase 8** | Meals / Career / Diary modules | 🟢 100% — meal logger + nutrition trends, quick meals, meal chat, career events, weekly diary |
+| **Phase 9** | Polish: cross-module reports, offline hardening, notification reliability | 🟢 100% — CombinedReport, CI (build-apk.yml), sync queue retry+backoff+crash-safety, 4 notification channels, Android 13 POST_NOTIFICATIONS |
+| **Phase 10** | Web App: full-featured website mirroring the mobile app | 🟢 100% |
 
 ---
 
@@ -139,7 +153,7 @@ Modules **share** only:
 **CRITICAL**: Every financial event (expense, fuel fill, vehicle service, portfolio buy/sell, lending) MUST write to the `transactions` table. Do not create isolated spend tables that bypass this spine. See `ARCHITECTURE.md` for the full schema.
 
 ### 4.5 Offline-First Rule
-Manual data entry (expenses, fuel fills, tasks) must work with no internet. Use SQLite + queue pattern; sync when connectivity returns. Do not block the UI on network calls for CRUD operations.
+Manual data entry (expenses, fuel fills, tasks) must work with no internet. Use the local Zustand store (AsyncStorage-persisted) + central sync queue pattern; sync when connectivity returns. Do not block the UI on network calls for CRUD operations.
 
 ---
 
@@ -150,9 +164,15 @@ Manual data entry (expenses, fuel fills, tasks) must work with no internet. Use 
 cd mobile
 npm install            # Install dependencies
 npm run android        # Run on Android device/emulator
-npm run test           # Run Jest tests
+npm test               # Run Jest tests
 npm run lint           # ESLint check
 npm run typecheck      # TypeScript check
+
+# --- WEB ---
+cd web
+npm install
+npm run dev            # Local dev server
+npm run typecheck && npm run lint && npm run build   # Verify
 
 # --- SUPABASE ---
 supabase login         # Authenticate CLI (once)
@@ -172,7 +192,7 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 4. **Test the happy path**: Write at minimum one integration test per new feature
 5. **Do not modify `transactions` table structure** without updating `ARCHITECTURE.md` and creating a Supabase migration
 6. **All AI calls** must follow the rules in `SAFETY.md` — read it before touching `supabase/functions/`
-7. **Notification scheduling** must use `WorkManager`/`AlarmManager` (not JS timers) — see `docs/notification-flows.md`
+7. **Notification scheduling** must survive app kill (expo-notifications local scheduling — never JS timers) — see `docs/notification-flows.md`
 
 ---
 
@@ -180,9 +200,9 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 
 | Risk | Mitigation |
 |---|---|
-| Kite Connect API pricing | Confirm free-tier access before Phase 4. Implement manual entry as full fallback |
-| Android OEM battery optimization | Prompt user to whitelist app; use `WorkManager` with `KEEP` policy |
-| Groq API costs | Gate AI calls behind usage caps; cache responses where appropriate |
+| Kite Connect API pricing | Manual holdings entry is the full fallback — already implemented |
+| Android OEM battery optimization | Prompt user to whitelist app; background sync via Expo BackgroundFetch |
+| Groq API costs | Gate AI calls behind usage caps; cache responses where appropriate (free tier currently covers all use cases) |
 
 ---
 

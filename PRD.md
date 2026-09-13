@@ -1,11 +1,11 @@
 # Product Requirements Document
 ## Meridian — Personal Life Tracker (Finance + Vehicle Garage + Task Manager + Equity/MF Tracker)
 
-**Version:** 1.0
-**Date:** July 17, 2026
+**Version:** 1.1
+**Date:** September 13, 2026
 **Owner:** Krishna Sai Raj Ponneboina
-**Platform:** Mobile app (Android first, iOS later)
-**Intended build method:** Claude Code / Antigravity, module by module
+**Platform:** Mobile app (Android first, iOS later) + web mirror
+**Intended build method:** AI coding agents (Claude Code / opencode etc.), module by module
 **Design:** Dark mode first — all screens in dark. Stitch project: https://stitch.withgoogle.com/projects/4997376971246377666
 **App name:** Meridian
 
@@ -13,15 +13,16 @@
 
 ## 1. Overview
 
-**Meridian** is a single mobile app, for personal use, that unifies daily life tracking currently scattered across spreadsheets, notes apps, and bank/broker apps:
+**Meridian** is a single app, for personal use, that unifies daily life tracking currently scattered across spreadsheets, notes apps, and bank/broker apps:
 
 1. **Finance Tracker** — credit cards, bank balances, lending/borrowing, fixed expenses, daily expenses, AI assistant for card T&Cs
 2. **Vehicle Garage** — fuel fills, mileage, service/maintenance spend
 3. **Task Manager** — Notion-style tasks with reminders and notifications
 4. **Equity/MF Tracker** — holdings, Kite sync, AI rebalancing suggestions, daily 8:30 PM portfolio report
 5. **Personal Notes & Goals** — 2026 life goals, notes, recipes, diet plan
+6. **Meals / Career / Diary** — meal logging with AI photo analysis, career events, weekly diary
 
-**Design principle:** Dark mode first. One shared backend, one shared auth/session, one shared notification pipeline, modules sharing a common `transactions`-style data spine (finance, fuel, vehicle spend, portfolio all produce "money events").
+**Design principle:** Dark mode first. One shared backend (Supabase), one shared auth/session, one shared notification pipeline, modules sharing a common `transactions`-style data spine (finance, fuel, vehicle spend, portfolio all produce "money events").
 
 ---
 
@@ -41,20 +42,22 @@
 
 ---
 
-## 3. Tech Stack
+## 3. Tech Stack (as built — see ADR-008)
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Mobile framework | React Native | Cross-platform now, Android-first rollout |
-| Backend | FastAPI (Python) or NestJS (Node) | Needed for cron jobs (8:30 PM report), Kite sync, AI calls |
-| Database | PostgreSQL | Relational fits all modules; Prisma or SQLAlchemy ORM |
-| Local cache | SQLite / AsyncStorage | Offline-first reads |
-| Auth | Supabase Auth or self-hosted JWT | Single login across modules |
-| Push notifications | Firebase Cloud Messaging (FCM) | Server-triggered (portfolio report) + local notifications (task reminders) |
-| Charts | Victory Native / React Native Chart Kit | Line, pie/donut, bar |
-| AI | Groq API (via Supabase Edge Functions) | Card T&C Q&A (RAG), portfolio recommendations |
-| Brokerage data | Kite Connect / Kite MCP (Zerodha) | **Verify current pricing/free-tier before building** — Kite Connect has historically been a paid API |
-| Hosting | Supabase (DB+auth) + small VPS or serverless functions for cron/AI calls | Keep cost low for personal use |
+| Mobile framework | React Native (Expo) | Cross-platform, Android-first rollout |
+| Web mirror | Vite + React + TypeScript + Tailwind + TanStack Query | Deployed on Netlify |
+| Backend | Supabase (PostgREST + Edge Functions in Deno/TS) | No custom server — cron via pg_cron, AI/Kite via edge functions |
+| Database | PostgreSQL (Supabase-hosted) | RLS on all tables; migrations in `supabase/migrations/` |
+| Local cache | Zustand + AsyncStorage | Offline-first with central sync queue |
+| Auth | Supabase Auth (JWT) | Single login across mobile + web |
+| Push notifications | Expo Push Notifications (server-triggered) | Local reminders via expo-notifications |
+| Charts | react-native-svg / Recharts (web) | Donut, area, progress |
+| AI | Groq API (via Supabase Edge Functions) | gpt-oss-120b/20b text, qwen3.6-27b vision — T&C RAG, portfolio recs, meal AI, daily reports |
+| Brokerage data | Kite Connect (Zerodha) | Read-only holdings sync, OAuth via edge functions |
+| Price feeds | Yahoo Finance + AMFI | Live quotes via refresh-portfolio-prices |
+| Hosting | Supabase (DB+auth+functions) + Netlify (web) | Free tier only |
 
 ---
 
@@ -92,17 +95,18 @@ This lets a single query answer "total outflow this month across everything" wit
 
 **b) Portfolio Recommendation Assistant**
 - Reads current holdings + allocation from DB
-- Sends portfolio snapshot + basic rules (concentration %, asset class mix) to Claude API
+- Sends portfolio snapshot + basic rules (concentration %, asset class mix) to Groq API (via edge function)
 - Returns plain-language suggestions (e.g., "X% concentrated in one stock — consider diversifying")
 - Clearly labeled: informational only, not investment advice
 
 ### 4.4 Notifications
 | Notification | Trigger | Mechanism |
 |---|---|---|
-| Task reminder | User-set time | Local on-device notification |
-| Daily portfolio report | 8:30 PM daily | Server cron job → FCM push |
+| Task reminder | User-set time | Local on-device notification (expo-notifications) |
+| Daily portfolio report | 8:30 PM daily | pg_cron → edge function → Expo push |
 | Fixed expense due soon | N days before due date | Local scheduled notification |
 | Credit card bill due | N days before due date | Local scheduled notification |
+| Daily AI report | 9:30 PM / 8:30 AM IST | Edge function → Expo push |
 
 ### 4.5 Charts (used across modules)
 - Line chart: spend over time, portfolio value over time, mileage trend
@@ -206,7 +210,7 @@ This lets a single query answer "total outflow this month across everything" wit
 - Manual entry fallback for holdings not synced
 
 ### Scheduled job
-- Daily at 8:30 PM: backend job fetches current holdings + prices → computes day summary → sends FCM push notification with a one-line summary ("Portfolio: ₹X, up 1.2% today") → tapping opens full report screen
+- Daily at 8:30 PM IST: pg_cron → refresh prices (Yahoo + AMFI) → portfolio-snapshot edge function computes day summary → sends Expo push notification with a one-line summary ("Portfolio: ₹X, up 1.2% today") → tapping opens full report screen
 - Report can optionally include goal progress (e.g. "Retirement goal: 34% funded, on track for 2040")
 
 ### AI recommendations — goal-aware
@@ -256,49 +260,37 @@ A catch-all personal module for two related but distinct things: (1) tracking yo
 - **Offline-first**: manual entries (expenses, fuel, tasks) must work offline and sync when connectivity returns
 - **Data privacy**: Financial data stored encrypted at rest; card T&C documents and portfolio data never leave the backend except for scoped AI calls
 - **Performance**: dashboard loads in under 2 seconds with local cache
-- **Notification reliability**: task reminders and 8:30 PM report must survive app kill/reboot (use `AlarmManager`/`WorkManager` on Android, not just JS timers)
+- **Notification reliability**: task reminders and 8:30 PM report must survive app kill/reboot (expo-notifications local scheduling on Android — never JS timers)
 
 ---
 
-## 11. Suggested Build Roadmap (for Claude Code, phased)
+## 11. Build Roadmap (COMPLETE — all phases shipped)
 
-**Phase 0 — Foundation**
-- Project scaffold (React Native + backend), auth, DB schema for all modules, shared `transactions` table
+> Status as of September 2026. Actual phase log lives in `AGENTS.md` Section 3.
 
-**Phase 1 — Finance Tracker core**
-- CRUD for cards, accounts, lent/borrowed, fixed expenses, daily expense quick-add
-- Dashboard + basic charts
-
-**Phase 2 — Vehicle Garage**
-- Fuel fill + vehicle spend CRUD, mileage calculation, charts
-
-**Phase 3 — Task Manager**
-- Task CRUD, subtasks, recurrence, local notification scheduling
-
-**Phase 4 — Equity/MF Tracker**
-- Manual holdings CRUD, Kite integration (pending pricing/access confirmation), portfolio dashboard + goals, 8:30 PM cron + FCM push
-
-**Phase 5 — AI Assistants**
-- Card T&C upload + RAG chat
-- Portfolio recommendation assistant (goal-aware)
-
-**Phase 6 — Personal Notes & Goals**
-- 2026 goals list + status workflow, general notes, recipes, diet plan grid
-
-**Phase 9 — Polish**
-- Cross-module reports (net worth, combined dashboards), offline sync hardening, notification reliability testing
+**Phase 0 — Foundation** ✅ Supabase schema, RLS, sync queue, edge function scaffolds
+**Phase 1 — Finance Tracker core** ✅ Cards, accounts, lending, fixed expenses, budgets, PayZapp, charts
+**Phase 2 — Vehicle Garage** ✅ Multi-vehicle, fuel + service logs, mileage, reminders
+**Phase 3 — Task Manager** ✅ Subtasks, recurrence, notifications, buy/grocery lists
+**Phase 4 — Equity/MF Tracker** ✅ Holdings, Kite sync, goals, live prices, 8:30 PM cron + Expo push, net worth + loans + FDs
+**Phase 5 (SMS auto-capture)** — removed from project
+**Phase 6 — AI Assistants** ✅ T&C RAG chat, goal-aware portfolio recs, meal AI, daily reports
+**Phase 7 — Personal Notes & Goals** ✅ Goals, notes, recipes, diet plan
+**Phase 8 — Meals / Career / Diary** ✅ Meal logger + trends + chat, career events, weekly diary
+**Phase 9 — Polish** ✅ CombinedReport, offline hardening, 4 notification channels, CI
+**Phase 10 — Web App** ✅ Full web mirror on Netlify
 
 ---
 
 ## 12. Open Questions / Risks
 
-- **Kite Connect access/pricing**: needs to be confirmed on Zerodha's developer console before Phase 4 — Kite Connect API has historically required a paid subscription; the "free MCP" option should be verified for current terms and rate limits.
+- **Kite Connect access/pricing**: confirmed and implemented (read-only holdings sync). Manual entry remains the full fallback.
 - **iOS support**: iOS parity is a separate effort, deferred.
-- **AI cost**: AI API calls for T&C Q&A and portfolio recommendations run on Groq's generous free tier — not a concern.
-- **Notification reliability on Android**: OEM battery optimization (especially on Xiaomi/Oppo/Vivo devices) can kill background schedulers — may need to prompt users to whitelist the app.
+- **AI cost**: AI API calls run on Groq's generous free tier — not a concern.
+- **Notification reliability on Android**: OEM battery optimization (especially on Xiaomi/Oppo/Vivo devices) can kill background schedulers — app prompts users to whitelist it.
 
 ---
 
-## 13. How to use this PRD with Claude Code
+## 13. How to use this PRD with AI coding agents
 
-Suggested approach: work through the roadmap phases in order, one Claude Code session per phase. For each phase, point Claude Code at this PRD section plus the relevant data model, and ask it to scaffold the module (screens, API endpoints, DB migrations) before wiring in AI/notification features. Keep Phase 0 (shared foundation) genuinely shared — resist building each module as an island, since the value of this app over standalone trackers is the unified data spine (section 4.1) and single dashboard.
+Work with one module per session. For each, read this PRD section plus the relevant data model (`ARCHITECTURE.md`), then scaffold the module (screens, Supabase migrations, RLS) before wiring in AI/notification features. Keep the shared foundation genuinely shared — resist building each module as an island, since the value of this app over standalone trackers is the unified data spine (section 4.1) and single dashboard. Read `AGENTS.md`, `BOUNDARIES.md`, and `SAFETY.md` before writing code.

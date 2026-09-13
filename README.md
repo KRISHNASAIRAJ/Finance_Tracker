@@ -1,6 +1,6 @@
 # Meridian — Personal Life Tracker
 
-Meridian is a personal-use mobile app (Android-first) that unifies daily life tracking across seven modules. Built with React Native (Expo) and Supabase, featuring offline-first sync, AI-powered insights, and Android home screen widgets.
+Meridian is a personal-use app (Android-first mobile + web mirror) that unifies daily life tracking across eight modules. Built with React Native (Expo) and Supabase, featuring offline-first sync, AI-powered insights, and Android home screen widgets.
 
 ## Modules
 
@@ -66,7 +66,7 @@ meridian/
 ├── web/                   ← Web app (Vite + React + TS + Tailwind + TanStack Query + Recharts)
 └── supabase/
     ├── config.toml         ← Supabase project config
-    ├── migrations/        ← SQL migration files (29 migrations)
+    ├── migrations/        ← SQL migration files (36 migrations)
     └── functions/         ← Deno Edge Functions
 ```
 
@@ -75,7 +75,7 @@ meridian/
 ### Prerequisites
 
 - Node.js 18+
-- Expo CLI (`npm install -g expo-cli`)
+- Expo CLI (`npx expo` — no global install needed)
 - Supabase CLI (optional, for edge function development)
 
 ### Install & Run

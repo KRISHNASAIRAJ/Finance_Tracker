@@ -1,262 +1,125 @@
 # API Contracts
-## Personal Tracker App · Krishna's Tracker
+## Meridian · Personal Life Tracker
 
-> All API endpoints follow REST conventions. Base URL: `/api/v1`  
-> Authentication: All endpoints require `Authorization: Bearer <jwt_token>` unless marked `[PUBLIC]`  
-> Response format: `{ success, data, meta, error }`
+> **Architecture (ADR-008):** There is no custom REST server. Two API surfaces exist:  
+> 1. **Supabase PostgREST** — CRUD on tables, auto-generated from Postgres, RLS-enforced per `auth.uid()`.  
+> 2. **Supabase Edge Functions** — invoked via `supabase.functions.invoke('<name>', { body })` from mobile/web; used for anything requiring secrets or external APIs (Groq, Kite, Yahoo/AMFI, Expo push).  
+> Table/column reference: `docs/db-schema.md`. Data models: `ARCHITECTURE.md` Section 3.
 
 ---
 
-## Standard Response Envelope
+## PostgREST CRUD (auto-generated)
+
+All tables are accessed directly via `supabase-js`:
 
 ```typescript
-// Success
-{
-  "success": true,
-  "data": T,
-  "meta": { "total"?: number, "page"?: number, "per_page"?: number },
-  "error": null
-}
+// Select (RLS scopes rows to the signed-in user)
+const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false });
 
-// Error
+// Insert / Upsert (sync queue uses per-entity ON_CONFLICT_TARGET)
+await supabase.from('tasks').insert(task);
+await supabase.from('vehicles').upsert(v, { onConflict: 'user_id,name' });
+
+// Soft delete — status flags, never hard DELETE for financial rows
+await supabase.from('transactions').update({ status: 'voided' }).eq('id', id);
+```
+
+Standard PostgREST query params apply (`.eq()`, `.gte()`, `.lte()`, `.order()`, `.limit()`, `.select()` column pruning).
+
+---
+
+## Edge Functions
+
+All edge functions live in `supabase/functions/`, are Deno/TypeScript, and share the Groq client in `_shared/groq.ts` (text: `openai/gpt-oss-120b` / `openai/gpt-oss-20b`, vision: `qwen/qwen3.6-27b`).
+
+### ai-tnc-query — Card T&C chat (RAG)
+```typescript
+// Invoke
+supabase.functions.invoke('ai-tnc-query', {
+  body: { cardId: string, question: string }   // question sanitized, ≤500 chars
+})
+// Response data:
 {
-  "success": false,
-  "data": null,
-  "meta": null,
-  "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [...] }
+  answer: string,        // grounded in CARD_KNOWLEDGE or uploaded doc chunks
+  disclaimer: "Based on the document you uploaded. Verify current terms directly with your bank."
 }
+// Rate limit: 30/day. Errors: { error: 'RATE_LIMITED' | 'AI_UNAVAILABLE' | 'INVALID_QUESTION' }
+```
+
+### ai-portfolio-recommend — Portfolio recs (goal-aware)
+```typescript
+supabase.functions.invoke('ai-portfolio-recommend', {
+  body: { includeGoals?: boolean }
+})
+// Response data:
+{
+  recommendations: string,   // plain-language, percentages only (no rupee amounts)
+  disclaimer: "For informational purposes only. This is not investment advice.",
+  generatedAt: string, cached?: boolean
+}
+// Rate limit: 5/day → returns last cached response when exceeded.
+```
+
+### ai-meal-log — Meal photo analysis + chat manage mode
+```typescript
+// Photo analysis (vision model)
+supabase.functions.invoke('ai-meal-log', {
+  body: { imageBase64: string, context?: string }
+})
+// → { items: [{ name, calories, protein, carbs, fat, confidence }] }
+
+// Chat manage mode (add/delete/modify proposed changes — user confirms in UI)
+supabase.functions.invoke('ai-meal-log', {
+  body: { mode: 'manage', request: string, todayLog: MealEntry[] }
+})
+// → { proposedChanges: [{ action: 'add'|'delete'|'modify', entry, reason }] }
+```
+
+### ai-meal-suggest — Meal suggestions
+```typescript
+supabase.functions.invoke('ai-meal-suggest', { body: { macrosTarget?, excludeRecent?: boolean } })
+// → { suggestions: [{ name, macros, reason }] }
+```
+
+### ai-daily-report — Evening/morning Groq reports (cron-driven)
+```typescript
+// Triggered by pg_cron: evening 16:00 UTC (9:30 PM IST), morning 03:00 UTC (8:30 AM IST)
+// Manual: POST { mode: 'evening' | 'morning' } — idempotent per (user, date, mode)
+// Inputs to Groq: task names/status, meal names + notes. NO financial data.
+// → sends Expo push; report stored for in-app Daily Report screen.
+```
+
+### kite-holdings-sync / kite-callback — Kite Connect (Zerodha)
+```typescript
+// OAuth: kite-callback handles Zerodha redirect (state-param verified) → stores tokens in kite_tokens
+// Sync (read-only): supabase.functions.invoke('kite-holdings-sync', { body: {} })
+// → upserts equity + MF holdings with source 'kite_sync'. Never places orders.
+```
+
+### refresh-portfolio-prices — Live quotes
+```typescript
+// pg_cron pre-snapshot + manual refresh from Wealth hero card
+// Fetches Yahoo Finance (equity/ETF) + AMFI (MF NAV) → updates current_price, prev_close per holding
+```
+
+### portfolio-snapshot — 8:30 PM IST cron
+```typescript
+// pg_cron 15:00 UTC → computes total_value, day_change, day_change_pct per user
+// Unchanged values slide snapshot date forward (no duplicate rows)
+// Sends Expo push summary ("₹XL · +1.2% today") — no account-level detail
 ```
 
 ---
 
-## Error Codes
+## Error Handling Convention
 
-| Code | HTTP Status | Description |
+Edge functions return `{ error: '<CODE>' }` with HTTP 4xx/5xx:
+
+| Code | Status | Description |
 |---|---|---|
-| `VALIDATION_ERROR` | 422 | Pydantic validation failed |
-| `NOT_FOUND` | 404 | Resource does not exist |
-| `UNAUTHORIZED` | 401 | Missing or invalid JWT |
-| `FORBIDDEN` | 403 | Valid JWT but insufficient permissions |
-| `RATE_LIMITED` | 429 | AI call rate limit exceeded |
-| `AI_UNAVAILABLE` | 503 | Claude API timeout or error |
-| `CONFLICT` | 409 | Duplicate resource |
-| `INTERNAL_ERROR` | 500 | Unexpected server error |
+| `UNAUTHORIZED` | 401 | Missing/invalid JWT |
+| `INVALID_QUESTION` | 400 | Prompt-injection pattern or oversize input rejected |
+| `RATE_LIMITED` | 429 | Per-use-case daily cap exceeded |
+| `AI_UNAVAILABLE` | 503 | Groq timeout/error (no auto-retry) |
 
----
-
-## Module 1: Finance — Credit Cards
-
-```
-GET    /api/v1/credit-cards              → List all credit cards
-POST   /api/v1/credit-cards              → Create new credit card
-GET    /api/v1/credit-cards/{id}         → Get card details
-PATCH  /api/v1/credit-cards/{id}         → Update card
-DELETE /api/v1/credit-cards/{id}         → Soft delete card
-
-POST   /api/v1/credit-cards/{id}/tnc    → Upload T&C document (multipart/form-data)
-GET    /api/v1/credit-cards/{id}/tnc    → Get T&C document metadata
-POST   /api/v1/credit-cards/{id}/tnc/chat → Ask T&C question (AI Use Case A)
-```
-
-**POST /api/v1/credit-cards — Request**
-```json
-{
-  "name": "HDFC Regalia",
-  "bank": "HDFC",
-  "card_limit": 50000000,      // paise (₹5,00,000)
-  "billing_cycle_date": 15,    // 15th of each month
-  "due_date_offset": 20        // due 20 days after cycle close
-}
-```
-
-**POST /api/v1/credit-cards/{id}/tnc/chat — Request**
-```json
-{
-  "question": "What is the annual fee waiver condition?"
-}
-```
-
-**POST /api/v1/credit-cards/{id}/tnc/chat — Response**
-```json
-{
-  "success": true,
-  "data": {
-    "answer": "The annual fee is waived if you spend ₹2,00,000 in the card year...",
-    "disclaimer": "Based on the document you uploaded. Verify current terms directly with your bank.",
-    "sources_used": 2
-  }
-}
-```
-
----
-
-## Module 1: Finance — Bank Accounts
-
-```
-GET    /api/v1/bank-accounts             → List all accounts
-POST   /api/v1/bank-accounts             → Create account
-PATCH  /api/v1/bank-accounts/{id}        → Update account (balance, nickname)
-DELETE /api/v1/bank-accounts/{id}        → Soft delete
-```
-
----
-
-## Module 1: Finance — Transactions
-
-```
-GET    /api/v1/transactions              → List transactions (paginated)
-POST   /api/v1/transactions              → Create transaction
-PATCH  /api/v1/transactions/{id}         → Update transaction
-DELETE /api/v1/transactions/{id}         → Soft delete (status = voided)
-
-GET    /api/v1/transactions/summary      → Aggregated summary for dashboard
-```
-
-**GET /api/v1/transactions — Query Params**
-```
-?type=expense,fuel_purchase          // comma-separated types
-?date_from=2026-07-01
-?date_to=2026-07-31
-?linked_card_id=<uuid>
-?source=manual
-?page=1&per_page=20
-```
-
-**GET /api/v1/transactions/summary — Response**
-```json
-{
-  "success": true,
-  "data": {
-    "net_worth_paise": 250000000,
-    "monthly_spend_paise": 4500000,
-    "bank_total_paise": 300000000,
-    "card_outstanding_paise": 1200000,
-    "lent_pending_paise": 500000,
-    "borrowed_pending_paise": 0
-  }
-}
-```
-
----
-
-## Module 1: Finance — Lent/Borrowed
-
-```
-GET    /api/v1/lent-borrowed             → List all records
-POST   /api/v1/lent-borrowed             → Create record
-PATCH  /api/v1/lent-borrowed/{id}        → Update (status, amount_settled)
-```
-
----
-
-## Module 1: Finance — Fixed Expenses
-
-```
-GET    /api/v1/fixed-expenses            → List all fixed expenses
-POST   /api/v1/fixed-expenses            → Create
-PATCH  /api/v1/fixed-expenses/{id}       → Update
-DELETE /api/v1/fixed-expenses/{id}       → Deactivate (is_active = false)
-```
-
----
-
-## Module 2: Vehicle Garage
-
-```
-GET    /api/v1/vehicles                  → List vehicles
-POST   /api/v1/vehicles                  → Create vehicle
-PATCH  /api/v1/vehicles/{id}             → Update vehicle
-DELETE /api/v1/vehicles/{id}             → Soft delete
-
-GET    /api/v1/vehicles/{id}/fuel-fills  → List fuel fills for a vehicle
-POST   /api/v1/vehicles/{id}/fuel-fills  → Add fuel fill (auto-computes mileage)
-GET    /api/v1/vehicles/{id}/spends      → List vehicle spends
-POST   /api/v1/vehicles/{id}/spends      → Add vehicle spend
-
-GET    /api/v1/vehicles/{id}/dashboard   → Vehicle dashboard data (mileage trend, cost breakdown)
-```
-
----
-
-## Module 3: Task Manager
-
-```
-GET    /api/v1/tasks                     → List tasks (filterable)
-POST   /api/v1/tasks                     → Create task
-GET    /api/v1/tasks/{id}                → Get task with subtasks
-PATCH  /api/v1/tasks/{id}                → Update task
-DELETE /api/v1/tasks/{id}                → Soft delete (status = cancelled)
-
-POST   /api/v1/tasks/{id}/complete       → Mark complete (triggers recurrence if applicable)
-
-GET    /api/v1/task-reminders            → List upcoming reminders
-```
-
----
-
-## Module 4: Equity / MF Tracker
-
-```
-GET    /api/v1/holdings                  → List all holdings
-POST   /api/v1/holdings                  → Add manual holding
-PATCH  /api/v1/holdings/{id}             → Update holding (price, quantity)
-DELETE /api/v1/holdings/{id}             → Remove holding
-
-POST   /api/v1/holdings/sync-kite        → Trigger Kite sync (Phase 5+)
-
-GET    /api/v1/portfolio/dashboard       → Portfolio summary (total, day change, allocation)
-GET    /api/v1/portfolio/history         → Historical snapshots (for charts)
-
-GET    /api/v1/investment-goals          → List goals
-POST   /api/v1/investment-goals          → Create goal
-PATCH  /api/v1/investment-goals/{id}     → Update goal
-DELETE /api/v1/investment-goals/{id}     → Delete goal
-
-POST   /api/v1/portfolio/ai-recommend    → Generate AI recommendations (AI Use Case B)
-```
-
-**POST /api/v1/portfolio/ai-recommend — Response**
-```json
-{
-  "success": true,
-  "data": {
-    "recommendations": "Your portfolio is 68% concentrated in large-cap equity...",
-    "disclaimer": "For informational purposes only. This is not investment advice.",
-    "generated_at": "2026-07-17T13:00:00Z",
-    "cached": false
-  }
-}
-```
-
----
-
-## Module 5: Personal Notes & Goals
-
-```
-GET    /api/v1/goals-2026                → List 2026 life goals
-POST   /api/v1/goals-2026                → Create goal
-PATCH  /api/v1/goals-2026/{id}           → Update (status change, reflection)
-
-GET    /api/v1/notes                     → List notes (search + tags)
-POST   /api/v1/notes                     → Create note
-PATCH  /api/v1/notes/{id}                → Update note
-DELETE /api/v1/notes/{id}                → Delete note
-
-GET    /api/v1/recipes                   → List recipes (filterable)
-POST   /api/v1/recipes                   → Create recipe
-PATCH  /api/v1/recipes/{id}              → Update recipe
-DELETE /api/v1/recipes/{id}              → Delete recipe
-
-GET    /api/v1/diet-plan                 → Get weekly diet plan
-PUT    /api/v1/diet-plan/{date}/{slot}   → Set a specific meal slot
-DELETE /api/v1/diet-plan/{date}/{slot}   → Clear a meal slot
-```
-
----
-
-## Cross-Cutting
-
-```
-GET    /api/v1/dashboard                 → Combined home dashboard data
-GET    /api/v1/health                    → [PUBLIC] Health check
-```
+AI failures degrade gracefully in-app: friendly error message + manual entry fallback where applicable. Disclaimers are appended server-side if missing from the model response (see `SAFETY.md`).
