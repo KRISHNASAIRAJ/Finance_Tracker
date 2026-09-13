@@ -129,7 +129,8 @@ export default function SleepDashboardScreen() {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // One-shot mount effect: entries snapshot at open time is intentional —
+    // re-running on every log would re-trigger detection after the user logs.
   }, []);
 
   // Track usage-access state for the enable-detect card
