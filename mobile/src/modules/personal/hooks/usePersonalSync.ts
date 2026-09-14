@@ -275,6 +275,36 @@ async function doPull(userId: string) {
     } catch (_e) {}
   }
 
+  // --- HABIT LOGS ---
+  const { data: habitData, error: habitErr } = await supabase
+    .from("habit_logs")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!habitErr && habitData) {
+    try {
+      const { useHabitStore } = require("../../habits/store");
+      const habitStore = useHabitStore;
+      const existing = new Set(habitStore.getState().days.map((d: any) => d.day));
+      const newDays: any[] = (habitData as Array<Record<string, unknown>>)
+        .filter((r) => !existing.has(r.log_date as string))
+        .filter((r) => !pendingIds.has(`habit_logs|${r.id as string}`))
+        .map((r) => ({
+          id: r.id as string,
+          day: r.log_date as string,
+          habits: (() => {
+            try { return JSON.parse(r.habits as string); } catch { return []; }
+          })(),
+          notes: (r.notes as string) ?? '',
+        }));
+      if (newDays.length > 0) {
+        const merged = [...newDays, ...habitStore.getState().days];
+        merged.sort((a: any, b: any) => (a.day < b.day ? 1 : -1));
+        habitStore.setState({ days: merged });
+      }
+    } catch (_e) {}
+  }
+
   // --- SLEEP LOGS ---
   const { data: sleepData, error: sleepErr } = await supabase
     .from("sleep_logs")

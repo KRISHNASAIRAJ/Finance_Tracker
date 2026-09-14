@@ -29,6 +29,7 @@ import { useGarageSync } from '../hooks/useGarageSync';
 import { processSyncQueue } from '../../../services/syncQueue';
 import Svg, { Path, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
 import Entrance from '../../../shared/components/Entrance';
+import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'GarageDashboard'>;
@@ -217,6 +218,10 @@ export default function GarageDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header row: drawer trigger */}
+        <View style={styles.topBar}>
+          <DrawerTrigger />
+        </View>
         {/* Mileage Hero */}
         <Entrance index={0}>
         <View style={styles.heroCard}>
@@ -593,6 +598,9 @@ const styles = StyleSheet.create({
     padding: spacing.containerPadding,
     gap: spacing.stackGapLg,
     paddingBottom: 120,
+  },
+  topBar: {
+    alignSelf: 'flex-start',
   },
   heroCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',

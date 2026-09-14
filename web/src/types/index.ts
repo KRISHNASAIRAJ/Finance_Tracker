@@ -414,3 +414,17 @@ export interface SleepEntry {
   created_at?: string
   updated_at?: string
 }
+
+// ─── Habits ────────────────────────────────────────────────
+
+export interface HabitLog {
+  id: string
+  user_id: string
+  /** IST calendar day key YYYY-MM-DD */
+  log_date: string
+  /** JSON string array of ticked habit keys */
+  habits: string
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}

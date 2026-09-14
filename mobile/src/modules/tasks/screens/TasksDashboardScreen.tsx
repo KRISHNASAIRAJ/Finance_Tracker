@@ -27,6 +27,7 @@ import { TasksStackParamList } from '../../../navigation/RootNavigator';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { processSyncQueue } from '../../../services/syncQueue';
 import Entrance from '../../../shared/components/Entrance';
+import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'TasksDashboard'>;
 
@@ -168,6 +169,10 @@ export default function TasksDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header row: drawer trigger */}
+      <View style={styles.drawerBar}>
+        <DrawerTrigger />
+      </View>
       {/* Filter Tabs Segment + Trash */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -227,6 +232,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  },
+  drawerBar: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.containerPadding,
+    paddingTop: 8,
   },
   tabContainer: {
     flexDirection: 'row',

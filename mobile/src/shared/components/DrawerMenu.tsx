@@ -47,10 +47,11 @@ type Item = {
   grad?: readonly [string, string];
 };
 
-const TAB_NAMES = new Set(['FinanceHome', 'GarageDashboard', 'TasksDashboard', 'InvestmentsDashboard']);
+const TAB_NAMES = new Set(['MainHome', 'FinanceHome', 'GarageDashboard', 'TasksDashboard', 'InvestmentsDashboard']);
 
 const ACTIVE_MAP: Record<string, string> = {
-  FinanceHome: 'home',
+  MainHome: 'home',
+  FinanceHome: 'finance',
   GarageDashboard: 'garage',
   TasksDashboard: 'tasks',
   InvestmentsDashboard: 'wealth',
@@ -58,7 +59,7 @@ const ACTIVE_MAP: Record<string, string> = {
 
 export default function DrawerMenu() {
   const navigation = useNavigation<RootNav>();
-  const { isOpen, open, close, toggle } = useDrawerStore();
+  const { isOpen, open, close } = useDrawerStore();
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
 
@@ -138,7 +139,11 @@ export default function DrawerMenu() {
   }, [activeRouteName]);
 
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
-  const showTrigger = effectiveOnboarded && isTabScreen;
+  // The hamburger trigger is now rendered per-screen (DrawerTrigger) by each
+  // tab dashboard, so visibility no longer depends on nav-state timing.
+  // The left edge strip (swipe-to-open) stays global and unconditional on
+  // onboarded tab screens.
+  const showEdge = effectiveOnboarded && isTabScreen;
   const activeId = activeRouteName ? ACTIVE_MAP[activeRouteName] : undefined;
 
   const progress = useRef(new Animated.Value(0)).current;
@@ -257,6 +262,11 @@ export default function DrawerMenu() {
     {
       id: 'home', label: 'Home', icon: 'home-outline',
       grad: ['#7b8eff', '#3a4fc9'] as const,
+      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'HomeTab' })),
+    },
+    {
+      id: 'finance', label: 'Finance', icon: 'wallet-outline',
+      grad: ['#a08bff', '#5c3ac9'] as const,
       onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab' })),
     },
     {
@@ -277,6 +287,9 @@ export default function DrawerMenu() {
   ];
 
   const toolItems: Item[] = [
+    { id: 'habits', label: 'Habit Tracker', icon: 'checkmark-circle-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })) },
+    { id: 'sleep', label: 'Sleep Tracker', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
+    { id: 'careergoals', label: 'Career Goals', icon: 'flag-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerGoals' })) },
     { id: 'cardchat', label: 'AI Card Chat', icon: 'sparkles-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CardChat' } })) },
     { id: 'notes', label: 'Personal Notes', icon: 'document-text-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })) },
     { id: 'diary', label: 'Weekly Diary', icon: 'journal-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'WeeklyDiary' })) },
@@ -362,19 +375,7 @@ export default function DrawerMenu() {
 
   return (
     <>
-      {showTrigger && <View style={styles.edgeStrip} {...edgeResponder.panHandlers} />}
-
-      {showTrigger && (
-        <TouchableOpacity
-          style={[styles.trigger, { top: insets.top + 29 }]}
-          activeOpacity={0.7}
-          onPress={toggle}
-        >
-          <LinearGradient colors={['#8b95ff', '#5ee6ff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.triggerGrad}>
-            <Ionicons name="menu" size={18} color="#0A0A10" />
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
+      {showEdge && <View style={styles.edgeStrip} {...edgeResponder.panHandlers} />}
 
       <View
         style={[StyleSheet.absoluteFill, styles.layer]}
@@ -490,33 +491,6 @@ const styles = StyleSheet.create({
     width: 22,
     zIndex: 100,
     elevation: 100,
-  },
-  trigger: {
-    position: 'absolute',
-    left: 0,
-    width: 42,
-    height: 42,
-    borderTopRightRadius: 999,
-    borderBottomRightRadius: 999,
-    backgroundColor: 'rgba(16, 16, 22, 0.95)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(139,149,255,0.35)',
-    borderLeftWidth: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-    elevation: 100,
-    shadowColor: '#7b8eff',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-  },
-  triggerGrad: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   layer: {
     zIndex: 60,

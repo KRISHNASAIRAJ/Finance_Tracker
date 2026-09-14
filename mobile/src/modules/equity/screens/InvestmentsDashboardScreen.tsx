@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, G as SvgG, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import Entrance from '../../../shared/components/Entrance';
+import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
@@ -136,6 +137,10 @@ export default function InvestmentsDashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Header row: drawer trigger */}
+        <View style={styles.drawerTopBar}>
+          <DrawerTrigger />
+        </View>
         {/* NET WEALTH Hero — Investments + FDs − Loans, always visible */}
         <Entrance index={0}>
           <View style={styles.netWealthCard}>
@@ -645,6 +650,9 @@ const styles = StyleSheet.create({
     padding: spacing.containerPadding,
     gap: spacing.stackGapLg,
     paddingBottom: 100,
+  },
+  drawerTopBar: {
+    alignSelf: 'flex-start',
   },
   netWealthCard: {
     backgroundColor: 'rgba(255,255,255,0.06)',

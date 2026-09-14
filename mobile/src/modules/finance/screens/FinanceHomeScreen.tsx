@@ -26,6 +26,7 @@ import { colors } from '../../../shared/theme/colors';
 import GlassCard from '../../../shared/components/GlassCard';
 import Entrance from '../../../shared/components/Entrance';
 import GlowText from '../../../shared/components/GlowText';
+import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { scheduleAllReminders } from '../../../services/notificationService';
@@ -184,7 +185,9 @@ export default function FinanceHomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top App Bar */}
         <View style={styles.appBar}>
-          <View style={styles.appBarSide} />
+          <View style={styles.appBarSide}>
+            <DrawerTrigger />
+          </View>
           <Text style={styles.appBarTitle}>MERIDIAN</Text>
           <TouchableOpacity
             style={styles.appBarBtn}

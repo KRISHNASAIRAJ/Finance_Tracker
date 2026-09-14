@@ -14,6 +14,7 @@ import { useFixedExpenses } from '../hooks/data/useFixedExpenses'
 import { useReceivables } from '../hooks/data/useReceivables'
 import { useHoldings } from '../hooks/data/useInvestments'
 import { useFuelFills } from '../hooks/data/useGarage'
+import { useHabitLogs } from '../hooks/data/usePersonal'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/Shared'
 import { TrendArea } from '../components/charts/Charts'
@@ -21,6 +22,8 @@ import { AnimatedNumber, staggerContainer, riseItem } from '../components/motion
 import { getCategoryIcon } from '../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../lib/format'
 import { istMonthKey, istNow } from '../lib/istDate'
+import { quoteForDate, stressTechniquesForDate, PRINCIPLES } from '../lib/dailyContent'
+import { HABITS, todayKey, parseHabits, dayProgress, habitStreak } from '../lib/habits'
 import type { Transaction } from '../types'
 
 function getLast30DaysTotals(transactions: Transaction[] | undefined) {
@@ -47,6 +50,23 @@ export function HomePage() {
   const { data: receivables } = useReceivables(userId)
   const { data: holdings } = useHoldings(userId)
   const { data: fuelFills } = useFuelFills(userId)
+  const { data: habitLogs } = useHabitLogs(userId)
+
+  // Daily quote + habits (Home hero)
+  const quote = quoteForDate()
+  const techniques = stressTechniquesForDate()
+  const today = todayKey()
+  const habitByDay = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const l of habitLogs ?? []) m.set(l.log_date, parseHabits(l.habits))
+    return m
+  }, [habitLogs])
+  const ticked = habitByDay.get(today) ?? []
+  const habitPct = Math.round(dayProgress(ticked) * 100)
+  const bestStreak = HABITS.reduce(
+    (m, h) => Math.max(m, habitStreak(h.key, (k) => habitByDay.get(k) ?? [])),
+    0
+  )
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
   const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
@@ -133,6 +153,78 @@ export function HomePage() {
       animate="show"
       variants={staggerContainer(0.07)}
     >
+      {/* Daily quote + habit progress hero */}
+      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <div className="space-y-2.5 px-5 pt-5 pb-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9BA5FF]">
+              ☀️ Today's quote
+            </p>
+            <p className="text-lg font-semibold leading-relaxed text-white">"{quote.text}"</p>
+            <p className="text-right text-xs text-white/40">— {quote.source}</p>
+          </div>
+        </Card>
+
+        <Card>
+          <Link to="/habits" className="block">
+            <div className="space-y-3 px-5 py-5 transition-colors hover:bg-white/2">
+              <div className="flex items-baseline justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Habits today
+                </p>
+                <span className="text-[10px] text-white/30">View all →</span>
+              </div>
+              <p className="text-3xl font-extrabold tracking-tight text-white tnum">{habitPct}%</p>
+              <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#9BA5FF] to-[#5EE6FF]"
+                  style={{ width: `${Math.max(habitPct, 3)}%` }}
+                />
+              </div>
+              <p className="text-xs text-white/40">
+                {ticked.length} of {HABITS.length} done
+                {bestStreak > 0 ? ` · best streak ${bestStreak}d 🔥` : ''}
+              </p>
+            </div>
+          </Link>
+        </Card>
+      </motion.div>
+
+      {/* Stress release + principles */}
+      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <div className="space-y-3 px-5 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+              Stress release · 2 easy techniques
+            </p>
+            {techniques.map((t) => (
+              <div key={t.name} className="flex gap-3">
+                <span className="text-xl">{t.emoji}</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">{t.name}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-white/45">{t.steps}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card className="lg:col-span-2">
+          <div className="space-y-3 px-5 py-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+              Growth principles
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {PRINCIPLES.slice(0, 6).map((p) => (
+                <div key={p.title} className="rounded-xl border border-[#4FDBCC]/15 bg-[#4FDBCC]/4 p-3">
+                  <p className="text-sm font-semibold text-white">{p.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/45">{p.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+
       {/* Row of stat cards */}
       <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Balance" value={totalBalance} format={paiseToRupeesCompact} />

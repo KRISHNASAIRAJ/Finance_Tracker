@@ -8,6 +8,7 @@ import { useMealStore } from '../modules/meals/store';
 import { useGarageStore } from '../modules/garage/store';
 import { usePersonalStore } from '../modules/personal/store';
 import { isExpoGo } from '../shared/isExpoGo';
+import { quoteForDate } from '../shared/dailyContent';
 
 const WALLET_TARGET = 4000000;
 
@@ -104,6 +105,7 @@ async function setupChannels() {
       { id: 'bills_due', name: 'Bills & Due Dates', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
       { id: 'diet-reminders', name: 'Diet Reminders', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 250, 250], sound: 'default' },
       { id: 'sleep-reminders', name: 'Sleep Reminders', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
+      { id: 'morning-brief', name: 'Morning Brief', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
@@ -528,6 +530,25 @@ export async function scheduleAllReminders() {
         );
       }
     } catch (e) { console.warn('[notificationService] sleep reminder failed:', e); }
+
+    // Morning brief — 9 AM IST daily for the next 7 days: today's quote +
+    // a nudge to open Home (habit progress). Deep-links to the Home tab.
+    try {
+      const t0 = istNow();
+      for (let d = 0; d < 7; d++) {
+        const morning = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + d, 9, 0, 0, 0);
+        if (morning <= t0) continue;
+        const day = new Date(morning);
+        const q = quoteForDate(day);
+        await scheduleLocal(
+          `\u{2600}\u{FE0F} ${q.text.length > 80 ? q.text.slice(0, 77) + '…' : q.text}`,
+          'Open Meridian — check today\u2019s habits & plan.',
+          morning,
+          'morning-brief',
+          { screen: 'MainHome', dedupKey: `morning_${day.toISOString().slice(0, 10)}` }
+        );
+      }
+    } catch (e) { console.warn('[notificationService] morning brief failed:', e); }
 
     // Vehicle service reminders — next service at lastGeneralServiceKm + interval km
     // OR lastGeneralServiceDate + interval months (whichever first). Only

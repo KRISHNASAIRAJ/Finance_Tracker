@@ -85,6 +85,9 @@ import WeightTrackerScreen from '../modules/meals/screens/WeightTrackerScreen';
 import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
 import WeeklyDiaryScreen from '../modules/diary/screens/WeeklyDiaryScreen';
 import SleepDashboardScreen from '../modules/sleep/screens/SleepDashboardScreen';
+import MainHomeScreen from '../modules/home/screens/MainHomeScreen';
+import HabitTrackerScreen from '../modules/habits/screens/HabitTrackerScreen';
+import CareerGoalsScreen from '../modules/habits/screens/CareerGoalsScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -158,13 +161,20 @@ export type MoreStackParamList = {
   DietViewer: undefined;
   WeeklyDiary: undefined;
   SleepTracker: undefined;
+  HabitTracker: undefined;
+  CareerGoals: undefined;
 };
 
 export type RootTabParamList = {
+  HomeTab: NavigatorScreenParams<HomeStackParamList> | undefined;
   FinanceTab: NavigatorScreenParams<FinanceStackParamList> | undefined;
   GarageTab: NavigatorScreenParams<GarageStackParamList> | undefined;
   TasksTab: NavigatorScreenParams<TasksStackParamList> | undefined;
   InvestmentsTab: NavigatorScreenParams<InvestmentsStackParamList> | undefined;
+};
+
+export type HomeStackParamList = {
+  MainHome: undefined;
 };
 
 export type RootStackParamList = {
@@ -182,6 +192,7 @@ const GarageStack = createNativeStackNavigator<GarageStackParamList>();
 const TasksStack = createNativeStackNavigator<TasksStackParamList>();
 const InvestmentsStack = createNativeStackNavigator<InvestmentsStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -201,11 +212,20 @@ const modalScreenOptions = {
 // Screens that keep the floating tab bar visible. Every other screen renders full-screen
 // (AI assistants, forms, reports, detail screens) so the tab bar never overlaps them.
 const TAB_BAR_SCREENS = new Set([
+  'MainHome',
   'FinanceHome',
   'GarageDashboard',
   'TasksDashboard',
   'InvestmentsDashboard',
 ]);
+
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={stackScreenOptions}>
+      <HomeStack.Screen name="MainHome" component={MainHomeScreen} />
+    </HomeStack.Navigator>
+  );
+}
 
 function FinanceStackNavigator() {
   return (
@@ -296,6 +316,8 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="DietViewer" component={DietViewerScreen} />
       <MoreStack.Screen name="WeeklyDiary" component={WeeklyDiaryScreen} />
       <MoreStack.Screen name="SleepTracker" component={SleepDashboardScreen} />
+      <MoreStack.Screen name="HabitTracker" component={HabitTrackerScreen} />
+      <MoreStack.Screen name="CareerGoals" component={CareerGoalsScreen} />
     </MoreStack.Navigator>
   );
 }
@@ -311,7 +333,9 @@ function TabNavigator() {
           tabBarIcon: ({ color, size, focused }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'card-outline';
 
-          if (route.name === 'FinanceTab') {
+          if (route.name === 'HomeTab') {
+            iconName = 'home-outline';
+          } else if (route.name === 'FinanceTab') {
             iconName = 'wallet-outline';
           } else if (route.name === 'GarageTab') {
             iconName = 'bicycle-outline';
@@ -367,9 +391,14 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen
+        name="HomeTab"
+        component={HomeStackNavigator}
+        options={{ tabBarLabel: 'Home' }}
+      />
+      <Tab.Screen
         name="FinanceTab"
         component={FinanceStackNavigator}
-        options={{ tabBarLabel: 'Home' }}
+        options={{ tabBarLabel: 'Finance' }}
       />
       <Tab.Screen
         name="GarageTab"

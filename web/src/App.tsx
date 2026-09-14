@@ -58,8 +58,12 @@ import { WeightTrackerPage } from './pages/meals/WeightTrackerPage'
 // Sleep
 import { SleepTrackerPage } from './pages/sleep/SleepTrackerPage'
 
+// Habits
+import { HabitsPage } from './pages/habits/HabitsPage'
+
 // Career
 import { CareerTrackerPage, CareerEventFormPage } from './pages/career/CareerPages'
+import { CareerGoalsPage } from './pages/career/CareerGoalsPage'
 
 // Diary
 import { WeeklyDiaryPage } from './pages/diary/WeeklyDiaryPage'
@@ -145,8 +149,12 @@ export default function App() {
             {/* Sleep */}
             <Route path="/sleep" element={<SleepTrackerPage />} />
 
+            {/* Habits */}
+            <Route path="/habits" element={<HabitsPage />} />
+
             {/* Career */}
             <Route path="/career" element={<CareerTrackerPage />} />
+            <Route path="/career/goals" element={<CareerGoalsPage />} />
             <Route path="/career/new" element={<CareerEventFormPage />} />
             <Route path="/career/:id/edit" element={<CareerEventFormPage />} />
 

@@ -159,3 +159,42 @@ rest of the app).
   sidebar/topbar/AppShell routes, realtime sync via existing all-tables channel.
 - **Tests:** mobile 40/40 (store CRUD, duration helpers, strict date parsing,
   detect-wrapper graceful degradation, app-boot e2e); web 17/17 + build green.
+---
+
+## 9. Habit Tracker + New Home + Career Goals (v4)
+
+- **New primary Home tab** (`src/modules/home/screens/MainHomeScreen.tsx`):
+  daily quote (deterministic IST day rotation), habit progress bar + quick
+  tick dots with streak badges, 2 stress-release techniques (left-nostril &
+  belly breathing), 6 growth principles. Finance dashboard is now the second
+  tab ("Finance"); Home is first in tab bar + drawer.
+- **Sidebar fix (regression):** hamburger trigger no longer depends on
+  navigation-state listener timing at cold start. Each tab dashboard renders
+  its own `DrawerTrigger` (shared component) — deterministic visibility.
+  DrawerMenu keeps the left-edge swipe strip; active-route tracking now maps
+  MainHome/FinanceHome separately.
+- **Habit Tracker module** (`src/modules/habits/`): 10 canonical habits
+  (sleep 6–7h, cook meals, fruit, no junk, 3L water, sleep by 11, chia seeds,
+  learn 1 topic, read 1 page, plan tomorrow), Notion-style tick boxes, daily
+  completion %, 10-segment progress blocks, per-habit streaks (?? at 3+),
+  monthly overview grid (day columns × habit rows) with month average and
+  month navigation. Offline-first store (one row per day, deterministic ids,
+  upsert on user_id+log_date) via central sync queue.
+- **Schema:** migration `0038_habit_logs.sql` — habit_logs (user_id, log_date
+  IST day, habits JSON, notes) UNIQUE(user_id, log_date) + RLS + realtime.
+- **Career Goals screen** (`src/modules/habits/screens/CareerGoalsScreen.tsx`):
+  2025?2031 roadmap timeline (net worth ?80.7K ? ?12L, equity/MF portfolio
+  targets per year, Project 2029 Phase M, Project Green 2 acres, Mission
+  Hometown Base) with focus-year banner.
+- **9 AM morning brief notification:** next 7 days scheduled in the
+  `morning-brief` channel — today's quote + habits nudge, deep-links to Home.
+- **Drawer:** new entries — Habit Tracker, Sleep Tracker, Career Goals;
+  Home + Finance both in the primary row.
+- **Web mirror:** `/habits` (tick boxes + monthly grid) and `/career/goals`
+  pages, HomePage hero (quote + habit progress + stress + principles), habit
+  hooks (upsert on user_id,log_date), sidebar entries, realtime auto-covers
+  habit_logs via the schema-wide channel.
+- **IST day math fixed:** istDayKey/dayOfYearIST now use pure UTC+5:30 offset
+  math (correct from any runtime timezone — device or CI runner).
+- **Tests:** mobile 70/70 (habits utils, store toggle semantics, dailyContent
+  determinism, boot e2e); web 17/17, lint/typecheck/build green.

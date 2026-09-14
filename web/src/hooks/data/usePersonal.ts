@@ -3,7 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import type { CareerEvent, DiaryEntry, Goal2026, MealLogEntry, Note, Recipe, SleepEntry, WeightEntry } from '../../types'
+import type { CareerEvent, DiaryEntry, Goal2026, HabitLog, MealLogEntry, Note, Recipe, SleepEntry, WeightEntry } from '../../types'
 
 // ─── Goals 2026 ──────────────────────────────────────────
 
@@ -422,5 +422,42 @@ export function useDeleteSleepLog(userId: string) {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: sleepKeys.all(userId) }),
+  })
+}
+
+// ─── Habit logs ──────────────────────────────────────────
+
+export const habitKeys = {
+  all: (userId: string) => ['habit_logs', userId] as const,
+}
+
+export function useHabitLogs(userId: string) {
+  return useQuery({
+    queryKey: habitKeys.all(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('habit_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('log_date', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as HabitLog[]
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useUpsertHabitLog(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ row, id }: { row: Partial<HabitLog>; id?: string }) => {
+      const payload: Partial<HabitLog> = { ...row, user_id: userId }
+      if (id) payload.id = id
+      const { error } = await supabase
+        .from('habit_logs')
+        .upsert(payload, { onConflict: 'user_id,log_date' })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: habitKeys.all(userId) }),
   })
 }

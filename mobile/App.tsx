@@ -83,6 +83,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MoreStack', { screen: 'GroceryList' });
           } else if (data.screen === 'SleepTracker') {
             nav.navigate('MoreStack', { screen: 'SleepTracker' });
+          } else if (data.screen === 'MainHome') {
+            nav.navigate('MainTabs', { screen: 'HomeTab' });
+          } else if (data.screen === 'HabitTracker') {
+            nav.navigate('MoreStack', { screen: 'HabitTracker' });
           } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }
