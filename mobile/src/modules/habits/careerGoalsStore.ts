@@ -17,8 +17,8 @@ function flush() {
   const t = setTimeout(() => {
     try {
       const { processSyncQueue } = require('../../services/syncQueue');
-      processSyncQueue().catch((_e: Error) => {});
-    } catch (_e) {}
+      processSyncQueue().catch((_e: Error) => { /* best-effort */ });
+    } catch (_e) { /* best-effort */ }
   }, 300);
   if (typeof t === 'object' && t && typeof (t as any).unref === 'function') {
     (t as any).unref();
@@ -39,8 +39,8 @@ export const useCareerGoalsStore = create<CareerGoalsState>()(
             user_id: userId,
             career_goals_json: goals ? JSON.stringify(goals) : null,
             updated_at: new Date().toISOString(),
-          }).then(flush).catch(() => {});
-        } catch (_e) {}
+          }).then(flush).catch(() => { /* best-effort */ });
+        } catch (_e) { /* best-effort */ }
       },
     }),
     {

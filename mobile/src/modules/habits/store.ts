@@ -32,8 +32,8 @@ function flush() {
   const t = setTimeout(() => {
     try {
       const { processSyncQueue } = require('../../services/syncQueue');
-      processSyncQueue().catch((_e: Error) => {});
-    } catch (_e) {}
+      processSyncQueue().catch((_e: Error) => { /* best-effort */ });
+    } catch (_e) { /* best-effort */ }
   }, 300);
   if (typeof t === 'object' && t && typeof (t as any).unref === 'function') {
     (t as any).unref();
@@ -45,7 +45,7 @@ async function enq(entity: string, action: string, data: Record<string, unknown>
     const { enqueue } = require('../../services/syncQueue');
     await enqueue(entity, action as 'create' | 'update' | 'delete', data);
     flush();
-  } catch (_e) {}
+  } catch (_e) { /* best-effort */ }
 }
 
 /** Stable row id for a day key (deterministic — same device gets same id). */

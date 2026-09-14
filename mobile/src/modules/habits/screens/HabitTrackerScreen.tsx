@@ -36,7 +36,6 @@ import {
   dayProgress,
   dayPercent,
   habitStreak,
-  istDayKey,
 } from '../habits';
 import { useHabitStore, habitsForDay, useHabitDefs } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
@@ -85,7 +84,6 @@ export default function HabitTrackerScreen() {
   }, [monthDays, habitsByDay, HABITS]);
 
   const todayIndex = monthDays.indexOf(today);
-  const isCurrentMonth = viewMonth === monthOf(today);
 
   const toggle = (habitKey: string) => {
     useHabitStore.getState().toggleHabit(today, habitKey, user?.id);

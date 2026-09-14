@@ -23,12 +23,12 @@ CREATE INDEX IF NOT EXISTS idx_meal_plans_user_date ON meal_plans(user_id, plan_
 ALTER TABLE meal_plans ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "User owns meal_plans" ON meal_plans;
-CREATE POLICY "User owns meal_plans"
+CREATE POLICY "User owns meal_plans" ON meal_plans
     FOR ALL
     USING (user_id = auth.uid()::text);
 
 DROP POLICY IF EXISTS "User can insert meal_plans" ON meal_plans;
-CREATE POLICY "User can insert meal_plans"
+CREATE POLICY "User can insert meal_plans" ON meal_plans
     FOR INSERT
     WITH CHECK (user_id = auth.uid()::text);
 

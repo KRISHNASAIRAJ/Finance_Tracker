@@ -138,7 +138,7 @@ export default function MealPlannerScreen() {
       const suggestion = (data?.suggestion as string) || '';
       const lines = suggestion.split('\n').filter((l) => l.trim());
       for (const line of lines) {
-        const m = line.match(/^\s*(BREAKFAST|LUNCH|SNACK|DINNER)\s*[:\-]\s*(.+)$/i);
+        const m = line.match(/^\s*(BREAKFAST|LUNCH|SNACK|DINNER)\s*[:-]\s*(.+)$/i);
         if (!m) continue;
         const slot = m[1].toUpperCase().toLowerCase() as MealSlot;
         const title = m[2].replace(/\*\*/g, '').trim();

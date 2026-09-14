@@ -329,11 +329,10 @@ async function doPull(userId: string) {
         } else {
           useHabitStore.setState({ habitOverrides: null });
         }
-      } catch (_e) {}
+      } catch (_e) { /* best-effort */ }
       try {
         const { useCareerGoalsStore } = require("../../habits/careerGoalsStore");
         const rawGoals = (settingsData as Record<string, unknown>).career_goals_json as string | null;
-        const { effectiveGoals } = require("../../../shared/careerGoals");
         if (rawGoals) {
           const parsed = JSON.parse(rawGoals);
           if (Array.isArray(parsed) && parsed.length > 0) {
@@ -342,7 +341,7 @@ async function doPull(userId: string) {
         } else {
           useCareerGoalsStore.setState({ overrides: null });
         }
-      } catch (_e) {}
+      } catch (_e) { /* best-effort */ }
     }
   }
 
@@ -405,7 +404,7 @@ async function doPull(userId: string) {
         const merged = [...newPlans, ...plannerStore.getState().plans];
         plannerStore.setState({ plans: merged });
       }
-    } catch (_e) {}
+    } catch (_e) { /* best-effort */ }
   }
 
   // --- BUY LIST ITEMS ---
