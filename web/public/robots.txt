@@ -1,0 +1,13 @@
+# Meridian web app — personal life tracker.
+# Auth-gated app content shouldn't be indexed; public/legal pages should.
+
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /signup
+Allow: /privacy
+Allow: /terms
+Allow: /contact
+Disallow: /
+
+Sitemap: https://meridianapp.netlify.app/sitemap.xml

@@ -78,11 +78,16 @@ export function useUpsertNote(userId: string) {
   return useMutation({
     mutationFn: async ({ row, id }: { row: Partial<Note>; id?: string }) => {
       const payload: Partial<Note> = { ...row, user_id: userId }
-      if (id) payload.id = id
+      const rowId = id ?? row.id ?? crypto.randomUUID()
+      payload.id = rowId
       const { error } = await supabase.from('notes').upsert(payload, { onConflict: 'id' })
       if (error) throw error
+      return rowId
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: noteKeys.all(userId) }),
+    onSuccess: (rowId) => {
+      qc.invalidateQueries({ queryKey: noteKeys.all(userId) })
+      return rowId
+    },
   })
 }
 

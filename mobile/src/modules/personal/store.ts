@@ -17,6 +17,12 @@ export interface Note {
   title: string;
   content: string;
   date: string;
+  /** Apple-Notes-style folder name; 'Notes' is the default. */
+  folder: string;
+  /** pinned notes float to the top. */
+  pinned: boolean;
+  /** ISO timestamp when soft-deleted (Recently Deleted); null = alive. */
+  deletedAt: string | null;
 }
 
 export interface Recipe {
@@ -105,9 +111,16 @@ interface PersonalState extends PersonalSyncMeta {
   toggleGoal: (id: string, userId?: string) => void;
   addGoal: (name: string, userId?: string) => PersonalGoal;
   deleteGoal: (id: string, userId?: string) => void;
-  addNote: (title: string, content: string, userId?: string) => string;
+  addNote: (title: string, content: string, userId?: string, folder?: string) => string;
   deleteNote: (id: string, userId?: string) => void;
   updateNote: (id: string, title: string, content: string, userId?: string) => void;
+  /** Soft-delete into Recently Deleted (Apple Notes parity). */
+  trashNote: (id: string, userId?: string) => void;
+  restoreNote: (id: string, userId?: string) => void;
+  purgeNote: (id: string, userId?: string) => void;
+  toggleNotePinned: (id: string, userId?: string) => void;
+  moveNote: (id: string, folder: string, userId?: string) => void;
+  renameFolder: (oldName: string, newName: string, userId?: string) => void;
   addRecipe: (recipe: Omit<Recipe, 'id'>, userId?: string) => string;
   deleteRecipe: (id: string, userId?: string) => void;
   updateRecipe: (id: string, recipe: Partial<Recipe>, userId?: string) => void;
@@ -169,12 +182,19 @@ export const usePersonalStore = create<PersonalState>()(
         }));
         enqueueSync('goals', 'delete', { id, user_id: userId || null });
       },
-      addNote: (title, content, userId) => {
+      addNote: (title, content, userId, folder) => {
         const id = Math.random().toString(36).substring(2, 9);
-        const newNote: Note = { id, title, content, date: new Date().toISOString() };
+        const newNote: Note = {
+          id, title, content,
+          date: new Date().toISOString(),
+          folder: folder || 'Notes',
+          pinned: false,
+          deletedAt: null,
+        };
         set((state) => ({ notes: [newNote, ...state.notes] }));
         enqueueSync('notes', 'create', {
           id, user_id: userId || null, title, content,
+          folder: newNote.folder, pinned: false, deleted_at: null,
           created_at: newNote.date, updated_at: new Date().toISOString(),
         });
         return id;
@@ -191,8 +211,68 @@ export const usePersonalStore = create<PersonalState>()(
           notes: state.notes.map((n) => (n.id === id ? { ...n, title, content, date } : n)),
         }));
         enqueueSync('notes', 'create', {
-          id, user_id: userId || null, title, content, created_at: date, updated_at: date,
+          id, user_id: userId || null, title, content,
+          created_at: date, updated_at: date,
         });
+      },
+      trashNote: (id, userId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          notes: state.notes.map((n) => (n.id === id ? { ...n, deletedAt: now, pinned: false } : n)),
+        }));
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, deleted_at: now, pinned: false, updated_at: now,
+        });
+      },
+      restoreNote: (id, userId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          notes: state.notes.map((n) => (n.id === id ? { ...n, deletedAt: null } : n)),
+        }));
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, deleted_at: null, updated_at: now,
+        });
+      },
+      purgeNote: (id, userId) => {
+        set((state) => ({ notes: state.notes.filter((n) => n.id !== id) }));
+        enqueueSync('notes', 'delete', { id, user_id: userId || null });
+      },
+      toggleNotePinned: (id, userId) => {
+        const now = new Date().toISOString();
+        let nextPinned = false;
+        set((state) => {
+          const notes = state.notes.map((n) => {
+            if (n.id !== id) return n;
+            nextPinned = !n.pinned;
+            return { ...n, pinned: nextPinned };
+          });
+          return { notes };
+        });
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, pinned: nextPinned, updated_at: now,
+        });
+      },
+      moveNote: (id, folder, userId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          notes: state.notes.map((n) => (n.id === id ? { ...n, folder } : n)),
+        }));
+        enqueueSync('notes', 'create', {
+          id, user_id: userId || null, folder, updated_at: now,
+        });
+      },
+      renameFolder: (oldName, newName, userId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          notes: state.notes.map((n) => (n.folder === oldName ? { ...n, folder: newName } : n)),
+        }));
+        // Folder renames fan out per-note; compactQueue collapses to one op per id.
+        const { notes } = get();
+        for (const n of notes.filter((x) => x.folder === newName)) {
+          enqueueSync('notes', 'create', {
+            id: n.id, user_id: userId || null, folder: newName, updated_at: now,
+          });
+        }
       },
       addRecipe: (recipe, userId) => {
         const newRecipe: Recipe = {

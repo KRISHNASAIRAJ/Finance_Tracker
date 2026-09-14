@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Field'
+import { SEO } from '../../components/SEO'
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -51,6 +52,11 @@ export function LoginPage() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your Meridian">
+      <SEO
+        title="Sign in"
+        description="Sign in to Meridian — your personal life tracker for finance, habits, sleep, wealth, and notes."
+        path="/login"
+      />
       <form onSubmit={onSubmit} className="space-y-4">
         <Input
           label="Email"
@@ -113,6 +119,11 @@ export function SignupPage() {
 
   return (
     <AuthLayout title="Create account" subtitle="Same account as the mobile app">
+      <SEO
+        title="Create account"
+        description="Create your Meridian account — one login for the mobile app and web tracker."
+        path="/signup"
+      />
       <form onSubmit={onSubmit} className="space-y-4">
         <Input
           label="Email"
@@ -172,6 +183,12 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout title="Reset password" subtitle="We'll email you a reset link">
+      <SEO
+        title="Reset password"
+        description="Reset your Meridian account password by email."
+        path="/forgot-password"
+        noIndex
+      />
       <form onSubmit={onSubmit} className="space-y-4">
         <Input
           label="Email"

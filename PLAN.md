@@ -198,3 +198,36 @@ rest of the app).
   math (correct from any runtime timezone — device or CI runner).
 - **Tests:** mobile 70/70 (habits utils, store toggle semantics, dailyContent
   determinism, boot e2e); web 17/17, lint/typecheck/build green.
+
+---
+
+## 10. Home v2 + Telos Sidebar + Apple Notes + Web Ship-List (v4)
+
+- **Home screen v2:** sleep info card (last night + 7-night avg + nights
+  count, deep-links to Sleep Tracker), AI finance commentary card
+  (Groq `ai-finance-comment` edge fn — 20/day cap, caller-supplied month
+  spend context incl. category breakdown, top day, biggest txn, last-month
+  delta; 6h client cache + manual refresh), growth principles now an
+  auto-rotating side-by-side carousel (5s, fade+slide, dot indicators),
+  stress techniques side-by-side.
+- **Sidebar redesign (Telos-inspired):** warm aurora gradient panel, habit
+  progress ring in header (% of 10 habits today), "bricks of progress" strip
+  ("build your city, one brick at a time"), SPACES/TOOLBELT/SYSTEM sections,
+  per-row gradient accent bars, footer brand bar.
+- **Apple-Notes-style Notes (mobile + web):** folders view (All iCloud /
+  custom / Notes / Recently Deleted with counts), pinned notes float to top,
+  full-screen editor with autosave on back (no Save button), live search,
+  move-to-folder, Recently Deleted with Recover / Delete forever,
+  long-press folder rename. Migration 0039 adds notes.folder/pinned/deleted_at.
+- **Web ship-list (20 items):** custom 404, per-page meta title/description/
+  OG/Twitter via SEO component + canonical, favicon set + apple-touch-icon,
+  robots.txt (auth content noindex, public pages allowed), sitemap.xml,
+  Open Graph image (SVG), cookie banner (no tracking cookies policy),
+  privacy-safe local analytics (localStorage page-view counter), sticky
+  mobile CTA (post-login hidden), Thank You page, Privacy Policy, Terms,
+  Contact page (validated form + mailto, no backend endpoint), mobile
+  breakpoints (sidebar hidden < lg, responsive paddings), loading states
+  (Skeletons) + form error states throughout.
+- **Verification:** mobile 70/70 tests, tsc clean, eslint 0 errors; web
+  typecheck/lint/17 tests/build green; migrations 0038+0039 pushed;
+  ai-finance-comment deployed.

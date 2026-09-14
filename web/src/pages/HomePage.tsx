@@ -2,7 +2,7 @@
  * HomePage — fold.money-style 3-column dashboard.
  * Left: upcoming reminders · Center: balance + trend + allocation · Right: recent transactions
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
@@ -14,16 +14,18 @@ import { useFixedExpenses } from '../hooks/data/useFixedExpenses'
 import { useReceivables } from '../hooks/data/useReceivables'
 import { useHoldings } from '../hooks/data/useInvestments'
 import { useFuelFills } from '../hooks/data/useGarage'
-import { useHabitLogs } from '../hooks/data/usePersonal'
+import { useHabitLogs, useSleepLogs } from '../hooks/data/usePersonal'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/Shared'
 import { TrendArea } from '../components/charts/Charts'
 import { AnimatedNumber, staggerContainer, riseItem } from '../components/motion/shared'
+import { SEO } from '../components/SEO'
 import { getCategoryIcon } from '../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../lib/format'
 import { istMonthKey, istNow } from '../lib/istDate'
 import { quoteForDate, stressTechniquesForDate, PRINCIPLES } from '../lib/dailyContent'
 import { HABITS, todayKey, parseHabits, dayProgress, habitStreak } from '../lib/habits'
+import { supabase } from '../lib/supabase'
 import type { Transaction } from '../types'
 
 function getLast30DaysTotals(transactions: Transaction[] | undefined) {
@@ -51,6 +53,7 @@ export function HomePage() {
   const { data: holdings } = useHoldings(userId)
   const { data: fuelFills } = useFuelFills(userId)
   const { data: habitLogs } = useHabitLogs(userId)
+  const { data: sleepLogs } = useSleepLogs(userId)
 
   // Daily quote + habits (Home hero)
   const quote = quoteForDate()
@@ -67,6 +70,88 @@ export function HomePage() {
     (m, h) => Math.max(m, habitStreak(h.key, (k) => habitByDay.get(k) ?? [])),
     0
   )
+
+  // Sleep info
+  const sleepInfo = useMemo(() => {
+    const sorted = [...(sleepLogs ?? [])].sort(
+      (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    )
+    const last = sorted[0] ?? null
+    const last7 = sorted.slice(0, 7)
+    const avg =
+      last7.length > 0
+        ? last7.reduce((s, e) => s + Math.max(0, (new Date(e.end_time).getTime() - new Date(e.start_time).getTime()) / 3_600_000), 0) / last7.length
+        : null
+    return { last, avg, count: sorted.length }
+  }, [sleepLogs])
+  const lastNightHours = sleepInfo.last
+    ? Math.max(0, (new Date(sleepInfo.last.end_time).getTime() - new Date(sleepInfo.last.start_time).getTime()) / 3_600_000)
+    : null
+
+  // AI finance commentary
+  const [financeNote, setFinanceNote] = useState<string | null>(null)
+  const [financeLoading, setFinanceLoading] = useState(false)
+  const [financeFetchedAt, setFinanceFetchedAt] = useState(0)
+
+  const fetchFinanceNote = async (force = false) => {
+    if (financeLoading) return
+    if (!force && financeFetchedAt && Date.now() - financeFetchedAt < 6 * 3600 * 1000) return
+    setFinanceLoading(true)
+    try {
+      const now = new Date()
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const prevKey = now.getMonth() === 0 ? `${now.getFullYear() - 1}-12` : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`
+      const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service'])
+      const monthTxns = (txns ?? []).filter((t) => spendTypes.has(t.type) && t.date.slice(0, 7) === monthKey)
+      const prevTxns = (txns ?? []).filter((t) => spendTypes.has(t.type) && t.date.slice(0, 7) === prevKey)
+      const byCat = new Map<string, { amount: number; count: number }>()
+      for (const t of monthTxns) {
+        const c = byCat.get(t.category) ?? { amount: 0, count: 0 }
+        c.amount += t.amount / 100
+        c.count += 1
+        byCat.set(t.category, c)
+      }
+      const categories = [...byCat.entries()]
+        .map(([category, v]) => ({ category, amountRupees: Math.round(v.amount), count: v.count }))
+        .sort((a, b) => b.amountRupees - a.amountRupees)
+      const { data, error } = await supabase.functions.invoke('ai-finance-comment', {
+        body: {
+          context: {
+            monthLabel: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+            totalSpendRupees: Math.round(monthTxns.reduce((s, t) => s + t.amount / 100, 0)),
+            budgetRupees: null,
+            topDay: null,
+            biggestTx: null,
+            lastMonthTotalRupees: prevTxns.length > 0 ? Math.round(prevTxns.reduce((s, t) => s + t.amount / 100, 0)) : null,
+            categories: categories.slice(0, 8),
+          },
+        },
+      })
+      if (!error && data?.comment) {
+        setFinanceNote(data.comment as string)
+        setFinanceFetchedAt(Date.now())
+      }
+    } catch {
+      /* keep old note */
+    } finally {
+      setFinanceLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (txns !== undefined && txns.length >= 0) fetchFinanceNote()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txns])
+
+  // Principles carousel (5s auto-rotate)
+  const [principleIndex, setPrincipleIndex] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      setPrincipleIndex((i) => (i + 1) % PRINCIPLES.length)
+    }, 5000)
+    return () => window.clearInterval(t)
+  }, [])
+  const principle = PRINCIPLES[principleIndex]
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0)
   const totalCardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
@@ -153,8 +238,13 @@ export function HomePage() {
       animate="show"
       variants={staggerContainer(0.07)}
     >
-      {/* Daily quote + habit progress hero */}
-      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <SEO
+        title="Meridian — Personal Life Tracker"
+        description="Your whole life, one dark dashboard: daily quotes, habits, sleep, AI money notes, finance, wealth, and more."
+        path="/"
+      />
+      {/* Daily quote + habit progress + sleep hero */}
+      <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-2">
           <div className="space-y-2.5 px-5 pt-5 pb-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9BA5FF]">
@@ -188,10 +278,63 @@ export function HomePage() {
             </div>
           </Link>
         </Card>
+
+        <Card>
+          <Link to="/sleep" className="block">
+            <div className="space-y-3 px-5 py-5 transition-colors hover:bg-white/2">
+              <div className="flex items-baseline justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Sleep
+                </p>
+                <span className="text-[10px] text-white/30">→</span>
+              </div>
+              {lastNightHours !== null ? (
+                <>
+                  <p className="text-3xl font-extrabold tracking-tight text-white tnum">
+                    {Math.floor(lastNightHours)}h {Math.round((lastNightHours % 1) * 60)}m
+                  </p>
+                  <p className="text-xs text-white/40">
+                    last night · {sleepInfo.count} nights
+                    {sleepInfo.avg ? ` · 7-night avg ${sleepInfo.avg.toFixed(1)}h` : ''}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-extrabold tracking-tight text-white/70">🌙</p>
+                  <p className="text-xs text-white/40">No nights logged yet</p>
+                </>
+              )}
+            </div>
+          </Link>
+        </Card>
       </motion.div>
 
-      {/* Stress release + principles */}
+      {/* AI finance note + stress + principles carousel */}
       <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1 border-[#E2A45C]/20">
+          <div className="space-y-3 px-5 py-5">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E2A45C]">
+                ✨ Money note · AI
+              </p>
+              <button
+                onClick={() => fetchFinanceNote(true)}
+                className="text-white/30 hover:text-white"
+                aria-label="Refresh finance note"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-white/75">
+              {financeLoading && !financeNote
+                ? 'Reading your spends…'
+                : financeNote ?? 'Log a few transactions and AI will comment on your spending.'}
+            </p>
+          </div>
+        </Card>
+
         <Card className="lg:col-span-1">
           <div className="space-y-3 px-5 py-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
@@ -208,17 +351,26 @@ export function HomePage() {
             ))}
           </div>
         </Card>
-        <Card className="lg:col-span-2">
-          <div className="space-y-3 px-5 py-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
-              Growth principles
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {PRINCIPLES.slice(0, 6).map((p) => (
-                <div key={p.title} className="rounded-xl border border-[#4FDBCC]/15 bg-[#4FDBCC]/4 p-3">
-                  <p className="text-sm font-semibold text-white">{p.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-white/45">{p.body}</p>
-                </div>
+
+        <Card className="lg:col-span-1 border-[#59D6C7]/20 bg-gradient-to-br from-[#59D6C7]/6 to-transparent">
+          <div className="flex h-full flex-col justify-between gap-4 px-5 py-5">
+            <div>
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#59D6C7]">
+                Growth principles
+              </p>
+              <div key={principleIndex} className="animate-[fadeIn_0.4s_ease]">
+                <p className="text-sm font-bold text-white">{principle.title}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/55">{principle.body}</p>
+              </div>
+            </div>
+            <div className="flex justify-center gap-1.5">
+              {PRINCIPLES.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === principleIndex ? 'w-5 bg-[#59D6C7]' : 'w-1.5 bg-white/15'
+                  }`}
+                />
               ))}
             </div>
           </div>

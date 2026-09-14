@@ -222,7 +222,6 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   },
   loans: {},
   fixed_deposits: {},
-  notes: {},
   goals: {},
   recipes: {
     prepTime: 'prep_time',
@@ -239,6 +238,9 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   },
   career_events: {},
   weekly_diary: {},
+  notes: {
+    deletedAt: 'deleted_at',
+  },
   sleep_logs: {
     startTime: 'start_time',
     endTime: 'end_time',

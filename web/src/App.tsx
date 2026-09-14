@@ -1,10 +1,15 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { ProtectedRoute, PublicOnlyRoute } from './components/layout/ProtectedRoute'
 import { ToastHost } from './components/ui/Toast'
 import { ForgotPasswordPage, LoginPage, SignupPage } from './pages/auth/AuthPages'
 
 import { HomePage } from './pages/HomePage'
+import { NotFoundPage } from './pages/NotFoundPage'
+import { ThankYouPage } from './pages/ThankYouPage'
+import { PrivacyPage } from './pages/legal/PrivacyPage'
+import { TermsPage } from './pages/legal/TermsPage'
+import { ContactPage } from './pages/legal/ContactPage'
 
 // Finance
 import { FinanceHomePage } from './pages/finance/FinanceHomePage'
@@ -68,6 +73,9 @@ import { CareerGoalsPage } from './pages/career/CareerGoalsPage'
 // Diary
 import { WeeklyDiaryPage } from './pages/diary/WeeklyDiaryPage'
 
+// System
+import { CookieBanner } from './components/CookieBanner'
+
 export default function App() {
   return (
     <>
@@ -78,6 +86,12 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
+
+        {/* Public legal / marketing */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/thank-you" element={<ThankYouPage />} />
 
         {/* Protected app */}
         <Route element={<ProtectedRoute />}>
@@ -163,8 +177,9 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      <CookieBanner />
       <ToastHost />
     </>
   )

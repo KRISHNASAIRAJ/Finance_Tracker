@@ -24,6 +24,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { tc } from '../theme/tracend';
@@ -323,7 +324,6 @@ export default function DrawerMenu() {
   const initials = user?.email
     ? user.email.split('@')[0].split(/[._-]/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()
     : 'M';
-
   const renderRow = (item: Item, i: number) => {
     const isActive = item.id === activeId && !item.danger;
     return (
@@ -337,7 +337,7 @@ export default function DrawerMenu() {
           onPress={item.onPress}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
-          {isActive && <View style={styles.activeBar} />}
+          {item.grad && <LinearGradient colors={[item.grad[0], item.grad[1]]} style={styles.rowAccent} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} />}
           <View
             style={[
               styles.rowIcon,
@@ -348,15 +348,16 @@ export default function DrawerMenu() {
           >
             {item.grad ? (
               <LinearGradient colors={[item.grad[0], item.grad[1]]} style={styles.rowIconGrad}>
-                <Ionicons name={item.icon} size={18} color="#ffffff" />
+                <Ionicons name={item.icon} size={17} color="#0A0A10" />
               </LinearGradient>
             ) : (
               <Ionicons
                 name={item.icon}
-                size={20}
+                size={19}
                 color={item.danger ? tc.attention : isActive ? tc.action : 'rgba(255,255,255,0.65)'}
               />
             )}
+
           </View>
           <Text
             style={[
@@ -368,10 +369,24 @@ export default function DrawerMenu() {
           >
             {item.label}
           </Text>
+          {isActive && <View style={styles.rowActiveDot} />}
         </TouchableOpacity>
       </Animated.View>
     );
   };
+
+  // Progress ring for today's habits (Telos-style "progress is motivation")
+  const habitRing = (() => {
+    const { useHabitStore } = require('../../modules/habits/store');
+    const { habitsForDay } = require('../../modules/habits/store');
+    const { todayKey, dayProgress } = require('../../modules/habits/habits');
+    const days = useHabitStore.getState().days;
+    const ticked = habitsForDay(days, todayKey());
+    const p = dayProgress(ticked);
+    const R = 17;
+    const C = 2 * Math.PI * R;
+    return { pct: Math.round(p * 100), C, dash: C * (1 - p), done: ticked.length };
+  })();
 
   return (
     <>
@@ -390,26 +405,39 @@ export default function DrawerMenu() {
         </TouchableOpacity>
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]} {...panelResponder.panHandlers}>
+          {/* Warm Telos-style aurora backdrop */}
           <LinearGradient
-            colors={['rgba(123,142,255,0.10)', 'rgba(94,230,255,0.04)', 'rgba(0,0,0,0)']}
+            colors={['#1a1440', '#101018', '#0A0A10']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.panelGlow}
             pointerEvents="none"
           />
+          <View style={styles.aurora1} pointerEvents="none" />
+          <View style={styles.aurora2} pointerEvents="none" />
 
-          {/* Header */}
-          <View style={[styles.panelHeader, { paddingTop: insets.top + 24 }]}>
-            <LinearGradient
-              colors={['#8b95ff', '#5ee6ff']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.avatarRing}
-            >
-              <View style={styles.avatarInner}>
-                <Text style={styles.avatarText}>{initials}</Text>
+          {/* Header — hero card with habit progress ring */}
+          <View style={[styles.panelHeader, { paddingTop: insets.top + 18 }]}>
+            <View style={styles.ringWrap}>
+              <Svg width={44} height={44}>
+                <Circle cx={22} cy={22} r={17} stroke="rgba(255,255,255,0.10)" strokeWidth={4} fill="none" />
+                <Circle
+                  cx={22}
+                  cy={22}
+                  r={17}
+                  stroke="#4fdbcc"
+                  strokeWidth={4}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray={`${habitRing.C}`}
+                  strokeDashoffset={`${habitRing.dash}`}
+                  transform="rotate(-90 22 22)"
+                />
+              </Svg>
+              <View style={styles.ringCenter}>
+                <Text style={styles.ringPct}>{habitRing.pct}%</Text>
               </View>
-            </LinearGradient>
+            </View>
             <View style={styles.headerTextWrap}>
               <Text style={styles.headerName} numberOfLines={1}>
                 {user?.email ? user.email.split('@')[0] : 'Guest'}
@@ -417,13 +445,21 @@ export default function DrawerMenu() {
               <View style={styles.headerStatusRow}>
                 <View style={[styles.statusDot, user ? styles.statusOnline : undefined]} />
                 <Text style={styles.headerSub} numberOfLines={1}>
-                  {user ? 'Synced' : 'Offline'}
+                  {habitRing.done}/10 habits · {user ? 'synced' : 'offline'}
                 </Text>
               </View>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={close} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={18} color={tc.textMuted} />
             </TouchableOpacity>
+          </View>
+
+          {/* Bricks of progress strip (Telos city metaphor) */}
+          <View style={styles.bricksStrip}>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <View key={i} style={[styles.brick, i < Math.round(habitRing.pct / 10) && styles.brickLit]} />
+            ))}
+            <Text style={styles.bricksLabel}>build your city, one brick at a time</Text>
           </View>
 
           <Animated.ScrollView
@@ -435,21 +471,24 @@ export default function DrawerMenu() {
               if (r.id === primaryItems[0].id) {
                 return (
                   <React.Fragment key={r.id}>
+                    <Animated.Text style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}>
+                      SPACES
+                    </Animated.Text>
                     {renderRow(r, i)}
-                    <Animated.View
-                      key="divider-a"
-                      style={[styles.divider, { opacity: rowOpacity(rows.length - 1) }]}
-                    />
                   </React.Fragment>
                 );
               }
               if (r.group === 'tools' && r.id === toolItems[0].id) {
                 return (
                   <React.Fragment key={r.id}>
+                    <Animated.View
+                      key="divider-a"
+                      style={[styles.divider, { opacity: rowOpacity(rows.length - 1) }]}
+                    />
                     <Animated.Text
                       style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}
                     >
-                      TOOLS
+                      TOOLBELT
                     </Animated.Text>
                     {renderRow(r, i)}
                   </React.Fragment>
@@ -458,6 +497,10 @@ export default function DrawerMenu() {
               if (r.group === 'system' && r.id === systemItems[0].id) {
                 return (
                   <React.Fragment key={r.id}>
+                    <Animated.View
+                      key="divider-b"
+                      style={[styles.divider, { opacity: rowOpacity(rows.length - 1) }]}
+                    />
                     <Animated.Text
                       style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}
                     >
@@ -474,7 +517,13 @@ export default function DrawerMenu() {
           <Animated.View
             style={[styles.panelFooter, { opacity: rowOpacity(rows.length), paddingBottom: insets.bottom + 10 }]}
           >
-            <Text style={styles.footerText}>MERIDIAN</Text>
+            <LinearGradient
+              colors={['#8b95ff', '#5ee6ff']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.footerBrandBar}
+            />
+            <Text style={styles.footerText}>MERIDIAN · one brick at a time</Text>
           </Animated.View>
         </Animated.View>
       </View>
@@ -520,40 +569,53 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  aurora1: {
+    position: 'absolute',
+    top: -60,
+    left: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(139,149,255,0.16)',
+    opacity: 0.5,
+  },
+  aurora2: {
+    position: 'absolute',
+    top: 90,
+    right: -110,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(79,219,204,0.10)',
+    opacity: 0.5,
+  },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
     paddingHorizontal: 18,
-    paddingBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.07)',
   },
-  avatarRing: {
+  ringWrap: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#7b8eff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  avatarInner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#101018',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+  ringCenter: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringPct: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#4fdbcc',
+    letterSpacing: -0.3,
   },
   headerTextWrap: { flex: 1 },
   headerName: {
@@ -589,16 +651,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bricksStrip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  brick: {
+    width: 14,
+    height: 8,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  brickLit: {
+    backgroundColor: '#4fdbcc',
+    shadowColor: '#4fdbcc',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bricksLabel: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.30)',
+    letterSpacing: 0.4,
+    marginLeft: 6,
+  },
   scrollContent: {
     paddingHorizontal: 10,
     paddingTop: 10,
   },
   sectionLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 1.8,
-    marginTop: 20,
+    letterSpacing: 2.2,
+    marginTop: 18,
     marginBottom: 2,
     marginLeft: 14,
   },
@@ -614,26 +706,32 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     position: 'relative',
     overflow: 'hidden',
   },
   rowActive: {
-    backgroundColor: 'rgba(139,149,255,0.09)',
+    backgroundColor: 'rgba(139,149,255,0.10)',
   },
-  activeBar: {
+  rowAccent: {
     position: 'absolute',
     left: 0,
-    top: 8,
-    bottom: 8,
+    top: 10,
+    bottom: 10,
     width: 3,
     borderRadius: 2,
+    opacity: 0.85,
+  },
+  rowActiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#8b95ff',
   },
   rowIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -646,7 +744,7 @@ const styles = StyleSheet.create({
   rowIconGrad: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -666,6 +764,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     alignItems: 'center',
+    gap: 6,
+  },
+  footerBrandBar: {
+    width: 44,
+    height: 3,
+    borderRadius: 2,
   },
   footerText: {
     fontSize: 9,

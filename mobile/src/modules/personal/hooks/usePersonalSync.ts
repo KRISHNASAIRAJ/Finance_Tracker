@@ -143,6 +143,9 @@ async function doPull(userId: string) {
         title: r.title as string,
         content: (r.content as string) ?? "",
         date: (r.created_at as string) ?? new Date().toISOString(),
+        folder: (r.folder as string) ?? "Notes",
+        pinned: (r.pinned as boolean) ?? false,
+        deletedAt: (r.deleted_at as string) ?? null,
       }));
     if (newNotes.length > 0) {
       store.setState({ notes: [...newNotes, ...store.getState().notes] });
