@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_bedtime_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_background">
+
+    <ImageView
+        android:id="@+id/widget_bedtime_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/widget_bedtime_idle"
+        android:contentDescription="Bedtime" />
+
+    <TextView
+        android:id="@+id/widget_bedtime_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="TAP BEDTIME"
+        android:textColor="#E4E2F5"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+    <TextView
+        android:id="@+id/widget_bedtime_time"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="Sleep tracker"
+        android:textColor="#8E8EA0"
+        android:textSize="10sp"
+        android:gravity="center" />
+
+</LinearLayout>

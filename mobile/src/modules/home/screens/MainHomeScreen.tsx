@@ -28,8 +28,8 @@ import GlassCard from '../../../shared/components/GlassCard';
 import Entrance from '../../../shared/components/Entrance';
 import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 import { quoteForDate, stressTechniquesForDate, PRINCIPLES } from '../../../shared/dailyContent';
-import { HABITS, todayKey, dayProgress, progressBlocks, habitStreak } from '../../habits/habits';
-import { useHabitStore, habitsForDay } from '../../habits/store';
+import { todayKey, dayProgress, progressBlocks, habitStreak } from '../../habits/habits';
+import { useHabitStore, habitsForDay, useHabitDefs } from '../../habits/store';
 import { useSleepStore, sleepDurationHours, formatSleepDuration } from '../../sleep/store';
 import { useFinanceStore } from '../../finance/store';
 import { useAuth } from '../../../services/AuthProvider';
@@ -56,7 +56,8 @@ export default function MainHomeScreen() {
 
   const today = todayKey();
   const ticked = habitsForDay(days, today);
-  const progress = dayProgress(ticked);
+  const HABITS = useHabitDefs();
+  const progress = dayProgress(ticked, HABITS);
   const pct = Math.round(progress * 100);
 
   const streaks = HABITS.map((h) => ({
@@ -308,7 +309,7 @@ export default function MainHomeScreen() {
                   style={[styles.barFill, { width: `${Math.max(progress * 100, 4)}%` }]}
                 />
               </View>
-              <Text style={styles.barBlocks}>{progressBlocks(ticked)}</Text>
+              <Text style={styles.barBlocks}>{progressBlocks(ticked, HABITS)}</Text>
 
               <View style={styles.quickRow}>
                 {HABITS.map((h) => {

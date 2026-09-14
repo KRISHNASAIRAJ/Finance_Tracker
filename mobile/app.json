@@ -3,31 +3,6 @@
     "name": "Meridian",
     "slug": "mobile",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "scheme": "meridian",
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#000000",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "package": "com.krishnasairaj.meridian",
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "VIBRATE"
-      ]
-    },
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
@@ -36,17 +11,6 @@
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
       }
     },
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "sounds": []
-        }
-      ],
-      "expo-updates",
-      "expo-font",
-      "expo-speech-recognition"
-    ],
     "updates": {
       "url": "https://u.expo.dev/cf70f456-c860-412c-8692-d26ee19926c3",
       "enabled": true,
@@ -56,3 +20,4 @@
     "runtimeVersion": "1.0.0"
   }
 }
+

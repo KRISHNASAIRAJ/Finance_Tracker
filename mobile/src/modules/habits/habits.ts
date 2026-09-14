@@ -9,7 +9,7 @@ export interface HabitDef {
   emoji: string;
 }
 
-/** The 10 canonical habits (fixed set — matches the Notion tracker). */
+/** The 10 canonical habits (default set — user can long-press to edit). */
 export const HABITS: HabitDef[] = [
   { key: 'sleep_6_7', label: 'Sleep 6–7 hours', emoji: '💤' },
   { key: 'cook_meals', label: 'Cook meals for the day', emoji: '🥗' },
@@ -24,6 +24,32 @@ export const HABITS: HabitDef[] = [
 ];
 
 export const HABIT_KEYS: string[] = HABITS.map((h) => h.key);
+
+/**
+ * Effective habit list: user overrides (label/emoji edits, added habits)
+ * layered over the canonical set, order preserved. Invalid entries dropped.
+ */
+export function effectiveHabits(overrides: HabitDef[] | null | undefined): HabitDef[] {
+  if (!overrides || overrides.length === 0) return HABITS;
+  const out: HabitDef[] = [];
+  for (const o of overrides) {
+    if (!o || typeof o.key !== 'string' || !o.key) continue;
+    out.push({
+      key: o.key,
+      label: typeof o.label === 'string' && o.label.trim() ? o.label.trim() : 'Untitled habit',
+      emoji: typeof o.emoji === 'string' && o.emoji ? o.emoji : '⭐',
+    });
+  }
+  return out;
+}
+
+/** Day completion ratio 0–1 (ticked / total habits) against a habit set. */
+export function dayProgress(ticked: string[], habitsList: HabitDef[] = HABITS): number {
+  if (habitsList.length === 0) return 0;
+  const keys = habitsList.map((h) => h.key);
+  const valid = ticked.filter((k) => keys.includes(k));
+  return Math.min(1, valid.length / habitsList.length);
+}
 
 /**
  * IST calendar day key (YYYY-MM-DD) for a Date or ISO string.
@@ -51,22 +77,15 @@ export function parseHabits(raw: string | string[] | null | undefined): string[]
   }
 }
 
-/** Day completion ratio 0–1 (ticked / total habits). */
-export function dayProgress(ticked: string[]): number {
-  if (HABITS.length === 0) return 0;
-  const valid = ticked.filter((k) => HABIT_KEYS.includes(k));
-  return Math.min(1, valid.length / HABITS.length);
-}
-
 /** Percent label like "70%" — matches the Notion daily percentage column. */
-export function dayPercent(ticked: string[]): string {
-  return `${Math.round(dayProgress(ticked) * 100)}%`;
+export function dayPercent(ticked: string[], habitsList: HabitDef[] = HABITS): string {
+  return `${Math.round(dayProgress(ticked, habitsList) * 100)}%`;
 }
 
 /** 10-segment progress bar like the Notion tracker: ⬛⬛⬜⬜… 30% */
-export function progressBlocks(ticked: string[]): string {
-  const filled = Math.round(dayProgress(ticked) * 10);
-  return '⬛'.repeat(filled) + '⬜'.repeat(10 - filled) + ` ${Math.round(dayProgress(ticked) * 100)}%`;
+export function progressBlocks(ticked: string[], habitsList: HabitDef[] = HABITS): string {
+  const filled = Math.round(dayProgress(ticked, habitsList) * 10);
+  return '⬛'.repeat(filled) + '⬜'.repeat(10 - filled) + ` ${Math.round(dayProgress(ticked, habitsList) * 100)}%`;
 }
 
 /** All day-keys between two day keys inclusive (ISO order). */

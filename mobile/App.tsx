@@ -107,6 +107,36 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
       } else if (url.includes('combined-report')) {
         nav.navigate('MoreStack', { screen: 'CombinedReport' });
+      } else if (url.includes('bedtime')) {
+        // Bedtime widget finished a session — hand start/end to the sleep store
+        const q = url.split('?')[1] ?? '';
+        const params = Object.fromEntries(q.split('&').map((p) => p.split('=')));
+        const start = Number(params.start);
+        const end = Number(params.end);
+        if (start > 0 && end > start) {
+          (async () => {
+            try {
+              const { supabase } = require('./src/services/supabaseClient');
+              const { data: { session } } = await supabase.auth.getSession();
+              const { useSleepStore } = require('./src/modules/sleep/store');
+              useSleepStore.getState().addEntry(
+                {
+                  startTime: new Date(start).toISOString(),
+                  endTime: new Date(end).toISOString(),
+                  quality: null,
+                  mood: null,
+                  interruptions: 0,
+                  notes: 'Logged from Bedtime widget',
+                  source: 'manual',
+                },
+                session?.user?.id
+              );
+            } catch {
+              /* widget session logging is best-effort */
+            }
+          })();
+        }
+        nav.navigate('MoreStack', { screen: 'SleepTracker' });
       }
     };
 

@@ -246,6 +246,10 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     endTime: 'end_time',
   },
   habit_logs: {},
+  meal_plans: {
+    planDate: 'plan_date',
+    recipeId: 'recipe_id',
+  },
 };
 
 function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {
@@ -275,6 +279,7 @@ const ON_CONFLICT_TARGET: Record<string, string> = {
   vehicles: 'user_id,name',
   user_settings: 'user_id',
   habit_logs: 'user_id,log_date',
+  meal_plans: 'user_id,plan_date,slot',
 };
 
 /**

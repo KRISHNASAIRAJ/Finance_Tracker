@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- sun disc (wake mode) -->
+    <path
+        android:fillColor="#4FDBCC"
+        android:pathData="M24,14a10,10 0 1,0 0,20a10,10 0 1,0 0,-20z" />
+    <!-- rays -->
+    <path
+        android:fillColor="#E4E2F5"
+        android:pathData="M24,4l1.8,4.5h-3.6zM24,44l-1.8,-4.5h3.6zM4,24l4.5,-1.8v3.6zM44,24l-4.5,1.8v-3.6zM10,10l4.2,1.2l-2.4,2.4zM38,38l-4.2,-1.2l2.4,-2.4zM38,10l-1.2,4.2l-2.4,-2.4zM10,38l1.2,-4.2l2.4,2.4z" />
+</vector>

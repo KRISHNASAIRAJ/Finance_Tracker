@@ -16,6 +16,7 @@ import {
   shiftMonth,
   monthLabel,
   habitStreak,
+  effectiveHabits,
 } from '../habits';
 
 describe('habits module', () => {
@@ -134,6 +135,38 @@ describe('habits module', () => {
 
     it('returns 0 with no logs', () => {
       expect(habitStreak('no_junk', () => [])).toBe(0);
+    });
+  });
+
+  describe('effectiveHabits (editable habit overrides)', () => {
+    it('returns canonical set when overrides are null/empty', () => {
+      expect(effectiveHabits(null)).toEqual(HABITS);
+      expect(effectiveHabits([])).toEqual(HABITS);
+      expect(effectiveHabits(undefined)).toEqual(HABITS);
+    });
+    it('uses overrides when provided (edited labels, added habits)', () => {
+      const custom = [
+        { key: 'sleep_6_7', label: 'Sleep 7 hours', emoji: '😴' },
+        { key: 'stretch', label: 'Stretch 10 min', emoji: '🧘' },
+      ];
+      const out = effectiveHabits(custom);
+      expect(out).toEqual(custom);
+    });
+    it('drops invalid entries and fills defaults', () => {
+      const out = effectiveHabits([
+        { key: 'a', label: '  ', emoji: '' },
+        null as any,
+        { key: 'b', label: 'Valid', emoji: '⭐' },
+      ]);
+      expect(out).toHaveLength(2);
+      expect(out[0].label).toBe('Untitled habit');
+      expect(out[0].emoji).toBe('⭐');
+      expect(out[1].label).toBe('Valid');
+    });
+    it('dayProgress works against custom habit sets', () => {
+      const custom = effectiveHabits([{ key: 'a', label: 'A', emoji: '⭐' }, { key: 'b', label: 'B', emoji: '⭐' }]);
+      expect(dayProgress(['a'], custom)).toBe(0.5);
+      expect(dayProgress(['a', 'b', 'zzz'], custom)).toBe(1);
     });
   });
 });

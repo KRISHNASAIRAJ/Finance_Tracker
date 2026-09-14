@@ -308,6 +308,44 @@ async function doPull(userId: string) {
     } catch (_e) {}
   }
 
+  // --- USER SETTINGS (editable habit defs + career goals) ---
+  // Latest write wins: only pull when no local user_settings ops are queued.
+  const hasSettingsPending = [...pendingIds].some((k) => k.startsWith("user_settings|"));
+  if (!hasSettingsPending) {
+    const { data: settingsData, error: settingsErr } = await supabase
+      .from("user_settings")
+      .select("habit_defs, career_goals_json")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!settingsErr && settingsData) {
+      try {
+        const { useHabitStore } = require("../../habits/store");
+        const rawDefs = (settingsData as Record<string, unknown>).habit_defs as string | null;
+        if (rawDefs) {
+          const parsed = JSON.parse(rawDefs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            useHabitStore.setState({ habitOverrides: parsed });
+          }
+        } else {
+          useHabitStore.setState({ habitOverrides: null });
+        }
+      } catch (_e) {}
+      try {
+        const { useCareerGoalsStore } = require("../../habits/careerGoalsStore");
+        const rawGoals = (settingsData as Record<string, unknown>).career_goals_json as string | null;
+        const { effectiveGoals } = require("../../../shared/careerGoals");
+        if (rawGoals) {
+          const parsed = JSON.parse(rawGoals);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            useCareerGoalsStore.setState({ overrides: parsed });
+          }
+        } else {
+          useCareerGoalsStore.setState({ overrides: null });
+        }
+      } catch (_e) {}
+    }
+  }
+
   // --- SLEEP LOGS ---
   const { data: sleepData, error: sleepErr } = await supabase
     .from("sleep_logs")
@@ -336,6 +374,36 @@ async function doPull(userId: string) {
         const merged = [...newEntries, ...sleepStore.getState().entries];
         merged.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         sleepStore.setState({ entries: merged });
+      }
+    } catch (_e) {}
+  }
+
+  // --- MEAL PLANS (planner) ---
+  const { data: mealPlanData, error: mealPlanErr } = await supabase
+    .from("meal_plans")
+    .select("*")
+    .eq("user_id", userId);
+
+  if (!mealPlanErr && mealPlanData) {
+    try {
+      const { useMealPlannerStore } = require("../../meals/plannerStore");
+      const plannerStore = useMealPlannerStore;
+      const existing = new Set(plannerStore.getState().plans.map((p: any) => p.id));
+      const newPlans: any[] = (mealPlanData as Array<Record<string, unknown>>)
+        .filter((r) => !existing.has(r.id as string))
+        .filter((r) => !pendingIds.has(`meal_plans|${r.id as string}`))
+        .map((r) => ({
+          id: r.id as string,
+          date: r.plan_date as string,
+          slot: r.slot as string,
+          recipeId: (r.recipe_id as string | null) ?? null,
+          title: r.title as string,
+          notes: (r.notes as string) ?? "",
+          done: Boolean(r.done),
+        }));
+      if (newPlans.length > 0) {
+        const merged = [...newPlans, ...plannerStore.getState().plans];
+        plannerStore.setState({ plans: merged });
       }
     } catch (_e) {}
   }

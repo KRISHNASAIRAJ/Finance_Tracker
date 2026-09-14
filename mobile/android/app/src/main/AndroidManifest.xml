@@ -62,5 +62,12 @@
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_combined_report"/>
     </receiver>
+    <receiver android:name=".widgets.BedtimeWidget" android:label="Bedtime" android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+        <action android:name="com.krishnasairaj.meridian.widgets.ACTION_BEDTIME_TOGGLE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_bedtime"/>
+    </receiver>
   </application>
 </manifest>

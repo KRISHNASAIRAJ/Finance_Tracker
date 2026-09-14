@@ -238,6 +238,12 @@ export default function MoreMenuScreen() {
           onPress: () => navigation.navigate('MealLogger'),
         },
         {
+          id: 'mealplanner',
+          label: 'Meal Planner',
+          icon: 'calendar-outline',
+          onPress: () => navigation.navigate('MealPlanner'),
+        },
+        {
           id: 'weight',
           label: 'Weight Tracker',
           icon: 'scale-outline',

@@ -35,6 +35,7 @@ import {
   formatSleepDuration,
 } from '../store';
 import { detectLastSleep, hasUsageAccess, isSleepDetectAvailable, openUsageAccessSettings, DetectedSleep } from '../sleepDetect';
+import { widgetBedtimeStart, setWidgetBedtimeStart } from '../bedtimeWidget';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { toLocalInput, parseLocalInput } from './sleepTime';
@@ -93,14 +94,33 @@ export default function SleepDashboardScreen() {
 
   // Restore pending bedtime (in-progress sleep session)
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((v) => setPendingBedtime(v))
-      .catch(() => {});
+    (async () => {
+      try {
+        const local = await AsyncStorage.getItem(STORAGE_KEY);
+        if (local) {
+          setPendingBedtime(local);
+          // Keep the home-screen widget in sync with the in-app session
+          setWidgetBedtimeStart(new Date(local).getTime());
+          return;
+        }
+        // No local session — adopt one started from the Bedtime widget
+        const widgetStart = await widgetBedtimeStart();
+        if (widgetStart) {
+          const iso = new Date(widgetStart).toISOString();
+          setPendingBedtime(iso);
+          AsyncStorage.setItem(STORAGE_KEY, iso).catch(() => {});
+        }
+      } catch {
+        /* best-effort restore */
+      }
+    })();
   }, []);
 
   const savePendingBedtime = (iso: string | null) => {
     setPendingBedtime(iso);
     AsyncStorage.setItem(STORAGE_KEY, iso ?? '').catch(() => {});
+    // Mirror to the home-screen Bedtime widget so both show the same session
+    setWidgetBedtimeStart(iso ? new Date(iso).getTime() : null).catch(() => {});
   };
 
   // Auto-detect on open (morning suggestion). Fully guarded — any failure
