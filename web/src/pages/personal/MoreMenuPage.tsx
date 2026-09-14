@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileBarChart2, Newspaper, StickyNote, Target, ChefHat, Salad } from 'lucide-react'
+import { FileBarChart2, Newspaper, StickyNote, Target, ChefHat, Salad, Flag } from 'lucide-react'
 import { PageHeader } from '../../components/ui/Shared'
 import { cn } from '../../lib/utils'
 
@@ -8,6 +8,7 @@ const LINKS = [
   { to: '/more/daily-report', icon: Newspaper, title: 'Daily Report', subtitle: 'AI evening summary & morning briefing' },
   { to: '/more/notes', icon: StickyNote, title: 'Personal Notes', subtitle: 'Quick thoughts & reminders' },
   { to: '/more/goals', icon: Target, title: 'Goals 2026', subtitle: 'Track yearly goals' },
+  { to: '/career/goals', icon: Flag, title: 'Career Goals', subtitle: '2025 → 2031 roadmap & milestones' },
   { to: '/more/recipes', icon: ChefHat, title: 'Recipes', subtitle: 'Your recipe collection' },
   { to: '/more/diet', icon: Salad, title: 'Diet Viewer', subtitle: 'Weekly meal plan' },
 ]

@@ -76,7 +76,7 @@ export default function AuthGate({ children }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.center}>
           <Ionicons name="person-circle-outline" size={64} color={colors.primary} style={{ marginBottom: 20 }} />
           <Text style={styles.title}>Sign In</Text>

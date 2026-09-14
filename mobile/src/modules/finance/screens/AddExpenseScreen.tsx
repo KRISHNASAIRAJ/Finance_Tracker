@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AddExpenseScreen — Windfall-style transaction entry.
  * Type it naturally ("Lunch at Starbucks 300 UPI") → the smart parser fills
  * amount, category, payment mode and notes; review the chips before saving
@@ -125,7 +125,7 @@ export default function AddExpenseScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* AppBar */}

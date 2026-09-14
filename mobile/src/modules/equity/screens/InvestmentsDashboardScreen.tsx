@@ -136,11 +136,11 @@ export default function InvestmentsDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header row: drawer trigger — fixed outside the scroll so it never moves */}
+      <View style={styles.drawerTopBar}>
+        <DrawerTrigger />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header row: drawer trigger */}
-        <View style={styles.drawerTopBar}>
-          <DrawerTrigger />
-        </View>
         {/* NET WEALTH Hero — Investments + FDs − Loans, always visible */}
         <Entrance index={0}>
           <View style={styles.netWealthCard}>
@@ -495,7 +495,7 @@ export default function InvestmentsDashboardScreen() {
           </View>
           <View style={styles.goalsList}>
             {goals.map((g) => {
-              const progress = g.current / g.target;
+              const progress = g.target > 0 ? Math.min(1, g.current / g.target) : 0;
               const percentText = `${Math.round(progress * 100)}%`;
               return (
                 <TouchableOpacity
@@ -504,18 +504,21 @@ export default function InvestmentsDashboardScreen() {
                   onPress={() => navigation.navigate('AddEditGoal', { goalId: g.id })}
                 >
                   <View style={styles.rowBetween}>
-                    <Text style={styles.goalName}>{g.name}</Text>
+                    <Text style={styles.goalName} numberOfLines={1} ellipsizeMode="tail">{g.name}</Text>
                     <Text style={styles.goalPercent}>{percentText}</Text>
                   </View>
                   <View style={styles.progressBarBg}>
                     <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
                   </View>
                   <View style={styles.rowBetween}>
-                    <Text style={styles.goalProgressDetails}>
-                      {formatCurrency(g.current)} of {formatCurrency(g.target)}
+                    <Text style={styles.goalProgressDetails} numberOfLines={1}>
+                      {formatCurrency(g.current)}{' '}
+                      <Text style={{ color: 'rgba(255,255,255,0.35)' }}>of</Text>{' '}
+                      {formatCurrency(g.target)}
                     </Text>
-                    <Text style={styles.goalProgressDetails}>
-                      Target: {new Date(g.dueDate).getFullYear()}
+                    <Text style={styles.goalProgressDetails} numberOfLines={1}>
+                      <Text style={{ color: 'rgba(255,255,255,0.35)' }}>Target:</Text>{' '}
+                      {new Date(g.dueDate).getFullYear()}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -653,6 +656,9 @@ const styles = StyleSheet.create({
   },
   drawerTopBar: {
     alignSelf: 'flex-start',
+    paddingLeft: spacing.containerPadding,
+    height: 58,
+    justifyContent: 'center',
   },
   netWealthCard: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1053,6 +1059,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.onSurface,
+    flexShrink: 1,
+    marginRight: 10,
   },
   goalPercent: {
     fontSize: 14,
@@ -1073,6 +1081,7 @@ const styles = StyleSheet.create({
   goalProgressDetails: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
+    flexShrink: 1,
   },
   holdingsList: {
     gap: 12,

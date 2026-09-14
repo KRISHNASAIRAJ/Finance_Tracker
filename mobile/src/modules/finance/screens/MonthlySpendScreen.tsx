@@ -248,12 +248,14 @@ export default function MonthlySpendScreen() {
                   <View style={styles.catLimitTop}>
                     <View style={styles.catLimitNameRow}>
                       <CategoryIcon category={budget.category} size={14} color={catColor} />
-                      <Text style={[styles.catLimitName, { color: over ? colors.error : colors.onSurface }]}>
+                      <Text style={[styles.catLimitName, { color: over ? colors.error : colors.onSurface }]} numberOfLines={1}>
                         {budget.category}
                       </Text>
                     </View>
                     <Text style={[styles.catLimitSpent, { color: over ? colors.error : colors.onSurfaceVariant }]}>
-                      {formatCurrency(spent)} / {formatCurrency(budget.amountPaise)}
+                      {formatCurrency(spent)}{' '}
+                      <Text style={{ color: 'rgba(255,255,255,0.35)' }}>/</Text>
+                      {' '}{formatCurrency(budget.amountPaise)}
                       {over ? ' · over' : ''}
                     </Text>
                   </View>
@@ -472,14 +474,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
+    marginRight: 10,
   },
   catLimitName: {
     fontSize: 13,
     fontWeight: '600',
+    flexShrink: 1,
   },
   catLimitSpent: {
     fontSize: 11,
     fontWeight: '600',
+    flexShrink: 0,
   },
   catLimitTrack: {
     height: 5,

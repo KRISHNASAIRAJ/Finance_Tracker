@@ -1,4 +1,4 @@
-﻿/**
+/**
  * EditTransactionScreen — form to edit an existing transaction's amount,
  * category, date and notes.
  */
@@ -114,7 +114,7 @@ export default function EditTransactionScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
           {/* Header */}

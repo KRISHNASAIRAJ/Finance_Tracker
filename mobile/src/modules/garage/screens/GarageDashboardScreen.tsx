@@ -217,11 +217,11 @@ export default function GarageDashboardScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header row: drawer trigger — fixed outside the scroll so it never moves */}
+      <View style={styles.topBar}>
+        <DrawerTrigger />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header row: drawer trigger */}
-        <View style={styles.topBar}>
-          <DrawerTrigger />
-        </View>
         {/* Mileage Hero */}
         <Entrance index={0}>
         <View style={styles.heroCard}>
@@ -601,6 +601,9 @@ const styles = StyleSheet.create({
   },
   topBar: {
     alignSelf: 'flex-start',
+    paddingLeft: spacing.containerPadding,
+    height: 58,
+    justifyContent: 'center',
   },
   heroCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',

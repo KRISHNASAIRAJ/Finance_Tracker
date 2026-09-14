@@ -22,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealStore, MealFoodItem, MealLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { analyzeMealImage, analyzeMealText, ConversationTurn } from '../../../services/aiServices';
-import { useSpeechToText } from '../../../shared/hooks/useSpeechToText';
 import { tc, ts, tr, card, cardFocus, labelMuted, dataBase } from '../../../shared/theme/tracend';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
@@ -66,19 +65,6 @@ export default function MealAIConfirmScreen() {
   const initialAnalysisDone = useRef(false);
   const submittedTextRef = useRef(textDescription || '');
   const [inputText, setInputText] = useState('');
-  const stt = useSpeechToText();
-  const [sttTarget, setSttTarget] = useState<'describe' | 'reply'>('describe');
-
-  // Route the final voice transcript into whichever input is mic-active
-  useEffect(() => {
-    if (!stt.result) return;
-    if (sttTarget === 'describe') {
-      setInputText((prev) => (prev ? `${prev} ${stt.result}`.slice(0, 500) : stt.result || ''));
-    } else {
-      setReplyText((prev) => (prev ? `${prev} ${stt.result}`.slice(0, 300) : stt.result || ''));
-    }
-    stt.reset();
-  }, [stt.result, sttTarget]);
 
   useEffect(() => {
     if (initialAnalysisDone.current) return;
@@ -264,7 +250,7 @@ Estimate realistic nutrition values for this specific item.`;
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           ref={scrollRef}
@@ -308,34 +294,16 @@ Estimate realistic nutrition values for this specific item.`;
           {!imageBase64 && !textDescription && !loading && items.length === 0 && conversation.length === 0 ? (
             <View style={[cardFocus, { padding: 14, gap: 10 }]}>
               <Text style={styles.describeLabel}>Describe your meal</Text>
-              <View style={styles.describeInputRow}>
-                <TextInput
-                  style={styles.describeInput}
-                  value={stt.listening && sttTarget === 'describe' && stt.partial ? stt.partial : inputText}
-                  onChangeText={setInputText}
-                  placeholder={stt.listening && sttTarget === 'describe' ? 'Listening…' : '"Rice with dal and 2 chapatis with paneer curry"'}
-                  placeholderTextColor={tc.textMuted}
-                  multiline
-                  maxLength={500}
-                  textAlignVertical="top"
-                  editable={!(stt.listening && sttTarget === 'describe')}
-                />
-                <TouchableOpacity
-                  style={[styles.micBtn, stt.listening && sttTarget === 'describe' && styles.micBtnActive]}
-                  onPress={() => {
-                    setSttTarget('describe');
-                    if (stt.listening && sttTarget === 'describe') stt.stop();
-                    else stt.start();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={stt.listening && sttTarget === 'describe' ? 'mic' : 'mic-outline'}
-                    size={20}
-                    color={stt.listening && sttTarget === 'describe' ? tc.canvas : tc.action}
-                  />
-                </TouchableOpacity>
-              </View>
+              <TextInput
+                style={styles.describeInput}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder={'"Rice with dal and 2 chapatis with paneer curry"'}
+                placeholderTextColor={tc.textMuted}
+                multiline
+                maxLength={500}
+                textAlignVertical="top"
+              />
               <TouchableOpacity
                 style={[styles.describeSubmitBtn, (!inputText.trim() || sending) && { opacity: 0.3 }]}
                 onPress={handleSubmitText}
@@ -474,29 +442,13 @@ Estimate realistic nutrition values for this specific item.`;
           <View style={styles.replyRow}>
             <TextInput
               style={styles.replyInput}
-              value={stt.listening && sttTarget === 'reply' && stt.partial ? stt.partial : replyText}
+              value={replyText}
               onChangeText={setReplyText}
-              placeholder={stt.listening && sttTarget === 'reply' ? 'Listening…' : 'Ask AI to add / change items…'}
+              placeholder={'Ask AI to add / change items…'}
               placeholderTextColor={tc.textMuted}
               multiline
               maxLength={300}
-              editable={!(stt.listening && sttTarget === 'reply')}
             />
-            <TouchableOpacity
-              style={[styles.micBtn, stt.listening && sttTarget === 'reply' && styles.micBtnActive]}
-              onPress={() => {
-                setSttTarget('reply');
-                if (stt.listening && sttTarget === 'reply') stt.stop();
-                else stt.start();
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={stt.listening && sttTarget === 'reply' ? 'mic' : 'mic-outline'}
-                size={20}
-                color={stt.listening && sttTarget === 'reply' ? tc.canvas : tc.action}
-              />
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.sendBtn, (!replyText.trim() || sending) && { opacity: 0.3 }]}
               onPress={handleSendReply}
@@ -774,25 +726,4 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   describeSubmitText: { fontSize: 14, fontWeight: '700', color: tc.canvas },
-
-  // Mic button
-  micBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
-    backgroundColor: tc.surface,
-  },
-  micBtnActive: {
-    backgroundColor: tc.attention,
-    borderColor: tc.attention,
-  },
-  describeInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
 });

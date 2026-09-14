@@ -3,7 +3,7 @@
  * Type a request like "add a banana to lunch" or "remove the chapati" and the
  * AI proposes structured changes that you review and confirm before applying.
  */
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,7 +22,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealStore, MealLogEntry, MealFoodItem } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { analyzeMealManage, ProposedChange } from '../../../services/aiServices';
-import { useSpeechToText } from '../../../shared/hooks/useSpeechToText';
 import { tc, ts, tr } from '../../../shared/theme/tracend';
 import { getTodayDateString } from '../../../shared/istDate';
 
@@ -51,15 +50,6 @@ export default function MealChatScreen() {
   const [proposed, setProposed] = useState<ProposedChange[]>([]);
   const [applying, setApplying] = useState(false);
   const listRef = useRef<FlatList<ChatMsg>>(null);
-  const stt = useSpeechToText();
-
-  // Apply final voice transcript to the input
-  useEffect(() => {
-    if (stt.result) {
-      setInput((prev) => (prev ? `${prev} ${stt.result}`.slice(0, 300) : stt.result || ''));
-      stt.reset();
-    }
-  }, [stt.result]);
 
   const dayEntries = useMemo(
     () => entries.filter((e) => e.date.slice(0, 10) === paramDate),
@@ -166,7 +156,7 @@ export default function MealChatScreen() {
         <Ionicons name="sparkles" size={18} color={tc.action} />
       </View>
 
-      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
           ref={listRef}
           data={messages}
@@ -229,22 +219,14 @@ export default function MealChatScreen() {
         )}
 
         <View style={styles.inputRow}>
-          <TouchableOpacity
-            style={[styles.micBtn, stt.listening && styles.micBtnActive]}
-            onPress={() => (stt.listening ? stt.stop() : stt.start())}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={stt.listening ? 'mic' : 'mic-outline'} size={20} color={stt.listening ? tc.canvas : tc.action} />
-          </TouchableOpacity>
           <TextInput
             style={styles.input}
-            value={stt.listening && stt.partial ? stt.partial : input}
+            value={input}
             onChangeText={setInput}
-            placeholder={stt.listening ? 'Listening…' : 'Tell the AI what to add / remove / change…'}
+            placeholder={'Tell the AI what to add / remove / change…'}
             placeholderTextColor={tc.textMuted}
             multiline
             maxLength={300}
-            editable={!stt.listening}
           />
           <TouchableOpacity
             style={[styles.sendBtn, (!input.trim() || loading) && { opacity: 0.35 }]}
@@ -379,19 +361,5 @@ const styles = StyleSheet.create({
     backgroundColor: tc.action,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  micBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
-    backgroundColor: tc.surface,
-  },
-  micBtnActive: {
-    backgroundColor: tc.attention,
-    borderColor: tc.attention,
   },
 });

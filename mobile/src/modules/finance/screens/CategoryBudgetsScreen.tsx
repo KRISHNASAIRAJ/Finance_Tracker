@@ -131,10 +131,12 @@ export default function CategoryBudgetsScreen() {
                     <View style={[styles.iconWrapper, { backgroundColor: `${catColor}15` }]}>
                       <CategoryIcon category={budget.category} size={17} color={catColor} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemTitle}>{budget.category}</Text>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">{budget.category}</Text>
                       <Text style={[styles.itemSubtitle, over && { color: colors.error }]}>
-                        {formatCurrency(spent)} / {formatCurrency(budget.amountPaise)} spent
+                        {formatCurrency(spent)}{' '}
+                        <Text style={{ color: 'rgba(255,255,255,0.35)' }}>/</Text>
+                        {' '}{formatCurrency(budget.amountPaise)}
                         {over ? ' · over limit' : ''}
                       </Text>
                       {/* Progress bar */}
@@ -330,6 +332,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.onSurfaceVariant,
     marginTop: 2,
+    flexShrink: 1,
   },
   progressTrack: {
     height: 5,

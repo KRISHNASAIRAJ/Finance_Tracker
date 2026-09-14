@@ -220,6 +220,12 @@ export default function MoreMenuScreen() {
           icon: 'trending-up-outline',
           onPress: () => navigation.navigate('CareerTracker'),
         },
+        {
+          id: 'careergoals',
+          label: 'Career Goals',
+          icon: 'flag-outline',
+          onPress: () => navigation.navigate('CareerGoals'),
+        },
       ],
     },
     {

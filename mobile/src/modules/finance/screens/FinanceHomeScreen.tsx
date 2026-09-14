@@ -182,23 +182,22 @@ export default function FinanceHomeScreen() {
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top App Bar */}
-        <View style={styles.appBar}>
-          <View style={styles.appBarSide}>
-            <DrawerTrigger />
-          </View>
-          <Text style={styles.appBarTitle}>MERIDIAN</Text>
-          <TouchableOpacity
-            style={styles.appBarBtn}
-            onPress={() => (navigation as any).navigate('Notifications')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
-            {unreadCount > 0 && <View style={styles.notifDot} />}
-          </TouchableOpacity>
+      {/* Top App Bar — fixed outside the scroll so the drawer trigger never moves */}
+      <View style={styles.appBar}>
+        <View style={styles.appBarSide}>
+          <DrawerTrigger />
         </View>
-
+        <Text style={styles.appBarTitle}>MERIDIAN</Text>
+        <TouchableOpacity
+          style={styles.appBarBtn}
+          onPress={() => (navigation as any).navigate('Notifications')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
+          {unreadCount > 0 && <View style={styles.notifDot} />}
+        </TouchableOpacity>
+      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Hero Section: Total Net Worth */}
         <Entrance index={0}>
           <TouchableOpacity
@@ -533,8 +532,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    marginBottom: 4,
+    height: 58,
+    paddingHorizontal: 24,
   },
   appBarSide: {
     width: 40,

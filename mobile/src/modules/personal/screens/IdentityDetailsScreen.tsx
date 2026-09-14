@@ -69,7 +69,7 @@ export default function IdentityDetailsScreen() {
     <SafeAreaView style={styles.container}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardView}
         >
           {/* Header */}

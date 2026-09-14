@@ -92,9 +92,16 @@ export default function MainHomeScreen() {
       ? `${now.getFullYear() - 1}-12`
       : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
 
-    const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service']);
-    const monthTxns = transactions.filter((t: any) => spendTypes.has(t.type) && String(t.date).slice(0, 7) === monthKey);
-    const prevTxns = transactions.filter((t: any) => spendTypes.has(t.type) && String(t.date).slice(0, 7) === prev);
+    // Wallet loads / rent / SIP / investments are transfers, not spends —
+    // exclude them so the note talks about REAL spending, not wallet top-ups.
+    const EXCLUDED = new Set(['wallet loads', 'wallet load', 'rent', 'sip', 'investments', 'housing']);
+    const isSpend = (t: any) =>
+      ['expense', 'fuel_purchase', 'vehicle_service'].includes(t.type) &&
+      !EXCLUDED.has((t.category || '').toLowerCase()) &&
+      !((t.notes || '').toLowerCase().includes('wallet load') || (t.notes || '').toLowerCase().includes('payzapp'));
+
+    const monthTxns = transactions.filter((t: any) => isSpend(t) && String(t.date).slice(0, 7) === monthKey);
+    const prevTxns = transactions.filter((t: any) => isSpend(t) && String(t.date).slice(0, 7) === prev);
 
     const byCat = new Map<string, { amount: number; count: number }>();
     for (const t of monthTxns) {
@@ -125,16 +132,36 @@ export default function MainHomeScreen() {
         : m;
     }, null);
 
+    // Overall finance picture — not just spends, so the note covers the
+    // whole month: income, balances, credit cards, lending and net worth.
+    const fin = useFinanceStore.getState();
+    const monthIncome = fin.transactions
+      .filter((t: any) => t.type === 'income' && String(t.date).slice(0, 7) === monthKey)
+      .reduce((s: number, t: any) => s + t.amount / 100, 0);
+    const totalBalance = fin.accounts.reduce((s: number, a: any) => s + (a.amount ?? 0), 0) / 100;
+    const cardOutstanding = fin.cards.reduce((s: number, c: any) => s + (c.balance ?? 0), 0) / 100;
+    const lentOut = fin.receivables
+      .filter((r: any) => r.type === 'lent')
+      .reduce((s: number, r: any) => s + ((r.amount ?? 0) - (r.paidAmount ?? 0)) / 100, 0);
+    const borrowed = fin.receivables
+      .filter((r: any) => r.type === 'borrowed')
+      .reduce((s: number, r: any) => s + ((r.amount ?? 0) - (r.paidAmount ?? 0)) / 100, 0);
+
     return {
       monthLabel: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
       totalSpendRupees: Math.round(monthTxns.reduce((s: number, t: any) => s + t.amount / 100, 0)),
-      budgetRupees: null,
+      budgetRupees: fin.monthlyBudget > 0 ? fin.monthlyBudget : null,
       topDay,
       biggestTx: biggest,
       lastMonthTotalRupees: prevTxns.length > 0
         ? Math.round(prevTxns.reduce((s: number, t: any) => s + t.amount / 100, 0))
         : null,
       categories: categories.slice(0, 8),
+      monthIncomeRupees: Math.round(monthIncome),
+      bankBalanceRupees: Math.round(totalBalance),
+      cardOutstandingRupees: Math.round(cardOutstanding),
+      lentOutRupees: Math.round(lentOut),
+      borrowedRupees: Math.round(borrowed),
     };
   };
 
@@ -171,7 +198,14 @@ export default function MainHomeScreen() {
         hasFetchedOnce.current = true;
         fetchFinanceComment();
       } else {
-        fetchFinanceComment(); // uses the 6h cache guard
+        // If transactions changed since the note was generated, refresh it so
+        // the note always reflects current data (not a stale cached comment).
+        const cached = (financeCommentRef as unknown as { current: FinanceComment | null }).current;
+        if (cached && Date.now() - cached.fetchedAt > 15 * 60 * 1000) {
+          fetchFinanceComment(true);
+        } else {
+          fetchFinanceComment(); // uses the cache guard
+        }
       }
     }, [transactions])
   );
@@ -219,19 +253,18 @@ export default function MainHomeScreen() {
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top bar */}
-        <View style={styles.appBar}>
-          <DrawerTrigger />
-          <View style={styles.appBarCenter}>
-            <Text style={styles.appBarTitle}>{greeting}</Text>
-            <Text style={styles.appBarSub}>
-              {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </Text>
-          </View>
-          <View style={styles.appBarSide} />
+      {/* Top bar — fixed outside the scroll so the drawer trigger never moves */}
+      <View style={styles.appBar}>
+        <DrawerTrigger />
+        <View style={styles.appBarCenter}>
+          <Text style={styles.appBarTitle}>{greeting}</Text>
+          <Text style={styles.appBarSub}>
+            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
         </View>
-
+        <View style={styles.appBarSide} />
+      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Daily quote */}
         <Entrance index={0}>
           <GlassCard glow="indigo" radius={24} pad={false}>
@@ -356,11 +389,17 @@ export default function MainHomeScreen() {
                   />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.financeText}>
-                {financeLoading && !financeComment
-                  ? 'Reading your spends…'
-                  : financeComment?.comment ?? 'Log a few transactions and I\u2019ll comment on your spending.'}
-              </Text>
+              {financeLoading && !financeComment ? (
+                <View style={styles.financeSkeleton}>
+                  <View style={[styles.skeletonLine, { width: '92%' }]} />
+                  <View style={[styles.skeletonLine, { width: '78%' }]} />
+                  <View style={[styles.skeletonLine, { width: '45%' }]} />
+                </View>
+              ) : (
+                <Text style={styles.financeText}>
+                  {financeComment?.comment ?? 'Log a few transactions and I\u2019ll comment on your spending.'}
+                </Text>
+              )}
             </View>
           </GlassCard>
         </Entrance>
@@ -439,8 +478,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 8,
-    marginBottom: 4,
+    height: 58,
+    paddingHorizontal: spacing.containerPadding,
   },
   appBarCenter: { flex: 1, alignItems: 'center' },
   appBarSide: { width: 42, height: 42 },
@@ -619,6 +658,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: tc.textPrimary,
     lineHeight: 20,
+  },
+  financeSkeleton: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  skeletonLine: {
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   sectionTitle: {
     fontSize: 11,

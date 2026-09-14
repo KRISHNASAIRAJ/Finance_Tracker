@@ -101,9 +101,16 @@ export function HomePage() {
       const now = new Date()
       const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
       const prevKey = now.getMonth() === 0 ? `${now.getFullYear() - 1}-12` : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`
+      // Wallet loads / rent / SIP are transfers, not real spends — exclude
+      // them so the note talks about actual spending, not wallet top-ups.
+      const excluded = new Set(['rent', 'sip', 'investments', 'housing', 'wallet loads', 'wallet load'])
       const spendTypes = new Set(['expense', 'fuel_purchase', 'vehicle_service'])
-      const monthTxns = (txns ?? []).filter((t) => spendTypes.has(t.type) && t.date.slice(0, 7) === monthKey)
-      const prevTxns = (txns ?? []).filter((t) => spendTypes.has(t.type) && t.date.slice(0, 7) === prevKey)
+      const isSpend = (t: Transaction) =>
+        spendTypes.has(t.type) &&
+        !excluded.has(t.category.toLowerCase()) &&
+        !((t.notes ?? '').toLowerCase().includes('wallet load') || (t.notes ?? '').toLowerCase().includes('payzapp'))
+      const monthTxns = (txns ?? []).filter((t) => isSpend(t) && t.date.slice(0, 7) === monthKey)
+      const prevTxns = (txns ?? []).filter((t) => isSpend(t) && t.date.slice(0, 7) === prevKey)
       const byCat = new Map<string, { amount: number; count: number }>()
       for (const t of monthTxns) {
         const c = byCat.get(t.category) ?? { amount: 0, count: 0 }
@@ -114,6 +121,14 @@ export function HomePage() {
       const categories = [...byCat.entries()]
         .map(([category, v]) => ({ category, amountRupees: Math.round(v.amount), count: v.count }))
         .sort((a, b) => b.amountRupees - a.amountRupees)
+      const monthIncome = (txns ?? [])
+        .filter((t) => t.type === 'income' && t.date.slice(0, 7) === monthKey)
+        .reduce((s, t) => s + t.amount / 100, 0)
+      const bankBalance = (accounts ?? []).reduce((s, a) => s + (a.amount ?? 0), 0) / 100
+      const cardOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0) / 100
+      const lentOut = (receivables ?? [])
+        .filter((r) => r.type === 'lent' && r.status !== 'paid')
+        .reduce((s, r) => s + r.amount / 100, 0)
       const { data, error } = await supabase.functions.invoke('ai-finance-comment', {
         body: {
           context: {
@@ -124,6 +139,11 @@ export function HomePage() {
             biggestTx: null,
             lastMonthTotalRupees: prevTxns.length > 0 ? Math.round(prevTxns.reduce((s, t) => s + t.amount / 100, 0)) : null,
             categories: categories.slice(0, 8),
+            monthIncomeRupees: Math.round(monthIncome),
+            bankBalanceRupees: Math.round(bankBalance),
+            cardOutstandingRupees: Math.round(cardOutstanding),
+            lentOutRupees: Math.round(lentOut),
+            borrowedRupees: null,
           },
         },
       })

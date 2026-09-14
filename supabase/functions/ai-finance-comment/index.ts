@@ -57,6 +57,11 @@ interface Context {
   biggestTx?: { category: string; amountRupees: number; note?: string } | null;
   lastMonthTotalRupees?: number | null;
   categories: CategoryRow[];
+  monthIncomeRupees?: number | null;
+  bankBalanceRupees?: number | null;
+  cardOutstandingRupees?: number | null;
+  lentOutRupees?: number | null;
+  borrowedRupees?: number | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -109,8 +114,24 @@ Deno.serve(async (req: Request) => {
     if (ctx.biggestTx && ctx.biggestTx.amountRupees > 0) {
       lines.push(`BIGGEST SINGLE TXN: ${ctx.biggestTx.category} ₹${Math.round(ctx.biggestTx.amountRupees).toLocaleString("en-IN")}${ctx.biggestTx.note ? ` (${ctx.biggestTx.note})` : ""}`);
     }
+    if (typeof ctx.monthIncomeRupees === "number" && ctx.monthIncomeRupees > 0) {
+      lines.push(`INCOME this month: ₹${Math.round(ctx.monthIncomeRupees).toLocaleString("en-IN")}`);
+      lines.push(`SAVINGS this month (income − spend): ₹${Math.round(ctx.monthIncomeRupees - ctx.totalSpendRupees).toLocaleString("en-IN")}`);
+    }
+    if (typeof ctx.bankBalanceRupees === "number" && ctx.bankBalanceRupees > 0) {
+      lines.push(`TOTAL BANK BALANCE: ₹${Math.round(ctx.bankBalanceRupees).toLocaleString("en-IN")}`);
+    }
+    if (typeof ctx.cardOutstandingRupees === "number" && ctx.cardOutstandingRupees > 0) {
+      lines.push(`CREDIT CARD OUTSTANDING: ₹${Math.round(ctx.cardOutstandingRupees).toLocaleString("en-IN")}`);
+    }
+    if (typeof ctx.lentOutRupees === "number" && ctx.lentOutRupees > 0) {
+      lines.push(`LENT OUT (pending): ₹${Math.round(ctx.lentOutRupees).toLocaleString("en-IN")}`);
+    }
+    if (typeof ctx.borrowedRupees === "number" && ctx.borrowedRupees > 0) {
+      lines.push(`BORROWED (pending): ₹${Math.round(ctx.borrowedRupees).toLocaleString("en-IN")}`);
+    }
 
-    const userMessage = `${lines.join("\n")}\n\nGive the user one short observation about their spending + at most one practical suggestion. Keep it human.`;
+    const userMessage = `${lines.join("\n")}\n\nGive the user one short observation about their overall money this month (spending, savings, balances, or lending) + at most one practical suggestion. Keep it human.`;
 
     const groq = createGroqClient();
     const comment = await groq.complete({

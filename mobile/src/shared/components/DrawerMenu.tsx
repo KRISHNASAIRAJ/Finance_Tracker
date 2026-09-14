@@ -259,34 +259,6 @@ export default function DrawerMenu() {
     setTimeout(() => signOut(), 120);
   };
 
-  const primaryItems: Item[] = [
-    {
-      id: 'home', label: 'Home', icon: 'home-outline',
-      grad: ['#7b8eff', '#3a4fc9'] as const,
-      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'HomeTab' })),
-    },
-    {
-      id: 'finance', label: 'Finance', icon: 'wallet-outline',
-      grad: ['#a08bff', '#5c3ac9'] as const,
-      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab' })),
-    },
-    {
-      id: 'garage', label: 'Garage', icon: 'bicycle-outline',
-      grad: ['#5ee6ff', '#007d8f'] as const,
-      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'GarageTab' })),
-    },
-    {
-      id: 'tasks', label: 'Tasks', icon: 'checkbox-outline',
-      grad: ['#ffd9a0', '#e2a45c'] as const,
-      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'TasksTab' })),
-    },
-    {
-      id: 'wealth', label: 'Wealth', icon: 'trending-up-outline',
-      grad: ['#4fdbcc', '#007d73'] as const,
-      onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'InvestmentsTab' })),
-    },
-  ];
-
   const toolItems: Item[] = [
     { id: 'habits', label: 'Habit Tracker', icon: 'checkmark-circle-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })) },
     { id: 'sleep', label: 'Sleep Tracker', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
@@ -314,16 +286,12 @@ export default function DrawerMenu() {
   ];
 
   const rows = useMemo(() => [
-    ...primaryItems.map((it) => ({ ...it, group: 'primary' as const })),
     ...toolItems.map((it) => ({ ...it, group: 'tools' as const })),
     ...systemItems.map((it) => ({ ...it, group: 'system' as const })),
   ], []);
 
   const indexOf = (id: string) => rows.findIndex((r) => r.id === id);
 
-  const initials = user?.email
-    ? user.email.split('@')[0].split(/[._-]/).map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-    : 'M';
   const renderRow = (item: Item, i: number) => {
     const isActive = item.id === activeId && !item.danger;
     return (
@@ -463,31 +431,16 @@ export default function DrawerMenu() {
           </View>
 
           <Animated.ScrollView
+            style={styles.scrollFlex}
             contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
           >
             {rows.map((r) => {
               const i = indexOf(r.id);
-              if (r.id === primaryItems[0].id) {
+              if (r.id === toolItems[0].id) {
                 return (
                   <React.Fragment key={r.id}>
                     <Animated.Text style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}>
-                      SPACES
-                    </Animated.Text>
-                    {renderRow(r, i)}
-                  </React.Fragment>
-                );
-              }
-              if (r.group === 'tools' && r.id === toolItems[0].id) {
-                return (
-                  <React.Fragment key={r.id}>
-                    <Animated.View
-                      key="divider-a"
-                      style={[styles.divider, { opacity: rowOpacity(rows.length - 1) }]}
-                    />
-                    <Animated.Text
-                      style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}
-                    >
                       TOOLBELT
                     </Animated.Text>
                     {renderRow(r, i)}
@@ -681,6 +634,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginLeft: 6,
   },
+  scrollFlex: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 10,
     paddingTop: 10,
@@ -761,6 +715,7 @@ const styles = StyleSheet.create({
   panelFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#0A0A10',
     paddingHorizontal: 20,
     paddingTop: 12,
     alignItems: 'center',
