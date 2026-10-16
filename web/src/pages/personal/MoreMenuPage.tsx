@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FileBarChart2, Newspaper, StickyNote, Target, ChefHat, Salad, Flag } from 'lucide-react'
+import { FileBarChart2, Newspaper, StickyNote, Target, ChefHat, Salad, Flag, CalendarDays } from 'lucide-react'
 import { PageHeader } from '../../components/ui/Shared'
 import { cn } from '../../lib/utils'
 
@@ -11,6 +11,7 @@ const LINKS = [
   { to: '/career/goals', icon: Flag, title: 'Career Goals', subtitle: '2025 → 2031 roadmap & milestones' },
   { to: '/more/recipes', icon: ChefHat, title: 'Recipes', subtitle: 'Your recipe collection' },
   { to: '/more/diet', icon: Salad, title: 'Diet Viewer', subtitle: 'Weekly meal plan' },
+  { to: '/meals/planner', icon: CalendarDays, title: 'Meal Planner', subtitle: 'Plan what to cook, 7 days ahead' },
 ]
 
 export function MoreMenuPage() {

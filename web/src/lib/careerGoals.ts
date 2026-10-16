@@ -99,3 +99,40 @@ export const CAREER_GOALS: CareerGoalYear[] = [
 export function currentYearGoals(now: Date = new Date()): CareerGoalYear | undefined {
   return CAREER_GOALS.find((g) => g.year === now.getFullYear())
 }
+
+/**
+ * Effective career goals: user overrides if present, else canonical.
+ * Keep in sync with mobile/src/shared/careerGoals.ts.
+ */
+export function effectiveGoals(overrides: CareerGoalYear[] | null | undefined): CareerGoalYear[] {
+  if (!overrides || overrides.length === 0) return CAREER_GOALS
+  const out: CareerGoalYear[] = []
+  for (const o of overrides) {
+    if (!o || typeof o.year !== 'number' || !Number.isFinite(o.year)) continue
+    out.push({
+      year: o.year,
+      title: typeof o.title === 'string' && o.title.trim() ? o.title.trim() : 'Untitled',
+      emoji: typeof o.emoji === 'string' && o.emoji ? o.emoji : '🎯',
+      items: Array.isArray(o.items)
+        ? o.items.filter((it) => typeof it === 'string' && it.trim())
+        : [],
+      done: Boolean(o.done),
+    })
+  }
+  return out.sort((a, b) => a.year - b.year)
+}
+
+export function currentYearGoalsFrom(list: CareerGoalYear[], now: Date = new Date()): CareerGoalYear | undefined {
+  return list.find((g) => g.year === now.getFullYear())
+}
+
+/** Parse career_goals_json from user_settings into an override list (null = canonical). */
+export function parseCareerGoals(raw: string | null | undefined): CareerGoalYear[] | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}

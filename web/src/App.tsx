@@ -59,6 +59,7 @@ import { DietViewerPage } from './pages/personal/DietViewerPage'
 import { MealLoggerPage } from './pages/meals/MealLoggerPage'
 import { MealAISuggestionsPage } from './pages/meals/MealAISuggestionsPage'
 import { WeightTrackerPage } from './pages/meals/WeightTrackerPage'
+import { MealPlannerPage } from './pages/meals/MealPlannerPage'
 
 // Sleep
 import { SleepTrackerPage } from './pages/sleep/SleepTrackerPage'
@@ -159,6 +160,7 @@ export default function App() {
             <Route path="/meals" element={<MealLoggerPage />} />
             <Route path="/meals/ai" element={<MealAISuggestionsPage />} />
             <Route path="/meals/weight" element={<WeightTrackerPage />} />
+            <Route path="/meals/planner" element={<MealPlannerPage />} />
 
             {/* Sleep */}
             <Route path="/sleep" element={<SleepTrackerPage />} />

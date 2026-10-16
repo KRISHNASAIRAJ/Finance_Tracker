@@ -24,6 +24,36 @@ export const HABITS: HabitDef[] = [
 
 export const HABIT_KEYS: string[] = HABITS.map((h) => h.key)
 
+/**
+ * Effective habit list: user overrides (label/emoji edits, added habits)
+ * layered over the canonical set. Invalid entries dropped.
+ * Keep in sync with mobile/src/modules/habits/habits.ts.
+ */
+export function effectiveHabits(overrides: HabitDef[] | null | undefined): HabitDef[] {
+  if (!overrides || overrides.length === 0) return HABITS
+  const out: HabitDef[] = []
+  for (const o of overrides) {
+    if (!o || typeof o.key !== 'string' || !o.key) continue
+    out.push({
+      key: o.key,
+      label: typeof o.label === 'string' && o.label.trim() ? o.label.trim() : 'Untitled habit',
+      emoji: typeof o.emoji === 'string' && o.emoji ? o.emoji : '⭐',
+    })
+  }
+  return out
+}
+
+/** Parse habit_defs JSON from user_settings into an override list (null = canonical). */
+export function parseHabitDefs(raw: string | null | undefined): HabitDef[] | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 /** IST calendar day key (YYYY-MM-DD) — pure UTC math, works from any TZ. */
 export function istDayKey(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d
@@ -45,19 +75,20 @@ export function parseHabits(raw: string | string[] | null | undefined): string[]
   }
 }
 
-export function dayProgress(ticked: string[]): number {
-  if (HABITS.length === 0) return 0
-  const valid = ticked.filter((k) => HABIT_KEYS.includes(k))
-  return Math.min(1, valid.length / HABITS.length)
+export function dayProgress(ticked: string[], habitsList: HabitDef[] = HABITS): number {
+  if (habitsList.length === 0) return 0
+  const keys = habitsList.map((h) => h.key)
+  const valid = ticked.filter((k) => keys.includes(k))
+  return Math.min(1, valid.length / habitsList.length)
 }
 
-export function dayPercent(ticked: string[]): string {
-  return `${Math.round(dayProgress(ticked) * 100)}%`
+export function dayPercent(ticked: string[], habitsList: HabitDef[] = HABITS): string {
+  return `${Math.round(dayProgress(ticked, habitsList) * 100)}%`
 }
 
-export function progressBlocks(ticked: string[]): string {
-  const filled = Math.round(dayProgress(ticked) * 10)
-  return '⬛'.repeat(filled) + '⬜'.repeat(10 - filled) + ` ${Math.round(dayProgress(ticked) * 100)}%`
+export function progressBlocks(ticked: string[], habitsList: HabitDef[] = HABITS): string {
+  const filled = Math.round(dayProgress(ticked, habitsList) * 10)
+  return '⬛'.repeat(filled) + '⬜'.repeat(10 - filled) + ` ${Math.round(dayProgress(ticked, habitsList) * 100)}%`
 }
 
 export function daysInMonth(monthKey: string): number {

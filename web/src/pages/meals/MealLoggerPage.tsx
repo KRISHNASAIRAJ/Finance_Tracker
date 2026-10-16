@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Sparkles, BarChart3, UtensilsCrossed } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Sparkles, BarChart3, UtensilsCrossed, CalendarDays } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { useMealLogs, useUpsertMealLog, useDeleteMealLog } from '../../hooks/data/usePersonal'
 import { useAnalyzeMealText, useDailyReport } from '../../hooks/useAI'
@@ -49,6 +50,7 @@ const EMPTY_ITEM = { name: '', quantity: '', calories: '', protein: '', carbs: '
 
 export function MealLoggerPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const userId = user?.id ?? ''
   const { data: logs, isLoading } = useMealLogs(userId)
   const upsert = useUpsertMealLog(userId)
@@ -204,6 +206,9 @@ export function MealLoggerPage() {
             </Button>
             <Button size="sm" variant="secondary" className="gap-1.5" onClick={runReport}>
               <BarChart3 className="h-4 w-4" /> Daily report
+            </Button>
+            <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => navigate('/meals/planner')}>
+              <CalendarDays className="h-4 w-4" /> Planner
             </Button>
             <Button size="sm" className="gap-1.5" onClick={() => { setAddOpen(true); setItems([]); setAddNotes('') }}>
               <Plus className="h-4 w-4" /> Add meal

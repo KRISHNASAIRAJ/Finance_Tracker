@@ -466,3 +466,103 @@ export function useUpsertHabitLog(userId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: habitKeys.all(userId) }),
   })
 }
+
+// ─── User settings content (editable habits + career goals) ─
+
+export const settingsKeys = {
+  content: (userId: string) => ['user_settings', userId, 'content'] as const,
+}
+
+export function useSettingsContent(userId: string) {
+  return useQuery({
+    queryKey: settingsKeys.content(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('habit_defs, career_goals_json')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      return (data ?? {}) as { habit_defs?: string | null; career_goals_json?: string | null }
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useSaveSettingsContent(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      habitDefs,
+      careerGoalsJson,
+    }: {
+      habitDefs?: string | null
+      careerGoalsJson?: string | null
+    }) => {
+      const payload: Record<string, unknown> = { user_id: userId, updated_at: new Date().toISOString() }
+      if (habitDefs !== undefined) payload.habit_defs = habitDefs
+      if (careerGoalsJson !== undefined) payload.career_goals_json = careerGoalsJson
+      const { error } = await supabase.from('user_settings').upsert(payload, { onConflict: 'user_id' })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.content(userId) }),
+  })
+}
+
+// ─── Meal plans (planner) ────────────────────────────────
+
+export interface MealPlanRow {
+  id: string
+  plan_date: string
+  slot: 'breakfast' | 'lunch' | 'snack' | 'dinner'
+  recipe_id: string | null
+  title: string
+  notes: string | null
+  done: boolean
+}
+
+export const mealPlanKeys = {
+  all: (userId: string) => ['meal_plans', userId] as const,
+}
+
+export function useMealPlans(userId: string) {
+  return useQuery({
+    queryKey: mealPlanKeys.all(userId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('meal_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .order('plan_date', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as MealPlanRow[]
+    },
+    enabled: !!userId,
+  })
+}
+
+export function useUpsertMealPlan(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ row }: { row: Partial<MealPlanRow> & { plan_date: string; slot: MealPlanRow['slot'] } }) => {
+      const id = row.id ?? `mp_${row.plan_date.replace(/-/g, '')}_${row.slot}`
+      const payload = { ...row, id, user_id: userId, updated_at: new Date().toISOString() }
+      const { error } = await supabase
+        .from('meal_plans')
+        .upsert(payload, { onConflict: 'user_id,plan_date,slot' })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: mealPlanKeys.all(userId) }),
+  })
+}
+
+export function useDeleteMealPlan(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('meal_plans').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: mealPlanKeys.all(userId) }),
+  })
+}
