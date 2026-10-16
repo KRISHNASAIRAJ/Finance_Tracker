@@ -30,6 +30,13 @@ type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'AddFuelFi
 
 const STATION_OPTIONS = ['HPCL Kondapur', 'HPCL Moinabad', 'Other'];
 
+/** Last recorded price/liter (rupees, editable text) for the vehicle, or ''. */
+function lastFuelPriceText(vehicle?: string): string {
+  if (!vehicle) return '';
+  const paise = useGarageStore.getState().getLastFuelPrice(vehicle);
+  return paise > 0 ? (paise / 100).toFixed(2) : '';
+}
+
 export default function AddFuelFillScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, addFuelFill } = useGarageStore();
@@ -37,13 +44,21 @@ export default function AddFuelFillScreen() {
 
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [liters, setLiters] = useState('');
-  const [pricePerLiter, setPricePerLiter] = useState('');
+  const [pricePerLiter, setPricePerLiter] = useState(() => lastFuelPriceText(vehicles[0]));
   const [odometer, setOdometer] = useState('');
   const [station, setStation] = useState('');
   const [showStationDropdown, setShowStationDropdown] = useState(false);
   const [customStation, setCustomStation] = useState('');
   const [fillDate, setFillDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
+
+  const selectVehicle = (v: string) => {
+    const suggestion = lastFuelPriceText(v);
+    setPricePerLiter((prev) =>
+      prev.trim() === '' || prev === lastFuelPriceText(selectedVehicle) ? suggestion : prev
+    );
+    setSelectedVehicle(v);
+  };
 
   const handleSubmit = () => {
     if (!selectedVehicle) {
@@ -116,7 +131,7 @@ export default function AddFuelFillScreen() {
                   <TouchableOpacity
                     key={v}
                     style={[styles.tabButton, isSelected && styles.tabButtonActive]}
-                    onPress={() => setSelectedVehicle(v)}
+                    onPress={() => selectVehicle(v)}
                   >
                     <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
                   </TouchableOpacity>

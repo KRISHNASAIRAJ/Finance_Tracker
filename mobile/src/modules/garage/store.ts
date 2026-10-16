@@ -76,6 +76,8 @@ interface GarageState {
   seedMaintenanceLogs: (vehicle: string, logs: Array<Omit<MaintenanceLog, 'id'>>) => void;
   getVehicleFills: (vehicle: string) => FuelFill[];
   getVehicleSpendTotal: (vehicle: string) => number;
+  /** Price per liter (paise) of the most recent fill with a valid price, or 0. */
+  getLastFuelPrice: (vehicle: string) => number;
 }
 
 const rupeeToPaise = (val: number) => Math.round(val * 100);
@@ -309,6 +311,16 @@ export const useGarageStore = create<GarageState>()(
         const fuelTotal = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
         const maintTotal = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
         return fuelTotal + maintTotal;
+      },
+      getLastFuelPrice: (vehicle) => {
+        const target = (vehicle || '').trim().toLowerCase();
+        if (!target) return 0;
+        const latest = get()
+          .fills.filter(
+            (f) => f.vehicle.trim().toLowerCase() === target && f.pricePerLiter > 0
+          )
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        return latest ? latest.pricePerLiter : 0;
       },
     }),
     {

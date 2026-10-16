@@ -211,6 +211,7 @@ function FuelFillForm({ id }: { id?: string }) {
         key={existing?.id ?? 'new'}
         existing={existing}
         vehicles={vehicles ?? []}
+        fills={fills ?? []}
         upsert={upsertFill}
         navigate={navigate}
       />
@@ -221,22 +222,40 @@ function FuelFillForm({ id }: { id?: string }) {
 function FuelFillFields({
   existing,
   vehicles,
+  fills,
   upsert,
   navigate,
 }: {
   existing?: FuelFill
   vehicles: Vehicle[]
+  fills: FuelFill[]
   upsert: ReturnType<typeof useUpsertFuelFill>
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const [vehicle, setVehicle] = useState(existing?.vehicle ?? vehicles[0]?.name ?? '')
+  const lastPriceFor = (v: string): string => {
+    const latest = fills
+      .filter((f) => f.vehicle === v && f.price_per_liter > 0)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+    return latest ? String(latest.price_per_liter / 100) : ''
+  }
+
+  const initialVehicle = existing?.vehicle ?? vehicles[0]?.name ?? ''
+
+  const [vehicle, setVehicle] = useState(initialVehicle)
   const [date, setDate] = useState(existing ? toInputDate(existing.date) : toInputDate(new Date().toISOString()))
   const [amount, setAmount] = useState(existing ? String(existing.amount / 100) : '')
   const [liters, setLiters] = useState(existing ? String(existing.liters) : '')
-  const [pricePerLiter, setPricePerLiter] = useState(existing ? String(existing.price_per_liter / 100) : '')
+  const [pricePerLiter, setPricePerLiter] = useState(
+    existing ? String(existing.price_per_liter / 100) : lastPriceFor(initialVehicle)
+  )
   const [odometer, setOdometer] = useState(existing ? String(existing.odometer) : '')
   const [station, setStation] = useState(existing?.station ?? '')
   const [note, setNote] = useState(existing?.note ?? '')
+
+  const onVehicleChange = (v: string) => {
+    setPricePerLiter((prev) => (prev.trim() === '' || prev === lastPriceFor(vehicle) ? lastPriceFor(v) : prev))
+    setVehicle(v)
+  }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -294,7 +313,7 @@ function FuelFillFields({
         <Field.Select
           label="Vehicle"
           value={vehicle}
-          onChange={(e) => setVehicle(e.target.value)}
+          onChange={(e) => onVehicleChange(e.target.value)}
           options={vehicles.map((v) => ({ value: v.name, label: v.name }))}
         />
         <Field.Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
