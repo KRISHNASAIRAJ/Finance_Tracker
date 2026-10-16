@@ -82,8 +82,14 @@ async function doPull(userId: string) {
   // Flush local pending ops FIRST so the pull can never resurrect stale cloud
   // data over edits the user just made (edits travel via the sync queue).
   try {
-    const { processSyncQueue } = require("../../../services/syncQueue");
+    const { processSyncQueue, getPendingEntityIds } = require("../../../services/syncQueue");
     await processSyncQueue(true);
+    // Items enqueued while a run was already in flight are preserved but not
+    // processed by that run — run once more so they reach the cloud before the
+    // merge below decides which version is newer.
+    if ((await getPendingEntityIds()).size > 0) {
+      await processSyncQueue(true);
+    }
   } catch (_e) { /* will retry on next pull / CRUD */ }
 
   let pendingIds: Set<string> = new Set();

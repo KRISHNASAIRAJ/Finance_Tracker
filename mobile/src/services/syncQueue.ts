@@ -53,12 +53,27 @@ const getStorage = () => {
   return AsyncStorage;
 };
 
-export async function enqueue(entity: string, action: SyncQueueItem["action"], data: Record<string, unknown>): Promise<void> {
+/**
+ * Serializes queue writes. Two enqueues issued in the same tick (e.g. a fuel
+ * edit enqueues both `fuel_fills` and its linked `transactions` row) used to
+ * race on read-modify-write and silently lose one item. Chaining every write
+ * guarantees each completes its full read-append-write before the next starts.
+ */
+let _enqueueChain: Promise<void> = Promise.resolve();
+
+async function writeToQueue(item: SyncQueueItem): Promise<void> {
   const storage = getStorage();
   if (!storage) {
     console.warn('[SyncQueue] enqueue failed: AsyncStorage unavailable');
     return;
   }
+  const raw = await storage.getItem(SYNC_QUEUE_KEY);
+  const queue: SyncQueueItem[] = raw ? JSON.parse(raw) : [];
+  queue.push(item);
+  await storage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+}
+
+export function enqueue(entity: string, action: SyncQueueItem["action"], data: Record<string, unknown>): Promise<void> {
   const item: SyncQueueItem = {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     entity,
@@ -67,10 +82,10 @@ export async function enqueue(entity: string, action: SyncQueueItem["action"], d
     queuedAt: new Date().toISOString(),
     retryCount: 0,
   };
-  const raw = await storage.getItem(SYNC_QUEUE_KEY);
-  const queue: SyncQueueItem[] = raw ? JSON.parse(raw) : [];
-  queue.push(item);
-  await storage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+  const task = _enqueueChain.then(() => writeToQueue(item));
+  // Keep the chain alive even if a write rejects (the caller still sees it).
+  _enqueueChain = task.catch(() => { /* noop */ });
+  return task;
 }
 
 export async function dequeueAll(): Promise<SyncQueueItem[]> {
@@ -96,7 +111,10 @@ export async function clearQueue(): Promise<void> {
   }
 }
 
-let _processing = false;
+type SyncRunResult = { succeeded: number; failed: number; dropped: number; error?: string };
+
+/** In-flight processing run — concurrent callers receive the SAME promise. */
+let _processingPromise: Promise<SyncRunResult> | null = null;
 
 export interface SyncStatus {
   lastResult: { succeeded: number; failed: number; dropped: number } | null;
@@ -357,6 +375,9 @@ function compactQueue(items: SyncQueueItem[]): SyncQueueItem[] {
  * data resurrects over the user's edits.
  */
 export async function getPendingEntityIds(): Promise<Set<string>> {
+  // Wait for any in-flight enqueue writes so a just-made local edit is
+  // visible here (otherwise a pull could treat the row as clean).
+  try { await _enqueueChain; } catch { /* chain never rejects; be safe */ }
   const items = await getQueue();
   const out = new Set<string>();
   for (const item of items) {
@@ -366,14 +387,30 @@ export async function getPendingEntityIds(): Promise<Set<string>> {
   return out;
 }
 
-export async function processSyncQueue(force = false): Promise<{ succeeded: number; failed: number; dropped: number; error?: string }> {
-  if (_processing) return { succeeded: 0, failed: 0, dropped: 0, error: 'Sync already in progress' };
-  _processing = true;
+/**
+ * Runs the queue. Concurrent callers receive the same in-flight promise, so a
+ * cloud pull that awaits the flush genuinely waits for it instead of returning
+ * immediately while an edit is still being written (which caused stale cloud
+ * data to overwrite fresh local edits).
+ */
+export function processSyncQueue(force = false): Promise<SyncRunResult> {
+  if (_processingPromise) return _processingPromise;
+  const run = runSyncQueue(force);
+  _processingPromise = run.finally(() => {
+    _processingPromise = null;
+  });
+  return _processingPromise;
+}
+
+async function runSyncQueue(force = false): Promise<SyncRunResult> {
   _status.isProcessing = true;
   _status.lastAttemptAt = new Date().toISOString();
   emitStatus();
 
   try {
+    // Let every enqueue that started before this run finish writing, so the
+    // run reads a complete queue snapshot.
+    try { await _enqueueChain; } catch { /* noop */ }
     const rawItems = await getQueue();
 
     if (rawItems.length === 0) {
@@ -411,7 +448,6 @@ export async function processSyncQueue(force = false): Promise<{ succeeded: numb
       _status.lastError = errMsg;
       _status.lastResult = { succeeded: 0, failed: rawItems.length, dropped: 0 };
       _status.isProcessing = false;
-      _processing = false;
       emitStatus();
       console.warn('[SyncQueue]', errMsg);
       return { succeeded: 0, failed: rawItems.length, dropped: 0, error: errMsg };
@@ -546,8 +582,6 @@ export async function processSyncQueue(force = false): Promise<{ succeeded: numb
     _status.isProcessing = false;
     emitStatus();
     return { succeeded: 0, failed: 0, dropped: 0, error: fatalMsg };
-  } finally {
-    _processing = false;
   }
 }
 
