@@ -9,7 +9,8 @@ const MEAL_SLOTS = [
   { slot: 'breakfast', hour: 9, minute: 0, label: 'Breakfast' },
   { slot: 'lunch', hour: 14, minute: 15, label: 'Lunch' },
   { slot: 'snack', hour: 18, minute: 30, label: 'Snack' },
-  { slot: 'dinner', hour: 21, minute: 30, label: 'Dinner' },
+  // Keep in sync with notificationService.MEAL_SLOTS (dinner 20:30).
+  { slot: 'dinner', hour: 20, minute: 30, label: 'Dinner' },
 ];
 
 const REMINDED_KEY = 'meridian-meal-reminded';

@@ -18,7 +18,8 @@ const MEAL_SLOTS: MealSlot[] = [
   { slot: 'breakfast', hour: 9, minute: 0, label: 'Breakfast' },
   { slot: 'lunch', hour: 14, minute: 15, label: 'Lunch' },
   { slot: 'snack', hour: 18, minute: 30, label: 'Snack' },
-  { slot: 'dinner', hour: 21, minute: 30, label: 'Dinner' },
+  // Dinner moved 21:30 → 20:30 so it no longer stacks with other 21:30 pings.
+  { slot: 'dinner', hour: 20, minute: 30, label: 'Dinner' },
 ];
 
 function ensureIST(date: Date): Date {
@@ -287,7 +288,9 @@ export async function scheduleAllReminders() {
 
     if (!Notifications) return;
     console.log('[notificationService] Cancelling all + rescheduling...');
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch (e) { console.warn('[notificationService] cancelAll failed (continuing):', e); }
 
     // Meal reminders — ONE per slot per day, only for slots not yet logged today.
     // No recurring daily triggers (that caused notification spam).
@@ -568,12 +571,13 @@ export async function scheduleAllReminders() {
       }
     } catch (e) { console.warn('[notificationService] sleep reminder failed:', e); }
 
-    // Morning brief — 9 AM IST daily for the next 7 days: today's quote +
+    // Morning brief — 7:30 AM IST daily for the next 7 days: today's quote +
     // a nudge to open Home (habit progress). Deep-links to the Home tab.
+    // (Retimed from 9:00 so it no longer lands with the 9:00 breakfast ping.)
     try {
       const t0 = istNow();
       for (let d = 0; d < 7; d++) {
-        const morning = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + d, 9, 0, 0, 0);
+        const morning = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + d, 7, 30, 0, 0);
         if (morning <= t0) continue;
         const day = new Date(morning);
         const q = quoteForDate(day);
