@@ -73,6 +73,7 @@ import RecipesLibraryScreen from '../modules/personal/screens/RecipesLibraryScre
 import DailyReportScreen from '../modules/personal/screens/DailyReportScreen';
 import BuyListScreen from '../modules/personal/screens/BuyListScreen';
 import GroceryListScreen from '../modules/personal/screens/GroceryListScreen';
+import OffersScreen from '../modules/offers/screens/OffersScreen';
 import CareerTrackerScreen from '../modules/career/screens/CareerTrackerScreen';
 import AddCareerEventScreen from '../modules/career/screens/AddCareerEventScreen';
 import MealLoggerScreen from '../modules/meals/screens/MealLoggerScreen';
@@ -150,6 +151,7 @@ export type MoreStackParamList = {
   DailyReport: undefined;
   BuyList: undefined;
   GroceryList: undefined;
+  Offers: undefined;
   CareerTracker: undefined;
   AddCareerEvent: { eventId?: string } | undefined;
   MealLogger: undefined;
@@ -306,6 +308,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="DailyReport" component={DailyReportScreen} />
       <MoreStack.Screen name="BuyList" component={BuyListScreen} />
       <MoreStack.Screen name="GroceryList" component={GroceryListScreen} />
+      <MoreStack.Screen name="Offers" component={OffersScreen} />
       <MoreStack.Screen name="CareerTracker" component={CareerTrackerScreen} />
       <MoreStack.Screen name="AddCareerEvent" component={AddCareerEventScreen} options={modalScreenOptions} />
       <MoreStack.Screen name="MealLogger" component={MealLoggerScreen} />

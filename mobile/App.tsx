@@ -81,6 +81,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MoreStack', { screen: 'BuyList' });
           } else if (data.screen === 'GroceryList') {
             nav.navigate('MoreStack', { screen: 'GroceryList' });
+          } else if (data.screen === 'Offers') {
+            nav.navigate('MoreStack', { screen: 'Offers' });
           } else if (data.screen === 'SleepTracker') {
             nav.navigate('MoreStack', { screen: 'SleepTracker' });
           } else if (data.screen === 'MainHome') {

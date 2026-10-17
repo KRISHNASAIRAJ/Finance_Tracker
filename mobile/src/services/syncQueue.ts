@@ -268,6 +268,12 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     planDate: 'plan_date',
     recipeId: 'recipe_id',
   },
+  offers: {
+    couponCode: 'coupon_code',
+    discountValue: 'discount_value',
+    minSpendPaise: 'min_spend_paise',
+    expiresOn: 'expires_on',
+  },
 };
 
 function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {

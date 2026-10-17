@@ -431,3 +431,21 @@ export interface HabitLog {
   created_at?: string
   updated_at?: string
 }
+
+// ─── Offers ────────────────────────────────────────────────
+
+export interface Offer {
+  id: string
+  user_id: string
+  title: string
+  merchant?: string | null
+  category?: string | null
+  coupon_code?: string | null
+  discount_value?: string | null
+  min_spend_paise?: number | null
+  /** expiry date, IST day — YYYY-MM-DD */
+  expires_on: string
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}

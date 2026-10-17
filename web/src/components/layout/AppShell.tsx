@@ -25,6 +25,7 @@ const TITLES: Record<string, string> = {
   '/diary': 'Diary',
   '/more': 'More',
   '/more/notes': 'Notes',
+  '/more/offers': 'Offers',
 }
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -41,6 +42,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/diary': 'Weekly diary with prompts and reflections.',
   '/more': 'All Meridian modules in one place.',
   '/more/notes': 'Apple-style notes with folders, pins, and recently deleted.',
+  '/more/offers': 'Discount offers and coupons with expiry reminders before they lapse.',
 }
 
 export function AppShell() {

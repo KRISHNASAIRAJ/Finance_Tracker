@@ -203,6 +203,12 @@ export default function MoreMenuScreen() {
           icon: 'basket-outline',
           onPress: () => navigation.navigate('GroceryList'),
         },
+        {
+          id: 'offers',
+          label: 'Offers',
+          icon: 'pricetags-outline',
+          onPress: () => navigation.navigate('Offers'),
+        },
       ],
     },
     {

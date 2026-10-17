@@ -108,6 +108,7 @@ async function setupChannels() {
       { id: 'sleep-reminders', name: 'Sleep Reminders', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'morning-brief', name: 'Morning Brief', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'podcast', name: 'Podcast', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
+      { id: 'offers', name: 'Offers & Coupons', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
@@ -271,6 +272,59 @@ export async function scheduleTaskReminder(task: {
     'task_reminders',
     { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
   );
+}
+
+/**
+ * Offers expiring soon — remind 3 days and 2 days before the expiry date at
+ * 6:00 PM IST. Cancels every previously scheduled offer reminder first so
+ * edits and deletes never leave stale ones behind (offer reminders are a pure
+ * derivation of current offer state). Safe to call from the offers store on
+ * every CRUD, and from scheduleAllReminders() on app launch.
+ */
+export async function refreshOfferReminders(): Promise<void> {
+  if (!ensureInit() || !Notifications) return;
+
+  try {
+    const existing = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of existing) {
+      const key = n?.content?.data?.dedupKey;
+      if (typeof key === 'string' && key.startsWith('offer_')) {
+        await Notifications.cancelScheduledNotificationAsync(n.id);
+      }
+    }
+  } catch (e) { console.warn('[notificationService] offer cancel failed:', e); }
+
+  try {
+    const { useOffersStore } = require('../modules/offers/store');
+    const offers = (useOffersStore.getState().offers || []) as Array<{
+      id: string; title: string; merchant?: string; couponCode?: string;
+      discountValue?: string; expiresOn: string;
+    }>;
+    const now = istNow();
+    for (const offer of offers) {
+      if (!offer?.expiresOn || !/^\d{4}-\d{2}-\d{2}$/.test(offer.expiresOn)) continue;
+      const [yy, mm, dd] = offer.expiresOn.split('-').map(Number);
+      const expiry = new Date(yy, mm - 1, dd);
+      if (isNaN(expiry.getTime())) continue;
+      for (const daysBefore of [3, 2]) {
+        const at = new Date(yy, mm - 1, dd - daysBefore, 18, 0, 0, 0);
+        if (at <= now) continue;
+        const dateKey = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+        const label = offer.merchant ? `${offer.title} (${offer.merchant})` : offer.title;
+        const extras = [
+          offer.discountValue || null,
+          offer.couponCode ? `code ${offer.couponCode}` : null,
+        ].filter(Boolean).join(' · ');
+        await scheduleLocal(
+          `\u{1F3F7}\u{FE0F} ${label} expires in ${daysBefore} days`,
+          `${extras ? extras + ' · ' : ''}Use it before ${expiry.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
+          at,
+          'offers',
+          { screen: 'Offers', dedupKey: `offer_${offer.id}_${dateKey}` }
+        );
+      }
+    }
+  } catch (e) { console.warn('[notificationService] offer reminders failed:', e); }
 }
 
 export async function scheduleAllReminders() {
@@ -611,6 +665,9 @@ export async function scheduleAllReminders() {
         );
       }
     } catch (e) { console.warn('[notificationService] podcast reminder failed:', e); }
+
+    // Offers expiring soon — 3 & 2 days before expiry at 6:00 PM IST.
+    await refreshOfferReminders();
 
     // Vehicle service reminders — next service at lastGeneralServiceKm + interval km
     // OR lastGeneralServiceDate + interval months (whichever first). Only

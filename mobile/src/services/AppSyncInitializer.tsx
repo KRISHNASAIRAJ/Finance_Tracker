@@ -10,11 +10,13 @@ import { useFinanceSync } from '../modules/finance/hooks/useFinanceSync';
 import { useTasksSync } from '../modules/tasks/hooks/useTasksSync';
 import { useEquitySync } from '../modules/equity/hooks/useEquitySync';
 import { usePersonalSync } from '../modules/personal/hooks/usePersonalSync';
+import { useOffersSync } from '../modules/offers/hooks/useOffersSync';
 
 export default function AppSyncInitializer() {
   useFinanceSync();
   useTasksSync();
   useEquitySync();
   usePersonalSync();
+  useOffersSync();
   return null;
 }

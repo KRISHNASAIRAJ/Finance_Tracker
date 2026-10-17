@@ -54,6 +54,7 @@ import { NotesPage } from './pages/personal/NotesPage'
 import { GoalsTrackerPage } from './pages/personal/GoalsTrackerPage'
 import { RecipesPage } from './pages/personal/RecipesPage'
 import { DietViewerPage } from './pages/personal/DietViewerPage'
+import { OffersPage } from './pages/personal/OffersPage'
 
 // Meals
 import { MealLoggerPage } from './pages/meals/MealLoggerPage'
@@ -155,6 +156,7 @@ export default function App() {
             <Route path="/more/goals" element={<GoalsTrackerPage />} />
             <Route path="/more/recipes" element={<RecipesPage />} />
             <Route path="/more/diet" element={<DietViewerPage />} />
+            <Route path="/more/offers" element={<OffersPage />} />
 
             {/* Meals */}
             <Route path="/meals" element={<MealLoggerPage />} />
