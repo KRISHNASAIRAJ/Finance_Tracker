@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -16,9 +17,10 @@ import com.krishnasairaj.meridian.R
  * timestamp is persisted in SharedPreferences so it survives widget redraws,
  * process death, and is readable from JS (SleepWidgetBridge).
  *
- * Tap 1: writes start time, label flips to "TAP WAKE UP", starts ticking elapsed time.
- * Tap 2: computes duration, broadcasts to the app (deep link with start/end),
- *        resets state.
+ * Tap 1: writes start time, label flips to "WAKE", Live Chronometer ticks.
+ * Tap 2: writes an "ended" marker (start+end kept for JS pickup), broadcasts
+ *        to the app (deep link with start/end), and renders idle again.
+ *        The app clears the marker after logging (setPendingStart(null)).
  *
  * Long-press or elapsed > 24h safety: auto-resets (treats as abandoned session).
  */
@@ -29,23 +31,38 @@ class BedtimeWidget : AppWidgetProvider() {
     companion object {
         const val PREFS = "meridian_bedtime_widget"
         const val KEY_START = "bedtime_start_ms"
+        const val KEY_ENDED_AT = "bedtime_end_ms"
         const val MAX_SESSION_MS = 24 * 60 * 60 * 1000L  // 24h cap
 
-        /** Read the pending bedtime start (epoch ms), or null if none. */
+        /** Read the pending bedtime start (epoch ms), or null if none/ended. */
         fun getPendingStart(ctx: Context): Long? {
             val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val v = sp.getLong(KEY_START, 0L)
-            return if (v > 0L) v else null
+            val ended = sp.getLong(KEY_ENDED_AT, 0L)
+            return if (v > 0L && ended <= 0L) v else null
+        }
+
+        /**
+         * An ended-but-unconsumed session (start, end) that the app has not
+         * logged yet. Used as a data-loss fallback when the deep link fails.
+         */
+        fun getEndedSession(ctx: Context): Pair<Long, Long>? {
+            val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val v = sp.getLong(KEY_START, 0L)
+            val ended = sp.getLong(KEY_ENDED_AT, 0L)
+            return if (v > 0L && ended > v) Pair(v, ended) else null
         }
 
         /**
          * Write/remove the pending bedtime start. Called from JS bridge too
-         * (so in-app "Going to bed" keeps the widget in sync).
+         * (so in-app "Going to bed" keeps the widget in sync). Passing null
+         * clears both the active start and any ended marker.
          */
         fun setPendingStart(ctx: Context, startMs: Long?) {
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putLong(KEY_START, startMs ?: 0L)
+                .putLong(KEY_ENDED_AT, 0L)
                 .apply()
             pushUpdate(ctx)
         }
@@ -68,12 +85,19 @@ class BedtimeWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_bedtime)
 
         if (active) {
-            views.setTextViewText(R.id.widget_bedtime_label, "TAP WAKE UP")
-            views.setTextViewText(R.id.widget_bedtime_time, formatElapsed(now - start!!))
+            views.setTextViewText(R.id.widget_bedtime_label, "WAKE")
+            views.setViewVisibility(R.id.widget_bedtime_time, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_bedtime_hint, View.GONE)
+            // Live-ticking elapsed time — the Chronometer keeps rendering on
+            // its own, no periodic widget updates needed. Base must be in
+            // SystemClock.elapsedRealtime() space, not epoch ms.
+            val chronometerBase = android.os.SystemClock.elapsedRealtime() - (now - start!!)
+            views.setChronometer(R.id.widget_bedtime_time, chronometerBase, null, true)
             views.setImageViewResource(R.id.widget_bedtime_icon, R.drawable.widget_bedtime_active)
         } else {
-            views.setTextViewText(R.id.widget_bedtime_label, "TAP BEDTIME")
-            views.setTextViewText(R.id.widget_bedtime_time, "Sleep tracker")
+            views.setTextViewText(R.id.widget_bedtime_label, "BED")
+            views.setViewVisibility(R.id.widget_bedtime_time, View.GONE)
+            views.setViewVisibility(R.id.widget_bedtime_hint, View.VISIBLE)
             views.setImageViewResource(R.id.widget_bedtime_icon, R.drawable.widget_bedtime_idle)
         }
 
@@ -95,13 +119,14 @@ class BedtimeWidget : AppWidgetProvider() {
 
         if (start == null || (now - start) >= MAX_SESSION_MS) {
             // Start a new bedtime session
-            sp.edit().putLong(KEY_START, now).apply()
+            sp.edit().putLong(KEY_START, now).putLong(KEY_ENDED_AT, 0L).apply()
         } else {
-            // Ending the session — hand start+end to the app via deep link.
-            // The app (if running) logs the sleep entry; if not running, the
-            // deep link opens the Sleep dashboard where JS picks it up from
-            // SharedPreferences via the native bridge.
-            sp.edit().putLong(KEY_START, 0L).apply()
+            // Ending the session. Keep start+end in SharedPreferences so the
+            // app can still pick the session up if the deep link is slow or
+            // the app is cold-started (SleepDashboardScreen fallback via
+            // BedtimeWidgetBridge). The app clears the marker after logging
+            // (see App.tsx handleDeepLink and SleepDashboardScreen).
+            sp.edit().putLong(KEY_ENDED_AT, now).apply()
             openAppWithSession(context, start, now)
         }
         pushUpdate(context)
@@ -126,12 +151,5 @@ class BedtimeWidget : AppWidgetProvider() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)
-    }
-
-    private fun formatElapsed(ms: Long): String {
-        val totalMin = ms / 60000
-        val h = totalMin / 60
-        val m = totalMin % 60
-        return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 }

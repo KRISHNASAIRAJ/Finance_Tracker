@@ -75,6 +75,16 @@ export const useSleepStore = create<SleepState>()(
       reminderTime: null,
 
       addEntry: (entry, userId) => {
+        // Idempotency guard: a start time (same minute) identifies one sleep
+        // session. The widget deep link and the dashboard's SharedPreferences
+        // fallback can race to log the same session — keep the first, skip
+        // the rest.
+        const startMs = new Date(entry.startTime).getTime();
+        const dup = get().entries.find(
+          (e) => Math.abs(new Date(e.startTime).getTime() - startMs) < 60000
+        );
+        if (dup) return dup.id;
+
         const id = Math.random().toString(36).substring(2, 9);
         const full: SleepEntry = {
           id,

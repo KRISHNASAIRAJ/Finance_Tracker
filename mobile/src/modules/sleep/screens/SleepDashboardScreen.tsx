@@ -35,7 +35,7 @@ import {
   formatSleepDuration,
 } from '../store';
 import { detectLastSleep, hasUsageAccess, isSleepDetectAvailable, openUsageAccessSettings, DetectedSleep } from '../sleepDetect';
-import { widgetBedtimeStart, setWidgetBedtimeStart } from '../bedtimeWidget';
+import { widgetBedtimeStart, widgetEndedSession, setWidgetBedtimeStart } from '../bedtimeWidget';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { toLocalInput, parseLocalInput } from './sleepTime';
@@ -109,11 +109,41 @@ export default function SleepDashboardScreen() {
           const iso = new Date(widgetStart).toISOString();
           setPendingBedtime(iso);
           AsyncStorage.setItem(STORAGE_KEY, iso).catch(() => {});
+          return;
+        }
+        // Fallback: an ended widget session the deep link didn't log.
+        // (App.tsx logs it when the deep link lands; addEntry is idempotent
+        // per start time so a race can't double-log.)
+        const ended = await widgetEndedSession();
+        if (!ended) return;
+        const alreadyLogged = useSleepStore.getState().entries.some(
+          (e) => Math.abs(new Date(e.startTime).getTime() - ended.start) < 60000
+        );
+        if (alreadyLogged) {
+          await setWidgetBedtimeStart(null);
+        } else if (user?.id) {
+          addEntry(
+            {
+              startTime: new Date(ended.start).toISOString(),
+              endTime: new Date(ended.end).toISOString(),
+              quality: null,
+              mood: null,
+              interruptions: 0,
+              notes: 'Logged from Bedtime widget',
+              source: 'manual',
+            },
+            user.id
+          );
+          await setWidgetBedtimeStart(null);
         }
       } catch {
         /* best-effort restore */
       }
     })();
+    // One-shot mount effect: `user` snapshot at open time is intentional —
+    // when auth hasn't resolved yet the ended-session marker stays in
+    // SharedPreferences and is adopted on the next open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const savePendingBedtime = (iso: string | null) => {

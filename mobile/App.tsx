@@ -96,48 +96,70 @@ if (data.screen === 'TaskDetail' && data.taskId) {
 
     const handleDeepLink = (url: string | null) => {
       if (!url) return;
-      if (!navigationRef.isReady()) return;
 
-      const nav = navigationRef as any;
-      if (url.includes('add-expense')) {
-        nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'AddExpense' } });
-      } else if (url.includes('add-fuel')) {
-        nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AddFuelFill' } });
-      } else if (url.includes('add-task')) {
-        nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
-      } else if (url.includes('combined-report')) {
-        nav.navigate('MoreStack', { screen: 'CombinedReport' });
-      } else if (url.includes('bedtime')) {
-        // Bedtime widget finished a session — hand start/end to the sleep store
-        const q = url.split('?')[1] ?? '';
-        const params = Object.fromEntries(q.split('&').map((p) => p.split('=')));
-        const start = Number(params.start);
-        const end = Number(params.end);
-        if (start > 0 && end > start) {
-          (async () => {
-            try {
-              const { supabase } = require('./src/services/supabaseClient');
-              const { data: { session } } = await supabase.auth.getSession();
-              const { useSleepStore } = require('./src/modules/sleep/store');
-              useSleepStore.getState().addEntry(
-                {
-                  startTime: new Date(start).toISOString(),
-                  endTime: new Date(end).toISOString(),
-                  quality: null,
-                  mood: null,
-                  interruptions: 0,
-                  notes: 'Logged from Bedtime widget',
-                  source: 'manual',
-                },
-                session?.user?.id
-              );
-            } catch {
-              /* widget session logging is best-effort */
-            }
-          })();
+      const tryRoute = (attempt = 0) => {
+        if (!navigationRef.isReady()) {
+          if (attempt < 10) setTimeout(() => tryRoute(attempt + 1), 200);
+          return;
         }
-        nav.navigate('MoreStack', { screen: 'SleepTracker' });
-      }
+        const nav = navigationRef as any;
+        if (url.includes('add-expense')) {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'AddExpense' } });
+        } else if (url.includes('add-fuel')) {
+          nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AddFuelFill' } });
+        } else if (url.includes('add-task')) {
+          nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
+        } else if (url.includes('combined-report')) {
+          nav.navigate('MoreStack', { screen: 'CombinedReport' });
+        } else if (url.includes('bedtime')) {
+          // Bedtime widget finished a session — hand start/end to the sleep store.
+          // Also navigate to SleepTracker so the user sees their session. The
+          // dashboard's mount effect will adopt the same start from
+          // SharedPreferences (via the BedtimeWidgetBridge) for the
+          // "Good morning" tap-to-confirm flow.
+          const q = url.split('?')[1] ?? '';
+          const params = Object.fromEntries(
+            q.split('&')
+              .filter((p) => p.includes('='))
+              .map((p) => p.split('='))
+          );
+          const start = Number(params.start);
+          const end = Number(params.end);
+          if (Number.isFinite(start) && start > 0 && Number.isFinite(end) && end > start) {
+            (async () => {
+              try {
+                const { supabase } = require('./src/services/supabaseClient');
+                const { useSleepStore } = require('./src/modules/sleep/store');
+                const { setWidgetBedtimeStart } = require('./src/modules/sleep/bedtimeWidget');
+                const { data: { session } } = await supabase.auth.getSession();
+                useSleepStore.getState().addEntry(
+                  {
+                    startTime: new Date(start).toISOString(),
+                    endTime: new Date(end).toISOString(),
+                    quality: null,
+                    mood: null,
+                    interruptions: 0,
+                    notes: 'Logged from Bedtime widget',
+                    source: 'manual',
+                  },
+                  session?.user?.id
+                );
+                // Clear the widget's pending start so the dashboard's mount
+                // effect doesn't re-adopt it and the user doesn't get a
+                // duplicate "Good morning" tap that logs a second entry.
+                await setWidgetBedtimeStart(null);
+              } catch (e) {
+                // Don't block navigation on store errors — the dashboard's
+                // mount effect will still pick up the pending start from
+                // SharedPreferences via the native bridge.
+                console.warn('[App] bedtime deep-link addEntry failed:', e);
+              }
+            })();
+          }
+          nav.navigate('MoreStack', { screen: 'SleepTracker' });
+        }
+      };
+      tryRoute();
     };
 
     Linking.getInitialURL().then(handleDeepLink);

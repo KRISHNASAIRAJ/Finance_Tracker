@@ -115,6 +115,44 @@ describe('Sleep Store — CRUD + queue behaviour', () => {
     expect(store.getState().entries.length).toBe(0);
   });
 
+  it('addEntry is idempotent per start time (widget deep-link race safety)', () => {
+    const store = freshStore();
+    const first = store.getState().addEntry({
+      startTime: '2026-09-11T18:00:00Z',
+      endTime: '2026-09-12T01:00:00Z',
+      quality: null,
+      mood: null,
+      interruptions: 0,
+      notes: 'Logged from Bedtime widget',
+      source: 'manual',
+    });
+    // Same session re-logged from the dashboard fallback (1s later end time)
+    const second = store.getState().addEntry({
+      startTime: '2026-09-11T18:00:00Z',
+      endTime: '2026-09-12T01:00:01Z',
+      quality: null,
+      mood: null,
+      interruptions: 0,
+      notes: 'Logged from Bedtime widget',
+      source: 'manual',
+    });
+    expect(second).toBe(first);
+    expect(store.getState().entries.length).toBe(1);
+
+    // A genuinely different session still logs
+    const other = store.getState().addEntry({
+      startTime: '2026-09-12T18:00:00Z',
+      endTime: '2026-09-13T01:00:00Z',
+      quality: null,
+      mood: null,
+      interruptions: 0,
+      notes: '',
+      source: 'manual',
+    });
+    expect(other).not.toBe(first);
+    expect(store.getState().entries.length).toBe(2);
+  });
+
   it('setReminderTime persists locally without queueing a sync', () => {
     const store = freshStore();
     store.getState().setReminderTime({ hour: 23, minute: 0 });
