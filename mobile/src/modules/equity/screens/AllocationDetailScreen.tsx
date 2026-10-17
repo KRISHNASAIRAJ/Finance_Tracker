@@ -73,7 +73,7 @@ export default function AllocationDetailScreen() {
   // Build segment angle spans (clockwise from 12 o'clock) for tap hit-testing
   const segments = sorted.reduce((acc: any[], h: any) => {
     const startDeg = acc.length > 0 ? acc[acc.length - 1].endDeg : 0;
-    const sliceDeg = (h.value / totalValue) * 360;
+    const sliceDeg = totalValue > 0 ? (h.value / totalValue) * 360 : 0;
     acc.push({ id: h.id, startDeg, endDeg: startDeg + sliceDeg });
     return acc;
   }, []);
@@ -117,7 +117,7 @@ export default function AllocationDetailScreen() {
             <View style={styles.donutChartWrap}>
               <Svg width={180} height={180} viewBox="0 0 180 180">
                 {sorted.map((h: any) => {
-                  const sliceLen = (h.value / totalValue) * circumference;
+                  const sliceLen = totalValue > 0 ? (h.value / totalValue) * circumference : 0;
                   const dashArray = `${sliceLen} ${circumference - sliceLen}`;
                   const startDeg = segments.find((s: any) => s.id === h.id)?.startDeg ?? 0;
                   return (

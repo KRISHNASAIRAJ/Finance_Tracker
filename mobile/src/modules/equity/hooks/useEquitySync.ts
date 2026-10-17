@@ -14,6 +14,12 @@ interface SyncState {
   lastSyncAt: Date | null;
 }
 
+/** Never let null/NaN/string junk from the cloud become a NaN holding value. */
+function toFinite(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 let _hasEquitySeeded = false;
 
 export function useEquitySync() {
@@ -90,10 +96,10 @@ async function doPull(userId: string) {
       symbol: r.symbol as string,
       name: (r.fund_name as string) ?? (r.symbol as string),
       type: (r.type as Holding["type"]) ?? "equity",
-      quantity: Number(r.quantity) || 0,
-      avgPrice: (r.avg_buy_price as number) ?? 0,
-      currentPrice: (r.current_price as number) ?? 0,
-      prevClose: (r.prev_close as number) > 0 ? (r.prev_close as number) : undefined,
+      quantity: toFinite(r.quantity),
+      avgPrice: toFinite(r.avg_buy_price),
+      currentPrice: toFinite(r.current_price),
+      prevClose: toFinite(r.prev_close) > 0 ? toFinite(r.prev_close) : undefined,
       source: (r.source as Holding["source"]) ?? "manual",
       folio: (r.folio_number as string) ?? undefined,
       amc: (r.amc as string) ?? undefined,

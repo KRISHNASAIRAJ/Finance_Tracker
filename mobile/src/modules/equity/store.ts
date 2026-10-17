@@ -282,24 +282,38 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         set({ chatHistory: [] });
       },
       getPortfolioValue: () => {
-        return get().holdings.reduce((sum, h) => sum + h.quantity * h.currentPrice, 0);
+        return get().holdings.reduce((sum, h) => {
+          const q = Number(h.quantity);
+          const p = Number(h.currentPrice);
+          if (!Number.isFinite(q) || !Number.isFinite(p)) return sum;
+          return sum + q * p;
+        }, 0);
       },
       getTodayPnL: () => {
         return get().holdings.reduce((sum, h) => {
           if (!h.prevClose || h.prevClose <= 0) return sum;
-          return sum + h.quantity * (h.currentPrice - h.prevClose);
+          const q = Number(h.quantity);
+          const p = Number(h.currentPrice);
+          const pc = Number(h.prevClose);
+          if (!Number.isFinite(q) || !Number.isFinite(p) || !Number.isFinite(pc)) return sum;
+          return sum + q * (p - pc);
         }, 0);
       },
       getTotalLoans: () => {
-        return get().loans.reduce((sum, l) => sum + (l.amount || 0), 0);
+        return get().loans.reduce((sum, l) => sum + (Number.isFinite(l.amount) ? l.amount : 0), 0);
       },
       getTotalFDs: () => {
-        return get().fds.reduce((sum, f) => sum + (f.amount || 0), 0);
+        return get().fds.reduce((sum, f) => sum + (Number.isFinite(f.amount) ? f.amount : 0), 0);
       },
       getNetWorth: () => {
-        return get().holdings.reduce((sum, h) => sum + h.quantity * h.currentPrice, 0)
-          + get().fds.reduce((sum, f) => sum + (f.amount || 0), 0)
-          - get().loans.reduce((sum, l) => sum + (l.amount || 0), 0);
+        return get().holdings.reduce((sum, h) => {
+          const q = Number(h.quantity);
+          const p = Number(h.currentPrice);
+          if (!Number.isFinite(q) || !Number.isFinite(p)) return sum;
+          return sum + q * p;
+        }, 0)
+          + get().fds.reduce((sum, f) => sum + (Number.isFinite(f.amount) ? f.amount : 0), 0)
+          - get().loans.reduce((sum, l) => sum + (Number.isFinite(l.amount) ? l.amount : 0), 0);
       },
     }),
     {

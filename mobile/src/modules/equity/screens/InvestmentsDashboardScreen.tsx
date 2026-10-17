@@ -271,7 +271,7 @@ export default function InvestmentsDashboardScreen() {
 
           const entries = Object.entries(allocMap).sort((a, b) => b[1] - a[1]);
           const totalV = entries.reduce((s, e) => s + e[1], 0);
-          if (totalV === 0) return null;
+          if (!Number.isFinite(totalV) || totalV === 0) return null;
 
           const R = 40;
           const strokeW = 8;

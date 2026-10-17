@@ -3,18 +3,20 @@
  */
 
 export function paiseToRupees(paise: number): string {
-  return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+  const v = Number.isFinite(paise) ? paise : 0
+  return `₹${(v / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
 export function paiseToRupeesDetailed(paise: number): string {
-  return `₹${(paise / 100).toLocaleString('en-IN', {
+  const v = Number.isFinite(paise) ? paise : 0
+  return `₹${(v / 100).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
 }
 
 export function paiseToRupeesCompact(paise: number): string {
-  const v = paise / 100
+  const v = (Number.isFinite(paise) ? paise : 0) / 100
   if (Math.abs(v) >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`
   if (Math.abs(v) >= 100000) return `₹${(v / 100000).toFixed(2)}L`
   if (Math.abs(v) >= 1000) return `₹${(v / 1000).toFixed(1)}k`
@@ -76,5 +78,6 @@ export function formatMonthKey(key: string): string {
 }
 
 export function formatPct(n: number): string {
+  if (!Number.isFinite(n)) return '—'
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`
 }

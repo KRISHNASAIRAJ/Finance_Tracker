@@ -30,11 +30,11 @@ async function fetchYahooPrice(symbol: string): Promise<{ price: number; prevClo
     if (!resp.ok) return null;
     const body = await resp.json();
     const meta = body?.chart?.result?.[0]?.meta;
-    if (!meta || typeof meta.regularMarketPrice !== "number") return null;
-    const price = Math.round(meta.regularMarketPrice * 100);
-    const prevClose = typeof meta.chartPreviousClose === "number"
-      ? Math.round(meta.chartPreviousClose * 100)
-      : price;
+    const rawPrice = Number(meta?.regularMarketPrice);
+    if (!meta || !Number.isFinite(rawPrice) || rawPrice <= 0) return null;
+    const price = Math.round(rawPrice * 100);
+    const rawPrev = Number(meta.chartPreviousClose);
+    const prevClose = Number.isFinite(rawPrev) && rawPrev > 0 ? Math.round(rawPrev * 100) : price;
     return { price, prevClose };
   } catch {
     return null;
@@ -65,9 +65,11 @@ async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevCl
     const body = await resp.json();
     const data = body?.data;
     if (!Array.isArray(data) || data.length === 0) return null;
-    const price = Math.round(Number(data[0].nav) * 100);
-    const prevClose = data.length > 1 ? Math.round(Number(data[1].nav) * 100) : price;
-    if (!price || isNaN(price)) return null;
+    const rawNav = Number(data[0]?.nav);
+    if (!Number.isFinite(rawNav) || rawNav <= 0) return null;
+    const price = Math.round(rawNav * 100);
+    const rawPrevNav = data.length > 1 ? Number(data[1]?.nav) : NaN;
+    const prevClose = Number.isFinite(rawPrevNav) && rawPrevNav > 0 ? Math.round(rawPrevNav * 100) : price;
     return { price, prevClose };
   } catch {
     return null;
@@ -137,7 +139,9 @@ Deno.serve(async (req: Request) => {
       // prev_close = the API's actual previous close (yesterday's close),
       // NOT the stale current_price. This gives correct today's P&L.
       const prevClose = result.prevClose;
-      const currentValue = Math.round(Number(h.quantity) * result.price);
+      const rawQty = Number(h.quantity);
+      const quantity = Number.isFinite(rawQty) ? rawQty : 0;
+      const currentValue = Math.round(quantity * result.price);
 
       const { error: updErr } = await supabase
         .from("holdings")

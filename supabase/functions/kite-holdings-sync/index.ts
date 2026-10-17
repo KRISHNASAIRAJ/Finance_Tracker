@@ -45,6 +45,12 @@ function getAllocationCategory(symbol: string, type: string, name: string): stri
   return 'Other';
 }
 
+/** Kite occasionally returns null/strings/sparse rows — never let NaN into the DB. */
+function toFinite(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -198,6 +204,13 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     let synced = 0;
 
+    // Symbols present in this successful Kite response — used by the two-strike
+    // reconciliation below. A symbol only leaves this set when Kite itself
+    // stops returning it (sold / transferred).
+    const equitySymbols = new Set<string>();
+    const mfSymbols = new Set<string>();
+    let mfFetchOk = false;
+
     // Load existing prev_close values so a Kite re-sync doesn't wipe today's P&L anchor.
     const { data: existingRows } = await supabase
       .from("holdings")
@@ -209,11 +222,18 @@ Deno.serve(async (req: Request) => {
     }
 
     for (const h of equityHoldings) {
-      const symbol = h.tradingsymbol as string;
-      const quantity = Number(h.quantity) || 0;
-      const avgBuyPrice = Math.round(Number(h.average_price) * 100);
-      const currentPrice = Math.round(Number(h.last_price) * 100);
-      const currentValue = Math.round(Number(h.last_price) * quantity * 100);
+      const symbol = String(h.tradingsymbol ?? "").trim();
+      if (!symbol) continue;
+      const quantity = toFinite(h.quantity, 0);
+      const lastPrice = toFinite(h.last_price, NaN);
+      if (quantity <= 0 || !Number.isFinite(lastPrice)) {
+        console.warn(`[kite-holdings-sync] Skipping equity row ${symbol}: quantity=${h.quantity}, last_price=${h.last_price}`);
+        continue;
+      }
+      equitySymbols.add(symbol);
+      const avgBuyPrice = Math.round(toFinite(h.average_price, 0) * 100);
+      const currentPrice = Math.round(lastPrice * 100);
+      const currentValue = Math.round(lastPrice * quantity * 100);
       const rawType = (h.instrument_type as string) || '';
       const type = rawType === 'ETF' ? 'etf' as const
         : rawType === 'MF' ? 'mf' as const
@@ -234,6 +254,7 @@ Deno.serve(async (req: Request) => {
           prev_close: existingPrevClose[symbol] ?? currentPrice,
           current_value: currentValue,
           source: "kite_sync",
+          missing_sync_count: 0,
           last_synced_at: now,
           updated_at: now,
         }, { onConflict: "user_id,symbol" });
@@ -254,14 +275,22 @@ Deno.serve(async (req: Request) => {
       const mfData = await mfRes.json();
 
       if (mfData.status === "success") {
+        mfFetchOk = true;
         const mfHoldings = mfData.data || [];
 
         for (const mf of mfHoldings) {
-          const symbol = (mf.tradingsymbol as string) || (mf.fund as string);
-          const quantity = Number(mf.quantity) || 0;
-          const avgBuyPrice = Math.round(Number(mf.average_price) * 100);
-          const currentPrice = Math.round(Number(mf.last_price) * 100);
-          const currentValue = Math.round(Number(mf.last_price) * quantity * 100);
+          const symbol = ((mf.tradingsymbol as string) || (mf.fund as string) || "").trim();
+          if (!symbol) continue;
+          const quantity = toFinite(mf.quantity, 0);
+          const lastPrice = toFinite(mf.last_price, NaN);
+          if (quantity <= 0 || !Number.isFinite(lastPrice)) {
+            console.warn(`[kite-holdings-sync] Skipping MF row ${symbol}: quantity=${mf.quantity}, last_price=${mf.last_price}`);
+            continue;
+          }
+          mfSymbols.add(symbol);
+          const avgBuyPrice = Math.round(toFinite(mf.average_price, 0) * 100);
+          const currentPrice = Math.round(lastPrice * 100);
+          const currentValue = Math.round(lastPrice * quantity * 100);
           const folio = mf.folio as string | undefined;
           const isin = (mf.isin as string) || (mf.tradingsymbol as string) || undefined;
           const schemeName = mf.scheme_name as string | undefined;
@@ -287,6 +316,7 @@ Deno.serve(async (req: Request) => {
               amc,
               scheme_code: schemeName || null,
               isin: isin || null,
+              missing_sync_count: 0,
               last_synced_at: now,
               updated_at: now,
             }, { onConflict: "user_id,symbol" });
@@ -301,8 +331,51 @@ Deno.serve(async (req: Request) => {
       console.warn("MF holdings fetch failed (may not have Coin account):", (mfErr as Error).message);
     }
 
+    // --- Two-strike reconciliation -------------------------------------------
+    // kite_sync rows absent from a successful response get a strike; only the
+    // second consecutive absence deletes them. Manual rows are never touched.
+    // MF rows are skipped entirely when the MF endpoint failed — a Coin/API
+    // hiccup must never look like "all funds sold".
+    let removed = 0;
+    try {
+      const { data: existingKite } = await supabase
+        .from("holdings")
+        .select("id, symbol, type, missing_sync_count")
+        .eq("user_id", userId)
+        .eq("source", "kite_sync");
+
+      for (const row of (existingKite as Array<{ id: string; symbol: string; type: string; missing_sync_count: number | null }>) || []) {
+        const isMf = row.type === "mf";
+        if (isMf && !mfFetchOk) continue;
+        const present = isMf ? mfSymbols.has(row.symbol) : equitySymbols.has(row.symbol);
+        if (present) {
+          // Upserts above already reset the counter; this is a safety net for
+          // rows whose upsert errored out.
+          if ((row.missing_sync_count ?? 0) !== 0) {
+            await supabase.from("holdings").update({ missing_sync_count: 0 }).eq("id", row.id);
+          }
+          continue;
+        }
+        const strikes = (row.missing_sync_count ?? 0) + 1;
+        if (strikes >= 2) {
+          const { error: delErr } = await supabase.from("holdings").delete().eq("id", row.id);
+          if (!delErr) {
+            removed++;
+            console.log(`[kite-holdings-sync] Removed ${row.symbol} — absent from 2 consecutive Kite syncs`);
+          } else {
+            console.error(`[kite-holdings-sync] Failed to remove ${row.symbol}:`, delErr.message);
+          }
+        } else {
+          await supabase.from("holdings").update({ missing_sync_count: strikes }).eq("id", row.id);
+          console.log(`[kite-holdings-sync] ${row.symbol} absent from Kite response (strike ${strikes}/2)`);
+        }
+      }
+    } catch (reconErr) {
+      console.warn("[kite-holdings-sync] reconcile failed:", (reconErr as Error).message);
+    }
+
     return new Response(
-      JSON.stringify({ synced, mfSynced, total: equityHoldings.length + mfSynced }),
+      JSON.stringify({ synced, mfSynced, removed, total: equityHoldings.length + mfSynced }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

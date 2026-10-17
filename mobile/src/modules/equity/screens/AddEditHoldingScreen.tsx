@@ -65,7 +65,8 @@ export default function AddEditHoldingScreen() {
     const sipPaise = sipAmount ? Math.round(parseFloat(sipAmount) * 100) : undefined;
     const sipDayNum = sipDay ? parseInt(sipDay, 10) : undefined;
 
-    if (isNaN(qty) || isNaN(avg)) {
+    if (!Number.isFinite(qty) || !Number.isFinite(avg) || !Number.isFinite(curr) ||
+        (sipPaise !== undefined && !Number.isFinite(sipPaise))) {
       Alert.alert('Invalid numbers', 'Quantity and price must be valid numbers.');
       return;
     }
