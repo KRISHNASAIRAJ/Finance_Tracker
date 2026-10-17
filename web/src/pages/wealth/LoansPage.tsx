@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Landmark, Lock, Pencil, Plus, Trash2, Wallet } from 'lucide-react'
+import { Landmark, Lock, Pencil, Plus, Trash2, Wallet, Calculator } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   useCreateFD,
@@ -34,6 +34,7 @@ export function LoansPage() {
   const [deleting, setDeleting] = useState<Entry | null>(null)
   const [editing, setEditing] = useState<Entry | null>(null)
   const [creating, setCreating] = useState<'loan' | 'fd' | null>(null)
+  const [adjusting, setAdjusting] = useState<Loan | null>(null)
 
   const totalLoans = (loans ?? []).reduce((s, l) => s + (l.amount || 0), 0)
   const totalFDs = (fds ?? []).reduce((s, f) => s + (f.amount || 0), 0)
@@ -80,6 +81,15 @@ export function LoansPage() {
               {paiseToRupees(entry.amount)}
             </p>
             <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              {!isFD && (
+                <button
+                  onClick={() => setAdjusting(entry as Loan)}
+                  className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#9BA5FF]"
+                  title="Adjust outstanding"
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button
                 onClick={() => setEditing(entry)}
                 className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white"
@@ -163,6 +173,8 @@ export function LoansPage() {
         }}
       />
 
+      <AdjustLoanModal loan={adjusting} onClose={() => setAdjusting(null)} />
+
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
@@ -172,6 +184,96 @@ export function LoansPage() {
         loading={deleteLoan.isPending || deleteFD.isPending}
       />
     </div>
+  )
+}
+
+function AdjustLoanModal({ loan, onClose }: { loan: Loan | null; onClose: () => void }) {
+  const { user } = useAuth()
+  const updateLoan = useUpdateLoan(user?.id ?? '')
+  const [sign, setSign] = useState<'minus' | 'plus'>('minus')
+  const [amount, setAmount] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (loan) {
+      setSign('minus')
+      setAmount('')
+    }
+  }, [loan])
+
+  const apply = async () => {
+    if (!loan) return
+    const rupees = parseRupees(amount)
+    if (!rupees || rupees <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    const delta = rupeesToPaise(rupees) * (sign === 'minus' ? -1 : 1)
+    const next = Math.max(0, loan.amount + delta)
+    setSaving(true)
+    try {
+      await updateLoan.mutateAsync({ id: loan.id, row: { amount: next } })
+      toast.success(sign === 'minus' ? 'Outstanding reduced' : 'Outstanding increased')
+      onClose()
+    } catch {
+      toast.error('Failed to update')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={!!loan} onClose={onClose} title="Adjust outstanding">
+      <div className="space-y-4">
+        {loan && (
+          <p className="text-sm text-white/50">
+            {loan.name} · current {paiseToRupees(loan.amount)}
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setSign('minus')}
+            className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+              sign === 'minus'
+                ? 'border-[#FF887D] bg-[#FF887D]/10 text-white'
+                : 'border-white/10 text-white/50 hover:bg-white/5'
+            }`}
+          >
+            − Reduce
+          </button>
+          <button
+            type="button"
+            onClick={() => setSign('plus')}
+            className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+              sign === 'plus'
+                ? 'border-[#4FDBCC] bg-[#4FDBCC]/10 text-white'
+                : 'border-white/10 text-white/50 hover:bg-white/5'
+            }`}
+          >
+            + Add
+          </button>
+        </div>
+        <Field.Input
+          label="Amount (₹)"
+          type="number"
+          step="0.01"
+          min="0"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0.00"
+          required
+        />
+        <div className="flex gap-3">
+          <Button className="flex-1" onClick={apply} loading={saving}>
+            {sign === 'minus' ? '− Reduce outstanding' : '+ Add to outstanding'}
+          </Button>
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

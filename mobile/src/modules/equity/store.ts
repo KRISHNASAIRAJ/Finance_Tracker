@@ -81,6 +81,8 @@ interface InvestmentsState {
   deleteGoal: (id: string, userId?: string) => void;
   addLoan: (loan: Omit<Loan, 'id'>, userId?: string) => string;
   updateLoan: (id: string, updates: Partial<Loan>, userId?: string) => void;
+  /** Add/subtract from a loan's outstanding amount (clamped at 0). */
+  adjustLoanAmount: (id: string, deltaPaise: number, userId?: string) => void;
   deleteLoan: (id: string, userId?: string) => void;
   addFD: (fd: Omit<FixedDeposit, 'id'>, userId?: string) => string;
   updateFD: (id: string, updates: Partial<FixedDeposit>, userId?: string) => void;
@@ -215,6 +217,13 @@ export const useInvestmentsStore = create<InvestmentsState>()(
             enqFlush('loans', 'update', data);
           }
         } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
+      },
+      adjustLoanAmount: (id, deltaPaise, userId) => {
+        const current = get().loans.find((l) => l.id === id);
+        if (!current || !Number.isFinite(deltaPaise) || deltaPaise === 0) return;
+        const next = Math.max(0, current.amount + Math.round(deltaPaise));
+        if (next === current.amount) return;
+        get().updateLoan(id, { amount: next }, userId);
       },
       deleteLoan: (id, userId) => {
         set((state) => ({

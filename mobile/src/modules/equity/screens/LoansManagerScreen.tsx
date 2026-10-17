@@ -28,13 +28,18 @@ type EditorTarget =
 
 export default function LoansManagerScreen() {
   const navigation = useNavigation();
-  const { loans, fds, addLoan, updateLoan, deleteLoan, addFD, updateFD, deleteFD } = useInvestmentsStore();
+  const { loans, fds, addLoan, updateLoan, adjustLoanAmount, deleteLoan, addFD, updateFD, deleteFD } = useInvestmentsStore();
   const { user } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<EditorTarget | null>(null);
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+
+  // Quick adjust (add/remove from outstanding principal without editing the name)
+  const [adjustTarget, setAdjustTarget] = useState<Loan | null>(null);
+  const [adjustSign, setAdjustSign] = useState<'plus' | 'minus'>('minus');
+  const [adjustAmount, setAdjustAmount] = useState('');
 
   const formatCurrency = (paise: number) =>
     `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
@@ -97,6 +102,25 @@ export default function LoansManagerScreen() {
     );
   };
 
+  const openAdjust = (loan: Loan) => {
+    setAdjustTarget(loan);
+    setAdjustSign('minus');
+    setAdjustAmount('');
+  };
+
+  const applyAdjust = () => {
+    if (!adjustTarget) return;
+    const rupees = parseFloat(adjustAmount);
+    if (isNaN(rupees) || rupees <= 0) {
+      Alert.alert('Invalid amount', 'Enter a valid amount in ₹.');
+      return;
+    }
+    const delta = Math.round(rupees * 100) * (adjustSign === 'minus' ? -1 : 1);
+    adjustLoanAmount(adjustTarget.id, delta, user?.id);
+    setAdjustTarget(null);
+    setAdjustAmount('');
+  };
+
   const renderRows = (
     items: Array<Loan | FixedDeposit>,
     kind: 'loan' | 'fd'
@@ -112,6 +136,15 @@ export default function LoansManagerScreen() {
               {kind === 'loan' ? '−' : '+'}{formatCurrency(item.amount)}
             </Text>
           </View>
+          {kind === 'loan' && (
+            <TouchableOpacity
+              style={styles.loanAction}
+              onPress={() => openAdjust(item as Loan)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="calculator-outline" size={20} color={tc.action} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.loanAction} onPress={() => openEdit(target)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="create-outline" size={20} color={tc.textSecondary} />
           </TouchableOpacity>
@@ -211,6 +244,57 @@ export default function LoansManagerScreen() {
           </View>
         </View>
       </Modal>
+      {/* Quick adjust modal — pick + or −, enter amount, apply */}
+      <Modal
+        visible={!!adjustTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAdjustTarget(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Adjust Outstanding</Text>
+            {adjustTarget && (
+              <Text style={styles.adjustSub}>
+                {adjustTarget.name} · {formatCurrency(adjustTarget.amount)}
+              </Text>
+            )}
+            <View style={styles.signRow}>
+              <TouchableOpacity
+                style={[styles.signBtn, adjustSign === 'minus' && styles.signBtnMinus]}
+                onPress={() => setAdjustSign('minus')}
+              >
+                <Text style={[styles.signText, adjustSign === 'minus' && styles.signTextActive]}>− Reduce</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.signBtn, adjustSign === 'plus' && styles.signBtnPlus]}
+                onPress={() => setAdjustSign('plus')}
+              >
+                <Text style={[styles.signText, adjustSign === 'plus' && styles.signTextActive]}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={adjustAmount}
+              onChangeText={setAdjustAmount}
+              placeholder="Amount (₹)"
+              placeholderTextColor={tc.textMuted}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setAdjustTarget(null)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={applyAdjust}>
+                <Text style={styles.saveText}>
+                  {adjustSign === 'minus' ? '− Reduce' : '+ Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -291,6 +375,20 @@ const styles = StyleSheet.create({
     borderColor: tc.border,
   },
   modalTitle: { fontSize: 16, fontWeight: '700', color: tc.textPrimary },
+  adjustSub: { fontSize: 12, color: tc.textSecondary },
+  signRow: { flexDirection: 'row', gap: 10 },
+  signBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tc.border,
+  },
+  signBtnMinus: { backgroundColor: 'rgba(255, 92, 92, 0.12)', borderColor: tc.attention },
+  signBtnPlus: { backgroundColor: 'rgba(46, 204, 113, 0.12)', borderColor: tc.stable },
+  signText: { fontSize: 13, fontWeight: '700', color: tc.textSecondary },
+  signTextActive: { color: tc.textPrimary },
   input: {
     backgroundColor: 'rgba(244,247,251,0.04)',
     borderRadius: 10,
