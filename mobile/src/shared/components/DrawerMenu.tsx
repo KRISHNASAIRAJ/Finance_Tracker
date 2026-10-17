@@ -260,22 +260,11 @@ export default function DrawerMenu() {
   };
 
   const toolItems: Item[] = [
-    { id: 'habits', label: 'Habit Tracker', icon: 'checkmark-circle-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })) },
-    { id: 'sleep', label: 'Sleep Tracker', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
-    { id: 'careergoals', label: 'Career Goals', icon: 'flag-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerGoals' })) },
-    { id: 'cardchat', label: 'AI Card Chat', icon: 'sparkles-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CardChat' } })) },
-    { id: 'notes', label: 'Personal Notes', icon: 'document-text-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })) },
-    { id: 'diary', label: 'Weekly Diary', icon: 'journal-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'WeeklyDiary' })) },
-    { id: 'goals', label: '2026 Goal Tracker', icon: 'ribbon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'GoalsTracker' })) },
-    { id: 'career', label: 'Career Track', icon: 'trending-up-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerTracker' })) },
     { id: 'meals', label: 'Meal Logger', icon: 'restaurant-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MealLogger' })) },
-    { id: 'weight', label: 'Weight Tracker', icon: 'scale-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'WeightTracker' })) },
-    { id: 'diet', label: 'Project 65 Diet', icon: 'fitness-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'DietViewer' })) },
-    { id: 'recipes', label: 'Recipes Library', icon: 'book-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'RecipesLibrary' })) },
-    { id: 'report', label: 'Combined Report', icon: 'bar-chart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CombinedReport' })) },
-    { id: 'dailyreport', label: 'Daily Report', icon: 'newspaper-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'DailyReport' })) },
+    { id: 'sleep', label: 'Sleep Tracker', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
     { id: 'buylist', label: 'Buy List', icon: 'cart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'BuyList' })) },
-    { id: 'grocerylist', label: 'Grocery List', icon: 'basket-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'GroceryList' })) },
+    { id: 'notes', label: 'Personal Notes', icon: 'document-text-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })) },
+    { id: 'offers', label: 'Offers', icon: 'pricetags-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'Offers' })) },
   ];
 
   const systemItems: Item[] = [
