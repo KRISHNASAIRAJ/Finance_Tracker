@@ -219,6 +219,58 @@ export async function scheduleImmediate(
   } catch (e) { console.warn('[notificationService] scheduleImmediate failed:', title, e); }
 }
 
+/**
+ * Cancel any scheduled notification that carries this dedupKey.
+ * Best-effort; never throws.
+ */
+export async function cancelNotificationByDedupKey(dedupKey: string): Promise<void> {
+  if (!dedupKey || !ensureInit() || !Notifications) return;
+  try {
+    const existing = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of existing) {
+      if (n?.content?.data?.dedupKey === dedupKey) {
+        await Notifications.cancelScheduledNotificationAsync(n.id);
+      }
+    }
+  } catch (e) { console.warn('[notificationService] cancel by dedupKey failed:', dedupKey, e); }
+}
+
+/** Cancel a task's due-time reminder (keyed by task id). */
+export async function cancelTaskReminder(taskId: string): Promise<void> {
+  await cancelNotificationByDedupKey(`task_${taskId}`);
+}
+
+/**
+ * Replace the single due-time reminder for a task (deduped on task id).
+ * Cancels any stale schedule first, then schedules one only when the task
+ * is still open and its due date is in the future.
+ */
+export async function scheduleTaskReminder(task: {
+  id: string;
+  name: string;
+  description?: string;
+  dueDate: string;
+  completed?: boolean;
+}): Promise<void> {
+  if (!task) return;
+  await cancelTaskReminder(task.id);
+  if (task.completed) return;
+  const dueDate = new Date(task.dueDate);
+  if (isNaN(dueDate.getTime())) return;
+  if (dueDate <= istNow()) return;
+
+  const dueStr = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const dueTimeStr = dueDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  await scheduleLocal(
+    `${task.name}, ${dueStr} ${dueTimeStr}`,
+    task.description || 'Task due now',
+    dueDate,
+    'task_reminders',
+    { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
+  );
+}
+
 export async function scheduleAllReminders() {
   if (isScheduling) return;
   isScheduling = true;
@@ -489,23 +541,8 @@ export async function scheduleAllReminders() {
     }
 
     // Task reminders — one notification at the exact due time
-    const now = istNow();
     for (const task of (tasks || [])) {
-      if (task.completed) continue;
-      const dueDate = new Date(task.dueDate);
-      if (isNaN(dueDate.getTime())) continue;
-      if (dueDate <= now) continue;
-
-      const dueStr = new Date(dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-      const dueTimeStr = new Date(dueDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-      await scheduleLocal(
-        `${task.name}, ${dueStr} ${dueTimeStr}`,
-        task.description || 'Task due now',
-        dueDate,
-        'task_reminders',
-        { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
-      );
+      await scheduleTaskReminder(task);
     }
 
     // Sleep bedtime reminder — nightly at the user's configured time
@@ -556,6 +593,7 @@ export async function scheduleAllReminders() {
     // tyre...) are ignored. Intervals are user-editable per vehicle.
     const { vehicles, fills, maintenance, serviceReminderSettings } = useGarageStore.getState();
     const { getNextServiceInfo } = require('../modules/garage/store');
+    const now = istNow();
     const WARN_KM_LEFT = 200;
     const WARN_DAYS_LEFT = 14;
     for (const vehicle of (vehicles || [])) {

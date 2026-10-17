@@ -37,6 +37,23 @@ function enqueueThenFlush(entity: string, action: "create" | "update" | "delete"
   } catch (e) { console.warn('[TasksStore] sync require failed:', e); }
 }
 
+/**
+ * Keep the task's due-time notification in sync with its state.
+ * Completed/deleted → cancel; open with a future due date → (re)schedule.
+ * Lazy require: notificationService imports this store (circular otherwise).
+ */
+function syncTaskReminder(task: Task | undefined, forceCancel = false) {
+  if (!task && !forceCancel) return;
+  try {
+    const svc = require('../../services/notificationService');
+    if (!task || forceCancel || task.completed) {
+      if (task) svc.cancelTaskReminder(task.id).catch(() => {});
+    } else {
+      svc.scheduleTaskReminder(task).catch(() => {});
+    }
+  } catch (e) { console.warn('[TasksStore] reminder sync failed:', e); }
+}
+
 function getNextDueDate(currentDue: string, recurrence: RecurrenceType): string {
   const d = new Date(currentDue);
   switch (recurrence) {
@@ -96,12 +113,14 @@ export const useTasksStore = create<TasksState>()(
         };
         set((state) => ({ tasks: [newTask, ...state.tasks] }));
         enqueueThenFlush('tasks', 'create', makeTaskPayload(newTask.id, userId, newTask.name, newTask.description, newTask.priority, newTask.dueDate, false, subtasks, newTask.recurrence));
+        syncTaskReminder(newTask);
       },
       updateTask: (id, updatedFields, userId) => {
         set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updatedFields } : t)) }));
         const task = get().tasks.find((t) => t.id === id);
         if (task) {
           enqueueThenFlush('tasks', 'create', makeTaskPayload(task.id, userId, task.name, task.description, task.priority, task.dueDate, task.completed, task.subtasks, task.recurrence));
+          syncTaskReminder(task);
         }
       },
       editTask: (id, data, userId) => {
@@ -119,6 +138,7 @@ export const useTasksStore = create<TasksState>()(
         const task = get().tasks.find((t) => t.id === id);
         if (task) {
           enqueueThenFlush('tasks', 'create', makeTaskPayload(task.id, userId, task.name, task.description, task.priority, task.dueDate, task.completed, task.subtasks, task.recurrence));
+          syncTaskReminder(task);
         }
       },
       toggleTaskCompleted: (id, userId) => {
@@ -148,14 +168,19 @@ export const useTasksStore = create<TasksState>()(
             ],
           }));
           enqueueThenFlush('tasks', 'create', makeTaskPayload(nextTask.id, userId, nextTask.name, nextTask.description, nextTask.priority, nextTask.dueDate, false, resetSubtasks, nextTask.recurrence));
+          syncTaskReminder(nextTask);
         } else {
           set((state) => ({ tasks: state.tasks.map((t) => (t.id === id ? { ...t, completed: newCompleted, completedAt } : t)) }));
         }
         enqueueThenFlush('tasks', 'create', makeTaskPayload(id, userId, task.name, task.description, task.priority, task.dueDate, newCompleted, task.subtasks, task.recurrence));
+        // Completed → cancel the pending due-time reminder; re-opened → reschedule.
+        syncTaskReminder({ ...task, completed: newCompleted });
       },
       deleteTask: (id, userId) => {
+        const task = get().tasks.find((t) => t.id === id);
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
         enqueueThenFlush('tasks', 'delete', { id, user_id: userId || null });
+        syncTaskReminder(task, true);
       },
       toggleSubtaskCompleted: (taskId, subtaskId, userId) => {
         set((state) => ({
