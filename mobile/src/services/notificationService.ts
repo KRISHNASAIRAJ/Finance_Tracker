@@ -107,7 +107,6 @@ async function setupChannels() {
       { id: 'diet-reminders', name: 'Diet Reminders', importance: Notifications.AndroidImportance.HIGH, vibrationPattern: [0, 250, 250, 250], sound: 'default' },
       { id: 'sleep-reminders', name: 'Sleep Reminders', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'morning-brief', name: 'Morning Brief', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
-      { id: 'podcast', name: 'Podcast', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'offers', name: 'Offers & Coupons', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
     ];
     for (const ch of channels) {
@@ -645,26 +644,6 @@ export async function scheduleAllReminders() {
         );
       }
     } catch (e) { console.warn('[notificationService] morning brief failed:', e); }
-
-    // Weekly podcast reminder — next 4 Fridays at 8:00 PM IST.
-    try {
-      const t0 = istNow();
-      const daysUntilFriday = (5 - t0.getDay() + 7) % 7;
-      for (let i = 0; i < 4; i++) {
-        const friday = new Date(
-          t0.getFullYear(), t0.getMonth(), t0.getDate() + daysUntilFriday + i * 7,
-          20, 0, 0, 0
-        );
-        if (friday <= t0) continue;
-        await scheduleLocal(
-          '\u{1F3A7} Podcast time',
-          'Friday episode is out — queue it up.',
-          friday,
-          'podcast',
-          { screen: 'MainHome', dedupKey: `podcast_${friday.toISOString().slice(0, 10)}` }
-        );
-      }
-    } catch (e) { console.warn('[notificationService] podcast reminder failed:', e); }
 
     // Offers expiring soon — 3 & 2 days before expiry at 6:00 PM IST.
     await refreshOfferReminders();
