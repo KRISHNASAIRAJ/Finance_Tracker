@@ -504,6 +504,31 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
 
+## 21. Clock + Sleep home-screen widget (2x2) (v4)
+
+A 2x2 home-screen widget that mirrors the reference design: the date
+("Saturday 17"), a live clock with seconds ("09:34 53"), the last night of
+sleep inside a neon-green pill and a weather line.
+
+- **Layout:** `res/layout/widget_clock_sleep.xml` — the clock parts are
+  `TextClock` views, so the widget keeps itself up to date (the seconds tick
+  every second) without any periodic work. The sleep pill
+  (`drawable/widget_sleep_pill.xml`) is a layer-list: a rounded body plus the
+  raised "island" on the right that carries the duration ("8H 42M"). Inside it
+  a dotted timeline (`widget_sleep_dots.xml`) carries the two REM windows
+  (`widget_sleep_rem_bar.xml`).
+- **Native:** `widgets/ClockSleepWidget.kt` (provider) +
+  `ClockSleepWidgetBridgeModule.kt` / `ClockSleepWidgetPackage.kt` (JS bridge).
+  The REM segments are positioned by padding a full-width progress bar, so the
+  segment lands exactly on the timeline on every launcher.
+- **Data:** `services/sleepWidget.ts` pushes the last night (duration, bedtime,
+  wake time and the two REM windows derived from the sleep cycle) to the
+  widget; the widget refreshes whenever a sleep entry is logged and on app
+  foreground. The weather line is a static "19 °C" placeholder until a weather
+  API is wired into the same payload.
+- **Tests:** `modules/sleep/__tests__/sleepWidget.test.ts` (5) — the latest
+  night is picked, the duration and both REM windows are derived correctly.
+
 ## 20. Automatic sleep tracker (accelerometer + smart alarm) (v4)
 
 Sleep tracking that works like the "Automatic Sleep Tracker" Android apps:

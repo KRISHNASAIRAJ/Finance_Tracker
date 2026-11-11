@@ -27,6 +27,7 @@ import { runMarketSyncWatchdog } from './src/services/marketSyncWatchdog';
 import { scheduleMedicationReminders, handleMedicationAction } from './src/services/medicationReminders';
 import { startMotionTracking } from './src/modules/sleep/sleepMotion';
 import { useSleepStore } from './src/modules/sleep/store';
+import { pushSleepWidget } from './src/services/sleepWidget';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
@@ -170,6 +171,9 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TasksDashboard' } });
         } else if (url.includes('wealth')) {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } });
+        } else if (url.includes('sleep')) {
+          // Clock + Sleep home-screen widget
+          nav.navigate('MoreStack', { screen: 'SleepTracker' });
         } else if (url.includes('bedtime')) {
           // Bedtime widget finished a session — hand start/end to the sleep store.
           // Also navigate to SleepTracker so the user sees their session. The
@@ -229,7 +233,11 @@ if (data.screen === 'TaskDetail' && data.taskId) {
     // Stores hydrate asynchronously from AsyncStorage, so push once now and
     // again shortly after the persisted state has been restored.
     pushStatsWidget();
-    const statsRetry = setTimeout(() => pushStatsWidget(), 2500);
+    pushSleepWidget();
+    const statsRetry = setTimeout(() => {
+      pushStatsWidget();
+      pushSleepWidget();
+    }, 2500);
 
     // Market data watchdog — one notification per day if Kite/NAV data has
     // not synced since the previous trading day (never on Sat/Sun).

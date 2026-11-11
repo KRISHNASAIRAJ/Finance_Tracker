@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The neon-green sleep pill: a rounded body with a raised "island" on the
+     right that carries the sleep duration. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:bottom="0dp"
+        android:left="0dp"
+        android:right="0dp"
+        android:top="12dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#12E27C" />
+            <corners android:radius="16dp" />
+        </shape>
+    </item>
+    <item
+        android:gravity="top|right"
+        android:width="78dp"
+        android:height="26dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#12E27C" />
+            <corners
+                android:bottomLeftRadius="0dp"
+                android:bottomRightRadius="0dp"
+                android:topLeftRadius="13dp"
+                android:topRightRadius="16dp" />
+        </shape>
+    </item>
+</layer-list>

@@ -69,6 +69,14 @@ async function enq(entity: string, action: string, data: Record<string, unknown>
   } catch (_e) { /* no-op */}
 }
 
+/** Refresh the home-screen Clock + Sleep widget (best-effort). */
+function refreshWidget() {
+  try {
+    const { pushSleepWidget } = require('../../services/sleepWidget');
+    pushSleepWidget().catch(() => {});
+  } catch (_e) { /* no-op */}
+}
+
 export function sleepDurationHours(entry: Pick<SleepEntry, 'startTime' | 'endTime'>): number {
   const ms = new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime();
   return Math.max(0, ms / 3600000);
@@ -130,6 +138,7 @@ export const useSleepStore = create<SleepState>()(
           source: full.source,
           updated_at: new Date().toISOString(),
         });
+        refreshWidget();
         return id;
       },
 
@@ -159,6 +168,7 @@ export const useSleepStore = create<SleepState>()(
       deleteEntry: (id, userId) => {
         set((s) => ({ entries: s.entries.filter((e) => e.id !== id) }));
         enq('sleep_logs', 'delete', { id, user_id: userId || null });
+        refreshWidget();
       },
 
       setReminderTime: (time) => {

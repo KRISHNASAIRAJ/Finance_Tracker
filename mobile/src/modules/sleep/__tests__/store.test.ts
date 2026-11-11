@@ -12,6 +12,19 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
+// The store writes through the sync queue and refreshes the home-screen
+// widget — both are mocked so the timers they schedule cannot fire after the
+// test environment is torn down.
+jest.mock('../../../services/syncQueue', () => ({
+  enqueue: jest.fn(async () => {}),
+  processSyncQueue: jest.fn(async () => {}),
+  getPendingEntityIds: jest.fn(async () => new Set<string>()),
+}));
+
+jest.mock('../../../services/sleepWidget', () => ({
+  pushSleepWidget: jest.fn(async () => {}),
+}));
+
 import { sleepDurationHours, formatSleepDuration } from '../store';
 
 describe('Sleep Store — duration helpers', () => {
