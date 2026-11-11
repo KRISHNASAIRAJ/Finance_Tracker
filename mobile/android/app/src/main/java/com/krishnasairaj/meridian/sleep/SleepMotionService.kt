@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -26,7 +27,6 @@ import android.os.VibratorManager
 import com.krishnasairaj.meridian.MainActivity
 import java.util.Calendar
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -64,6 +64,7 @@ class SleepMotionService : Service(), SensorEventListener {
 
         /** The running service (used by the alarm receiver). */
         @Volatile
+        @SuppressLint("StaticFieldLeak")
         var instance: SleepMotionService? = null
     }
 
@@ -366,7 +367,8 @@ class SleepMotionService : Service(), SensorEventListener {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "meridian:sleep-alarm").apply {
                 setReferenceCounted(false)
-                acquire(config.alarmDurationMin.coerceAtLeast(1) * 60_000L, TimeUnit.MILLISECONDS)
+                @Suppress("DEPRECATION")
+                acquire(config.alarmDurationMin.coerceAtLeast(1) * 60_000L)
             }
         } catch (e: Exception) {
             wakeLock = null
