@@ -9,8 +9,8 @@ import { computeWidgetStats } from '../statsWidget';
 const dayKey = '2026-11-11';
 const monthKey = '2026-11';
 
-const tx = (date: string, amount: number, type: string = 'expense') =>
-  ({ id: `t_${date}_${type}`, type, amount, date } as any);
+const tx = (date: string, amount: number, type: string = 'expense', category = 'Food') =>
+  ({ id: `t_${date}_${type}`, type, amount, date, category } as any);
 
 const task = (dueDate: string | null, completed = false) =>
   ({
@@ -34,20 +34,49 @@ const base = {
   receivables: [],
   tasks: [],
   netWorthPaise: 0,
+  // 2026-11-15 local — deterministic month window for the spend rules
+  now: new Date('2026-11-15T12:00:00+05:30'),
 };
 
 describe('computeWidgetStats — monthly spend', () => {
-  it('sums this month outflow types in paise', () => {
+  it('counts expense + vehicle_service in the current month', () => {
     const stats = computeWidgetStats({
       ...base,
       transactions: [
         tx('2026-11-11T04:00:00.000Z', 25000), // ₹250
-        tx('2026-11-02T08:00:00.000Z', 40000, 'fuel_purchase'),
-        tx('2026-11-11T09:00:00.000Z', 99999, 'portfolio_buy'), // excluded
-        tx('2026-10-30T05:00:00.000Z', 500000), // last month
+        tx('2026-11-02T08:00:00.000Z', 40000, 'vehicle_service'),
+        tx('2026-10-30T05:00:00.000Z', 500000), // last month → out
       ],
     });
     expect(stats.monthlySpendPaise).toBe(65000);
+  });
+
+  it('excludes fixed expenses, SIP/investment categories and fuel transactions', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      fixedExpenseNames: ['Flat Rent'],
+      transactions: [
+        tx('2026-11-11T04:00:00.000Z', 25000, 'expense', 'Food'),
+        tx('2026-11-11T04:00:00.000Z', 500000, 'fixed_expense', 'Rent'),
+        tx('2026-11-11T04:00:00.000Z', 90000, 'expense', 'Rent'),
+        tx('2026-11-11T04:00:00.000Z', 90000, 'expense', 'SIP'),
+        tx('2026-11-11T04:00:00.000Z', 90000, 'expense', 'Investments'),
+        tx('2026-11-11T04:00:00.000Z', 90000, 'fuel_purchase', 'Fuel'),
+      ],
+    });
+    expect(stats.monthlySpendPaise).toBe(25000);
+  });
+
+  it('adds this month garage fuel fills', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      transactions: [tx('2026-11-11T04:00:00.000Z', 25000)],
+      garageFills: [
+        { date: '2026-11-05T04:00:00.000Z', amount: 300000 },
+        { date: '2026-10-05T04:00:00.000Z', amount: 200000 }, // last month → out
+      ],
+    });
+    expect(stats.monthlySpendPaise).toBe(325000);
   });
 
   it('ignores malformed dates and non-finite amounts', () => {

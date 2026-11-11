@@ -414,26 +414,40 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   lent, red when net borrowed), TASKS LEFT (count, purple; green ✓ at
   zero), NET WEALTH (₹, teal).
 - **Auto-scroll:** the cards live in a `ViewFlipper`
-  (`android:flipInterval="3000"`, `@android:anim/fade_in` /
-  `fade_out`) — the launcher flips and fades them every 3 seconds with no
-  timers and no battery cost, and it keeps running while the app is closed.
-  `ViewFlipper` is a RemoteViews-supported layout, so this stays inside
-  the widget sandbox.
+  (`android:flipInterval="3000"`, `android:autoStart="true"`,
+  `android:inAnimation="@anim/widget_fade_in"` /
+  `android:outAnimation="@anim/widget_fade_out"`) — the launcher flips and
+  fades them every 3 seconds with no timers and no battery cost, and it
+  keeps running while the app is closed. `ViewFlipper` is a
+  RemoteViews-supported layout, so this stays inside the widget sandbox.
+  - Framework detail: AOSP `ViewFlipper` only calls `startFlipping()` from
+    `onAttachedToWindow()` when `mAutoStart` is true — `flipInterval` alone
+    never starts the rotation, so `android:autoStart="true"` is required.
+  - The public XML attributes are `android:inAnimation` /
+    `android:outAnimation` (the older `android:animation` /
+    `android:animationOut` names are not public API and fail AAPT
+    resource linking).
 - **Tap targets:** every card has its own PendingIntent → deep link:
   `meridian://monthly-spend`, `meridian://credit-cards`,
   `meridian://bank-accounts`, `meridian://lent-borrowed`,
   `meridian://tasks`, `meridian://wealth` (all handled in App.tsx →
   FinanceTab / TasksTab / InvestmentsTab).
 - **Data flow:** JS `services/statsWidget.ts` — `computeWidgetStats`
-  (pure, tested) reads the finance/tasks/equity stores: monthly spend =
-  current IST month outflow types (`expense`, `fixed_expense`,
-  `fuel_purchase`, `vehicle_service`) in paise; cc bills = statement
+  (pure, tested) reads the finance/tasks/equity/garage stores: monthly
+  spend uses **the exact rule of the in-app Monthly Spend screen**
+  (transactions of type `expense`/`vehicle_service` in the current month,
+  minus fixed expenses and the Rent/SIP/Investments/Housing/Wallet-Load
+  categories, plus this month's garage fuel fills); cc bills = statement
   `billAmount`, else `currentOutstanding`/`balance`; bank balance = Σ
   accounts; net lent = Σ outstanding lent − Σ outstanding borrowed;
   tasks = open tasks due today or overdue; net worth = holdings + FDs −
   loans. Snapshot JSON → `NativeModules.StatsWidgetBridge.setStats` →
   SharedPreferences (`meridian_stats_widget`) → native redraw (same
   pattern as the Bedtime widget).
+- **Refresh:** App.tsx boot (plus a 2.5s retry, because the persisted
+  stores hydrate asynchronously), after every foreground sync, and when the
+  app goes to the background. Missing rows degrade to `—` — never blocks
+  on app state.
 - **Native:** `widgets/StatsWidget.kt` (parses JSON with org.json,
   formats ₹ as `₹845`/`₹1.2k`; net lent flips label NET LENT → NET DEBIT
   and colour; tasks 0 → green "✓"; placeholders `—` when data is

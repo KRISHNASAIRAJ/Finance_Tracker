@@ -20,6 +20,7 @@ import {
 } from '../modules/finance/store';
 import { useTasksStore, type Task } from '../modules/tasks/store';
 import { useInvestmentsStore } from '../modules/equity/store';
+import { useGarageStore, type FuelFill } from '../modules/garage/store';
 
 const StatsWidgetModule = NativeModules.StatsWidgetBridge as
   | { setStats: (json: string) => Promise<void> }
@@ -44,8 +45,19 @@ export interface WidgetStats {
   netWorthPaise: number;
 }
 
-/** Transaction types that count as money out the door. */
-const OUTFLOW_TYPES = new Set(['expense', 'fixed_expense', 'fuel_purchase', 'vehicle_service']);
+/**
+ * Categories the Monthly Spend screen excludes from "spend" (rent, SIPs,
+ * investments, wallet loads) — the widget must use the exact same rule so
+ * the number on the home screen matches the in-app screen.
+ */
+const SPEND_EXCLUDED_CATEGORIES = [
+  'Rent',
+  'SIP',
+  'Investments',
+  'Housing',
+  'Wallet Loads',
+  'Wallet Load',
+];
 
 /** IST month key (YYYY-MM) — safe from any runtime timezone. */
 export function istMonthKey(d: Date = new Date()): string {
@@ -61,6 +73,12 @@ export function computeWidgetStats(input: {
   receivables: Pick<Receivable, 'type' | 'amount' | 'paidAmount'>[];
   tasks: Task[];
   netWorthPaise: number;
+  /** Garage fuel fills — fuel is counted from here, not from transactions */
+  garageFills?: Pick<FuelFill, 'date' | 'amount'>[];
+  /** Fixed expense names are excluded from "spend" (they are shown separately) */
+  fixedExpenseNames?: string[];
+  /** "Now" — injectable so the month window can be tested */
+  now?: Date;
 }): WidgetStats {
   const {
     dayKey,
@@ -71,15 +89,34 @@ export function computeWidgetStats(input: {
     receivables,
     tasks,
     netWorthPaise,
+    garageFills = [],
+    fixedExpenseNames = [],
+    now = new Date(),
   } = input;
 
-  const monthlySpendPaise = transactions.reduce((sum, t) => {
-    if (!OUTFLOW_TYPES.has(t.type)) return sum;
-    const d = t.date ? new Date(t.date) : null;
-    if (!d || Number.isNaN(d.getTime())) return sum;
-    if (!istDateKey(d).startsWith(monthKey)) return sum;
-    return sum + (Number.isFinite(t.amount) ? t.amount : 0);
-  }, 0);
+  // Monthly spend — mirrors MonthlySpendScreen exactly: transactions of type
+  // expense/vehicle_service in the current month, minus rent/SIP/investment
+  // categories and fixed expenses, plus this month's garage fuel fills.
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const excludedCategories = [...SPEND_EXCLUDED_CATEGORIES, ...fixedExpenseNames];
+  const monthlySpendPaise =
+    transactions
+      .filter((tx) => {
+        const d = tx.date ? new Date(tx.date) : null;
+        return !!d && !Number.isNaN(d.getTime()) && d >= startOfMonth;
+      })
+      .filter((tx) => tx.type !== 'fixed_expense')
+      .filter((tx) => tx.type !== 'fuel_purchase')
+      .filter((tx) => !excludedCategories.some((c) => c.toLowerCase() === (tx.category || '').toLowerCase()))
+      .filter((tx) => tx.type === 'expense' || tx.type === 'vehicle_service')
+      .reduce((sum, tx) => sum + (Number.isFinite(tx.amount) ? tx.amount : 0), 0) +
+    garageFills
+      .filter((f) => {
+        const d = f.date ? new Date(f.date) : null;
+        return !!d && !Number.isNaN(d.getTime()) && d >= startOfMonth;
+      })
+      .reduce((sum, f) => sum + (Number.isFinite(f.amount) ? f.amount : 0), 0);
 
   const ccBillsPaise = cards.reduce((sum, c) => {
     const bill = Number(c.billAmount ?? 0);
@@ -127,6 +164,7 @@ export function readWidgetStats(): WidgetStats {
   const f = useFinanceStore.getState();
   const t = useTasksStore.getState();
   const inv = useInvestmentsStore.getState();
+  const g = useGarageStore.getState();
   return computeWidgetStats({
     dayKey: istDateKey(),
     monthKey: istMonthKey(),
@@ -136,6 +174,8 @@ export function readWidgetStats(): WidgetStats {
     receivables: f.receivables,
     tasks: t.tasks,
     netWorthPaise: inv.getNetWorth(),
+    garageFills: g.fills,
+    fixedExpenseNames: f.fixedExpenses.map((fx) => fx.name),
   });
 }
 

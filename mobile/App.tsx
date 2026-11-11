@@ -186,7 +186,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
 
     // Compact home-screen stats widget — refresh on boot and after every
     // foreground sync completes (best-effort; no-ops on iOS/Expo Go).
+    // Stores hydrate asynchronously from AsyncStorage, so push once now and
+    // again shortly after the persisted state has been restored.
     pushStatsWidget();
+    const statsRetry = setTimeout(() => pushStatsWidget(), 2500);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
@@ -195,12 +198,15 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           .catch((e) => console.warn('[App] foreground sync failed:', e));
       }
       if (nextState === 'background') {
-        processSyncQueue().catch((e) => console.warn('[App] background sync failed:', e));
+        processSyncQueue()
+          .then(() => pushStatsWidget())
+          .catch((e) => console.warn('[App] background sync failed:', e));
       }
       appState.current = nextState;
     });
 
     return () => {
+      clearTimeout(statsRetry);
       subscription.remove();
       linkSub.remove();
     };
