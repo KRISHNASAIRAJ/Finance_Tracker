@@ -102,6 +102,15 @@ export default function PortfolioHistoryScreen() {
     return { x, y, label: s.date };
   });
 
+  // The chart runs chronologically (oldest → newest), but the date list
+  // shows the newest first — same order as the "View All" (SnapshotDates)
+  // screen. `index` keeps the chart-point index so tapping a row still
+  // highlights the right point on the chart.
+  const dateRows = points
+    .map((point, index) => ({ point, index }))
+    .reverse()
+    .slice(0, 5);
+
   let pathD = '';
   let fillD = '';
   if (points.length > 1) {
@@ -174,20 +183,20 @@ export default function PortfolioHistoryScreen() {
           </View>
         )}
 
-        {/* Date Points */}
+        {/* Date Points — newest first, same order as the "View All" screen */}
         <View style={styles.chartCard}>
           <Text style={styles.chartTitle}>SNAPSHOT DATES</Text>
-          {points.slice(0, 5).map((p, idx) => (
+          {dateRows.map(({ point, index }) => (
             <TouchableOpacity
-              key={p.label}
-              style={[styles.pointRow, selectedIndex === idx && styles.pointRowActive]}
-              onPress={() => setSelectedIndex(idx)}
-              onLongPress={() => handleDeleteSnapshot(p.label)}
+              key={point.label}
+              style={[styles.pointRow, selectedIndex === index && styles.pointRowActive]}
+              onPress={() => setSelectedIndex(index)}
+              onLongPress={() => handleDeleteSnapshot(point.label)}
             >
               <Text style={styles.pointDate}>
-                {new Date(p.label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                {new Date(point.label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </Text>
-              <Text style={styles.pointValue}>{formatCurrency(chartData[idx].totalValue)}</Text>
+              <Text style={styles.pointValue}>{formatCurrency(chartData[index].totalValue)}</Text>
             </TouchableOpacity>
           ))}
           {points.length > 5 && (

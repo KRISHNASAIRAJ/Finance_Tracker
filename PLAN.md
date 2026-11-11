@@ -437,13 +437,17 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   spend uses **the exact rule of the in-app Monthly Spend screen**
   (transactions of type `expense`/`vehicle_service` in the current month,
   minus fixed expenses and the Rent/SIP/Investments/Housing/Wallet-Load
-  categories, plus this month's garage fuel fills); cc bills = statement
-  `billAmount`, else `currentOutstanding`/`balance`; bank balance = Σ
-  accounts; net lent = Σ outstanding lent − Σ outstanding borrowed;
-  tasks = open tasks due today or overdue; net worth = holdings + FDs −
-  loans. Snapshot JSON → `NativeModules.StatsWidgetBridge.setStats` →
-  SharedPreferences (`meridian_stats_widget`) → native redraw (same
-  pattern as the Bedtime widget).
+  categories, plus this month's garage fuel fills); cc bills = **Σ card
+  balance** — the same rule as the Credit Cards screen per-card due, the
+  Balance Summary card-outstanding total, the net-worth formula and the
+  web Credit Cards page (`balance ?? current_outstanding`). The gross
+  statement (`billAmount`) is deliberately not used because it ignores
+  payments already made against the bill; bank balance = Σ accounts; net
+  lent = Σ outstanding lent − Σ outstanding borrowed; tasks = open tasks
+  due today or overdue; net worth = holdings + FDs − loans. Snapshot JSON
+  → `NativeModules.StatsWidgetBridge.setStats` → SharedPreferences
+  (`meridian_stats_widget`) → native redraw (same pattern as the Bedtime
+  widget).
 - **Refresh:** App.tsx boot (plus a 2.5s retry, because the persisted
   stores hydrate asynchronously), after every foreground sync, and when the
   app goes to the background. Missing rows degrade to `—` — never blocks
@@ -494,3 +498,19 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     locals/args, empty catch blocks). CI lints the whole tree with
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
+
+## 15. Widget CC BILLS + snapshot date order (v4)
+
+- **CC BILLS (widget):** the widget summed the gross statement
+  (`billAmount`, ignoring `paidAmount`) and preferred a stale
+  `currentOutstanding`, so the number did not match anything in the app.
+  It now uses the app's single rule — **Σ card balance** (Credit Cards
+  screen per-card due, Balance Summary card outstanding, net worth, web
+  Credit Cards page). Three new tests cover balance priority, the
+  partly-paid bill case and the `balance`-missing fallback.
+- **Snapshot dates order:** Portfolio History's "SNAPSHOT DATES" list was
+  built from the chart array (chronological, oldest first) while "View All"
+  (SnapshotDates) listed newest first. The list now shows the newest dates
+  first — same order as the full list — while the chart itself stays
+  chronological and tapping a row still highlights the right chart point
+  (the list rows carry the original chart index).

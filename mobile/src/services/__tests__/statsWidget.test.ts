@@ -93,7 +93,7 @@ describe('computeWidgetStats — monthly spend', () => {
 });
 
 describe('computeWidgetStats — cards, accounts, lent', () => {
-  it('prefers the statement bill and falls back to outstanding', () => {
+  it('sums card balances (the app\'s card-outstanding rule)', () => {
     const stats = computeWidgetStats({
       ...base,
       cards: [
@@ -102,7 +102,27 @@ describe('computeWidgetStats — cards, accounts, lent', () => {
         { balance: 20000 } as any,
       ],
     });
-    expect(stats.ccBillsPaise).toBe(100000);
+    expect(stats.ccBillsPaise).toBe(170000);
+  });
+
+  it('ignores a partly-paid gross statement and prefers balance over a stale outstanding', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      cards: [
+        // balance is what the app shows; billAmount (gross) and a stale
+        // currentOutstanding must not change the total
+        { balance: 150000, billAmount: 200000, paidAmount: 50000, currentOutstanding: 999999 } as any,
+      ],
+    });
+    expect(stats.ccBillsPaise).toBe(150000);
+  });
+
+  it('falls back to current_outstanding only when balance is absent', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      cards: [{ currentOutstanding: 42000 } as any],
+    });
+    expect(stats.ccBillsPaise).toBe(42000);
   });
 
   it('sums bank account balances', () => {

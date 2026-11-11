@@ -118,10 +118,15 @@ export function computeWidgetStats(input: {
       })
       .reduce((sum, f) => sum + (Number.isFinite(f.amount) ? f.amount : 0), 0);
 
+  // Credit card bills — the same rule the app uses everywhere (Credit Cards
+  // screen per-card due, Balance Summary's card outstanding total, the
+  // net-worth formula, and the web Credit Cards page):
+  //   Σ (balance ?? current_outstanding)
+  // `balance` is the field the app keeps in sync; the gross statement
+  // (`billAmount`) is deliberately not used here because it ignores
+  // payments already made against the bill.
   const ccBillsPaise = cards.reduce((sum, c) => {
-    const bill = Number(c.billAmount ?? 0);
-    if (Number.isFinite(bill) && bill > 0) return sum + bill;
-    const outstanding = Number(c.currentOutstanding ?? c.balance ?? 0);
+    const outstanding = Number(c.balance ?? c.currentOutstanding ?? 0);
     return sum + (Number.isFinite(outstanding) ? outstanding : 0);
   }, 0);
 
