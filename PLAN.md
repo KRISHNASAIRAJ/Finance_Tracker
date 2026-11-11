@@ -40,6 +40,9 @@
 - [x] **"Enable morning auto-detect" removed** — the usage-access auto-detect
       (and its native module + permission) is deleted; the accelerometer
       tracker does the job.
+- [x] **Live "STILL FOR"** — the tracker status is polled every 5 s (the sensor
+      period) and the readout uses the native `stillSince` timestamp, so it
+      follows the phone in real time.
 
 **Left open**
 
