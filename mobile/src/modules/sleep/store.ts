@@ -163,6 +163,8 @@ export const useSleepStore = create<SleepState>()(
           source: merged.source,
           updated_at: new Date().toISOString(),
         });
+        // The rating / times of a night also live on the home-screen widget.
+        refreshWidget();
       },
 
       deleteEntry: (id, userId) => {
