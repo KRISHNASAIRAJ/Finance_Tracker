@@ -3,9 +3,16 @@
  *
  * Fetches live prices for all holdings and updates current_price:
  * - Equity/ETF: Yahoo Finance chart API (regularMarketPrice)
- * - Mutual funds: AMFI NAV API (api.mfapi.in)
+ * - Mutual funds: AMFI NAVs (api.mfapi.in for the NAV history)
  *
- * Also tracks prev_close so the app can show today's P&L.
+ * Also tracks prev_close so the app can show today's P&L for every asset
+ * class — equity AND mutual funds.
+ *
+ * Mutual funds are resolved to their AMFI scheme code in this order:
+ *   1. holdings.scheme_code (a numeric code, or a name resolved via search)
+ *   2. holdings.isin / holdings.symbol (the ISIN) → the AMFI NAV list
+ * Without step 2 a fund that only carries its ISIN could never be priced,
+ * and it silently lost its day change.
  *
  * Deploy: supabase functions deploy refresh-portfolio-prices
  * Trigger: called by portfolio-snapshot before snapshotting, or manually
@@ -21,7 +28,18 @@ interface Holding {
   type: string;
   quantity: number;
   scheme_code: string | null;
+  isin: string | null;
 }
+
+/** AMFI entry for one fund: the scheme code plus the latest published NAV. */
+interface AmfiFund {
+  schemeCode: string;
+  nav: number;
+  date: string;
+}
+
+/** ISIN → fund, built once per run from the official AMFI NAV list. */
+let amfiIndex: Map<string, AmfiFund> | null = null;
 
 async function fetchYahooPrice(symbol: string): Promise<{ price: number; prevClose: number } | null> {
   try {
@@ -41,25 +59,90 @@ async function fetchYahooPrice(symbol: string): Promise<{ price: number; prevClo
   }
 }
 
-async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevClose: number } | null> {
+/** Resolve a fund name (Kite stores the name) to its AMFI scheme code. */
+async function searchSchemeCode(query: string): Promise<string | null> {
   try {
-    // If the stored value is not a numeric scheme code (Kite stores the
-    // scheme name there), resolve it via the AMFI search endpoint first.
-    let code = schemeCode.trim();
-    if (!/^\d+$/.test(code)) {
-      const searchUrl = `https://api.mfapi.in/mf/search?q=${encodeURIComponent(code)}`;
-      const searchResp = await fetch(searchUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-      if (searchResp.ok) {
-        const searchBody = await searchResp.json();
-        const match = Array.isArray(searchBody) ? searchBody[0] : null;
-        if (match?.schemeCode) code = String(match.schemeCode);
-        else return null;
-      } else {
-        return null;
+    const searchUrl = `https://api.mfapi.in/mf/search?q=${encodeURIComponent(query)}`;
+    const searchResp = await fetch(searchUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!searchResp.ok) return null;
+    const searchBody = await searchResp.json();
+    const match = Array.isArray(searchBody) ? searchBody[0] : null;
+    return match?.schemeCode ? String(match.schemeCode) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The official AMFI NAV list — every scheme with its ISINs and the latest
+ * NAV. Used to resolve a fund that only carries its ISIN.
+ */
+async function fetchAmfiIndex(): Promise<Map<string, AmfiFund>> {
+  if (amfiIndex) return amfiIndex;
+  const index = new Map<string, AmfiFund>();
+  try {
+    const resp = await fetch("https://www.amfiindia.com/spages/NAVAll.txt", {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      redirect: "follow",
+    });
+    if (!resp.ok) throw new Error(`AMFI ${resp.status}`);
+    const text = await resp.text();
+    for (const line of text.split(/\r?\n/)) {
+      // Scheme Code;ISIN Div Payout/ Growth;ISIN Div Reinvestment;Name;Plan;Option;NAV;Date
+      const parts = line.split(";");
+      if (parts.length < 8) continue;
+      const schemeCode = parts[0].trim();
+      const nav = Number(parts[6]);
+      if (!/^\d+$/.test(schemeCode) || !Number.isFinite(nav) || nav <= 0) continue;
+      const fund: AmfiFund = { schemeCode, nav, date: parts[7].trim() };
+      // A scheme can be reached through two ISIN columns (payout + reinvest).
+      for (const column of [parts[1], parts[2]]) {
+        for (const isin of column.split(",")) {
+          const key = isin.trim().toUpperCase();
+          if (key && key !== "-" && !index.has(key)) index.set(key, fund);
+        }
       }
     }
+  } catch (e) {
+    console.error("AMFI NAV list failed:", (e as Error).message);
+  }
+  amfiIndex = index;
+  return index;
+}
 
-    const url = `https://api.mfapi.in/mf/${encodeURIComponent(code)}`;
+/** Does this look like an ISIN (e.g. INF247L01HC6)? */
+function looksLikeIsin(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim().toUpperCase();
+  return /^INF[0-9A-Z]{9}$/.test(v);
+}
+
+/** The ISIN of a holding — either the column or the symbol it was stored in. */
+function holdingIsin(h: Holding): string | null {
+  if (looksLikeIsin(h.isin)) return h.isin!.trim().toUpperCase();
+  if (looksLikeIsin(h.symbol)) return h.symbol.trim().toUpperCase();
+  return null;
+}
+
+/** Find the AMFI scheme code for a mutual fund holding. */
+async function resolveSchemeCode(h: Holding): Promise<string | null> {
+  const code = (h.scheme_code || "").trim();
+  if (code) {
+    if (/^\d+$/.test(code)) return code;
+    // Kite stores the scheme name there — resolve it via the search.
+    const resolved = await searchSchemeCode(code);
+    if (resolved) return resolved;
+  }
+  const isin = holdingIsin(h);
+  if (!isin) return null;
+  const index = await fetchAmfiIndex();
+  return index.get(isin)?.schemeCode ?? null;
+}
+
+/** Latest + previous NAV for a scheme (both in paise). */
+async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevClose: number } | null> {
+  try {
+    const url = `https://api.mfapi.in/mf/${encodeURIComponent(schemeCode)}`;
     const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
     if (!resp.ok) return null;
     const body = await resp.json();
@@ -68,6 +151,8 @@ async function fetchAmfiNav(schemeCode: string): Promise<{ price: number; prevCl
     const rawNav = Number(data[0]?.nav);
     if (!Number.isFinite(rawNav) || rawNav <= 0) return null;
     const price = Math.round(rawNav * 100);
+    // The previous entry is the previous trading day's NAV — the day change
+    // of a fund is NAV to NAV.
     const rawPrevNav = data.length > 1 ? Number(data[1]?.nav) : NaN;
     const prevClose = Number.isFinite(rawPrevNav) && rawPrevNav > 0 ? Math.round(rawPrevNav * 100) : price;
     return { price, prevClose };
@@ -102,7 +187,7 @@ Deno.serve(async (req: Request) => {
 
     let query = supabase
       .from("holdings")
-      .select("id, user_id, symbol, type, quantity, scheme_code");
+      .select("id, user_id, symbol, type, quantity, scheme_code, isin");
 
     if (targetUserId) {
       query = query.eq("user_id", targetUserId);
@@ -119,13 +204,19 @@ Deno.serve(async (req: Request) => {
     let updated = 0;
     let failed = 0;
     const failures: string[] = [];
+    const details: Array<{ symbol: string; type: string; price: number; prevClose: number }> = [];
     const now = new Date().toISOString();
 
     for (const h of holdings as Holding[]) {
       let result: { price: number; prevClose: number } | null = null;
 
-      if (h.type === "mf" && h.scheme_code) {
-        result = await fetchAmfiNav(h.scheme_code);
+      if (h.type === "mf") {
+        // Mutual funds are priced from their AMFI scheme (resolved via the
+        // scheme code or the ISIN) — never from the equity price feed.
+        const schemeCode = await resolveSchemeCode(h);
+        if (schemeCode) {
+          result = await fetchAmfiNav(schemeCode);
+        }
       } else if (h.symbol) {
         result = await fetchYahooPrice(normalizeSymbol(h.symbol));
       }
@@ -159,6 +250,12 @@ Deno.serve(async (req: Request) => {
         failed++;
         continue;
       }
+      details.push({
+        symbol: h.symbol,
+        type: h.type,
+        price: result.price,
+        prevClose,
+      });
       updated++;
     }
 
@@ -169,6 +266,7 @@ Deno.serve(async (req: Request) => {
         updated,
         failed,
         failures,
+        details,
         at: now,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }

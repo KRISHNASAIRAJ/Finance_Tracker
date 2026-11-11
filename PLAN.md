@@ -504,6 +504,33 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
 
+## 22. Day change for mutual funds (v4)
+
+The day's gain only covered equity — mutual funds never contributed because
+they had no `prev_close`.
+
+- **Root cause:** `refresh-portfolio-prices` only priced a fund when
+  `holdings.scheme_code` was set. Every fund that stores its **ISIN** in
+  `symbol` (with no scheme code) fell through to the Yahoo equity feed, which
+  has no quote for a fund → the holding was never refreshed and never got a
+  `prev_close`. Live check: 5 of 6 holdings failed, only the equity one
+  updated.
+- **Fix:** the edge function now resolves a fund's AMFI scheme code from the
+  scheme code, the scheme name (search) **or the ISIN** — the ISIN is looked
+  up in the official AMFI NAV list (`amfiindia.com/spages/NAVAll.txt`, both the
+  payout and the reinvestment ISIN columns). The NAV history then comes from
+  mfapi.in, where the previous entry is the previous trading day's NAV — the
+  day change of a fund is NAV to NAV. The response now also reports the price
+  and prev_close per holding.
+- **Result (verified live):** 6/6 holdings refresh, every holding carries a
+  prev_close, so the day change covers equity **and** mutual funds.
+- **UI:** the Wealth dashboard's "DAY CHANGE" now shows the split
+  (`Equity ±₹… · MF ±₹…`) on mobile and web — stocks and funds price on
+  different clocks, so one opaque number hid the difference.
+- **Tests:** `modules/equity/__tests__/store.test.ts` — the day P&L split into
+  equity / mutual funds / other, and the guards for holdings without a usable
+  prev_close.
+
 ## 21. Clock + Sleep home-screen widget (2x2) (v4)
 
 A 2x2 home-screen widget that mirrors the reference design: the date

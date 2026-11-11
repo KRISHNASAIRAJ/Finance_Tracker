@@ -196,6 +196,43 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
   } catch (e) { console.warn('[EquityStore] enqFlush failed:', e); }
 }
 
+/**
+ * Day P&L split by asset class. Equity (stocks + ETFs) and mutual funds move
+ * on different clocks — a fund's NAV lands once per trading day — so the
+ * dashboard shows both parts instead of one opaque number.
+ */
+export interface TodayPnLSplit {
+  /** Stocks + ETFs */
+  equity: number;
+  /** Mutual funds */
+  mf: number;
+  /** Everything else */
+  other: number;
+}
+
+/** Day P&L per holding, in paise. Holdings without a usable prevClose are skipped. */
+export function holdingDayChange(h: Pick<Holding, 'quantity' | 'currentPrice' | 'prevClose'>): number {
+  const pc = Number(h.prevClose);
+  if (!pc || pc <= 0) return 0;
+  const q = Number(h.quantity);
+  const p = Number(h.currentPrice);
+  if (!Number.isFinite(q) || !Number.isFinite(p) || !Number.isFinite(pc)) return 0;
+  return q * (p - pc);
+}
+
+/** The day's gain split into equity, mutual funds and the rest. */
+export function todayPnLSplit(holdings: Holding[] | undefined): TodayPnLSplit {
+  const split: TodayPnLSplit = { equity: 0, mf: 0, other: 0 };
+  for (const h of holdings || []) {
+    const change = holdingDayChange(h);
+    if (change === 0) continue;
+    if (h.type === 'mf') split.mf += change;
+    else if (h.type === 'equity' || h.type === 'etf') split.equity += change;
+    else split.other += change;
+  }
+  return split;
+}
+
 export const useInvestmentsStore = create<InvestmentsState>()(
   persist(
     (set, get) => ({
@@ -367,14 +404,7 @@ export const useInvestmentsStore = create<InvestmentsState>()(
         }, 0);
       },
       getTodayPnL: () => {
-        return get().holdings.reduce((sum, h) => {
-          if (!h.prevClose || h.prevClose <= 0) return sum;
-          const q = Number(h.quantity);
-          const p = Number(h.currentPrice);
-          const pc = Number(h.prevClose);
-          if (!Number.isFinite(q) || !Number.isFinite(p) || !Number.isFinite(pc)) return sum;
-          return sum + q * (p - pc);
-        }, 0);
+        return get().holdings.reduce((sum, h) => sum + holdingDayChange(h), 0);
       },
       getTotalLoans: () => {
         return get().loans.reduce((sum, l) => sum + (Number.isFinite(l.amount) ? l.amount : 0), 0);

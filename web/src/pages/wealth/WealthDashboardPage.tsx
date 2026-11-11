@@ -84,6 +84,20 @@ export function WealthDashboardPage() {
     [holdings]
   )
 
+  // Split the day's move: stocks/ETFs and mutual funds price on different
+  // clocks, so both parts are shown.
+  const pnlSplit = useMemo(() => {
+    let equity = 0
+    let mf = 0
+    for (const h of holdings ?? []) {
+      if (h.prev_close == null) continue
+      const change = h.quantity * ((h.current_price ?? 0) - h.prev_close)
+      if (h.type === 'mf') mf += change
+      else if (h.type === 'equity' || h.type === 'etf') equity += change
+    }
+    return { equity, mf }
+  }, [holdings])
+
   const totalCost = useMemo(
     () => (holdings ?? []).reduce((s, h) => s + h.quantity * h.avg_buy_price, 0),
     [holdings]
@@ -240,6 +254,11 @@ export function WealthDashboardPage() {
           <StatCard
             label="Today's P&L"
             value={`${todayPnL >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(todayPnL))}`}
+            change={
+              pnlSplit.equity !== 0 || pnlSplit.mf !== 0
+                ? `Equity ${pnlSplit.equity >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(pnlSplit.equity))} · MF ${pnlSplit.mf >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(pnlSplit.mf))}`
+                : undefined
+            }
             color={todayPnL >= 0 ? '#59D6C7' : '#FF887D'}
           />
           <StatCard label="Total cost" value={paiseToRupees(totalCost)} />

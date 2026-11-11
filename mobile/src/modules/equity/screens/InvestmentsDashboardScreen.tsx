@@ -24,7 +24,7 @@ import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore, allocationCategoryOf, allocationBuckets, holdingDisplayName } from '../store';
+import { useInvestmentsStore, allocationCategoryOf, allocationBuckets, holdingDisplayName, todayPnLSplit } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 import { useEquitySync, syncActionPlan } from '../hooks/useEquitySync';
 import { processSyncQueue } from '../../../services/syncQueue';
@@ -238,6 +238,8 @@ export default function InvestmentsDashboardScreen() {
           {holdings.some((h) => h.prevClose) && (() => {
             const yesterdayClose = portfolioValue - todayPnL;
             const dayChgPct = yesterdayClose > 0 ? (todayPnL / yesterdayClose) * 100 : 0;
+            const split = todayPnLSplit(holdings);
+            const hasSplit = split.equity !== 0 || split.mf !== 0;
             return (
               <View style={styles.heroSnapshotRow}>
                 <View style={styles.heroSnapshotItem}>
@@ -252,6 +254,13 @@ export default function InvestmentsDashboardScreen() {
                   <Text style={[styles.heroSnapshotValue, { color: todayPnL >= 0 ? colors.success : colors.error }]}>
                     {todayPnL >= 0 ? '+' : ''}{formatCurrency(todayPnL)} ({dayChgPct.toFixed(1)}%)
                   </Text>
+                  {hasSplit ? (
+                    <Text style={styles.heroSnapshotSplit}>
+                      Equity {split.equity >= 0 ? '+' : ''}{formatCurrency(split.equity)}
+                      {'  ·  '}
+                      MF {split.mf >= 0 ? '+' : ''}{formatCurrency(split.mf)}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             );
@@ -848,6 +857,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginTop: 3,
+  },
+  heroSnapshotSplit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
     marginTop: 3,
   },
   donutCard: {

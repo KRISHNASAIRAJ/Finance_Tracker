@@ -13,6 +13,8 @@ import {
   allocationCategoryOf,
   allocationBuckets,
   holdingDisplayName,
+  todayPnLSplit,
+  holdingDayChange,
   type Holding,
 } from '../store';
 
@@ -171,6 +173,29 @@ describe('Equity — NaN guards', () => {
     });
 
     expect(useInvestmentsStore.getState().getTodayPnL()).toBe(200);
+  });
+
+  it('splits the day P&L into equity and mutual funds', () => {
+    const split = todayPnLSplit([
+      holding({ id: 'eq', type: 'equity', quantity: 10, currentPrice: 120, prevClose: 100 }),
+      holding({ id: 'mf', type: 'mf', quantity: 20, currentPrice: 50, prevClose: 55 }),
+      holding({ id: 'etf', type: 'etf', quantity: 5, currentPrice: 200, prevClose: 190 }),
+      holding({ id: 'other', type: 'other', quantity: 1, currentPrice: 10, prevClose: 5 }),
+      holding({ id: 'no_prev', type: 'mf', quantity: 10, currentPrice: 120 }),
+    ]);
+
+    // Equity: 10 × (120−100) = 200, ETFs: 5 × (200−190) = 50
+    expect(split.equity).toBe(250);
+    // Mutual funds: 20 × (50−55) = −100
+    expect(split.mf).toBe(-100);
+    expect(split.other).toBe(5);
+  });
+
+  it('treats a holding without a usable prevClose as no day change', () => {
+    expect(holdingDayChange({ quantity: 10, currentPrice: 120 })).toBe(0);
+    expect(holdingDayChange({ quantity: 10, currentPrice: 120, prevClose: 0 })).toBe(0);
+    expect(holdingDayChange({ quantity: 10, currentPrice: 120, prevClose: 100 })).toBe(200);
+    expect(holdingDayChange({ quantity: NaN, currentPrice: 120, prevClose: 100 })).toBe(0);
   });
 
   it('ignores non-finite loan and FD amounts in the totals', () => {
