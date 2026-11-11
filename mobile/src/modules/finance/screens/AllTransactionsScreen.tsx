@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AllTransactionsScreen — full chronological list of all transactions
  * (including garage fuel fills) with category icons and amounts.
  */
@@ -146,7 +146,7 @@ export default function AllTransactionsScreen() {
 
       <FlatList
         data={flatData}
-        keyExtractor={(item, index) =>
+        keyExtractor={(item, _index) =>
           item.type === 'header' ? `h-${item.date}` : `tx-${item.tx.id}`
         }
         renderItem={renderItem}

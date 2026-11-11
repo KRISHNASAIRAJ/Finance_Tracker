@@ -10,8 +10,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:flipInterval="3000"
-        android:animation="@android:anim/fade_in"
-        android:animationOut="@android:anim/fade_out">
+        android:inAnimation="@anim/widget_fade_in"
+        android:outAnimation="@anim/widget_fade_out"
+        android:animateFirstView="false">
 
         <!-- Card 1 — monthly spend -->
         <LinearLayout

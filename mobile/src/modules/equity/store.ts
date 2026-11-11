@@ -98,6 +98,68 @@ interface InvestmentsState {
   getNetWorth: () => number;
 }
 
+/** Allocation categories the app understands (mirrored in the web app). */
+export const ALLOCATION_CATEGORIES = [
+  'Equity',
+  'Mutual Funds',
+  'ETF',
+  'Gold',
+  'Realty',
+  'Other',
+];
+
+/**
+ * Effective allocation category for a holding. An explicit category wins
+ * (trimmed + validated against the known list); otherwise it falls back to
+ * the holding type. Mobile and web must agree on this rule — the allocation
+ * donut, the per-holding breakdown and the list tabs all read from here.
+ */
+export function allocationCategoryOf(h: Pick<Holding, 'type' | 'allocation'>): string {
+  const raw = (h.allocation ?? '').trim();
+  if (raw) {
+    const match = ALLOCATION_CATEGORIES.find((c) => c.toLowerCase() === raw.toLowerCase());
+    if (match) return match;
+  }
+  if (h.type === 'mf') return 'Mutual Funds';
+  if (h.type === 'etf') return 'ETF';
+  if (h.type === 'equity') return 'Equity';
+  return 'Other';
+}
+
+/** Current value of a holding, guarding against junk numbers. */
+export function holdingValueOf(h: Pick<Holding, 'quantity' | 'currentPrice'>): number {
+  const q = Number(h.quantity);
+  const p = Number(h.currentPrice);
+  if (!Number.isFinite(q) || !Number.isFinite(p)) return 0;
+  return q * p;
+}
+
+/**
+ * Allocation buckets for the donut/legend. Holdings that are worth nothing
+ * (sold out, zero quantity, or malformed numbers) are skipped so a stale
+ * row can never show up as a phantom "Gold"/"Equity" slice — the same
+ * rule the web dashboard uses.
+ */
+export function allocationBuckets(
+  holdings: Pick<Holding, 'type' | 'allocation' | 'quantity' | 'currentPrice'>[]
+): { category: string; value: number; pct: number }[] {
+  const map = new Map<string, number>();
+  for (const h of holdings) {
+    const value = holdingValueOf(h);
+    if (value <= 0) continue;
+    const cat = allocationCategoryOf(h);
+    map.set(cat, (map.get(cat) ?? 0) + value);
+  }
+  const total = Array.from(map.values()).reduce((s, v) => s + v, 0);
+  return Array.from(map.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, value]) => ({
+      category,
+      value,
+      pct: total > 0 ? (value / total) * 100 : 0,
+    }));
+}
+
 function uid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -139,7 +201,6 @@ export const useInvestmentsStore = create<InvestmentsState>()(
           holdings: state.holdings.map((h) => (h.id === id ? { ...h, ...updates } : h)),
         }));
         try {
-          const { enqueue } = require('../../services/syncQueue');
           const holding = get().holdings.find((h) => h.id === id);
           if (holding) {
             const data: Record<string, unknown> = { id, user_id: userId || null };
@@ -160,7 +221,6 @@ export const useInvestmentsStore = create<InvestmentsState>()(
           holdings: state.holdings.filter((h) => h.id !== id),
         }));
         try {
-          const { enqueue } = require('../../services/syncQueue');
           enqFlush('holdings', 'delete', { id, user_id: userId || null });
         } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },
@@ -176,7 +236,6 @@ export const useInvestmentsStore = create<InvestmentsState>()(
           goals: state.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
         }));
         try {
-          const { enqueue } = require('../../services/syncQueue');
           const goal = get().goals.find((g) => g.id === id);
           if (goal) {
             const data: Record<string, unknown> = { id, user_id: userId || null, goal_name: goal.name, target_amount: goal.target, current_progress: goal.current, target_date: goal.dueDate, priority: goal.priority, updated_at: new Date().toISOString() };
@@ -189,7 +248,6 @@ export const useInvestmentsStore = create<InvestmentsState>()(
           goals: state.goals.filter((g) => g.id !== id),
         }));
         try {
-          const { enqueue } = require('../../services/syncQueue');
           enqFlush('investment_goals', 'delete', { id, user_id: userId || null });
         } catch (e) { console.warn('[EquityStore] sync enqueue failed:', e); }
       },

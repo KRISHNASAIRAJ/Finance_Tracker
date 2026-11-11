@@ -24,7 +24,7 @@ import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore } from '../store';
+import { useInvestmentsStore, allocationCategoryOf, allocationBuckets } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 import { useEquitySync, syncActionPlan } from '../hooks/useEquitySync';
 import { processSyncQueue } from '../../../services/syncQueue';
@@ -56,10 +56,8 @@ export default function InvestmentsDashboardScreen() {
     }, [pullFromCloud])
   );
 
-  const equityHoldings = holdings.filter(
-    (h) => h.type === 'equity' && h.allocation !== 'Gold' && h.allocation !== 'Realty',
-  );
-  const mfHoldings = holdings.filter((h) => h.type === 'mf');
+  const equityHoldings = holdings.filter((h) => allocationCategoryOf(h) === 'Equity');
+  const mfHoldings = holdings.filter((h) => allocationCategoryOf(h) === 'Mutual Funds');
   const activeHoldings = activeTab === 'equity' ? equityHoldings : mfHoldings;
   const previewHoldings = activeHoldings.slice(0, 3);
   const hasMore = activeHoldings.length > 3;
@@ -263,13 +261,10 @@ export default function InvestmentsDashboardScreen() {
 
         {/* Allocation Donut — segmented gradient design */}
         {holdings.length > 0 && (() => {
-          const allocMap: Record<string, number> = {};
-          holdings.forEach((h) => {
-            const cat = h.allocation ?? ((h.type === 'mf') ? 'Mutual Funds' : (h.type === 'etf') ? 'ETF' : 'Equity');
-            allocMap[cat] = (allocMap[cat] || 0) + h.quantity * h.currentPrice;
-          });
-
-          const entries = Object.entries(allocMap).sort((a, b) => b[1] - a[1]);
+          // Same rule as the web dashboard: holdings worth nothing (sold
+          // out / zero qty / malformed) never create a legend slice.
+          const buckets = allocationBuckets(holdings);
+          const entries = buckets.map((b) => [b.category, b.value] as [string, number]);
           const totalV = entries.reduce((s, e) => s + e[1], 0);
           if (!Number.isFinite(totalV) || totalV === 0) return null;
 

@@ -8,7 +8,7 @@ jest.mock('../../../services/syncQueue', () => ({
   getQueueLength: jest.fn(() => 0),
 }));
 
-import { useInvestmentsStore, type Holding } from '../store';
+import { useInvestmentsStore, allocationCategoryOf, allocationBuckets, type Holding } from '../store';
 
 const reset = () =>
   useInvestmentsStore.setState({
@@ -71,6 +71,50 @@ describe('Equity — loan adjust', () => {
     adjustLoanAmount('missing-id', 1000);
 
     expect(useInvestmentsStore.getState().loans[0].amount).toBe(5000000);
+  });
+});
+
+describe('Equity — allocation categories', () => {
+  it('falls back to the holding type when no category is set', () => {
+    expect(allocationCategoryOf({ type: 'mf' })).toBe('Mutual Funds');
+    expect(allocationCategoryOf({ type: 'etf' })).toBe('ETF');
+    expect(allocationCategoryOf({ type: 'equity' })).toBe('Equity');
+    expect(allocationCategoryOf({ type: 'other' })).toBe('Other');
+  });
+
+  it('honours an explicit, known category (trimmed, case-insensitive)', () => {
+    expect(allocationCategoryOf({ type: 'mf', allocation: 'gold' })).toBe('Gold');
+    expect(allocationCategoryOf({ type: 'mf', allocation: '  Realty ' })).toBe('Realty');
+  });
+
+  it('ignores an unknown category string', () => {
+    expect(allocationCategoryOf({ type: 'mf', allocation: 'Crypto' })).toBe('Mutual Funds');
+    expect(allocationCategoryOf({ type: 'mf', allocation: '' })).toBe('Mutual Funds');
+  });
+
+  it('skips holdings worth nothing so they cannot create phantom slices', () => {
+    const buckets = allocationBuckets([
+      { type: 'mf', quantity: 10, currentPrice: 100 },
+      { type: 'mf', allocation: 'Gold', quantity: 0, currentPrice: 100 }, // sold out → out
+      { type: 'equity', quantity: 5, currentPrice: 0 }, // zero value → out
+      { type: 'mf', quantity: NaN, currentPrice: 100 }, // malformed → out
+      { type: 'mf', quantity: 10, currentPrice: 50 },
+    ]);
+
+    expect(buckets.map((b) => b.category)).toEqual(['Mutual Funds']);
+    expect(buckets[0].value).toBe(1500);
+    expect(buckets[0].pct).toBe(100);
+  });
+
+  it('groups by category and sorts by value descending', () => {
+    const buckets = allocationBuckets([
+      { type: 'mf', quantity: 10, currentPrice: 100 }, // Mutual Funds 1000
+      { type: 'mf', allocation: 'Gold', quantity: 10, currentPrice: 300 }, // Gold 3000
+      { type: 'equity', quantity: 10, currentPrice: 200 }, // Equity 2000
+    ]);
+
+    expect(buckets.map((b) => b.category)).toEqual(['Gold', 'Equity', 'Mutual Funds']);
+    expect(buckets[0].pct).toBeCloseTo(50);
   });
 });
 

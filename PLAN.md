@@ -446,3 +446,37 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   outflow-only spend, malformed-row resilience, card bill fallback,
   account sums, lent/borrowed netting (incl. negative net), IST task
   filter, non-finite net worth.
+
+## 14. Asset Allocation consistency + repo cleanup (v4)
+
+- **Bug:** the Wealth tab's ASSET ALLOCATION donut built its legend from
+  *every* holding, so a leftover row (sold out, zero quantity, malformed
+  numbers) still produced a phantom slice — "Gold" / "Equity" categories
+  the user does not actually hold. The web dashboard already filtered
+  `value > 0`, so mobile and web disagreed (the inconsistency).
+- **Fix:** one shared rule, now in `modules/equity/store.ts`:
+  - `allocationCategoryOf(holding)` — an explicit category wins (trimmed
+    and validated against `ALLOCATION_CATEGORIES`), otherwise the holding
+    type decides (mf → Mutual Funds, etf → ETF, equity → Equity, other →
+    Other). Unknown category strings are ignored instead of creating a
+    bogus bucket.
+  - `holdingValueOf(holding)` — value guarded against non-finite numbers.
+  - `allocationBuckets(holdings)` — only holdings worth something are
+    bucketed, so nothing empty can ever show up as a slice.
+  - The dashboard donut, the list tabs (Equity / Mutual Funds) and the
+    Portfolio Breakdown drill-down all read from these helpers, so the
+    donut and the lists can never disagree. The web app mirrors the same
+    rule (`allocCategoryOf` + `value > 0` filter) — one behaviour on both
+    platforms.
+- **Tests:** `modules/equity/__tests__/store.test.ts` — category
+  fallbacks, explicit/trimmed/unknown categories, zero-value rows skipped,
+  bucketing + percentages.
+- **Repo cleanup:**
+  - Removed 3 dead files with zero references: `shared/components/SoftScrollView.tsx`,
+    `shared/components/SyncPulse.tsx`, `shared/hooks/useSpeechToText.ts`.
+  - Removed the now-unused `CombinedReportWidget` (replaced by StatsWidget)
+    and its provider xml.
+  - Cleared 62 lint warnings across 28 files (unused imports, unused
+    locals/args, empty catch blocks). CI lints the whole tree with
+    `--max-warnings 80`; the repo now reports 12 warnings (all
+    intentional `console` diagnostics) instead of 74.

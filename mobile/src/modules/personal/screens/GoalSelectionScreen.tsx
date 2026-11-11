@@ -9,8 +9,8 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  ScrollView,
-  FlatList,
+  
+  
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';

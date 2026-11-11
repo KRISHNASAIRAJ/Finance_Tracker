@@ -105,8 +105,6 @@ export default function FinanceHomeScreen() {
     )
     .filter((tx: any) => new Date(tx.date) >= new Date(now.getFullYear(), now.getMonth(), 1))
     .reduce((sum: number, tx: any) => sum + tx.amount, 0);
-  const PAYZAPP_MONTHLY_CAP = 40_000 * 100;
-
   // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
   const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
 

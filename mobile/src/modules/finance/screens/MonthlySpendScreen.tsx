@@ -24,7 +24,7 @@ import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-nativ
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useFinanceStore, Transaction } from '../store';
+import { useFinanceStore } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';

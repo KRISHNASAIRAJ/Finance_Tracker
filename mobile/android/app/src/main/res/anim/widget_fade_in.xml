@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fade used by the home-screen stats carousel (ViewFlipper in-animation).
+     The framework's out-animation attribute is not public API, so the
+     incoming card fades in while the previous one is swapped out. -->
+<alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="450"
+    android:fromAlpha="0.0"
+    android:toAlpha="1.0"
+    android:interpolator="@android:interpolator/decelerate_quad" />

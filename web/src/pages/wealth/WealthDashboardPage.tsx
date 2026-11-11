@@ -26,8 +26,24 @@ import type { Holding } from '../../types'
 
 const ALLOC_COLORS = ['#9BA5FF', '#59D6C7', '#BCE85D', '#E2A45C', '#FF887D', '#a78bfa']
 
+/** Known allocation categories — mirrors mobile/src/modules/equity/store.ts. */
+const ALLOC_CATEGORIES = ['Equity', 'Mutual Funds', 'ETF', 'Gold', 'Realty', 'Other']
+
+/**
+ * Effective allocation category for a holding. An explicit category wins
+ * (trimmed + validated against the known list); otherwise it falls back to
+ * the holding type. Mirrors the mobile helper so both apps agree.
+ */
 export function allocCategoryOf(h: Holding): string {
-  return h.allocation_category ?? (h.type === 'mf' ? 'Mutual Funds' : h.type === 'etf' ? 'ETF' : 'Equity')
+  const raw = (h.allocation_category ?? '').trim()
+  if (raw) {
+    const match = ALLOC_CATEGORIES.find((c) => c.toLowerCase() === raw.toLowerCase())
+    if (match) return match
+  }
+  if (h.type === 'mf') return 'Mutual Funds'
+  if (h.type === 'etf') return 'ETF'
+  if (h.type === 'equity') return 'Equity'
+  return 'Other'
 }
 
 export function WealthDashboardPage() {

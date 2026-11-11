@@ -15,20 +15,11 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore, Holding } from '../store';
-
-const CAT_COLORS: Record<string, string> = {
-  Equity: '#9BA5FF',
-  'Mutual Funds': 'rgba(255,255,255,0.7)',
-  Gold: '#E2A45C',
-  Realty: '#59D6C7',
-  ETF: '#FF887D',
-  Other: 'rgba(255,255,255,0.7)',
-};
+import { useInvestmentsStore, Holding, holdingValueOf } from '../store';
 
 const HOLDING_COLORS = [
   '#9BA5FF', '#59D6C7', '#FF887D', '#E2A45C', '#BCE85D',
@@ -48,10 +39,14 @@ export default function AllocationDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const holdingY = useRef<Record<string, number>>({});
 
-  const holdingValues = holdings.map((h: Holding) => ({
-    ...h,
-    value: h.quantity * h.currentPrice,
-  }));
+  const holdingValues = holdings
+    .map((h: Holding) => ({
+      ...h,
+      value: holdingValueOf(h),
+    }))
+    // Holdings worth nothing (sold out / zero qty / malformed) are not part
+    // of the portfolio — they must not show up as slices or rows here.
+    .filter((h: any) => h.value > 0);
 
   const totalValue = holdingValues.reduce((s: number, h: any) => s + h.value, 0);
 

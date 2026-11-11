@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealStore, MealFoodItem, MealLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { analyzeMealImage, analyzeMealText, ConversationTurn } from '../../../services/aiServices';
-import { tc, ts, tr, card, cardFocus, labelMuted, dataBase } from '../../../shared/theme/tracend';
+import { tc, ts, tr,  cardFocus, labelMuted } from '../../../shared/theme/tracend';
 
 type MealType = 'breakfast' | 'lunch' | 'snack' | 'dinner';
 
@@ -52,8 +52,8 @@ export default function MealAIConfirmScreen() {
   const [mealType, setMealType] = useState<MealType>(initialMealType || 'lunch');
   const [items, setItems] = useState<MealFoodItem[]>([]);
   const [aiMessage, setAiMessage] = useState('');
-  const [hasQuestions, setHasQuestions] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+  const [, setHasQuestions] = useState(false);
+  const [, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);

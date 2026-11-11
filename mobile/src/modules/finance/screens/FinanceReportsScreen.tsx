@@ -21,7 +21,7 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
 import { getCategoryColor } from '../../../shared/categoryMap';
-import CategoryIcon from '../../../shared/CategoryIcon';
+
 import { useGarageStore } from '../../garage/store';
 import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';

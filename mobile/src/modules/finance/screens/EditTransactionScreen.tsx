@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Modal,
+  
   Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';

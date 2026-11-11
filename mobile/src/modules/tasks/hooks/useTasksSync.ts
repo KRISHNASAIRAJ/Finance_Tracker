@@ -114,7 +114,7 @@ async function doPull(userId: string) {
       if (r.subtasks && typeof r.subtasks === 'string') {
         subtasks = JSON.parse(r.subtasks as string);
       }
-    } catch {}
+    } catch { /* no-op */}
     return {
       id: r.id as string,
       name: r.title as string ?? "",
@@ -170,7 +170,7 @@ async function doInitialSync(
           if (r.subtasks && typeof r.subtasks === 'string') {
             subtasks = JSON.parse(r.subtasks as string);
           }
-        } catch {}
+        } catch { /* no-op */}
         return {
           id: r.id as string,
           name: r.title as string ?? "",

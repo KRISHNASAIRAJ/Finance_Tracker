@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  FlatList,
+  
   Platform,
   StatusBar,
   Modal,
@@ -51,7 +51,7 @@ function getStationIcon(station?: string) {
 
 export default function GarageDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { vehicles, fills, maintenance, getVehicleSpendTotal, addVehicle, editVehicle, deleteVehicle } = useGarageStore();
+  const { vehicles, fills, maintenance, addVehicle, editVehicle, deleteVehicle } = useGarageStore();
   const { pullFromCloud } = useGarageSync();
 
   const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(vehicles[0]);
@@ -183,37 +183,6 @@ export default function GarageDashboardScreen() {
   // Recent fills: latest 3 only
   const recentFills = sortedForChart.slice(-3).reverse();
 
-  const renderFillItem = ({ item }: { item: FuelFill }) => {
-    const si = getStationIcon(item.station);
-    return (
-      <TouchableOpacity
-        style={styles.logRow}
-        onPress={() => navigation.navigate('EditFuelFill', { fillId: item.id })}
-      >
-        <View style={styles.logLeft}>
-          <View style={[styles.iconContainer, { backgroundColor: si.bg }]}>
-            {si.type === 'brand' ? (
-              <Text style={[styles.brandIconText, { color: si.color }]}>{si.label}</Text>
-            ) : (
-              <Text style={styles.fuelEmoji}>{si.label}</Text>
-            )}
-          </View>
-            <View>
-            <Text style={styles.logTitle}>{item.liters} Liters Fuel</Text>
-            <Text style={styles.logSub} numberOfLines={1}>
-              {item.odometer} km · {formatCurrency(item.pricePerLiter)}/L
-            </Text>
-          </View>
-        </View>
-        <View style={styles.logRight}>
-          <Text style={styles.logAmount}>{formatCurrency(item.amount)}</Text>
-          <Text style={styles.logDate}>
-            {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>

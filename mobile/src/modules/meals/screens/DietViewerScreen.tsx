@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { tc, ts, tr, card, sectionTitle } from '../../../shared/theme/tracend';
+import { tc, ts, tr, card } from '../../../shared/theme/tracend';
 
 const DAYS = [
   { day: 'Monday', tag: 'Non-veg · chicken', veg: false, meals: [

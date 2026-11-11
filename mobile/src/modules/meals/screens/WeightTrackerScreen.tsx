@@ -53,10 +53,6 @@ export default function WeightTrackerScreen() {
   const padY = 30;
 
   const weights = sorted.map((e) => e.weightKg);
-  const maxW = weights.length > 0 ? Math.max(...weights) : 100;
-  const minW = weights.length > 0 ? Math.min(...weights) : 0;
-  const range = maxW - minW || 1;
-  const norm = (v: number) => (v - minW) / range;
 
   const targetWeight = 65;
 
@@ -87,7 +83,7 @@ export default function WeightTrackerScreen() {
     ? CHART_H - padY - ((targetWeight - globalMin) / globalRange) * (CHART_H - 2 * padY)
     : null;
 
-  const [selectedIndex, setSelectedIndex] = useState(points.length > 0 ? points.length - 1 : -1);
+  const [selectedIndex, ] = useState(points.length > 0 ? points.length - 1 : -1);
 
   const openAdd = () => {
     setEditingId(null);

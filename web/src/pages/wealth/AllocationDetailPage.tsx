@@ -19,7 +19,15 @@ export function AllocationDetailPage() {
   const { data: holdings, isLoading } = useHoldings(userId)
 
   const filtered = useMemo(
-    () => (holdings ?? []).filter((h) => allocCategoryOf(h) === category),
+    () =>
+      (holdings ?? [])
+        .filter((h) => allocCategoryOf(h) === category)
+        // Holdings worth nothing (sold out / zero qty) are not part of the
+        // portfolio — same rule as the dashboard donut.
+        .filter((h) => {
+          const value = h.current_value ?? h.quantity * (h.current_price ?? 0)
+          return Number.isFinite(value) && value > 0
+        }),
     [holdings, category]
   )
 

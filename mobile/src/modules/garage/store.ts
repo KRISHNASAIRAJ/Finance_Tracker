@@ -80,8 +80,6 @@ interface GarageState {
   getLastFuelPrice: (vehicle: string) => number;
 }
 
-const rupeeToPaise = (val: number) => Math.round(val * 100);
-
 function queueGarageSync(entity: string, operation: string, payload: Record<string, unknown>) {
   try {
     const { enqueue, processSyncQueue } = require('../../services/syncQueue');

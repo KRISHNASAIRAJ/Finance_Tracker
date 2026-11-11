@@ -28,8 +28,6 @@ interface PayzappLoad {
   date: string;
 }
 
-let _hasSeeded = false;
-
 export function useFinanceSync() {
   const { user } = useAuth();
   const [state, setState] = useState<SyncState>({
@@ -65,7 +63,6 @@ export function useFinanceSync() {
 
   const pullFromCloud = useCallback(async () => {
     if (!user) return;
-    _hasSeeded = true;
     setState({ loading: true, error: null, lastSyncAt: null });
     await doPull(user.id);
     setState({ loading: false, error: null, lastSyncAt: new Date() });
@@ -76,7 +73,6 @@ export function useFinanceSync() {
 
 export async function syncNow(userId: string): Promise<SyncState> {
   const state: SyncState = { loading: true, error: null, lastSyncAt: null };
-  _hasSeeded = true;
   await doPull(userId);
   state.loading = false;
   state.lastSyncAt = new Date();
@@ -109,7 +105,6 @@ async function doFullSync(userId: string) {
     const { processSyncQueue } = require("../../../services/syncQueue");
     await processSyncQueue(true);
   } catch (_e) { /* seed is guarded by its own flag */ }
-  _hasSeeded = true;
 }
 
 async function doPull(userId: string) {

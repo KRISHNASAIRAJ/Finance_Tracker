@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMealStore, MealAIMessage } from '../store';
 import { supabase } from '../../../services/supabaseClient';
 import { saveAIChatToFile } from '../../../services/chatExportService';
-import { tc, ts, tr, card, labelMuted } from '../../../shared/theme/tracend';
+import { tc, ts, tr, } from '../../../shared/theme/tracend';
 
 const HEALTH_PROFILE = `Project 65 — Body Recomposition Protocol
 * Current: 54kg, 170.6cm, BMI 18.5 (underweight). Target: 65kg at ~0.4 kg/week. Age 23 Male.

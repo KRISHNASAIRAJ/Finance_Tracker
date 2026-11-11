@@ -25,7 +25,7 @@ function flush() {
     try {
       const { processSyncQueue } = require('../../services/syncQueue');
       processSyncQueue().catch((_e: Error) => {});
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }, 300);
 }
 
@@ -34,7 +34,7 @@ async function enq(entity: string, action: string, data: Record<string, unknown>
     const { enqueue } = require('../../services/syncQueue');
     await enqueue(entity, action as 'create' | 'update' | 'delete', data);
     flush();
-  } catch (_e) {}
+  } catch (_e) { /* no-op */}
 }
 
 export const useWeightStore = create<WeightState>()(

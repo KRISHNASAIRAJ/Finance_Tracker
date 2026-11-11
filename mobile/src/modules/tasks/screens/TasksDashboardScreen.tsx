@@ -8,7 +8,7 @@ import {
   Text,
   View,
   SafeAreaView,
-  ScrollView,
+  
   TouchableOpacity,
   FlatList,
   Platform,
@@ -22,7 +22,6 @@ import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useTasksStore, Task } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
-import { useTasksSync } from '../hooks/useTasksSync';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
 import { processSyncQueue } from '../../../services/syncQueue';
 import Entrance from '../../../shared/components/Entrance';
@@ -34,7 +33,6 @@ export default function TasksDashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { tasks, toggleTaskCompleted, purgeOldCompletedTasks } = useTasksStore();
   const { user } = useAuth();
-  const { pullFromCloud } = useTasksSync();
 
   React.useEffect(() => {
     purgeOldCompletedTasks();

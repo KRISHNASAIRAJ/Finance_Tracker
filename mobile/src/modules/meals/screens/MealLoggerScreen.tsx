@@ -23,12 +23,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { useMealStore, MealLogEntry } from '../store';
-import { useAuth } from '../../../services/AuthProvider';
-import { getTodayDateString, addDays, isToday, formatDate, formatDateFull } from '../../../shared/istDate';
+import { getTodayDateString, addDays, isToday,  formatDateFull } from '../../../shared/istDate';
 import { supabase } from '../../../services/supabaseClient';
 import { scheduleMealReminders, checkMealReminderNotifications, requestNotificationPermissions } from '../../../services/dietNotifications';
 import { useFinanceStore } from '../../finance/store';
-import { tc, ts, tr, card, sectionTitle, dataLarge, dataBase, labelMuted, progressTrack, macroDot } from '../../../shared/theme/tracend';
+import { tc, ts, tr, card,  dataLarge,  labelMuted, progressTrack, macroDot } from '../../../shared/theme/tracend';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
 import DraggableFab from '../../../shared/components/DraggableFab';
 
@@ -53,7 +52,6 @@ export default function MealLoggerScreen() {
   const mealRemindersEnabled = useMealStore((s) => s.mealRemindersEnabled !== false);
   const setMealRemindersEnabled = useMealStore((s) => s.setMealRemindersEnabled);
   const addNotification = useFinanceStore((s) => s.addNotification);
-  const { user } = useAuth();
 
   useFocusEffect(
     useCallback(() => {

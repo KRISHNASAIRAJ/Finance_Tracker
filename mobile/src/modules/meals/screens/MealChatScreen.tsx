@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useMealStore, MealLogEntry, MealFoodItem } from '../store';
+import { useMealStore,  MealFoodItem } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { analyzeMealManage, ProposedChange } from '../../../services/aiServices';
 import { tc, ts, tr } from '../../../shared/theme/tracend';

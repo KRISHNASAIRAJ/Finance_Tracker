@@ -11,7 +11,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-import { useHabitStore, habitsForDay } from '../store';
+import {  habitsForDay } from '../store';
 import { HABIT_KEYS, todayKey } from '../habits';
 
 describe('Habit Store', () => {

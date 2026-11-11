@@ -149,9 +149,6 @@ interface FinanceState {
   setLastSyncedAt: (ts: string) => void;
 }
 
-// Helper to convert Rupees from JSON to Paise integers
-const rupeeToPaise = (rupees: number) => Math.round(rupees * 100);
-
 function enqFlush(entity: string, action: string, data: Record<string, unknown>) {
   try {
     const { enqueue, processSyncQueue } = require('../../services/syncQueue');

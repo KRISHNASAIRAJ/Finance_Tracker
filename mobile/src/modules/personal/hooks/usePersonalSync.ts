@@ -2,7 +2,7 @@
  * usePersonalSync — Supabase pull/push sync hook and queue helpers for the personal module.
  */
 
-import { useCallback, useEffect, useRef, useState, Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
@@ -44,14 +44,7 @@ export function usePersonalSync() {
 
 export async function syncPersonalNow(userId: string): Promise<SyncState> {
   _hasPersonalSeeded = true;
-  let state: SyncState = { loading: true, error: null, lastSyncAt: null };
-  const setter: Dispatch<SetStateAction<SyncState>> = ((s: SetStateAction<SyncState>) => {
-    if (typeof s === 'function') {
-      state = (s as (prev: SyncState) => SyncState)(state);
-    } else {
-      Object.assign(state, s);
-    }
-  }) as Dispatch<SetStateAction<SyncState>>;
+  const state: SyncState = { loading: true, error: null, lastSyncAt: null };
   await doPull(userId);
   state.loading = false;
   state.lastSyncAt = new Date();
@@ -248,7 +241,7 @@ async function doPull(userId: string) {
       if (newEntries.length > 0) {
         mealStore.setState({ entries: [...newEntries, ...mealStore.getState().entries] });
       }
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }
 
   // --- WEIGHT LOGS ---
@@ -275,7 +268,7 @@ async function doPull(userId: string) {
         merged.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
         weightStore.setState({ entries: merged });
       }
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }
 
   // --- HABIT LOGS ---
@@ -305,7 +298,7 @@ async function doPull(userId: string) {
         merged.sort((a: any, b: any) => (a.day < b.day ? 1 : -1));
         habitStore.setState({ days: merged });
       }
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }
 
   // --- USER SETTINGS (editable habit defs + career goals) ---
@@ -374,7 +367,7 @@ async function doPull(userId: string) {
         merged.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         sleepStore.setState({ entries: merged });
       }
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }
 
   // --- MEAL PLANS (planner) ---

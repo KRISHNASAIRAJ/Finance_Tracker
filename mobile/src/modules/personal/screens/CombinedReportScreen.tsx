@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CombinedReportScreen — Cross-module report of net worth, allocation, and spend summaries.
  */
 
@@ -95,8 +95,6 @@ export default function CombinedReportScreen() {
     .slice(0, 5);
 
   // ---- Asset allocation ----
-  const bankPct = totalBankBalance > 0 && netWorth > 0 ? (totalBankBalance / (totalBankBalance + portfolioValue)) * 100 : 0;
-  const equityPct = portfolioValue > 0 && netWorth > 0 ? (portfolioValue / (totalBankBalance + portfolioValue)) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.container}>

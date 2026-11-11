@@ -34,7 +34,7 @@ function flush() {
     try {
       const { processSyncQueue } = require('../../services/syncQueue');
       processSyncQueue().catch((_e: Error) => {});
-    } catch (_e) {}
+    } catch (_e) { /* no-op */}
   }, 300);
   if (typeof t === 'object' && t && typeof (t as any).unref === 'function') {
     (t as any).unref();
@@ -46,7 +46,7 @@ async function enq(entity: string, action: string, data: Record<string, unknown>
     const { enqueue } = require('../../services/syncQueue');
     await enqueue(entity, action as 'create' | 'update' | 'delete', data);
     flush();
-  } catch (_e) {}
+  } catch (_e) { /* no-op */}
 }
 
 /** Best-effort refresh of offer-expiry reminders (3 & 2 days before, 6 PM IST). */
@@ -54,7 +54,7 @@ function refreshReminders() {
   try {
     const { refreshOfferReminders } = require('../../services/notificationService');
     refreshOfferReminders().catch((_e: Error) => {});
-  } catch (_e) {}
+  } catch (_e) { /* no-op */}
 }
 
 function normalizeOffer(offer: Offer): Offer {

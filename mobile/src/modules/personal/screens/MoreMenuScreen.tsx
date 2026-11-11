@@ -39,8 +39,8 @@ import { processSyncQueue, getSyncStatus, onSyncStatusChange, type SyncStatus } 
 import { generateMonthlyReport } from '../../../services/reportService';
 import { useInvestmentsStore } from '../../equity/store';
 import { usePersonalStore } from '../store';
-import EKGLoader from '../../../shared/components/EKGLoader';
-import SyncReconcile from '../../../shared/components/SyncReconcile';
+
+
 import SyncStatusCard from '../../../shared/components/SyncStatusCard';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
@@ -72,8 +72,6 @@ export default function MoreMenuScreen() {
       processSyncQueue().catch((e: Error) => console.warn('[MoreMenu] syncQueue flush failed:', e));
     }, [pullPersonal, pullEquity, pullTasks, entrance])
   );
-  const notifications = useFinanceStore((state) => state.notifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
   const [backupState, setBackupState] = useState<'idle' | 'backing' | 'done' | 'error'>('idle');
   const [showAuth, setShowAuth] = useState(false);
   const [kiteSyncing, setKiteSyncing] = useState(false);
@@ -83,7 +81,7 @@ export default function MoreMenuScreen() {
   const [passwordInput, setPasswordInput] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
-  const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
+  const [, setSyncResultMsg] = useState<string | null>(null);
 
   React.useEffect(() => {
     const unsub = onSyncStatusChange(setSyncStatus);

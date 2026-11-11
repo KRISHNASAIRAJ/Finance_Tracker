@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useGarageStore, MaintenanceLog } from '../store';
+import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'VehicleSpend'>;
