@@ -24,7 +24,6 @@ import { useTasksStore, Task } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { useTasksSync } from '../hooks/useTasksSync';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
-import { scheduleAllReminders } from '../../../services/notificationService';
 import { processSyncQueue } from '../../../services/syncQueue';
 import Entrance from '../../../shared/components/Entrance';
 import DrawerTrigger from '../../../shared/components/DrawerTrigger';

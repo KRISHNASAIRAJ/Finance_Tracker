@@ -143,7 +143,6 @@ export default function SleepDashboardScreen() {
     // One-shot mount effect: `user` snapshot at open time is intentional —
     // when auth hasn't resolved yet the ended-session marker stays in
     // SharedPreferences and is adopted on the next open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const savePendingBedtime = (iso: string | null) => {

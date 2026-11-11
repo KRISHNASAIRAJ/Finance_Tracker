@@ -99,6 +99,12 @@ CREATE INDEX idx_transactions_linked_account ON transactions(linked_account_id);
 CREATE INDEX idx_transactions_linked_card ON transactions(linked_card_id);
 ```
 
+> **Spine exception (documented decision):** Offers (`0043_offers.sql`) are
+> non-spend annotations — coupon codes, merchant discounts and expiry
+> reminders. They never represent money that moved, so they do **not** write
+> to `transactions`; they power the Offers screen and expiry reminders via
+> the shared notification scheduler only.
+
 ### 3.2 Finance Module Tables
 
 ```sql

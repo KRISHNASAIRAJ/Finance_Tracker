@@ -29,7 +29,6 @@ import GlowText from '../../../shared/components/GlowText';
 import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { scheduleAllReminders } from '../../../services/notificationService';
 import { useGarageStore } from '../../garage/store';
 import { processSyncQueue } from '../../../services/syncQueue';
 import { useFinanceSync } from '../hooks/useFinanceSync';

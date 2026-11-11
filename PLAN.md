@@ -236,6 +236,10 @@ rest of the app).
 
 ## 11. Rework + Sidebar + Notification Dupes + Fixed Expenses 2027 + Share Sheet + Receive Flow (v4)
 
+> **Status:** 11b–11h shipped in `e5ee575`. 11a partially shipped
+> (`docs/db-schema.md` 0044 entry + offers store tests); equity NaN-guard,
+> loans ± adjust and seed-v4 tests still pending.
+
 ### 11a. Rework the last 11 commits (2026-10-17) properly
 - **PLAN.md backfill:** document the 11 shipped commits (offers module
   mobile + web mirror + `0043_offers.sql`, equity NaN-guards +
@@ -357,3 +361,42 @@ rest of the app).
   behavior).
 - Migration: none required (no new tables; fixed-expense changes go
   through the existing sync queue upsert/delete).
+
+## 12. Backfill — 2026-10-17 batch (v4)
+
+Feature-log entries for the 11 commits shipped on 2026-10-17 (PLAN.md was
+quiet during that batch; recorded here chronologically).
+
+- **8afc650 fix(sync):** serialize sync-queue `enqueue` calls and await the
+  in-flight flush when a garage pull finishes — two writers can no longer
+  interleave on the queue file, and the last mutation is never left
+  unflushed.
+- **8272751 feat(garage):** new fuel-fill form defaults the price to the
+  vehicle's last fill price (still editable), removing the most common
+  retype.
+- **b4f707b feat(sleep):** live-ticking Bedtime home-screen widget showing
+  the elapsed session; a session whose bedtime passed while the device was
+  off is treated as lost so the widget never shows a runaway "hours
+  asleep" value.
+- **f05f4e7 fix(tasks):** completing a task cancels its due-time reminder
+  instead of letting it fire for a finished task.
+- **1e844a9 fix(meals):** dinner slot moved 21:30 → 20:30 and morning-brief
+  re-timed to de-stagger from nearby reminders; `cancelAll` hardened so a
+  partial cancel failure cannot strand duplicate reminders.
+- **a3e18e4 + dac889e feat/fix(notifications):** weekly podcast reminder
+  (Fridays 8 PM IST) was added and then removed after reconsideration;
+  both shipped and recorded for completeness.
+- **926fba7 feat(wealth):** Loans screen gains quick +/− outstanding
+  adjust buttons (`adjustLoanAmount`, clamped at 0) for part-payments and
+  top-ups without opening the edit form.
+- **a5f2cba feat(offers):** Offers module (mobile + web mirror +
+  `0043_offers.sql`) — coupon codes, merchant discounts and expiry
+  reminders via the shared reminder scheduler; non-spend annotations (no
+  `transactions` write — documented in ARCHITECTURE.md §3.1).
+- **9c9a8b0 refactor(nav):** drawer trimmed to the five most-used tools
+  (later superseded by the flat-nav drawer in §11b, `e5ee575`).
+- **9a21698 fix(equity):** two-strike Kite sync reconciliation — sync ops
+  that cannot find their holding twice get reconciled instead of retrying
+  forever, plus NaN guards so malformed rows cannot poison the dashboard;
+  new `holdings.missing_sync_count` column
+  (`0044_holdings_missing_sync_count.sql`).

@@ -1076,7 +1076,7 @@ export async function applyScheduledFixedExpenseChanges(userId?: string): Promis
     if (istDateKey() < SCHEDULE_V4_EFFECTIVE) return;
 
     const state = useFinanceStore.getState();
-    let fixedExpenses = [...state.fixedExpenses];
+    const fixedExpenses = [...state.fixedExpenses];
     const changes: Array<{ data: Record<string, unknown> }> = [];
 
     for (const { matchKeys, amount } of SCHEDULE_V4_AMOUNTS) {
