@@ -185,7 +185,6 @@ export default function SleepDashboardScreen() {
     if (status) setAutoStatus(status);
     const buckets = await getMotionBuckets();
     setAutoBuckets(buckets);
-
     const inferred = inferSleepSession(buckets, {
       threshold: motionThreshold(autoConfig.sensitivity),
       // The phone can sit under a pillow — a minute only counts as awake when
@@ -238,6 +237,26 @@ export default function SleepDashboardScreen() {
     }, 30000);
     return () => clearInterval(timer);
   }, [autoAvailable, refreshAuto]);
+
+  /**
+   * The live status of the tracker — polled every 5 s (the sensor period), so
+   * the "still for" readout keeps up with the phone instead of lagging a whole
+   * minute behind.
+   */
+  const refreshStatus = useCallback(async () => {
+    if (!isSleepMotionAvailable()) return;
+    const status = await getMotionStatus();
+    if (status) setAutoStatus(status);
+  }, []);
+
+  useEffect(() => {
+    if (!autoAvailable) return;
+    refreshStatus();
+    const timer = setInterval(() => {
+      refreshStatus();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [autoAvailable, refreshStatus]);
 
   const toggleAuto = async (next: boolean) => {
     setAutoConfig({ enabled: next });
@@ -390,6 +409,18 @@ export default function SleepDashboardScreen() {
   }, [autoConfig.enabled, autoStatus]);
 
   const stillText = useMemo(() => {
+    // Live first: the native tracker knows exactly when the phone last moved,
+    // so the readout follows the phone in real time.
+    if (autoStatus?.running) {
+      if (autoStatus.stillSince <= 0) return '—'; // the phone is moving right now
+      const minutes = Math.max(0, Math.floor((Date.now() - autoStatus.stillSince) / 60000));
+      if (minutes >= 1) {
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+    }
+    // Fallback: the recorded timeline.
     const streak = currentStillness(
       autoBuckets,
       motionThreshold(autoConfig.sensitivity),
@@ -399,7 +430,7 @@ export default function SleepDashboardScreen() {
     const h = Math.floor(streak.minutes / 60);
     const m = streak.minutes % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }, [autoBuckets, autoConfig.sensitivity]);
+  }, [autoStatus, autoBuckets, autoConfig.sensitivity]);
 
   // Chart: duration trend (last 7 nights, oldest → newest)
   const CHART_W = 340;
