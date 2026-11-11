@@ -720,6 +720,9 @@ export default function SleepDashboardScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                <Text style={styles.autoHint}>
+                  Medium is best with the phone under a pillow — it needs sustained movement to count as awake.
+                </Text>
 
                 <Text style={styles.autoFieldLabel}>NIGHT WINDOW</Text>
                 <View style={styles.chipRow}>
@@ -880,7 +883,7 @@ export default function SleepDashboardScreen() {
           </View>
         )}
 
-        {/* Settings: bedtime reminder + auto-detect */}
+        {/* Settings: bedtime reminder */}
         <View style={styles.settingsCard}>
           <View style={styles.settingsRow}>
             <Ionicons name="notifications-outline" size={16} color={colors.primary} />
