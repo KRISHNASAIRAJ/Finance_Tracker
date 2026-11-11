@@ -138,7 +138,7 @@ class ClockSleepWidget : AppWidgetProvider() {
                 val x1 = positionOf(rem1Start, bedTime, span, track)
                 val x2 = positionOf(rem1End, bedTime, span, track)
                 views.setViewPadding(R.id.clock_sleep_rem1, x1, 0, track - x2, 0)
-                views.setProgressBar(R.id.clock_sleep_rem1, 100, 100)
+                views.setProgressBar(R.id.clock_sleep_rem1, 100, 100, false)
                 views.setViewPadding(R.id.clock_sleep_rem1_time, x1, 0, 0, 0)
                 views.setViewPadding(R.id.clock_sleep_rem1_label, x1, 0, 0, 0)
             }
@@ -146,7 +146,7 @@ class ClockSleepWidget : AppWidgetProvider() {
                 val x1 = positionOf(rem2Start, bedTime, span, track)
                 val x2 = positionOf(rem2End, bedTime, span, track)
                 views.setViewPadding(R.id.clock_sleep_rem2, x1, 0, track - x2, 0)
-                views.setProgressBar(R.id.clock_sleep_rem2, 100, 100)
+                views.setProgressBar(R.id.clock_sleep_rem2, 100, 100, false)
                 views.setViewPadding(R.id.clock_sleep_rem2_time, 0, 0, track - x2, 0)
                 views.setViewPadding(R.id.clock_sleep_rem2_label, 0, 0, track - x2, 0)
             }
