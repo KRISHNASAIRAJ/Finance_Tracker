@@ -504,6 +504,104 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
 
+## 20. Automatic sleep tracker (accelerometer + smart alarm) (v4)
+
+Sleep tracking that works like the "Automatic Sleep Tracker" Android apps:
+the phone itself is the sensor, so **no watch is needed**. It sits *alongside*
+the existing manual one-tap session and the usage-stats auto-detect.
+
+- **Native service** (`mobile/android/.../sleep/`):
+  - `SleepMotionService` — a foreground service (`specialUse` type) that
+    samples the accelerometer every 5 s, all night (screen off, app closed) and
+    stores one bucket per minute with the peak movement. Movement = the
+    distance from 1 g plus any orientation change (picking the phone up or
+    turning it over).
+  - `SleepMotionStore` — SharedPreferences persistence of the config, the
+    timeline (36 h retention) and the alarm state, so the tracker survives
+    app kills and reboots (`SleepMotionBootReceiver`).
+  - `SleepMotionConfig` — settings (sensitivity, night window, wake window,
+    alarm mode, snooze). The movement thresholds are mirrored in TypeScript so
+    JS and native always agree.
+  - `SleepMotionModule` / `SleepMotionPackage` — the RN bridge
+    (start / stop / setConfig / getStatus / getBuckets / clearBuckets /
+    stopAlarm), registered in `MainApplication`.
+- **Inference (TypeScript, unit tested)** —
+  `modules/sleep/sleepInference.ts`: `inferSleepSession()` turns the timeline
+  into a sleep session — still stretches separated by a short awake gap stay in
+  one block, the block is clipped to the night window, the bedtime is the
+  moment the phone was put down and the wake time the moment it was picked up
+  (end of the main sleep stretch), plus the night wake-ups and a confidence
+  score.
+- **Smart alarm** — inside the wake window the alarm rings on the first sign of
+  movement (light sleep) or at an exact time, with **Stop** and
+  **Snooze N min** buttons on the notification, alarm-volume audio and
+  vibration.
+- **UI** (Sleep Tracker screen): "Automatic tracking" card with the on/off
+  switch, live status (tracking / still for Xh Ym), sensitivity, night window
+  and smart-alarm settings (time pickers), plus a "Detected automatically"
+  card with Save / Dismiss. Detected sessions are saved automatically
+  (toggle) as `source = 'auto-motion'`.
+- **Tests:** `modules/sleep/__tests__/sleepInference.test.ts` (11) — thresholds,
+  midnight-wrapping windows, a normal night, night wake-ups, sensitivity
+  behaviour, the wake time at the end of the main stretch, stillness streaks.
+- **Permissions:** `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`.
+
+## 19. Pill Reminder with Skip / Remind-in-30-min actions (v4, not yet pushed)
+
+A medication (pill) reminder module, opened from the More menu, whose
+notification panel carries two action buttons — the way MyTherapy does it.
+
+- **Data:** new `medications` table (migration `0048_medications.sql`:
+  name, dosage, `times` JSONB of daily "HH:MM" doses, notes, active) with
+  RLS + realtime. Mobile store `modules/medications/store.ts`
+  (AsyncStorage-persisted, every write pushed through the sync queue) and
+  `useMedicationsSync` for the cloud pull/push.
+- **Screen:** More menu → **Pill Reminder** (`PillReminderScreen`): list of
+  medicines with dose-time pills, pause/resume, edit, delete, "Sync from
+  cloud"; add/edit modal with name, dosage, times ("08:00, 20:00") and
+  notes.
+- **Reminders:** `services/medicationReminders.ts` schedules one local
+  notification per dose for the next 2 days (re-armed on boot and whenever a
+  medicine changes). Skipped doses are not scheduled again that day
+  (`skipDose`, day-scoped keys).
+- **Notification actions:** a notification category `medication-reminder`
+  with two buttons — **⏭ Skip** (marks the dose skipped for the day) and
+  **⏰ Remind in 30 min** (re-schedules the same dose 30 minutes later).
+  The category is registered in `notificationService.setupChannels`, the
+  buttons work both in the foreground (`setupNotificationHandler` now
+  forwards the action identifier + notification id) and with the app closed
+  (background task `meridian-medication-action` registered through
+  `Notifications.registerTaskAsync`).
+- **Tests:** `modules/medications/__tests__/medications.test.ts` (17) —
+  dose-time parsing/validation, next-occurrence maths, skip bookkeeping,
+  scheduling rules (active only, skipped doses skipped, category attached)
+  and both action handlers.
+
+## 18. Credit card reward points (v4, not yet pushed)
+
+Reward points per card, with the ₹ value derived from the card's reward
+program.
+
+- **Rules** (`modules/finance/cardRewards.ts`, mirrored in
+  `web/src/lib/cardRewards.ts`): IDFC (FIRST) style cards are **4 points =
+  ₹1**; **cashback cards are direct cashback (1 pt = ₹1)**; every other
+  card defaults to 1 pt = ₹1. The rule is matched on the card name/bank.
+- **Data:** new `credit_cards.points` column (migration
+  `0047_credit_card_points.sql`, applied to the hosted project) + a
+  `points` field on the mobile `CreditCard` type, the web `CreditCard`
+  type, and the sync payload/pull mapping.
+- **Mobile:** every card in the Credit Cards list shows its points and the
+  reward value (`12,400 pts · ₹3,100 rewards`; cashback cards show
+  `· ₹8,200 cashback`). The card detail screen has a **Reward Points**
+  block (points, reward value, rate) with a pencil editor to set the
+  points collected.
+- **Web:** the card grid shows the points + reward value; the card detail
+  page has a "Reward points" stat; the add/edit forms have a "Reward
+  points" field with the live rate hint.
+- **Tests:** `modules/finance/__tests__/cardRewards.test.ts` (8) — rule
+  matching (IDFC / cashback / default / by bank), point valuation, invalid
+  input handling, rounding.
+
 ## 17. Wallets section (Balance Summary) (v4)
 
 - **New entity `wallets`** (migration `0046_wallets.sql`): `id`, `user_id`,
