@@ -102,7 +102,10 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    /** The motion timeline: one entry per minute { m: epochMinute, v: movement }. */
+    /**
+     * The motion timeline: one entry per minute
+     * { m: epochMinute, v: peak movement, s: seconds of sustained movement }.
+     */
     @ReactMethod
     fun getBuckets(promise: Promise) {
         try {
@@ -112,6 +115,7 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
                 val item: WritableMap = Arguments.createMap()
                 item.putDouble("m", b.minute.toDouble())
                 item.putDouble("v", b.value.toDouble())
+                item.putInt("s", b.movingSeconds)
                 arr.pushMap(item)
             }
             promise.resolve(arr)

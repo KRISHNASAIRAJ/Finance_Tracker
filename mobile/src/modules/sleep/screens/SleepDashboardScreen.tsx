@@ -2,9 +2,9 @@
  * SleepDashboardScreen — Sleep tracking dashboard.
  *
  * - One-tap "Going to bed" / "Good morning" (persisted pending session)
- * - Auto-detect card (UsageStatsManager, morning confirm flow)
+ * - Automatic tracking card (accelerometer, smart alarm, live status)
  * - Duration + quality trends (SVG chart)
- * - History with edit/delete
+ * - Compact history + the full log on its own page
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Line } from 'react-native-svg';
 import { colors } from '../../../shared/theme/colors';
@@ -36,7 +37,6 @@ import {
   sleepDurationHours,
   formatSleepDuration,
 } from '../store';
-import { detectLastSleep, hasUsageAccess, isSleepDetectAvailable, openUsageAccessSettings, DetectedSleep } from '../sleepDetect';
 import {
   isSleepMotionAvailable,
   startMotionTracking,
@@ -49,11 +49,20 @@ import {
   type SleepSensitivity,
   type SleepAlarmMode,
 } from '../sleepMotion';
-import { inferSleepSession, motionThreshold, currentStillness, type InferredSleep } from '../sleepInference';
-import { widgetBedtimeStart, widgetEndedSession, setWidgetBedtimeStart } from '../bedtimeWidget';
+import {
+  inferSleepSession,
+  motionThreshold,
+  movingSecondsThreshold,
+  currentStillness,
+  resolvePendingGap,
+  type InferredSleep,
+} from '../sleepInference';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
+import { MoreStackParamList } from '../../../navigation/RootNavigator';
 import { toLocalInput, parseLocalInput } from './sleepTime';
+
+type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
 const STORAGE_KEY = 'meridian_sleep_pending_bedtime';
 
@@ -82,7 +91,7 @@ function hoursAgo(iso: string): number {
 }
 
 export default function SleepDashboardScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<Nav>();
   const entries = useSleepStore((s) => s.entries) || [];
   const addEntry = useSleepStore((s) => s.addEntry);
   const editEntry = useSleepStore((s) => s.editEntry);
@@ -90,16 +99,22 @@ export default function SleepDashboardScreen() {
   const { user } = useAuth();
 
   const [pendingBedtime, setPendingBedtime] = useState<string | null>(null);
-  const [detected, setDetected] = useState<DetectedSleep | null>(null);
-  const [detectLoading, setDetectLoading] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [editing, setEditing] = useState<SleepEntry | null>(null);
   const [form, setForm] = useState({ bed: '', wake: '', quality: '', interruptions: '', notes: '' });
   const reminderTime = useSleepStore((s) => s.reminderTime);
   const setReminderTime = useSleepStore((s) => s.setReminderTime);
-  const [usageGranted, setUsageGranted] = useState<boolean | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  /** The pending-gap question (a 5–10 minute awake gap inside the night). */
+  const [gapPrompt, setGapPrompt] = useState<{ minutes: number } | null>(null);
+  const [gapMinutesInput, setGapMinutesInput] = useState('');
+
+  // The sleep log, newest first.
+  const sorted = useMemo(
+    () => [...entries].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
+    [entries]
+  );
 
   // --- automatic (accelerometer) sleep tracking ---
   const autoConfig = useSleepStore((s) => s.autoConfig);
@@ -146,42 +161,6 @@ export default function SleepDashboardScreen() {
         const local = await AsyncStorage.getItem(STORAGE_KEY);
         if (local) {
           setPendingBedtime(local);
-          // Keep the home-screen widget in sync with the in-app session
-          setWidgetBedtimeStart(new Date(local).getTime());
-          return;
-        }
-        // No local session — adopt one started from the Bedtime widget
-        const widgetStart = await widgetBedtimeStart();
-        if (widgetStart) {
-          const iso = new Date(widgetStart).toISOString();
-          setPendingBedtime(iso);
-          AsyncStorage.setItem(STORAGE_KEY, iso).catch(() => {});
-          return;
-        }
-        // Fallback: an ended widget session the deep link didn't log.
-        // (App.tsx logs it when the deep link lands; addEntry is idempotent
-        // per start time so a race can't double-log.)
-        const ended = await widgetEndedSession();
-        if (!ended) return;
-        const alreadyLogged = useSleepStore.getState().entries.some(
-          (e) => Math.abs(new Date(e.startTime).getTime() - ended.start) < 60000
-        );
-        if (alreadyLogged) {
-          await setWidgetBedtimeStart(null);
-        } else if (user?.id) {
-          addEntry(
-            {
-              startTime: new Date(ended.start).toISOString(),
-              endTime: new Date(ended.end).toISOString(),
-              quality: null,
-              mood: null,
-              interruptions: 0,
-              notes: 'Logged from Bedtime widget',
-              source: 'manual',
-            },
-            user.id
-          );
-          await setWidgetBedtimeStart(null);
         }
       } catch {
         /* best-effort restore */
@@ -195,44 +174,7 @@ export default function SleepDashboardScreen() {
   const savePendingBedtime = (iso: string | null) => {
     setPendingBedtime(iso);
     AsyncStorage.setItem(STORAGE_KEY, iso ?? '').catch(() => {});
-    // Mirror to the home-screen Bedtime widget so both show the same session
-    setWidgetBedtimeStart(iso ? new Date(iso).getTime() : null).catch(() => {});
   };
-
-  // Auto-detect on open (morning suggestion). Fully guarded — any failure
-  // just leaves the card hidden; never surfaces an error to the user.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!isSleepDetectAvailable()) return;
-        const granted = await hasUsageAccess();
-        if (cancelled || !granted) return;
-        // Only suggest if last night isn't already logged
-        const lastNightStart = Date.now() - 18 * 3600000;
-        const alreadyLogged = (entries || []).some(
-          (e) => new Date(e.endTime).getTime() > lastNightStart
-        );
-        if (alreadyLogged) return;
-        setDetectLoading(true);
-        const d = await detectLastSleep();
-        if (!cancelled) {
-          setDetected(d);
-          setDetectLoading(false);
-        }
-      } catch {
-        if (!cancelled) setDetectLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-    // One-shot mount effect: entries snapshot at open time is intentional —
-    // re-running on every log would re-trigger detection after the user logs.
-  }, []);
-
-  // Track usage-access state for the enable-detect card
-  useEffect(() => {
-    hasUsageAccess().then(setUsageGranted).catch(() => setUsageGranted(false));
-  }, []);
 
   // --- automatic (accelerometer) sleep tracking -----------------------------
   // The native tracker keeps running in the background; this screen only reads
@@ -246,9 +188,16 @@ export default function SleepDashboardScreen() {
 
     const inferred = inferSleepSession(buckets, {
       threshold: motionThreshold(autoConfig.sensitivity),
+      // The phone can sit under a pillow — a minute only counts as awake when
+      // the movement was sustained (see movingSecondsThreshold).
+      movingSeconds: movingSecondsThreshold(autoConfig.sensitivity),
       sleepStartMin: autoConfig.sleepStartMin,
       sleepEndMin: autoConfig.sleepEndMin,
       minSessionMin: MIN_SESSION_MIN,
+      // A movement inside the wake window is the wake-up, an earlier one is
+      // a short interruption.
+      wakeStartMin: autoConfig.wakeStartMin,
+      wakeEndMin: autoConfig.wakeEndMin,
     });
     setAutoSession(inferred);
     if (!inferred) {
@@ -262,8 +211,9 @@ export default function SleepDashboardScreen() {
     setAutoSaved(already);
 
     // Auto-save once the session has settled (the phone was picked up).
+    // A night with an open question (a 5–10 min gap) waits for the user.
     const settled = Date.now() - inferred.wakeTime > 5 * 60000;
-    if (autoConfig.autoSave && settled && !already) {
+    if (autoConfig.autoSave && settled && !already && !inferred.pendingGap) {
       addEntry(
         {
           startTime: new Date(inferred.bedTime).toISOString(),
@@ -341,27 +291,89 @@ export default function SleepDashboardScreen() {
     setAutoSaved(true);
   };
 
+  /**
+   * The night has a 5–10 minute gap: the user says whether it was a long
+   * interruption (and for how long) or the end of the sleep.
+   */
+  const resolveGap = (resolution: 'interruption' | 'ended', awakeMinutes?: number) => {
+    if (!autoSession) return;
+    const resolved = resolvePendingGap(autoSession, resolution, awakeMinutes);
+    addEntry(
+      {
+        startTime: new Date(resolved.bedTime).toISOString(),
+        endTime: new Date(resolved.wakeTime).toISOString(),
+        quality: null,
+        mood: null,
+        interruptions: resolved.interruptions,
+        notes:
+          resolution === 'ended'
+            ? 'Detected automatically (motion sensor)'
+            : 'Detected automatically (motion sensor) · long interruption',
+        source: 'auto-motion',
+      },
+      user?.id
+    );
+    setAutoSession({ ...resolved, pendingGap: null });
+    setAutoSaved(true);
+    setGapPrompt(null);
+    setGapMinutesInput('');
+  };
+
+  const openGapPrompt = () => {
+    const minutes = autoSession?.pendingGap?.minutes ?? 5;
+    setGapMinutesInput(String(minutes));
+    setGapPrompt({ minutes });
+  };
+
+  const confirmGapPrompt = () => {
+    const typed = parseInt(gapMinutesInput.replace(/[^0-9]/g, ''), 10);
+    resolveGap('interruption', Number.isFinite(typed) ? typed : undefined);
+  };
+
+  /** Rate the last night out of 5. */
+  const rateNight = (entry: SleepEntry, quality: number) => {
+    editEntry(entry.id, { quality }, user?.id);
+  };
+
+  /**
+   * One-tap quick log for the previous night. The length comes from the user's
+   * own average (7 hours when there is no history) and the wake time is 7:00
+   * AM — so it always logs the night that just passed, never a future one.
+   */
+  const typicalSleepMs = useMemo(() => {
+    const recent = sorted.slice(0, 7);
+    if (recent.length === 0) return 7 * 3600000;
+    const total = recent.reduce((s, e) => s + sleepDurationHours(e), 0);
+    return Math.round((total / recent.length) * 3600000);
+  }, [sorted]);
+
+  const quickLogLastNight = () => {
+    const wake = new Date();
+    wake.setHours(7, 0, 0, 0);
+    if (wake.getTime() > Date.now()) {
+      // Before 7 AM the night that just ended woke up yesterday.
+      wake.setDate(wake.getDate() - 1);
+    }
+    const bed = new Date(wake.getTime() - typicalSleepMs);
+    addEntry(
+      {
+        startTime: bed.toISOString(),
+        endTime: wake.toISOString(),
+        quality: null,
+        mood: null,
+        interruptions: 0,
+        notes: 'Quick log — last night',
+        source: 'manual',
+      },
+      user?.id
+    );
+  };
+
   const changeReminder = (time: { hour: number; minute: number } | null) => {
     setReminderTime(time);
     // Reschedule all reminders so the bedtime nudge takes effect tonight
     scheduleAllReminders(true).catch(() => {});
   };
-
-  const promptUsageAccess = () => {
-    Alert.alert(
-      'Enable auto-detect?',
-      'Meridian can read screen on/off times (Android "Usage access") to suggest your sleep window each morning. No background service — it only looks when you open this screen.\n\nIf Android shows "App was denied access": open the ⋮ menu on the app-info page and tap "Allow restricted settings", then retry.',
-      [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => openUsageAccessSettings() },
-      ]
-    );
-  };
-
-  const sorted = useMemo(
-    () => [...entries].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
-    [entries]
-  );
 
   const last7 = useMemo(() => sorted.slice(0, 7).reverse(), [sorted]);
   const avgHours = last7.length > 0
@@ -378,7 +390,11 @@ export default function SleepDashboardScreen() {
   }, [autoConfig.enabled, autoStatus]);
 
   const stillText = useMemo(() => {
-    const streak = currentStillness(autoBuckets, motionThreshold(autoConfig.sensitivity));
+    const streak = currentStillness(
+      autoBuckets,
+      motionThreshold(autoConfig.sensitivity),
+      movingSecondsThreshold(autoConfig.sensitivity)
+    );
     if (!streak || streak.minutes < 1) return '—';
     const h = Math.floor(streak.minutes / 60);
     const m = streak.minutes % 60;
@@ -444,23 +460,6 @@ export default function SleepDashboardScreen() {
     savePendingBedtime(null);
   };
 
-  const acceptDetected = () => {
-    if (!detected) return;
-    addEntry(
-      {
-        startTime: new Date(detected.bedTime).toISOString(),
-        endTime: new Date(detected.wakeTime).toISOString(),
-        quality: null,
-        mood: null,
-        interruptions: detected.interruptions,
-        notes: '',
-        source: 'auto',
-      },
-      user?.id
-    );
-    setDetected(null);
-  };
-
   const openAdd = () => {
     setEditing(null);
     const now = new Date();
@@ -519,13 +518,6 @@ export default function SleepDashboardScreen() {
     setEditing(null);
   };
 
-  const confirmDelete = (e: SleepEntry) => {
-    Alert.alert('Delete entry?', 'This sleep log will be removed.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteEntry(e.id, user?.id) },
-    ]);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.appBar}>
@@ -541,6 +533,57 @@ export default function SleepDashboardScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Hero stats */}
+        {latest && (
+          <View style={styles.heroCard}>
+            <Text style={styles.heroLabel}>LAST NIGHT</Text>
+            <View style={styles.heroRow}>
+              <Text style={styles.heroValue}>{formatSleepDuration(sleepDurationHours(latest))}</Text>
+            </View>
+            <View style={styles.heroMeta}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatLabel}>Bed</Text>
+                <Text style={styles.heroStatValue}>
+                  {new Date(latest.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatLabel}>Wake</Text>
+                <Text style={styles.heroStatValue}>
+                  {new Date(latest.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatLabel}>Quality</Text>
+                <Text style={styles.heroStatValue}>{latest.quality ? `${latest.quality}/5` : '—'}</Text>
+              </View>
+            </View>
+            {lastAvg && <Text style={styles.avgText}>7-night avg: {lastAvg}</Text>}
+          </View>
+        )}
+
+        {/* Rate the last night out of 5 */}
+        {latest && !latest.quality && (
+          <View style={styles.rateCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rateTitle}>How did you sleep?</Text>
+              <Text style={styles.rateSub}>Rate last night out of 5</Text>
+            </View>
+            <View style={styles.rateStars}>
+              {[1, 2, 3, 4, 5].map((q) => (
+                <TouchableOpacity
+                  key={q}
+                  style={styles.rateStarBtn}
+                  onPress={() => rateNight(latest, q)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="star-outline" size={26} color={colors.primary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Session detected by the motion sensor */}
         {autoAvailable && autoSession && !autoSaved && (
           <View style={styles.autoDetectCard}>
@@ -569,62 +612,32 @@ export default function SleepDashboardScreen() {
           </View>
         )}
 
-        {/* Auto-detect suggestion */}
-        {detectLoading && (
-          <View style={styles.detectCard}>
-            <Text style={styles.detectTitle}>Checking last night…</Text>
-          </View>
-        )}
-        {!detectLoading && detected && (
-          <View style={styles.detectCard}>
+        {/* A 5–10 minute awake gap inside the night — the user decides whether
+            it was a long interruption or the end of the sleep. */}
+        {autoAvailable && autoSession?.pendingGap && (
+          <View style={styles.gapCard}>
             <View style={styles.detectHead}>
-              <Ionicons name="moon-outline" size={18} color={colors.primary} />
-              <Text style={styles.detectTitle}>Detected last night</Text>
+              <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+              <Text style={styles.detectTitle}>You were up for a while</Text>
             </View>
-            <Text style={styles.detectTimes}>
-              {new Date(detected.bedTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}{' '}
-              → {new Date(detected.wakeTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              {'  '}({formatSleepDuration((detected.wakeTime - detected.bedTime) / 3600000)})
+            <Text style={styles.gapText}>
+              Around{' '}
+              {new Date(autoSession.pendingGap.startMs).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+              })}
+              {' — about '}
+              {autoSession.pendingGap.minutes} min. Was that a long interruption, or did your sleep end there?
             </Text>
             <View style={styles.detectActions}>
-              <TouchableOpacity style={styles.detectAccept} onPress={acceptDetected}>
-                <Text style={styles.detectAcceptText}>Save</Text>
+              <TouchableOpacity style={styles.detectAccept} onPress={openGapPrompt}>
+                <Text style={styles.detectAcceptText}>Long interruption</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.detectDismiss} onPress={() => setDetected(null)}>
-                <Text style={styles.detectDismissText}>Dismiss</Text>
+              <TouchableOpacity style={styles.detectDismiss} onPress={() => resolveGap('ended')}>
+                <Text style={styles.detectDismissText}>Sleep ended there</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        )}
-
-        {/* One-tap session */}
-        {!pendingBedtime ? (
-          <TouchableOpacity style={styles.bedBtn} onPress={tapBed} activeOpacity={0.85}>
-            <Ionicons name="moon" size={22} color={colors.onSurface} />
-            <View style={styles.bedBtnTextWrap}>
-              <Text style={styles.bedBtnTitle}>Going to bed</Text>
-              <Text style={styles.bedBtnSub}>Tap when you're off to sleep</Text>
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.wakeWrap}>
-            <View style={styles.wakeInfo}>
-              <Ionicons name="moon" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.wakeInfoText}>
-                In bed since{' '}
-                {new Date(pendingBedtime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.wakeBtn} onPress={tapWake} activeOpacity={0.85}>
-              <Ionicons name="sunny" size={22} color={colors.onSurface} />
-              <View style={styles.bedBtnTextWrap}>
-                <Text style={styles.bedBtnTitle}>Good morning</Text>
-                <Text style={styles.bedBtnSub}>Tap when you wake up</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBed} onPress={() => savePendingBedtime(null)}>
-              <Text style={styles.cancelBedText}>Cancel session</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -634,7 +647,6 @@ export default function SleepDashboardScreen() {
             <View style={styles.autoHead}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.autoTitle}>Automatic tracking</Text>
-                <Text style={styles.autoSub}>Uses the motion sensor — no watch needed</Text>
               </View>
               <Switch
                 value={autoConfig.enabled}
@@ -753,34 +765,48 @@ export default function SleepDashboardScreen() {
           </View>
         )}
 
-        {/* Hero stats */}
-        {latest && (
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>LAST NIGHT</Text>
-            <View style={styles.heroRow}>
-              <Text style={styles.heroValue}>{formatSleepDuration(sleepDurationHours(latest))}</Text>
+        {/* One-tap session */}
+        {!pendingBedtime ? (
+          <TouchableOpacity style={styles.bedBtn} onPress={tapBed} activeOpacity={0.85}>
+            <Ionicons name="moon" size={22} color={colors.onSurface} />
+            <View style={styles.bedBtnTextWrap}>
+              <Text style={styles.bedBtnTitle}>Going to bed</Text>
+              <Text style={styles.bedBtnSub}>Tap when you're off to sleep</Text>
             </View>
-            <View style={styles.heroMeta}>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Bed</Text>
-                <Text style={styles.heroStatValue}>
-                  {new Date(latest.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </Text>
-              </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Wake</Text>
-                <Text style={styles.heroStatValue}>
-                  {new Date(latest.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </Text>
-              </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Quality</Text>
-                <Text style={styles.heroStatValue}>{latest.quality ? `${latest.quality}/5` : '—'}</Text>
-              </View>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.wakeWrap}>
+            <View style={styles.wakeInfo}>
+              <Ionicons name="moon" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.wakeInfoText}>
+                In bed since{' '}
+                {new Date(pendingBedtime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              </Text>
             </View>
-            {lastAvg && <Text style={styles.avgText}>7-night avg: {lastAvg}</Text>}
+            <TouchableOpacity style={styles.wakeBtn} onPress={tapWake} activeOpacity={0.85}>
+              <Ionicons name="sunny" size={22} color={colors.onSurface} />
+              <View style={styles.bedBtnTextWrap}>
+                <Text style={styles.bedBtnTitle}>Good morning</Text>
+                <Text style={styles.bedBtnSub}>Tap when you wake up</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBed} onPress={() => savePendingBedtime(null)}>
+              <Text style={styles.cancelBedText}>Cancel session</Text>
+            </TouchableOpacity>
           </View>
         )}
+
+        {/* Quick log for the previous night (when nothing was tracked) */}
+        <TouchableOpacity style={styles.quickLogBtn} onPress={quickLogLastNight} activeOpacity={0.85}>
+          <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.quickLogTitle}>Log last night</Text>
+            <Text style={styles.quickLogSub}>
+              {formatSleepDuration(typicalSleepMs / 3600000)} · until 7:00 AM
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
+        </TouchableOpacity>
 
         {/* Trend chart */}
         {points.length > 1 && (
@@ -855,52 +881,48 @@ export default function SleepDashboardScreen() {
               )}
             </View>
           </View>
-          {isSleepDetectAvailable() && usageGranted === false && (
-            <TouchableOpacity style={styles.detectEnable} onPress={promptUsageAccess}>
-              <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-              <Text style={styles.detectEnableText}>Enable morning auto-detect</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.onSurfaceVariant} />
+        </View>
+
+        {/* History — compact, the full list lives on its own page */}
+        <View style={styles.historyHead}>
+          <Text style={styles.sectionTitle}>HISTORY</Text>
+          {sorted.length > 0 && (
+            <TouchableOpacity style={styles.historyMore} onPress={() => navigation.navigate('SleepHistory')}>
+              <Text style={styles.historyMoreText}>View all ({sorted.length})</Text>
+              <Ionicons name="chevron-forward" size={13} color={colors.primary} />
             </TouchableOpacity>
           )}
         </View>
-
-        {/* History */}
-        <Text style={styles.sectionTitle}>HISTORY</Text>
         {sorted.length === 0 ? (
           <Text style={styles.emptyText}>No sleep logs yet. Tap "Going to bed" tonight to start.</Text>
         ) : (
-          sorted.map((e) => {
+          sorted.slice(0, 5).map((e) => {
             const d = sleepDurationHours(e);
             const below = d < 6;
             const good = d >= 7;
             return (
-              <View key={e.id} style={styles.entryCard}>
-                <TouchableOpacity style={styles.entryMain} onPress={() => openEdit(e)} activeOpacity={0.7}>
-                  <View style={styles.entryIcon}>
-                    <Ionicons name={e.source?.startsWith('auto') ? 'sparkles-outline' : 'moon-outline'} size={18} color={colors.primary} />
-                  </View>
-                  <View style={styles.entryInfo}>
-                    <Text style={styles.entryDate}>
-                      {new Date(e.startTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    </Text>
-                    <Text style={styles.entryTimes}>
-                      {new Date(e.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })} –{' '}
-                      {new Date(e.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                      {e.interruptions > 0 ? `  ·  ${e.interruptions} wake${e.interruptions > 1 ? 's' : ''}` : ''}
-                    </Text>
-                    {e.notes ? <Text style={styles.entryNote} numberOfLines={1}>{e.notes}</Text> : null}
-                  </View>
-                  <View style={styles.entryStats}>
-                    <Text style={[styles.entryDur, { color: below ? colors.error : good ? colors.success : colors.onSurface }]}>
-                      {formatSleepDuration(d)}
-                    </Text>
-                    {e.quality ? <Text style={styles.entryQuality}>Q {e.quality}/5</Text> : null}
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.entryDelete} onPress={() => confirmDelete(e)}>
-                  <Ionicons name="trash-outline" size={16} color={colors.error} />
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                key={e.id}
+                style={styles.compactRow}
+                onPress={() => openEdit(e)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={e.source?.startsWith('auto') ? 'sparkles-outline' : 'moon-outline'}
+                  size={13}
+                  color={colors.primary}
+                />
+                <Text style={styles.compactDate}>
+                  {new Date(e.startTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </Text>
+                <Text style={styles.compactTimes}>
+                  {new Date(e.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })} –{' '}
+                  {new Date(e.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </Text>
+                <Text style={[styles.compactDur, { color: below ? colors.error : good ? colors.success : colors.onSurface }]}>
+                  {formatSleepDuration(d)}
+                </Text>
+              </TouchableOpacity>
             );
           })
         )}
@@ -981,6 +1003,37 @@ export default function SleepDashboardScreen() {
             )}
 
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowLog(false)}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* How long was the interruption? (the gap inside the night) */}
+      <Modal
+        visible={!!gapPrompt}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setGapPrompt(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Long interruption</Text>
+            <Text style={styles.gapText}>
+              How long were you up? The awake time is taken out of your sleep.
+            </Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={gapMinutesInput}
+              onChangeText={(t) => setGapMinutesInput(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="minutes"
+              placeholderTextColor={colors.onSurfaceVariant}
+            />
+            <TouchableOpacity style={styles.saveBtn} onPress={confirmGapPrompt}>
+              <Text style={styles.saveBtnText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setGapPrompt(null)}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -1079,8 +1132,44 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.onSurface },
   autoDetectCard: { backgroundColor: colors.primaryContainer, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   autoDetectMeta: { fontSize: 11, color: colors.onSurfaceVariant },
+  gapCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  gapText: { fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
+  rateCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  rateTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  rateSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  rateStars: { flexDirection: 'row', gap: 2 },
+  rateStarBtn: { padding: 2 },
 
   sectionTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
+  historyHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  historyMore: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 6, borderRadius: rounded.full, backgroundColor: colors.primaryContainer },
+  historyMoreText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderRadius: rounded.DEFAULT,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  compactDate: { fontSize: 12, fontWeight: '700', color: colors.onSurface, width: 78 },
+  compactTimes: { flex: 1, fontSize: 11, color: colors.onSurfaceVariant },
+  compactDur: { fontSize: 12, fontWeight: '700' },
+  quickLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: rounded.lg,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  quickLogTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  quickLogSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 20 },
 
   entryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

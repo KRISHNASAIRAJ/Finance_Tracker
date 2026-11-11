@@ -29,6 +29,7 @@ import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
@@ -49,8 +50,16 @@ class SleepMotionService : Service(), SensorEventListener {
     companion object {
         const val CHANNEL_TRACKING = "sleep-tracking"
         const val CHANNEL_ALARM = "sleep-alarm"
+        const val CHANNEL_DETECT = "sleep-detected"
         const val NOTIF_TRACKING = 1001
         const val NOTIF_ALARM = 1002
+        const val NOTIF_DETECT = 1003
+
+        /** A sleep session shorter than this is not worth reporting. */
+        private const val MIN_SLEEP_MS = 2 * 60 * 60 * 1000L
+
+        /** The heads-up banner hides itself again after this long. */
+        private const val DETECT_TIMEOUT_MS = 15000L
 
         const val ACTION_STOP_ALARM = "com.krishnasairaj.meridian.sleep.action.STOP_ALARM"
         const val ACTION_SNOOZE_ALARM = "com.krishnasairaj.meridian.sleep.action.SNOOZE_ALARM"
@@ -85,6 +94,9 @@ class SleepMotionService : Service(), SensorEventListener {
     private var wakeLock: PowerManager.WakeLock? = null
     private var alarmActive = false
     private var lastPersistAt = 0L
+
+    /** Start of the sleep session the tracker is currently watching (epoch ms). */
+    private var sleepSessionStart = 0L
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -196,15 +208,31 @@ class SleepMotionService : Service(), SensorEventListener {
         }
     }
 
-    /** Keep one bucket per minute holding the peak movement of that minute. */
+    /**
+     * Keep one bucket per minute holding the peak movement of that minute and
+     * the number of seconds of *sustained* movement inside it.
+     *
+     * The second counter is what makes the tracker work with the phone under a
+     * pillow: a single bump (the mattress settling) is a short spike, while a
+     * real wake-up keeps moving for several seconds.
+     */
     private fun recordBucket(now: Long, movement: Float) {
         val minute = now / 60000L
+        val sampleSeconds = (SAMPLE_PERIOD_US / 1_000_000L).toInt().coerceAtLeast(1)
+        val moving = if (movement > config.threshold()) sampleSeconds else 0
         val last = buckets.lastOrNull()
         if (last == null || last.minute != minute) {
-            buckets.add(MotionBucket(minute, movement))
+            buckets.add(MotionBucket(minute, movement, moving))
         } else {
             buckets.removeAt(buckets.size - 1)
-            buckets.add(MotionBucket(minute, max(last.value, movement)))
+            val knownSeconds = if (last.movingSeconds < 0) 0 else last.movingSeconds
+            buckets.add(
+                MotionBucket(
+                    minute,
+                    max(last.value, movement),
+                    min(60, knownSeconds + moving)
+                )
+            )
         }
     }
 
@@ -215,13 +243,62 @@ class SleepMotionService : Service(), SensorEventListener {
         val stillForMs = if (lastMovementAt <= 0L) Long.MAX_VALUE else now - lastMovementAt
 
         if (movement > threshold) {
+            // Movement after a long stillness inside the night = the user woke
+            // up. Report the session as a brief banner over the status bar.
+            val stillSince = SleepMotionStore.stillSince(this)
+            if (sleepSessionStart > 0L && stillSince > sleepSessionStart) {
+                val sleptMs = stillSince - sleepSessionStart
+                if (sleptMs >= MIN_SLEEP_MS && isInNightWindow(localMinutesOfDay(now))) {
+                    postSleepDetected(sleptMs)
+                }
+            }
+            sleepSessionStart = 0L
             SleepMotionStore.setLastMovementAt(this, now)
             SleepMotionStore.setStillSince(this, 0L)
         } else if (SleepMotionStore.stillSince(this) <= 0L) {
             SleepMotionStore.setStillSince(this, now)
+            // A stillness streak that starts now may become tonight's sleep.
+            if (sleepSessionStart <= 0L) sleepSessionStart = now
         }
 
         maybeFireAlarm(now, movement, stillForMs)
+    }
+
+    /**
+     * A brief heads-up banner (it shows over the status bar / notch and hides
+     * itself again instead of sitting in the notification panel).
+     */
+    private fun postSleepDetected(sleptMs: Long) {
+        try {
+            val minutes = sleptMs / 60000L
+            val h = minutes / 60
+            val m = minutes % 60
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val builder = builder(CHANNEL_DETECT)
+                .setContentTitle("😴 Good morning")
+                .setContentText("You slept ${h}h ${m}m")
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setContentIntent(openAppIntent())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder.setTimeoutAfter(DETECT_TIMEOUT_MS)
+            }
+            nm.notify(NOTIF_DETECT, builder.build())
+        } catch (e: Exception) {
+            /* best-effort */
+        }
+    }
+
+    /** Is this minute of the day inside the configured night window? */
+    private fun isInNightWindow(minute: Int): Boolean {
+        val m = ((minute % 1440) + 1440) % 1440
+        val s = ((config.sleepStartMin % 1440) + 1440) % 1440
+        val e = ((config.sleepEndMin % 1440) + 1440) % 1440
+        if (s == e) return true
+        return if (s < e) m >= s && m <= e else m >= s || m <= e
     }
 
     // --- smart alarm --------------------------------------------------------
@@ -409,8 +486,22 @@ class SleepMotionService : Service(), SensorEventListener {
                 enableVibration(true)
                 setSound(null, null)
             }
+            // The sleep-detected banner: high importance so it shows as a
+            // heads-up over the status bar (the notch area), silent and it
+            // removes itself again — it never lingers in the panel.
+            val detect = NotificationChannel(
+                CHANNEL_DETECT,
+                "Sleep detected",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Shows the detected night of sleep as a brief banner"
+                enableVibration(false)
+                setSound(null, null)
+                setShowBadge(false)
+            }
             nm.createNotificationChannel(tracking)
             nm.createNotificationChannel(alarm)
+            nm.createNotificationChannel(detect)
         } catch (e: Exception) {
             /* ignore */
         }

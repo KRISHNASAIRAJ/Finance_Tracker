@@ -60,6 +60,13 @@ export interface SleepMotionStatus {
 export interface MotionBucket {
   m: number;
   v: number;
+  /**
+   * Seconds of *sustained* movement inside that minute. The native tracker
+   * counts them (5 s per sample above the threshold) — this is what makes
+   * the tracker usable with the phone under a pillow. `undefined` = an old
+   * bucket recorded before the counter existed.
+   */
+  s?: number;
 }
 
 export const DEFAULT_SLEEP_MOTION_CONFIG: SleepMotionConfig = {
@@ -163,7 +170,11 @@ export async function getMotionBuckets(): Promise<MotionBucket[]> {
     const raw = await SleepMotionModule.getBuckets();
     if (!Array.isArray(raw)) return [];
     return raw
-      .map((b) => ({ m: Number(b?.m) || 0, v: Number(b?.v) || 0 }))
+      .map((b) => ({
+        m: Number(b?.m) || 0,
+        v: Number(b?.v) || 0,
+        s: typeof b?.s === 'number' && Number.isFinite(b.s) ? b.s : undefined,
+      }))
       .filter((b) => b.m > 0);
   } catch {
     return [];

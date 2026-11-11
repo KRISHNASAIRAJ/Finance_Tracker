@@ -88,6 +88,7 @@ import DietViewerScreen from '../modules/meals/screens/DietViewerScreen';
 import MealPlannerScreen from '../modules/meals/screens/MealPlannerScreen';
 import WeeklyDiaryScreen from '../modules/diary/screens/WeeklyDiaryScreen';
 import SleepDashboardScreen from '../modules/sleep/screens/SleepDashboardScreen';
+import SleepHistoryScreen from '../modules/sleep/screens/SleepHistoryScreen';
 import MainHomeScreen from '../modules/home/screens/MainHomeScreen';
 import HabitTrackerScreen from '../modules/habits/screens/HabitTrackerScreen';
 import CareerGoalsScreen from '../modules/habits/screens/CareerGoalsScreen';
@@ -167,6 +168,7 @@ export type MoreStackParamList = {
   MealPlanner: undefined;
   WeeklyDiary: undefined;
   SleepTracker: undefined;
+  SleepHistory: undefined;
   HabitTracker: undefined;
   CareerGoals: undefined;
 };
@@ -325,6 +327,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MealPlanner" component={MealPlannerScreen} />
       <MoreStack.Screen name="WeeklyDiary" component={WeeklyDiaryScreen} />
       <MoreStack.Screen name="SleepTracker" component={SleepDashboardScreen} />
+      <MoreStack.Screen name="SleepHistory" component={SleepHistoryScreen} />
       <MoreStack.Screen name="HabitTracker" component={HabitTrackerScreen} />
       <MoreStack.Screen name="CareerGoals" component={CareerGoalsScreen} />
     </MoreStack.Navigator>
