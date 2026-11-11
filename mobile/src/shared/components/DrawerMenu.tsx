@@ -267,13 +267,10 @@ export default function DrawerMenu() {
   };
 
   // Flat nav — every module in one list, mirroring the web sidebar 1:1.
+  // Habits / Finance / Garage / Tasks / Wealth are reachable from the bottom
+  // tab bar, so they are not repeated in the drawer.
   const navItems: Item[] = [
     { id: 'home', label: 'Home', icon: 'home-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'HomeTab', params: { screen: 'MainHome' } })) },
-    { id: 'habits', label: 'Habits', icon: 'checkmark-circle-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })) },
-    { id: 'finance', label: 'Finance', icon: 'wallet-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'FinanceHome' } })) },
-    { id: 'garage', label: 'Garage', icon: 'car-sport-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'GarageDashboard' } })) },
-    { id: 'tasks', label: 'Tasks', icon: 'checkbox-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TasksDashboard' } })) },
-    { id: 'wealth', label: 'Wealth', icon: 'trending-up-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } })) },
     { id: 'meals', label: 'Meals', icon: 'restaurant-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MealLogger' })) },
     { id: 'sleep', label: 'Sleep', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
     { id: 'career', label: 'Career', icon: 'briefcase-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerTracker' })) },

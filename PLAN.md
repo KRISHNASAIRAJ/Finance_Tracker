@@ -5,6 +5,49 @@
 
 ---
 
+## 0. ✅ TODO — sleep, wallets and widgets (v4, this batch)
+
+**Done in this batch**
+
+- [x] **Wallets are their own section** in the Balance Summary (mobile + web) and
+      live in the same section as the bank accounts on the Bank Accounts screen
+      (mobile + web). Wallet balances count towards the liquid balance **and**
+      the net worth.
+- [x] **Shared wallet editor** (`WalletBalanceEditor`) used by both mobile screens.
+- [x] **Drawer cleanup** — Habits / Finance / Garage / Tasks / Wealth removed
+      from the drawer (they are in the bottom tab bar).
+- [x] **Sleep screen re-layout** — "LAST NIGHT" on top, the automatic tracking
+      card next, "Going to bed" below it, a compact history with a
+      **View all (n)** button and a new **All Sleep Logs** page.
+- [x] **One-tap "Log last night"** (the habit-style action for the previous
+      night only, using the user's own 7-night average and a 7:00 AM wake time).
+- [x] **Notch-style sleep notification** — the detected night shows as a brief
+      heads-up banner (`sleep-detected` channel, silent, `setTimeoutAfter`).
+- [x] **Pillow-friendly motion detection** — the native tracker counts the
+      *sustained* movement seconds of every minute, so a bump under the pillow
+      is not a wake-up. **Medium sensitivity is the right setting for a phone
+      under a pillow.**
+- [x] **Interruption rules** — a gap of up to 5 min is a normal interruption
+      (a quick phone check), a gap of 5–10 min is asked about in the morning
+      ("long interruption or did your sleep end there?" + how long were you
+      up), a gap of more than 10 min ends the night there.
+- [x] **5-star rating** for the last night.
+- [x] **Widgets** — the four quick-action widgets (Add Expense / Add Fuel /
+      Add Task / Bedtime) are gone; every widget is 2x2. The **Clock & Sleep**
+      widget is hardened (no preview layout, no crash on render) and a new
+      **sleep-only 2x2** widget shows the compact last night and refreshes
+      every day at **9:00 AM**.
+- [x] **"Enable morning auto-detect" removed** — the usage-access auto-detect
+      (and its native module + permission) is deleted; the accelerometer
+      tracker does the job.
+
+**Left open**
+
+- [ ] The exact error text of the widget the user saw (never received) — the
+      Clock & Sleep widget was hardened blind (try/catch + a fallback view).
+
+---
+
 ## 1. ✅ Nutrition Trend — Month Selector
 
 **Problem:** The nutrition trend graph only shows 7D and the current month (30D).
@@ -737,3 +780,78 @@ program.
   first — same order as the full list — while the chart itself stays
   chronological and tapping a row still highlights the right chart point
   (the list rows carry the original chart index).
+
+## 23. Sleep-only 2x2 widget + the 9:00 AM refresh (v4)
+
+- **One sleep widget, 2x2:** the four quick-action widgets (Add Expense, Add
+  Fuel, Add Task, Bedtime) are removed — the last night of sleep is what the
+  home screen should carry. Every widget in the app is 2x2 now (Stats, Clock &
+  Sleep, Sleep).
+- **New widget** (`widgets/SleepStatsWidget.kt` +
+  `res/layout/widget_sleep_stats.xml`): the compact last night — the duration,
+  the bedtime → wake time, the wake-ups and the 5-star rating, with the two
+  REM windows marked on the dotted timeline inside the green pill.
+- **Daily refresh at 9:00 AM** (`SleepWidgetScheduler` +
+  `SleepWidgetAlarmReceiver`): an inexact repeating alarm redraws the sleep
+  widgets every morning (the alarm is re-armed on boot and whenever the widget
+  is drawn). The data itself is pushed from JS (`services/sleepWidget.ts` →
+  both widget bridges).
+- **Clock & Sleep hardened:** the provider never crashes the launcher any more
+  (a failed render falls back to a plain clock), and the risky
+  `previewLayout` / `updatePeriodMillis` attributes are gone.
+
+## 24. Pillow-friendly sleep detection + the interruption rules (v4)
+
+- **Sustained movement:** the native tracker now records, next to the peak
+  movement of the minute, the number of **seconds of sustained movement**
+  (`MotionBucket.movingSeconds`). A minute only counts as awake when the
+  movement was sustained (20 s on medium sensitivity, 30 s on low, 12 s on
+  high) — a bump of the mattress under a pillow is no longer a wake-up.
+  **Medium sensitivity is the right setting for a phone under a pillow.**
+- **The wake time** now follows the wake window: a movement inside the wake
+  window is the wake-up, an earlier movement is a short interruption and the
+  night goes on (it then lasts until the end of the wake window).
+- **Interruption rules:** a gap of up to **5 minutes** is a normal interruption
+  (a quick phone check counts), a gap of **5–10 minutes** is ambiguous — in
+  the morning the app asks "was that a long interruption, or did your sleep
+  end there?" and, for a long interruption, asks how long the user was up and
+  takes that time out of the sleep. A gap of **more than 10 minutes** ends the
+  night right there.
+- **Tests:** `modules/sleep/__tests__/sleepInference.test.ts` (25) — the pillow
+  rules, the interruption classification, the pending-gap question and both
+  answers.
+
+## 25. Sleep screen v3 (v4)
+
+- The order is now: **LAST NIGHT** (hero) → the detected night → the
+  automatic tracking card → **Going to bed** → the chart / insight / settings →
+  the compact history. The line "Uses the motion sensor — no watch needed" is
+  gone.
+- **Compact history** (the last 5 nights, one line each) with a **View all (n)**
+  button that opens the new **All Sleep Logs** page (`SleepHistoryScreen`) with
+  the summary (nights, average, total), every log and the edit modal.
+- **"Log last night"** — the habit-style one-tap action for the previous night
+  only: the length comes from the user's own 7-night average (7 hours without
+  history) and the wake time is 7:00 AM.
+- **Rate your sleep out of 5** — a star row under the last night (saved on the
+  entry, also shown on the sleep widget).
+
+## 26. Wallets in their own section (v4)
+
+- The Balance Summary now has a **Wallets** section next to the Bank Balances
+  (mobile + web) and the Bank Accounts screen shows the wallets in the same
+  section as the accounts (mobile + web). The wallet rows are tappable and use
+  the shared `WalletBalanceEditor` (mobile).
+- Wallet balances are cash: they count towards the liquid balance **and** the
+  net worth (`getTotalBalance()` = accounts + wallets), and the hero card
+  splits the chips into **Banks** and **Wallets**.
+
+## 27. Drawer cleanup + auto-detect removal (v4)
+
+- The drawer no longer repeats Habits / Finance / Garage / Tasks / Wealth —
+  they are in the bottom tab bar.
+- The usage-access auto-detect ("Enable morning auto-detect") is removed
+  together with its native module (`SleepDetectModule`), the
+  `PACKAGE_USAGE_STATS` permission and the JS bridge — the accelerometer
+  tracker does the job now.
+

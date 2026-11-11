@@ -173,6 +173,8 @@ interface FinanceState {
   payFixedExpenseWithAmount: (id: string, amountPaise: number, userId?: string) => void;
   unmarkFixedExpensePaid: (id: string, userId?: string) => void;
   getTotalBalance: () => number;
+  /** Sum of the wallet balances (they are cash and count towards the balance). */
+  getWalletTotal: () => number;
   getMonthlyExpenses: () => number;
   getMonthlyIncome: () => number;
   setLastSyncedAt: (ts: string) => void;
@@ -654,7 +656,14 @@ export const useFinanceStore = create<FinanceState>()(
         }
       },
       getTotalBalance: () => {
-        return get().accounts.reduce((acc, account) => acc + account.amount, 0);
+        // Wallets are cash too — they count towards the liquid balance and
+        // the net worth everywhere the bank balance is used.
+        const accounts = get().accounts.reduce((acc, account) => acc + account.amount, 0);
+        const wallets = get().wallets.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+        return accounts + wallets;
+      },
+      getWalletTotal: () => {
+        return get().wallets.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
       },
       getMonthlyExpenses: () => {
         const txs = get().transactions;
@@ -820,7 +829,9 @@ export const useFinanceStore = create<FinanceState>()(
         get().categoryBudgets.find((c) => c.category === category),
     }),
     {
-      name: 'meridian-finance-storage-v14',
+      // v15 — the store schema gained the `wallets` rows (they are cash and
+      // count towards the balance and the net worth).
+      name: 'meridian-finance-storage-v15',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )

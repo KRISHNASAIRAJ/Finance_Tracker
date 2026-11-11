@@ -1,8 +1,10 @@
 /**
- * BankAccountsPage — CRUD for bank accounts + balance editing.
+ * BankAccountsPage — CRUD for bank accounts + balance editing, with the
+ * wallets in the same section (they are cash and count towards the liquid
+ * balance and the net worth).
  */
 import { useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Wallet } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import {
   useBankAccounts,
@@ -10,6 +12,7 @@ import {
   useUpdateAccount,
   useDeleteAccount,
 } from '../../hooks/data/useBankAccounts'
+import { useWallets, useUpsertWallet, WALLET_PROVIDERS } from '../../hooks/data/useWallets'
 import { PageHeader, EmptyState, Skeleton } from '../../components/ui/Shared'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
@@ -25,6 +28,8 @@ export function BankAccountsPage() {
   const createAccount = useCreateAccount(userId)
   const updateAccount = useUpdateAccount(userId)
   const deleteAccount = useDeleteAccount(userId)
+  const { data: wallets } = useWallets(userId)
+  const upsertWallet = useUpsertWallet(userId)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -83,13 +88,16 @@ export function BankAccountsPage() {
     setDeleting(null)
   }
 
-  const totalBalance = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
+  const accountsTotal = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
+  const walletTotal = (wallets ?? []).reduce((s, w) => s + w.amount, 0)
+  // Wallets are cash — they count towards the liquid balance.
+  const totalBalance = accountsTotal + walletTotal
 
   return (
     <div className="fade-up space-y-5">
       <PageHeader
         title="Bank accounts"
-        subtitle={`${paiseToRupees(totalBalance)} total across ${accounts?.length ?? 0} accounts`}
+        subtitle={`${paiseToRupees(totalBalance)} total · ${paiseToRupees(accountsTotal)} in accounts · ${paiseToRupees(walletTotal)} in wallets`}
         action={
           <Button size="sm" className="gap-1.5" onClick={openNew}>
             <Plus className="h-4 w-4" /> Add account
@@ -131,6 +139,48 @@ export function BankAccountsPage() {
           ))}
         </div>
       )}
+
+      {/* Wallets — the same section as the bank accounts */}
+      <Card className="p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-[#59D6C7]" />
+            <p className="text-sm font-semibold text-white">Wallets</p>
+          </div>
+          <p className="text-xs text-white/40">{paiseToRupees(walletTotal)} total</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {(wallets ?? []).length === 0 && (
+            <p className="text-sm text-white/30 py-2 text-center sm:col-span-2 lg:col-span-3">No wallets</p>
+          )}
+          {(wallets ?? []).map((w) => (
+            <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3">
+              <p className="text-sm text-white/80">{w.name}</p>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                defaultValue={(w.amount / 100).toString()}
+                onBlur={(e) => {
+                  const rupees = parseFloat(e.target.value)
+                  const amount = Number.isFinite(rupees) ? Math.round(rupees * 100) : 0
+                  if (amount !== w.amount) upsertWallet.mutate({ id: w.id, name: w.name, amount })
+                }}
+                className="h-9 w-24 rounded-lg border border-white/10 bg-white/5 px-2 text-right text-sm text-white/80"
+              />
+            </div>
+          ))}
+          {WALLET_PROVIDERS.filter((p) => !(wallets ?? []).some((w) => w.id === p.id)).map((p) => (
+            <button
+              key={p.id}
+              onClick={() => upsertWallet.mutate({ id: p.id, name: p.name, amount: 0 })}
+              className="flex items-center gap-2 rounded-xl border border-dashed border-white/10 px-4 py-3 text-left text-sm text-white/40 hover:border-white/20 hover:text-white/70"
+            >
+              <Plus className="h-3.5 w-3.5" /> {p.name}
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <Modal
         open={modalOpen}

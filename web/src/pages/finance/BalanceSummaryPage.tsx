@@ -90,7 +90,11 @@ export function BalanceSummaryPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Bank balance</p>
-            <p className="mt-1 text-2xl font-bold text-white tnum">{paiseToRupees(totalBalance)}</p>
+            <p className="mt-1 text-2xl font-bold text-white tnum">{paiseToRupees(accountsTotal)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-medium text-white/50">Wallets</p>
+            <p className="mt-1 text-2xl font-bold text-[#59D6C7] tnum">{paiseToRupees(walletTotal)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Card outstanding</p>
@@ -113,8 +117,7 @@ export function BalanceSummaryPage() {
             title="Bank balances"
             action={
               <span className="text-xs text-white/40">
-                {paiseToRupees(accountsTotal + walletTotal)} · {accounts?.length ?? 0} accounts ·{' '}
-                {visibleWallets.length} wallets
+                {paiseToRupees(accountsTotal)} · {accounts?.length ?? 0} accounts
               </span>
             }
           />
@@ -126,7 +129,24 @@ export function BalanceSummaryPage() {
                 <p className="text-sm font-semibold text-white tnum">{paiseToRupees(a.amount)}</p>
               </div>
             ))}
-            {/* Wallets live inside the bank-balance section, not as their own card. */}
+          </CardBody>
+        </Card>
+
+        {/* Wallets are their own section — they are cash and they count
+            towards the balance and the net worth. */}
+        <Card>
+          <CardHeader
+            title="Wallets"
+            action={
+              <span className="text-xs text-white/40">
+                {paiseToRupees(walletTotal)} · {visibleWallets.length} wallets
+              </span>
+            }
+          />
+          <CardBody className="space-y-3">
+            {visibleWallets.length === 0 && (
+              <p className="text-sm text-white/30 py-4 text-center">No wallets</p>
+            )}
             {visibleWallets.map((w) => (
               <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3">
                 <div>

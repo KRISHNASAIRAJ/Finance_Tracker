@@ -1,6 +1,6 @@
 ﻿/**
- * BankAccountsScreen — lists bank accounts with total balance and per-account
- * balance editing via a modal.
+ * BankAccountsScreen — lists bank accounts and wallets with the total liquid
+ * balance and per-account / per-wallet balance editing via a modal.
  */
 import React, { useState } from 'react';
 import {
@@ -23,18 +23,27 @@ import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore, BankAccount, getMinBalanceForAccount } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import BankLogo from '../../../shared/components/BankLogo';
+import WalletBalanceEditor from '../components/WalletBalanceEditor';
 
 export default function BankAccountsScreen() {
   const navigation = useNavigation();
-  const { accounts, getTotalBalance, editAccountBalance } = useFinanceStore();
+  const { accounts, wallets, getTotalBalance, getWalletTotal, editAccountBalance, seedWallets, setWalletAmount } = useFinanceStore();
   const { user } = useAuth();
 
   const [selectedAcc, setSelectedAcc] = useState<BankAccount | null>(null);
   const [editValue, setEditValue] = useState('');
   const [quickValue, setQuickValue] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingWallet, setEditingWallet] = useState<{ id: string; name: string; amount: number } | null>(null);
 
   const totalBalance = getTotalBalance();
+  const walletTotal = getWalletTotal();
+  const accountsTotal = totalBalance - walletTotal;
+
+  // Make sure the standard wallet rows exist (idempotent).
+  React.useEffect(() => {
+    seedWallets(user?.id);
+  }, [user?.id]);
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', {
@@ -76,6 +85,12 @@ export default function BankAccountsScreen() {
     setSelectedAcc(null);
   };
 
+  const saveWalletAmount = (amountPaise: number) => {
+    if (!editingWallet) return;
+    setWalletAmount(editingWallet.id, amountPaise, user?.id);
+    setEditingWallet(null);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* AppBar */}
@@ -92,6 +107,18 @@ export default function BankAccountsScreen() {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>LIQUID BALANCES TOTAL</Text>
           <Text style={styles.summaryValue}>{formatCurrency(totalBalance)}</Text>
+          <View style={styles.summaryBreakdown}>
+            <View style={styles.summaryChip}>
+              <View style={[styles.summaryDot, { backgroundColor: '#5ee6ff' }]} />
+              <Text style={styles.summaryChipLabel}>Banks</Text>
+              <Text style={styles.summaryChipValue}>{formatCurrency(accountsTotal)}</Text>
+            </View>
+            <View style={styles.summaryChip}>
+              <View style={[styles.summaryDot, { backgroundColor: '#59D6C7' }]} />
+              <Text style={styles.summaryChipLabel}>Wallets</Text>
+              <Text style={styles.summaryChipValue}>{formatCurrency(walletTotal)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Bank Ledger List */}
@@ -136,6 +163,35 @@ export default function BankAccountsScreen() {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        </View>
+
+        {/* Wallets — the same section as the bank accounts: cash that counts
+            towards the liquid balance and the net worth. */}
+        <View style={styles.ledgerSection}>
+          <Text style={styles.sectionTitle}>WALLETS (TAP TO EDIT)</Text>
+          <View style={styles.accountsContainer}>
+            {(wallets || []).map((w) => (
+              <TouchableOpacity
+                key={w.id}
+                style={styles.accountRow}
+                onPress={() => setEditingWallet({ id: w.id, name: w.name, amount: w.amount })}
+                activeOpacity={0.7}
+              >
+                <View style={styles.accountRowTop}>
+                  <View style={styles.accountLeft}>
+                    <View style={[styles.iconWrapper, { backgroundColor: `${colors.primary}15` }]}>
+                      <Ionicons name="cash-outline" size={18} color={colors.primary} />
+                    </View>
+                    <View>
+                      <Text style={styles.accountTitle}>{w.name}</Text>
+                      <Text style={styles.minLabel}>Wallet balance</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.accountAmount}>{formatCurrency(w.amount)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -210,6 +266,15 @@ export default function BankAccountsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Wallet balance editor (shared with the Balance Summary) */}
+      <WalletBalanceEditor
+        visible={!!editingWallet}
+        name={editingWallet?.name ?? ''}
+        amount={editingWallet?.amount ?? 0}
+        onSave={saveWalletAmount}
+        onClose={() => setEditingWallet(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -261,6 +326,31 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 30,
     fontWeight: '800',
+    color: colors.onSurface,
+  },
+  summaryBreakdown: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 6,
+  },
+  summaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  summaryChipLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+  },
+  summaryChipValue: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   ledgerSection: {

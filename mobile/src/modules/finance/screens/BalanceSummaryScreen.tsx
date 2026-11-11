@@ -13,9 +13,6 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
-  Modal,
-  Pressable,
-  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +21,7 @@ import { spacing } from '../../../shared/theme/spacing';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';
+import WalletBalanceEditor from '../components/WalletBalanceEditor';
 import BankLogo from '../../../shared/components/BankLogo';
 
 // Donut palette — same 6 colors used on the home screen cards
@@ -36,6 +34,7 @@ const DONUT = {
   cyan: '#00cbe6',
   red: '#FF887D',
   amber: '#E2A45C',
+  green: '#59D6C7',
 };
 
 interface SectionItem {
@@ -72,26 +71,25 @@ export default function BalanceSummaryScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
-  // Bank Balances opens expanded so the wallet rows under it are visible.
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ 'Bank Balances': true });
-  const [editingWallet, setEditingWallet] = useState<{ id: string; name: string } | null>(null);
-  const [walletAmountInput, setWalletAmountInput] = useState('');
+  // Bank Balances and Wallets open expanded so every row is visible.
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'Bank Balances': true,
+    Wallets: true,
+  });
+  const [editingWallet, setEditingWallet] = useState<{ id: string; name: string; amount: number } | null>(null);
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
   const openWalletEditor = (id: string, name: string, current: number) => {
-    setEditingWallet({ id, name });
-    setWalletAmountInput(current > 0 ? String(current / 100) : '');
+    setEditingWallet({ id, name, amount: current });
   };
 
-  const saveWalletAmount = () => {
+  const saveWalletAmount = (amountPaise: number) => {
     if (!editingWallet) return;
-    const rupees = parseFloat(walletAmountInput.replace(/,/g, ''));
-    setWalletAmount(editingWallet.id, Number.isFinite(rupees) ? Math.round(rupees * 100) : 0, user?.id);
+    setWalletAmount(editingWallet.id, amountPaise, user?.id);
     setEditingWallet(null);
-    setWalletAmountInput('');
   };
 
   // Make sure the standard wallet rows exist (idempotent).
@@ -101,11 +99,13 @@ export default function BalanceSummaryScreen() {
 
   const accountsTotal = accounts.reduce((sum, acc) => sum + acc.amount, 0);
   const walletTotal = (wallets || []).reduce((sum, w) => sum + w.amount, 0);
-  // Wallets are cash — they live inside the Bank Balances section and count
-  // towards the balance and the net worth (no minimum-balance rule applies).
+  // Wallets are cash — they are their own section and they count towards the
+  // balance and the net worth (no minimum-balance rule applies to them).
   const totalBalance = accountsTotal + walletTotal;
   const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
   const effectiveBalance = totalBalance - totalMinBalance;
+  // What the banks contribute to the net worth after the minimum-balance rule.
+  const banksNet = accountsTotal - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
   const totalBorrowed = receivables.filter((r) => r.type === 'borrowed').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
 
@@ -159,17 +159,25 @@ export default function BalanceSummaryScreen() {
             : '',
           alert: acc.amount < getMinBalanceForAccount(acc.title),
         })),
-        // Wallets live inside this section — not as a separate card.
-        ...(wallets || []).map((w) => ({
-          label: w.name,
-          value: w.amount,
-          subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
-          alert: false,
-          onPress: () => openWalletEditor(w.id, w.name, w.amount),
-        })),
       ],
-      total: totalBalance,
+      total: accountsTotal,
       totalLabel: 'Total Bank Balance',
+    },
+    {
+      // Wallets are cash — their own section, and they count towards the
+      // balance and the net worth.
+      title: 'Wallets',
+      icon: 'cash-outline',
+      color: DONUT.green,
+      items: (wallets || []).map((w) => ({
+        label: w.name,
+        value: w.amount,
+        subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
+        alert: false,
+        onPress: () => openWalletEditor(w.id, w.name, w.amount),
+      })),
+      total: walletTotal,
+      totalLabel: 'Total Wallets',
     },
     {
       title: 'Credit Card Bills',
@@ -261,7 +269,12 @@ export default function BalanceSummaryScreen() {
             <View style={styles.heroChip}>
               <View style={[styles.heroChipDot, { backgroundColor: DONUT.blue }]} />
               <Text style={styles.heroChipLabel}>Banks</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.blue }]}>{formatCurrency(effectiveBalance)}</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.blue }]}>{formatCurrency(banksNet)}</Text>
+            </View>
+            <View style={styles.heroChip}>
+              <View style={[styles.heroChipDot, { backgroundColor: DONUT.green }]} />
+              <Text style={styles.heroChipLabel}>Wallets</Text>
+              <Text style={[styles.heroChipValue, { color: DONUT.green }]}>{formatCurrency(walletTotal)}</Text>
             </View>
             <View style={styles.heroChip}>
               <View style={[styles.heroChipDot, { backgroundColor: DONUT.pink }]} />
@@ -373,39 +386,13 @@ export default function BalanceSummaryScreen() {
       />
 
       {/* Wallet balance editor */}
-      <Modal
+      <WalletBalanceEditor
         visible={!!editingWallet}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditingWallet(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setEditingWallet(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>{editingWallet?.name}</Text>
-            <Text style={styles.modalSubtitle}>Current balance in this wallet (₹)</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={walletAmountInput}
-              onChangeText={setWalletAmountInput}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={colors.onSurfaceVariant}
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancel}
-                onPress={() => { setEditingWallet(null); setWalletAmountInput(''); }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSave} onPress={saveWalletAmount}>
-                <Text style={styles.modalSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        name={editingWallet?.name ?? ''}
+        amount={editingWallet?.amount ?? 0}
+        onSave={saveWalletAmount}
+        onClose={() => setEditingWallet(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -577,73 +564,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     paddingVertical: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 20,
-    padding: 20,
-    backgroundColor: '#1E1E2A',
-    borderWidth: 1,
-    borderColor: '#2E2E42',
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginTop: 4,
-  },
-  modalInput: {
-    marginTop: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2E2E42',
-    backgroundColor: '#15151F',
-    color: colors.onSurface,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 18,
-  },
-  modalCancel: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#2E2E42',
-  },
-  modalCancelText: {
-    color: colors.onSurfaceVariant,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  modalSave: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  modalSaveText: {
-    color: '#0B0F1A',
-    fontWeight: '700',
-    fontSize: 13,
   },
   deficitBanner: {
     flexDirection: 'row',
