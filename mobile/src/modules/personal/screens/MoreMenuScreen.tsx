@@ -207,6 +207,12 @@ export default function MoreMenuScreen() {
           icon: 'pricetags-outline',
           onPress: () => navigation.navigate('Offers'),
         },
+        {
+          id: 'pill-reminder',
+          label: 'Pill Reminder',
+          icon: 'medkit-outline',
+          onPress: () => navigation.navigate('PillReminder'),
+        },
       ],
     },
     {

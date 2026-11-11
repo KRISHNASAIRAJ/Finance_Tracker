@@ -12,6 +12,11 @@ import { quoteForDate } from '../shared/dailyContent';
 
 const WALLET_TARGET = 4000000;
 
+/** Notification category + actions for the pill reminders. */
+export const MEDICATION_CATEGORY = 'medication-reminder';
+export const MEDICATION_ACTION_SKIP = 'medication_skip';
+export const MEDICATION_ACTION_REMIND_30 = 'medication_remind_30';
+
 interface MealSlot { slot: string; hour: number; minute: number; label: string }
 
 /**
@@ -117,9 +122,18 @@ async function setupChannels() {
       { id: 'sleep-reminders', name: 'Sleep Reminders', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'morning-brief', name: 'Morning Brief', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'offers', name: 'Offers & Coupons', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
+      { id: 'medication-reminders', name: 'Pill Reminders', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
+    }
+    // Notification categories give the medication reminders their action
+    // buttons (Skip / Remind in 30 min) in the notification panel.
+    if (typeof Notifications.setNotificationCategoryAsync === 'function') {
+      await Notifications.setNotificationCategoryAsync(MEDICATION_CATEGORY, [
+        { identifier: MEDICATION_ACTION_SKIP, buttonTitle: 'Skip', options: { destructive: true } },
+        { identifier: MEDICATION_ACTION_REMIND_30, buttonTitle: 'Remind in 30 min' },
+      ]);
     }
     channelsCreated = true;
   } catch (e) { console.warn('[notificationService] Channel setup failed:', e); }
@@ -151,6 +165,7 @@ export async function scheduleLocal(
   triggerDate: Date,
   channelId: string = 'bills_due',
   data?: Record<string, string>,
+  categoryIdentifier?: string,
 ) {
   if (!ensureInit()) return;
   const now = istNow();
@@ -185,6 +200,7 @@ export async function scheduleLocal(
         priority: Notifications.AndroidNotificationPriority.HIGH,
         channelId,
         data: data || {},
+        ...(categoryIdentifier ? { categoryIdentifier } : {}),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

@@ -59,7 +59,13 @@ export function getPushToken(): string | null {
   return _pushToken;
 }
 
-export function setupNotificationHandler(onTap?: (data: Record<string, string>) => void) {
+export function setupNotificationHandler(
+  onTap?: (
+    data: Record<string, string>,
+    actionIdentifier?: string,
+    notificationId?: string
+  ) => void
+) {
   if (isExpoGo()) return;
 
   getNotifications().then((N) => {
@@ -67,11 +73,10 @@ export function setupNotificationHandler(onTap?: (data: Record<string, string>) 
     N.addNotificationResponseReceivedListener((response: any) => {
       const data = response?.notification?.request?.content?.data;
       if (!data || Object.keys(data).length === 0) return;
-      if (data.type === 'PORTFOLIO_REPORT' && onTap) {
-        onTap(data);
-      }
-      if (data.screen && onTap) {
-        onTap(data);
+      const actionIdentifier = response?.actionIdentifier;
+      const notificationId = response?.notification?.request?.identifier;
+      if (onTap) {
+        onTap(data, actionIdentifier, notificationId);
       }
     });
   });

@@ -24,6 +24,7 @@ import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { pushStatsWidget } from './src/services/statsWidget';
 import { runMarketSyncWatchdog } from './src/services/marketSyncWatchdog';
+import { scheduleMedicationReminders, handleMedicationAction } from './src/services/medicationReminders';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
@@ -36,6 +37,18 @@ TaskManager.defineTask(TASK_NAME, async () => {
   } catch {
     return BackgroundFetch.BackgroundFetchResult.Failed;
   }
+});
+
+// Background handling for the pill-reminder notification buttons. Defined
+// at module scope so it is registered even when the app is not running.
+const MEDICATION_ACTION_TASK = 'meridian-medication-action';
+TaskManager.defineTask(MEDICATION_ACTION_TASK, async ({ data, actionIdentifier }: any) => {
+  try {
+    await handleMedicationAction(actionIdentifier, data ?? {});
+  } catch {
+    /* best-effort */
+  }
+  return BackgroundFetch.BackgroundFetchResult.NoData;
 });
 
 LogBox.ignoreLogs([
@@ -62,10 +75,28 @@ export default function App() {
     applyScheduledFixedExpenseChanges().catch(() => {});
     requestNotificationPermission().then(() => {
       scheduleAllReminders();
+      // Pill reminders are scheduled a moment later so the persisted
+      // medication list has finished hydrating.
+      setTimeout(() => scheduleMedicationReminders().catch(() => {}), 1500);
       setTimeout(() => promptBatteryOptimization(), 3000);
     });
 
-    setupNotificationHandler((data: Record<string, string>) => {
+    // Background handler for the pill-reminder action buttons.
+    try {
+      const Notifications = require('expo-notifications');
+      if (typeof Notifications.registerTaskAsync === 'function') {
+        Notifications.registerTaskAsync(MEDICATION_ACTION_TASK).catch(() => {});
+      }
+    } catch (_e) { /* notifications unavailable (Expo Go) */ }
+
+    setupNotificationHandler(async (data: Record<string, string>, actionIdentifier?: string, notificationId?: string) => {
+      // Pill-reminder action buttons (Skip / Remind in 30 min) are handled
+      // first — they must not also trigger navigation.
+      if (actionIdentifier) {
+        const handled = await handleMedicationAction(actionIdentifier, data, notificationId);
+        if (handled) return;
+      }
+
       const tryNavigate = () => {
         if (!navigationRef.isReady()) {
           setTimeout(tryNavigate, 300);
@@ -99,6 +130,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } });
           } else if (data.screen === 'FixedExpenses') {
             nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'FixedExpenses' } });
+          } else if (data.screen === 'PillReminder') {
+            nav.navigate('MoreStack', { screen: 'PillReminder' });
           } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }
