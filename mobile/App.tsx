@@ -118,6 +118,18 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
         } else if (url.includes('combined-report')) {
           nav.navigate('MoreStack', { screen: 'CombinedReport' });
+        } else if (url.includes('monthly-spend')) {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'MonthlySpend' } });
+        } else if (url.includes('credit-cards')) {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CreditCards' } });
+        } else if (url.includes('bank-accounts')) {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'BankAccounts' } });
+        } else if (url.includes('lent-borrowed')) {
+          nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'LentBorrowed' } });
+        } else if (url.includes('tasks')) {
+          nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TasksDashboard' } });
+        } else if (url.includes('wealth')) {
+          nav.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } });
         } else if (url.includes('bedtime')) {
           // Bedtime widget finished a session — hand start/end to the sleep store.
           // Also navigate to SleepTracker so the user sees their session. The

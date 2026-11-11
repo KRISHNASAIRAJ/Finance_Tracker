@@ -1,11 +1,13 @@
 /**
- * Stats widget — pure stats-core tests. computeDailyStats must be resilient:
- * only outflow types count as spend, tasks are filtered by IST day, the
- * latest sleep entry wins, and malformed rows never poison the numbers.
+ * Stats widget — pure stats-core tests. computeWidgetStats must be
+ * resilient: only outflow types count as spend, monthly roll-up is
+ * IST-scoped, card bills fall back to outstanding, net lent flips sign
+ * for borrowings, and malformed rows never poison the numbers.
  */
-import { computeDailyStats } from '../statsWidget';
+import { computeWidgetStats } from '../statsWidget';
 
-const day = '2026-11-11';
+const dayKey = '2026-11-11';
+const monthKey = '2026-11';
 
 const tx = (date: string, amount: number, type: string = 'expense') =>
   ({ id: `t_${date}_${type}`, type, amount, date } as any);
@@ -23,35 +25,33 @@ const task = (dueDate: string | null, completed = false) =>
     recurrence: 'none',
   } as any);
 
-const sleep = (start: string, end: string) =>
-  ({ id: `s_${start}`, startTime: start, endTime: end, quality: 'ok' } as any);
-
 const base = {
-  dayKey: day,
+  dayKey,
+  monthKey,
   transactions: [],
+  cards: [],
+  accounts: [],
+  receivables: [],
   tasks: [],
-  habitDays: [],
-  habitsTotal: 7,
-  sleepEntries: [],
+  netWorthPaise: 0,
 };
 
-describe('computeDailyStats — spend', () => {
-  it('sums only today outflow types in paise', () => {
-    const stats = computeDailyStats({
+describe('computeWidgetStats — monthly spend', () => {
+  it('sums this month outflow types in paise', () => {
+    const stats = computeWidgetStats({
       ...base,
       transactions: [
-        tx('2026-11-11T04:00:00.000Z', 25000), // 9:30 IST today → ₹250
-        tx('2026-11-11T08:00:00.000Z', 40000, 'fuel_purchase'),
+        tx('2026-11-11T04:00:00.000Z', 25000), // ₹250
+        tx('2026-11-02T08:00:00.000Z', 40000, 'fuel_purchase'),
         tx('2026-11-11T09:00:00.000Z', 99999, 'portfolio_buy'), // excluded
-        tx('2026-11-11T09:00:00.000Z', 12345, 'lent'), // excluded
-        tx('2026-11-10T05:00:00.000Z', 500000), // yesterday IST
+        tx('2026-10-30T05:00:00.000Z', 500000), // last month
       ],
     });
-    expect(stats.spendPaise).toBe(65000);
+    expect(stats.monthlySpendPaise).toBe(65000);
   });
 
   it('ignores malformed dates and non-finite amounts', () => {
-    const stats = computeDailyStats({
+    const stats = computeWidgetStats({
       ...base,
       transactions: [
         { id: 'a', type: 'expense', amount: NaN, date: '2026-11-11T04:00:00.000Z' } as any,
@@ -59,13 +59,57 @@ describe('computeDailyStats — spend', () => {
         tx('2026-11-11T04:00:00.000Z', 1000),
       ],
     });
-    expect(stats.spendPaise).toBe(1000);
+    expect(stats.monthlySpendPaise).toBe(1000);
   });
 });
 
-describe('computeDailyStats — tasks', () => {
+describe('computeWidgetStats — cards, accounts, lent', () => {
+  it('prefers the statement bill and falls back to outstanding', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      cards: [
+        { balance: 120000, billAmount: 50000 } as any,
+        { balance: 30000, billAmount: 0 } as any,
+        { balance: 20000 } as any,
+      ],
+    });
+    expect(stats.ccBillsPaise).toBe(100000);
+  });
+
+  it('sums bank account balances', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      accounts: [{ amount: 500000 } as any, { amount: NaN } as any, { amount: 250000 } as any],
+    });
+    expect(stats.bankBalancePaise).toBe(750000);
+  });
+
+  it('nets lent against borrowed using outstanding amounts', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      receivables: [
+        { type: 'lent', amount: 100000, paidAmount: 20000 } as any,
+        { type: 'borrowed', amount: 30000, paidAmount: 0 } as any,
+      ],
+    });
+    expect(stats.netLentPaise).toBe(50000);
+  });
+
+  it('goes negative when borrowings exceed lending', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      receivables: [
+        { type: 'lent', amount: 10000, paidAmount: 0 } as any,
+        { type: 'borrowed', amount: 40000, paidAmount: 0 } as any,
+      ],
+    });
+    expect(stats.netLentPaise).toBe(-30000);
+  });
+});
+
+describe('computeWidgetStats — tasks and net worth', () => {
   it('counts open tasks due today or overdue', () => {
-    const stats = computeDailyStats({
+    const stats = computeWidgetStats({
       ...base,
       tasks: [
         task('2026-11-11T10:00:00.000Z'),
@@ -77,29 +121,18 @@ describe('computeDailyStats — tasks', () => {
     });
     expect(stats.tasksLeft).toBe(2);
   });
-});
 
-describe('computeDailyStats — habits and sleep', () => {
-  it('uses today habit row and the latest sleep entry', () => {
-    const stats = computeDailyStats({
-      ...base,
-      habitDays: [{ id: 'h1', day, habits: ['water', 'read', 'walk'], notes: '' }],
-      habitsTotal: 7,
-      sleepEntries: [
-        sleep('2026-11-08T20:00:00.000Z', '2026-11-09T10:00:00.000Z'), // older, longer → ignored
-        sleep('2026-11-10T19:30:00.000Z', '2026-11-11T03:00:00.000Z'), // 7.5h → wins
-      ],
-    });
-    expect(stats.habitsDone).toBe(3);
-    expect(stats.habitsTotal).toBe(7);
-    expect(stats.sleepHours).toBeCloseTo(7.5);
+  it('keeps a non-finite net worth at zero', () => {
+    const stats = computeWidgetStats({ ...base, netWorthPaise: NaN });
+    expect(stats.netWorthPaise).toBe(0);
   });
 
-  it('returns zeros and null sleep when everything is empty', () => {
-    const stats = computeDailyStats(base);
-    expect(stats.spendPaise).toBe(0);
+  it('returns zeros when everything is empty', () => {
+    const stats = computeWidgetStats(base);
+    expect(stats.monthlySpendPaise).toBe(0);
+    expect(stats.ccBillsPaise).toBe(0);
+    expect(stats.bankBalancePaise).toBe(0);
+    expect(stats.netLentPaise).toBe(0);
     expect(stats.tasksLeft).toBe(0);
-    expect(stats.habitsDone).toBe(0);
-    expect(stats.sleepHours).toBeNull();
   });
 });

@@ -15,14 +15,14 @@ import org.json.JSONObject
 import java.util.Locale
 
 /**
- * StatsWidget — compact daily stats tile (replaces the old "Report"
- * quick-action tile). Renders a 2x2 snapshot (spend today, tasks left,
- * habits, last sleep) written by the JS side via StatsWidgetBridge into
- * SharedPreferences, so values survive widget redraws and process death.
- * Tapping the widget opens the full Combined Report (deep link unchanged).
+ * StatsWidget — 2x2 home-screen carousel. Six stat cards (monthly spend,
+ * CC bills, bank balance, net lent/debit, tasks left, net wealth) live in a
+ * ViewFlipper that auto-advances every 3 seconds with a fade; tapping a
+ * card deep-links to that screen.
  *
- * Missing/absent stats render as placeholders ("—") — the widget is
- * informative but never blocks on app state.
+ * Values are pushed from JS (StatsWidgetBridge) into SharedPreferences, so
+ * they survive widget redraws and process death. Missing stats render as
+ * placeholders ("—") — the widget never blocks on app state.
  */
 class StatsWidget : AppWidgetProvider() {
 
@@ -31,14 +31,11 @@ class StatsWidget : AppWidgetProvider() {
         const val KEY_JSON = "stats_json"
 
         private val MUTED = Color.parseColor("#8E8EA0")
-        private val BLUE = Color.parseColor("#64D2FF")
         private val GREEN = Color.parseColor("#7EE787")
-        private val MONTHS = arrayOf(
-            "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-            "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
-        )
+        private val RED = Color.parseColor("#FF6B81")
+        private val PURPLE = Color.parseColor("#C9A6FF")
 
-        /** Persist the latest stats JSON (from JS bridge) and redraw. */
+        /** Persist the latest stats JSON (from the JS bridge) and redraw. */
         fun setStats(ctx: Context, json: String) {
             val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (json.isEmpty()) {
@@ -73,62 +70,78 @@ class StatsWidget : AppWidgetProvider() {
     private fun buildViews(context: Context, json: String?): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_stats)
 
-        var title = "TODAY"
         var spend = "—"
+        var cards = "—"
+        var bank = "—"
+        var lent = "—"
+        var lentLabel = "NET LENT"
+        var lentColor = GREEN
         var tasks = "—"
-        var tasksColor = MUTED
-        var habits = "—"
-        var sleep = "—"
+        var tasksColor = PURPLE
+        var wealth = "—"
 
         if (!json.isNullOrEmpty()) {
             try {
                 val o = JSONObject(json)
 
-                val dayKey = o.optString("dayKey", "")
-                if (dayKey.length >= 10) title = "TODAY · " + dayTitle(dayKey)
-
-                if (o.has("spendPaise") && o.optInt("spendPaise", -1) >= 0) {
-                    spend = formatSpend(o.getInt("spendPaise"))
+                if (o.has("monthlySpendPaise")) {
+                    spend = formatMoney(o.getLong("monthlySpendPaise"))
                 }
-
-                val tasksLeft = o.optInt("tasksLeft", -1)
-                if (tasksLeft >= 0) {
-                    if (tasksLeft == 0) {
+                if (o.has("ccBillsPaise")) {
+                    cards = formatMoney(o.getLong("ccBillsPaise"))
+                }
+                if (o.has("bankBalancePaise")) {
+                    bank = formatMoney(o.getLong("bankBalancePaise"))
+                }
+                if (o.has("netLentPaise")) {
+                    val net = o.getLong("netLentPaise")
+                    if (net < 0) {
+                        lentLabel = "NET DEBIT"
+                        lentColor = RED
+                        lent = formatMoney(-net)
+                    } else {
+                        lent = formatMoney(net)
+                    }
+                }
+                if (o.has("tasksLeft")) {
+                    val left = o.getInt("tasksLeft")
+                    if (left == 0) {
                         tasks = "✓"
                         tasksColor = GREEN
                     } else {
-                        tasks = tasksLeft.toString()
-                        tasksColor = BLUE
+                        tasks = left.toString()
                     }
                 }
-
-                val done = o.optInt("habitsDone", -1)
-                val total = o.optInt("habitsTotal", -1)
-                if (done >= 0 && total >= 0) {
-                    habits = "$done/$total"
-                }
-
-                val hours = o.optDouble("sleepHours", Double.NaN)
-                if (!hours.isNaN() && hours > 0) {
-                    sleep = formatSleep(hours)
+                if (o.has("netWorthPaise")) {
+                    wealth = formatMoney(o.getLong("netWorthPaise"))
                 }
             } catch (_: Exception) {
                 // Malformed payload → keep placeholders
             }
         }
 
-        views.setTextViewText(R.id.stats_title, title)
         views.setTextViewText(R.id.stats_spend, spend)
+        views.setTextViewText(R.id.stats_cards, cards)
+        views.setTextViewText(R.id.stats_bank, bank)
+        views.setTextViewText(R.id.stats_lent, lent)
+        views.setTextViewText(R.id.stats_lent_label, lentLabel)
+        views.setTextColor(R.id.stats_lent, lentColor)
         views.setTextViewText(R.id.stats_tasks, tasks)
         views.setTextColor(R.id.stats_tasks, tasksColor)
-        views.setTextViewText(R.id.stats_habits, habits)
-        views.setTextViewText(R.id.stats_sleep, sleep)
-        views.setOnClickPendingIntent(R.id.stats_container, buildClickIntent(context))
+        views.setTextViewText(R.id.stats_wealth, wealth)
+
+        views.setOnClickPendingIntent(R.id.stats_card_spend, deepLink(context, "meridian://monthly-spend"))
+        views.setOnClickPendingIntent(R.id.stats_card_cards, deepLink(context, "meridian://credit-cards"))
+        views.setOnClickPendingIntent(R.id.stats_card_bank, deepLink(context, "meridian://bank-accounts"))
+        views.setOnClickPendingIntent(R.id.stats_card_lent, deepLink(context, "meridian://lent-borrowed"))
+        views.setOnClickPendingIntent(R.id.stats_card_tasks, deepLink(context, "meridian://tasks"))
+        views.setOnClickPendingIntent(R.id.stats_card_wealth, deepLink(context, "meridian://wealth"))
+
         return views
     }
 
     /** Paise → "₹845" or "₹1.2k" (no locale-dependent grouping). */
-    private fun formatSpend(paise: Int): String {
+    private fun formatMoney(paise: Long): String {
         val rupees = paise / 100.0
         return if (rupees >= 1000) {
             String.format(Locale.US, "₹%.1fk", rupees / 1000.0)
@@ -137,32 +150,15 @@ class StatsWidget : AppWidgetProvider() {
         }
     }
 
-    /** Hours → "7h" or "7h 20m". */
-    private fun formatSleep(hours: Double): String {
-        val h = hours.toInt()
-        val m = Math.round((hours - h) * 60 / 10.0).toInt() * 10
-        return if (m >= 10) String.format(Locale.US, "%dh %dm", h, m) else String.format(Locale.US, "%dh", h)
-    }
-
-    /** "2026-11-11" → "NOV 11". */
-    private fun dayTitle(dayKey: String): String {
-        return try {
-            val parts = dayKey.split("-")
-            "${MONTHS[parts[1].toInt() - 1]} ${parts[2].toInt()}"
-        } catch (_: Exception) {
-            ""
-        }
-    }
-
-    private fun buildClickIntent(context: Context): PendingIntent {
+    private fun deepLink(context: Context, uri: String): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = Uri.parse("meridian://combined-report")
+            data = Uri.parse(uri)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         return PendingIntent.getActivity(
             context,
-            0,
+            uri.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

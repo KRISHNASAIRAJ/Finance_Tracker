@@ -407,32 +407,42 @@ quiet during that batch; recorded here chronologically).
 ## 13. Compact Stats Widget (v4)
 
 The home-screen "Report" quick-action tile (static icon + label, tap →
-combined report) becomes a live compact-stats widget.
+combined report) becomes a 2×2 auto-scrolling stats carousel.
 
-- **Layout:** dark glass panel (same `widget_background`), title row
-  `TODAY · NOV 11`, then a 2×2 stat grid — SPEND (₹, pink), TASKS LEFT
-  (count or green ✓, blue), HABITS (done/total, green), SLEEP (last
-  session, purple). `res/layout/widget_stats.xml`; resizable 4×2-ish
-  (`minWidth 180dp`), provider meta renamed `res/xml/widget_stats.xml`,
-  label "Stats", preview keeps the report icon drawable.
-- **Data flow:** JS `services/statsWidget.ts` — `computeDailyStats`
-  (pure, tested) reads the finance/tasks/habits/sleep stores:
-  spend = today's outflow types (`expense`, `fixed_expense`,
-  `fuel_purchase`, `vehicle_service`) in paise; tasksLeft = open tasks
-  due today or overdue (IST day keys); habits = today's ticked vs
-  `effectiveHabits().length`; sleep = latest session duration. Snapshot
-  JSON → `NativeModules.StatsWidgetBridge.setStats` → SharedPreferences
-  (`meridian_stats_widget`) → native redraw (same pattern as the Bedtime
-  widget).
+- **Cards (6, one visible at a time):** MONTHLY SPEND (₹, pink), CC BILLS
+  (₹, amber), BANK BALANCE (₹, blue), NET LENT / NET DEBIT (₹, green when
+  lent, red when net borrowed), TASKS LEFT (count, purple; green ✓ at
+  zero), NET WEALTH (₹, teal).
+- **Auto-scroll:** the cards live in a `ViewFlipper`
+  (`android:flipInterval="3000"`, `@android:anim/fade_in` /
+  `fade_out`) — the launcher flips and fades them every 3 seconds with no
+  timers and no battery cost, and it keeps running while the app is closed.
+  `ViewFlipper` is a RemoteViews-supported layout, so this stays inside
+  the widget sandbox.
+- **Tap targets:** every card has its own PendingIntent → deep link:
+  `meridian://monthly-spend`, `meridian://credit-cards`,
+  `meridian://bank-accounts`, `meridian://lent-borrowed`,
+  `meridian://tasks`, `meridian://wealth` (all handled in App.tsx →
+  FinanceTab / TasksTab / InvestmentsTab).
+- **Data flow:** JS `services/statsWidget.ts` — `computeWidgetStats`
+  (pure, tested) reads the finance/tasks/equity stores: monthly spend =
+  current IST month outflow types (`expense`, `fixed_expense`,
+  `fuel_purchase`, `vehicle_service`) in paise; cc bills = statement
+  `billAmount`, else `currentOutstanding`/`balance`; bank balance = Σ
+  accounts; net lent = Σ outstanding lent − Σ outstanding borrowed;
+  tasks = open tasks due today or overdue; net worth = holdings + FDs −
+  loans. Snapshot JSON → `NativeModules.StatsWidgetBridge.setStats` →
+  SharedPreferences (`meridian_stats_widget`) → native redraw (same
+  pattern as the Bedtime widget).
 - **Native:** `widgets/StatsWidget.kt` (parses JSON with org.json,
-  formats ₹ spend as `₹845`/`₹1.2k` and sleep as `7h 20m`, tasks 0 →
-  green "✓"; placeholders `—` when data is missing; tap deep link
-  `meridian://combined-report` unchanged), `StatsWidgetBridgeModule`,
-  `StatsWidgetPackage` registered in MainApplication; the old
-  `CombinedReportWidget` class and its provider xml are removed
-  (manifest receiver → `.widgets.StatsWidget`).
+  formats ₹ as `₹845`/`₹1.2k`; net lent flips label NET LENT → NET DEBIT
+  and colour; tasks 0 → green "✓"; placeholders `—` when data is
+  missing), `StatsWidgetBridgeModule`, `StatsWidgetPackage` registered in
+  MainApplication; the old `CombinedReportWidget` class and its provider
+  xml are removed (manifest receiver → `.widgets.StatsWidget`).
 - **Refresh:** App.tsx boot + after every foreground sync completes.
   Missing rows degrade to `—` — never blocks on app state.
-- **Tests:** `services/__tests__/statsWidget.test.ts` (5) — outflow-only
-  spend in paise, malformed-row resilience, IST task filter, habit/sleep
-  selection, empty-state.
+- **Tests:** `services/__tests__/statsWidget.test.ts` (9) — monthly
+  outflow-only spend, malformed-row resilience, card bill fallback,
+  account sums, lent/borrowed netting (incl. negative net), IST task
+  filter, non-finite net worth.

@@ -1,133 +1,190 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/stats_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="10dp"
     android:background="@drawable/widget_background">
 
-    <TextView
-        android:id="@+id/stats_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="TODAY"
-        android:textColor="#8E8EA0"
-        android:textSize="9sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.12" />
-
-    <LinearLayout
+    <ViewFlipper
+        android:id="@+id/stats_flipper"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:flipInterval="3000"
+        android:animation="@android:anim/fade_in"
+        android:animationOut="@android:anim/fade_out">
 
+        <!-- Card 1 — monthly spend -->
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:id="@+id/stats_card_spend"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/stats_spend_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MONTHLY SPEND"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
 
             <TextView
                 android:id="@+id/stats_spend"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="—"
                 android:textColor="#FF6B81"
-                android:textSize="17sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Card 2 — credit card bills -->
+        <LinearLayout
+            android:id="@+id/stats_card_cards"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
+                android:id="@+id/stats_cards_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CC BILLS"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
+
+            <TextView
+                android:id="@+id/stats_cards"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="SPEND"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.1" />
+                android:text="—"
+                android:textColor="#FFC46B"
+                android:textSize="19sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Card 3 — bank balance -->
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:id="@+id/stats_card_bank"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/stats_bank_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BANK BALANCE"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
+
+            <TextView
+                android:id="@+id/stats_bank"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="—"
+                android:textColor="#64D2FF"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Card 4 — net lent / net debit -->
+        <LinearLayout
+            android:id="@+id/stats_card_lent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/stats_lent_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NET LENT"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
+
+            <TextView
+                android:id="@+id/stats_lent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="—"
+                android:textColor="#7EE787"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Card 5 — tasks -->
+        <LinearLayout
+            android:id="@+id/stats_card_tasks"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/stats_tasks_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TASKS LEFT"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
 
             <TextView
                 android:id="@+id/stats_tasks"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="#64D2FF"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="TASKS LEFT"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.1" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/stats_habits"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="#7EE787"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="HABITS"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.1" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/stats_sleep"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
                 android:text="—"
                 android:textColor="#C9A6FF"
-                android:textSize="17sp"
+                android:textSize="19sp"
                 android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Card 6 — net worth -->
+        <LinearLayout
+            android:id="@+id/stats_card_wealth"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
+                android:id="@+id/stats_wealth_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NET WEALTH"
+                android:textColor="#8E8EA0"
+                android:textSize="8sp"
+                android:letterSpacing="0.12" />
+
+            <TextView
+                android:id="@+id/stats_wealth"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="SLEEP"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.1" />
+                android:text="—"
+                android:textColor="#4ECDC4"
+                android:textSize="19sp"
+                android:textStyle="bold" />
         </LinearLayout>
-    </LinearLayout>
-</LinearLayout>
+    </ViewFlipper>
+</FrameLayout>
