@@ -361,7 +361,9 @@ export default function BalanceSummaryScreen() {
             )}
             {section.items.length === 0 && (
               <View style={styles.sectionBody}>
-                <Text style={styles.emptyText}>No entries</Text>
+                <Text style={styles.emptyText}>
+                  {section.title === 'Wallets' ? 'No wallets yet' : 'No entries'}
+                </Text>
               </View>
             )}
           </View>
