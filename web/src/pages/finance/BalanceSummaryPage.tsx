@@ -36,7 +36,8 @@ export function BalanceSummaryPage() {
     (p) => !visibleWallets.some((w) => w.id === p.id)
   )
 
-  const totalBalance = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
+  const accountsTotal = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
+  const totalBalance = accountsTotal + walletTotal
   const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
 
   const lentOut = useMemo(
@@ -109,8 +110,13 @@ export function BalanceSummaryPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader
-            title="Bank accounts"
-            action={<span className="text-xs text-white/40">{accounts?.length ?? 0} accounts</span>}
+            title="Bank balances"
+            action={
+              <span className="text-xs text-white/40">
+                {paiseToRupees(accountsTotal + walletTotal)} · {accounts?.length ?? 0} accounts ·{' '}
+                {visibleWallets.length} wallets
+              </span>
+            }
           />
           <CardBody className="space-y-3">
             {(accounts ?? []).length === 0 && <p className="text-sm text-white/30 py-4 text-center">No bank accounts</p>}
@@ -120,25 +126,13 @@ export function BalanceSummaryPage() {
                 <p className="text-sm font-semibold text-white tnum">{paiseToRupees(a.amount)}</p>
               </div>
             ))}
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Wallets"
-            action={
-              <span className="text-xs text-white/40">
-                {paiseToRupees(walletTotal)} across {visibleWallets.length} wallets
-              </span>
-            }
-          />
-          <CardBody className="space-y-3">
-            {visibleWallets.length === 0 && (
-              <p className="text-sm text-white/30 py-4 text-center">No wallets yet</p>
-            )}
+            {/* Wallets live inside the bank-balance section, not as their own card. */}
             {visibleWallets.map((w) => (
               <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3">
-                <p className="text-sm text-white/80">{w.name}</p>
+                <div>
+                  <p className="text-sm text-white/80">{w.name}</p>
+                  <p className="text-xs text-white/35">Wallet</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-white tnum">{paiseToRupees(w.amount)}</p>
                   <input

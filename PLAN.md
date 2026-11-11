@@ -513,10 +513,14 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   `setWalletAmount()` (never negative / non-finite) and `deleteWallet()`;
   edits go through the central sync queue (`wallets` entity) and the cloud
   pull merges them like every other entity.
-- **Wallets section** in the Balance Summary, directly under **Bank
-  Balances** (mobile + web): one row per wallet with its balance, a
-  section total, and an inline editor (tap a row on mobile → modal; blur a
-  field on web) to set the balance.
+- **Wallets live inside the Bank Balances section** — not as a separate
+  section or card. The wallet rows are appended under the bank account
+  rows in the same section (mobile: Balance Summary → "Bank Balances",
+  which now opens expanded by default; web: the "Bank balances" card).
+  Wallet balances are cash, so they count towards the section total and
+  the net worth (no minimum-balance rule applies to them).
+  Wallet balance is never shown as a standalone card (not on the home
+  screen and not on the stats widget).
 - **Standard providers** seeded on first open (stable ids so balances
   follow the row across devices): Amazon Pay, PhonePe, Zepto, Blinkit,
   BigBasket — editable in `WALLET_PROVIDERS` (mobile

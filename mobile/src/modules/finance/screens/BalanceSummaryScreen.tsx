@@ -72,7 +72,8 @@ export default function BalanceSummaryScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  // Bank Balances opens expanded so the wallet rows under it are visible.
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ 'Bank Balances': true });
   const [editingWallet, setEditingWallet] = useState<{ id: string; name: string } | null>(null);
   const [walletAmountInput, setWalletAmountInput] = useState('');
 
@@ -98,7 +99,11 @@ export default function BalanceSummaryScreen() {
     seedWallets(user?.id);
   }, [user?.id]);
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
+  const accountsTotal = accounts.reduce((sum, acc) => sum + acc.amount, 0);
+  const walletTotal = (wallets || []).reduce((sum, w) => sum + w.amount, 0);
+  // Wallets are cash — they live inside the Bank Balances section and count
+  // towards the balance and the net worth (no minimum-balance rule applies).
+  const totalBalance = accountsTotal + walletTotal;
   const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
   const effectiveBalance = totalBalance - totalMinBalance;
   const totalLent = receivables.filter((r) => r.type === 'lent').reduce((sum, r) => sum + (r.amount - (r.paidAmount || 0)), 0);
@@ -144,31 +149,27 @@ export default function BalanceSummaryScreen() {
       title: 'Bank Balances',
       icon: 'business-outline',
       color: DONUT.blue,
-      items: accounts.map((acc) => ({
-        label: acc.title,
-        bank: acc.title,
-        value: acc.amount,
-        subtitle: acc.amount < getMinBalanceForAccount(acc.title)
-          ? `Below min ₹${(getMinBalanceForAccount(acc.title) / 100).toLocaleString('en-IN')}`
-          : '',
-        alert: acc.amount < getMinBalanceForAccount(acc.title),
-      })),
+      items: [
+        ...accounts.map((acc) => ({
+          label: acc.title,
+          bank: acc.title,
+          value: acc.amount,
+          subtitle: acc.amount < getMinBalanceForAccount(acc.title)
+            ? `Below min ₹${(getMinBalanceForAccount(acc.title) / 100).toLocaleString('en-IN')}`
+            : '',
+          alert: acc.amount < getMinBalanceForAccount(acc.title),
+        })),
+        // Wallets live inside this section — not as a separate card.
+        ...(wallets || []).map((w) => ({
+          label: w.name,
+          value: w.amount,
+          subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
+          alert: false,
+          onPress: () => openWalletEditor(w.id, w.name, w.amount),
+        })),
+      ],
       total: totalBalance,
       totalLabel: 'Total Bank Balance',
-    },
-    {
-      title: 'Wallets',
-      icon: 'wallet-outline',
-      color: DONUT.cyan,
-      items: (wallets || []).map((w) => ({
-        label: w.name,
-        value: w.amount,
-        subtitle: w.amount > 0 ? 'Tap to update balance' : 'Tap to set balance',
-        alert: false,
-        onPress: () => openWalletEditor(w.id, w.name, w.amount),
-      })),
-      total: (wallets || []).reduce((sum, w) => sum + w.amount, 0),
-      totalLabel: 'Total Wallet Balance',
     },
     {
       title: 'Credit Card Bills',
