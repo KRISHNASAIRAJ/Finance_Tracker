@@ -1,7 +1,7 @@
 /**
  * statsWidget — computes the stats shown on the Android home-screen widget
  * and pushes them to the native StatsWidgetBridge (SharedPreferences-backed,
- * same pattern as bedtimeWidget).
+ * same pattern as the sleep widget bridge).
  *
  * The widget is a 2x2 carousel: six stat cards (monthly spend, CC bills,
  * bank balance, net lent/debit, tasks left, net worth) auto-advance every
