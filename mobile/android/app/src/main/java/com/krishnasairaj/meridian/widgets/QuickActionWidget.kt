@@ -80,9 +80,3 @@ class AddTaskWidget : BaseQuickActionWidget(
     iconRes = com.krishnasairaj.meridian.R.drawable.widget_add_task,
     deepLink = "meridian://add-task"
 )
-
-class CombinedReportWidget : BaseQuickActionWidget(
-    label = "Report",
-    iconRes = com.krishnasairaj.meridian.R.drawable.widget_combined_report,
-    deepLink = "meridian://combined-report"
-)

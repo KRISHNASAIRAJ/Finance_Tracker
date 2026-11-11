@@ -56,11 +56,11 @@
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_add_task"/>
     </receiver>
-    <receiver android:name=".widgets.CombinedReportWidget" android:label="Report" android:exported="true">
+    <receiver android:name=".widgets.StatsWidget" android:label="Stats" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_combined_report"/>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stats"/>
     </receiver>
     <receiver android:name=".widgets.BedtimeWidget" android:label="Bedtime" android:exported="true">
       <intent-filter>

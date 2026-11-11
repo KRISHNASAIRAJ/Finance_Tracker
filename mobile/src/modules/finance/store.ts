@@ -953,7 +953,7 @@ const FIXED_EXPENSES_FIX_V4_FLAG = 'meridian-fixed-expense-fixes-v4';
 const FIXED_EXPENSE_SCHEDULE_V4_FLAG = 'meridian-fixed-expense-schedule-v4';
 
 /** IST date key (YYYY-MM-DD) — safe from any runtime timezone. */
-function istDateKey(d: Date = new Date()): string {
+export function istDateKey(d: Date = new Date()): string {
   return new Date(d.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
 }
 

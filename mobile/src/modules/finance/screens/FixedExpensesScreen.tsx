@@ -60,23 +60,6 @@ export default function FixedExpensesScreen() {
     return rank(a.name) - rank(b.name);
   });
 
-  // 2027-01-01 scheduled SIP changes (seedFixedExpenseFixesV4) — show a
-  // "→ ₹X from 1 Jan" hint on affected rows until the effective date.
-  const SCHEDULE_HINTS: Array<{ keys: string[]; amount: number }> = [
-    { keys: ['mid cap', 'midcap'], amount: 50000 },
-    { keys: ['small cap'], amount: 50000 },
-    { keys: ['motilal'], amount: 100000 },
-    { keys: ['invesco'], amount: 100000 },
-  ];
-  const scheduleHintFor = (name: string): string | null => {
-    const todayKey = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
-    if (todayKey >= '2027-01-01') return null;
-    const n = name.toLowerCase();
-    const hit = SCHEDULE_HINTS.find((h) => h.keys.some((k) => n.includes(k)));
-    if (!hit) return null;
-    return `→ ₹${(hit.amount / 100).toLocaleString('en-IN')} from 1 Jan 2027`;
-  };
-
   const pendingExpenses = orderedExpenses.filter((item) => item.lastPaidMonth !== currentMonthStr);
   const totalPending = pendingExpenses.reduce((sum, item) => sum + item.amount, 0);
 
@@ -143,9 +126,6 @@ export default function FixedExpensesScreen() {
                             ? `Due on the last day of every month`
                             : `Due on ${ordinal(item.billingDay)} of every month`}
                       </Text>
-                      {scheduleHintFor(item.name) && (
-                        <Text style={styles.scheduleHint}>{scheduleHintFor(item.name)}</Text>
-                      )}
                     </View>
                   </View>
                   <View style={styles.itemRight}>
@@ -297,12 +277,6 @@ const styles = StyleSheet.create({
   itemSubtitle: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  scheduleHint: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.primary,
     marginTop: 2,
   },
   itemRight: {

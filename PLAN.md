@@ -302,9 +302,11 @@ rest of the app).
   effective_date=2027-01-01); on every app boot, if today ≥ effective date
   and the rule is pending, set the scheduled amounts + clear flag. UI
   shows a "changes on 1 Jan 2027" hint on affected rows until applied.
-- Scheduled rule (2027-01-01): HDFC Mid Cap → ₹500 (50000), HDFC Small
-  Cap → ₹500 (50000), Motilal Oswal Green ₹500 → ₹1,000 (100000) —
-  Motilal row is matched/created now at its current ₹500.
+- Scheduled rule (2027-01-01): HDFC Mid Cap → ₹500 (50000), HDFC Small Cap
+  → ₹500 (50000), Motilal Oswal Green ₹500 → ₹1,000 (100000) —
+  Motilal row is matched/created now at its current ₹500. (The planned
+  "changes on 1 Jan 2027" row hint was dropped on user request — the
+  schedule applies silently at boot.)
 - Add: Invesco Flexi Cap SIP ₹1,000/month (100000 paise), billingDay 1,
   category Investments, added now but due reminders suppressed until
   2027-01 (lastPaidMonth pre-set to 2026-12; dueDate 2027-01-01) so it
@@ -400,3 +402,36 @@ quiet during that batch; recorded here chronologically).
   forever, plus NaN guards so malformed rows cannot poison the dashboard;
   new `holdings.missing_sync_count` column
   (`0044_holdings_missing_sync_count.sql`).
+
+## 13. Compact Stats Widget (v4)
+
+The home-screen "Report" quick-action tile (static icon + label, tap →
+combined report) becomes a live compact-stats widget.
+
+- **Layout:** dark glass panel (same `widget_background`), title row
+  `TODAY · NOV 11`, then a 2×2 stat grid — SPEND (₹, pink), TASKS LEFT
+  (count or green ✓, blue), HABITS (done/total, green), SLEEP (last
+  session, purple). `res/layout/widget_stats.xml`; resizable 4×2-ish
+  (`minWidth 180dp`), provider meta renamed `res/xml/widget_stats.xml`,
+  label "Stats", preview keeps the report icon drawable.
+- **Data flow:** JS `services/statsWidget.ts` — `computeDailyStats`
+  (pure, tested) reads the finance/tasks/habits/sleep stores:
+  spend = today's outflow types (`expense`, `fixed_expense`,
+  `fuel_purchase`, `vehicle_service`) in paise; tasksLeft = open tasks
+  due today or overdue (IST day keys); habits = today's ticked vs
+  `effectiveHabits().length`; sleep = latest session duration. Snapshot
+  JSON → `NativeModules.StatsWidgetBridge.setStats` → SharedPreferences
+  (`meridian_stats_widget`) → native redraw (same pattern as the Bedtime
+  widget).
+- **Native:** `widgets/StatsWidget.kt` (parses JSON with org.json,
+  formats ₹ spend as `₹845`/`₹1.2k` and sleep as `7h 20m`, tasks 0 →
+  green "✓"; placeholders `—` when data is missing; tap deep link
+  `meridian://combined-report` unchanged), `StatsWidgetBridgeModule`,
+  `StatsWidgetPackage` registered in MainApplication; the old
+  `CombinedReportWidget` class and its provider xml are removed
+  (manifest receiver → `.widgets.StatsWidget`).
+- **Refresh:** App.tsx boot + after every foreground sync completes.
+  Missing rows degrade to `—` — never blocks on app state.
+- **Tests:** `services/__tests__/statsWidget.test.ts` (5) — outflow-only
+  spend in paise, malformed-row resilience, IST task filter, habit/sleep
+  selection, empty-state.

@@ -22,6 +22,7 @@ import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
+import { pushStatsWidget } from './src/services/statsWidget';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
@@ -171,9 +172,15 @@ if (data.screen === 'TaskDetail' && data.taskId) {
     Linking.getInitialURL().then(handleDeepLink);
     const linkSub = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
 
+    // Compact home-screen stats widget — refresh on boot and after every
+    // foreground sync completes (best-effort; no-ops on iOS/Expo Go).
+    pushStatsWidget();
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        processSyncQueue().catch((e) => console.warn('[App] foreground sync failed:', e));
+        processSyncQueue()
+          .then(() => pushStatsWidget())
+          .catch((e) => console.warn('[App] foreground sync failed:', e));
       }
       if (nextState === 'background') {
         processSyncQueue().catch((e) => console.warn('[App] background sync failed:', e));
