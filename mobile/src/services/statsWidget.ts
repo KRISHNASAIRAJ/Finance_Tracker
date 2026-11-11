@@ -43,6 +43,12 @@ export interface WidgetStats {
   tasksLeft: number;
   /** Holdings + FDs − loans, in paise */
   netWorthPaise: number;
+  /** Today's market change (holdings × (price − prev close)), in paise */
+  dayChangePaise: number;
+  /** Today's market change in percent (vs the previous close value) */
+  dayChangePct: number;
+  /** Current portfolio value of the holdings, in paise */
+  portfolioValuePaise: number;
 }
 
 /**
@@ -73,6 +79,10 @@ export function computeWidgetStats(input: {
   receivables: Pick<Receivable, 'type' | 'amount' | 'paidAmount'>[];
   tasks: Task[];
   netWorthPaise: number;
+  /** Today's market change in paise */
+  dayChangePaise?: number;
+  /** Current holdings value in paise */
+  portfolioValuePaise?: number;
   /** Garage fuel fills — fuel is counted from here, not from transactions */
   garageFills?: Pick<FuelFill, 'date' | 'amount'>[];
   /** Fixed expense names are excluded from "spend" (they are shown separately) */
@@ -89,6 +99,8 @@ export function computeWidgetStats(input: {
     receivables,
     tasks,
     netWorthPaise,
+    dayChangePaise: dayChangeIn = 0,
+    portfolioValuePaise: portfolioValueIn = 0,
     garageFills = [],
     fixedExpenseNames = [],
     now = new Date(),
@@ -152,6 +164,13 @@ export function computeWidgetStats(input: {
     return istDateKey(d) <= dayKey;
   }).length;
 
+  // Market today — same formula as the Wealth dashboard's day-change card:
+  // change % is relative to the value before today's move.
+  const dayChangePaise = Number.isFinite(dayChangeIn) ? dayChangeIn : 0;
+  const portfolioValuePaise = Number.isFinite(portfolioValueIn) ? portfolioValueIn : 0;
+  const dayChangePct =
+    portfolioValuePaise > 0 ? (dayChangePaise / Math.max(1, portfolioValuePaise - dayChangePaise)) * 100 : 0;
+
   return {
     dayKey,
     monthKey,
@@ -161,6 +180,9 @@ export function computeWidgetStats(input: {
     netLentPaise,
     tasksLeft,
     netWorthPaise: Number.isFinite(netWorthPaise) ? netWorthPaise : 0,
+    dayChangePaise,
+    dayChangePct,
+    portfolioValuePaise,
   };
 }
 
@@ -179,6 +201,8 @@ export function readWidgetStats(): WidgetStats {
     receivables: f.receivables,
     tasks: t.tasks,
     netWorthPaise: inv.getNetWorth(),
+    dayChangePaise: inv.getTodayPnL(),
+    portfolioValuePaise: inv.getPortfolioValue(),
     garageFills: g.fills,
     fixedExpenseNames: f.fixedExpenses.map((fx) => fx.name),
   });

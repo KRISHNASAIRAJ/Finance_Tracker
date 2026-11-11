@@ -156,6 +156,37 @@ describe('computeWidgetStats — cards, accounts, lent', () => {
   });
 });
 
+describe('computeWidgetStats — market today', () => {
+  it('reports the day change in paise and percent against the previous close value', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      dayChangePaise: 2000,
+      portfolioValuePaise: 100000,
+    });
+    // 2000 / (100000 - 2000) = 2.04%
+    expect(stats.dayChangePaise).toBe(2000);
+    expect(stats.dayChangePct).toBeCloseTo(2.04, 2);
+    expect(stats.portfolioValuePaise).toBe(100000);
+  });
+
+  it('keeps a negative day change and reports a negative percent', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      dayChangePaise: -2500,
+      portfolioValuePaise: 100000,
+    });
+    expect(stats.dayChangePaise).toBe(-2500);
+    // -2500 / (100000 + 2500) = -2.44%
+    expect(stats.dayChangePct).toBeCloseTo(-2.44, 2);
+  });
+
+  it('falls back to a zero percent when there is no portfolio value', () => {
+    const stats = computeWidgetStats({ ...base, dayChangePaise: 1000 });
+    expect(stats.dayChangePct).toBe(0);
+    expect(stats.dayChangePaise).toBe(1000);
+  });
+});
+
 describe('computeWidgetStats — tasks and net worth', () => {
   it('counts open tasks due today or overdue', () => {
     const stats = computeWidgetStats({

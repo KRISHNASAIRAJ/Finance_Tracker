@@ -409,10 +409,13 @@ quiet during that batch; recorded here chronologically).
 The home-screen "Report" quick-action tile (static icon + label, tap →
 combined report) becomes a 2×2 auto-scrolling stats carousel.
 
-- **Cards (6, one visible at a time):** MONTHLY SPEND (₹, pink), CC BILLS
+- **Cards (7, one visible at a time):** MONTHLY SPEND (₹, pink), CC BILLS
   (₹, amber), BANK BALANCE (₹, blue), NET LENT / NET DEBIT (₹, green when
   lent, red when net borrowed), TASKS LEFT (count, purple; green ✓ at
-  zero), NET WEALTH (₹, teal).
+  zero), NET WEALTH (₹, teal), MARKET TODAY (day change ₹ + % with the
+  portfolio's net value below it — green for a gain, red for a loss; the
+  change % uses the same formula as the Wealth dashboard's day-change
+  card: change ÷ (value − change)).
 - **Auto-scroll:** the cards live in a `ViewFlipper`
   (`android:flipInterval="3000"`, `android:autoStart="true"`,
   `android:inAnimation="@anim/widget_fade_in"` /
@@ -444,7 +447,9 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   statement (`billAmount`) is deliberately not used because it ignores
   payments already made against the bill; bank balance = Σ accounts; net
   lent = Σ outstanding lent − Σ outstanding borrowed; tasks = open tasks
-  due today or overdue; net worth = holdings + FDs − loans. Snapshot JSON
+  due today or overdue; net worth = holdings + FDs − loans; market today =
+  `getTodayPnL()` (holdings × (price − prev close)) with the portfolio
+  value from `getPortfolioValue()`. Snapshot JSON
   → `NativeModules.StatsWidgetBridge.setStats` → SharedPreferences
   (`meridian_stats_widget`) → native redraw (same pattern as the Bedtime
   widget).

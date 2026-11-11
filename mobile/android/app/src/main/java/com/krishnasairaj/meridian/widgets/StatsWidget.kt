@@ -15,10 +15,10 @@ import org.json.JSONObject
 import java.util.Locale
 
 /**
- * StatsWidget — 2x2 home-screen carousel. Six stat cards (monthly spend,
- * CC bills, bank balance, net lent/debit, tasks left, net wealth) live in a
- * ViewFlipper that auto-advances every 3 seconds with a fade; tapping a
- * card deep-links to that screen.
+ * StatsWidget — 2x2 home-screen carousel. Seven stat cards (monthly spend,
+ * CC bills, bank balance, net lent/debit, tasks left, net wealth and today's
+ * market performance) live in a ViewFlipper that auto-advances every 3
+ * seconds with a fade; tapping a card deep-links to that screen.
  *
  * Values are pushed from JS (StatsWidgetBridge) into SharedPreferences, so
  * they survive widget redraws and process death. Missing stats render as
@@ -79,6 +79,9 @@ class StatsWidget : AppWidgetProvider() {
         var tasks = "—"
         var tasksColor = PURPLE
         var wealth = "—"
+        var marketChange = "—"
+        var marketColor = GREEN
+        var marketValue = "—"
 
         if (!json.isNullOrEmpty()) {
             try {
@@ -115,6 +118,16 @@ class StatsWidget : AppWidgetProvider() {
                 if (o.has("netWorthPaise")) {
                     wealth = formatMoney(o.getLong("netWorthPaise"))
                 }
+                if (o.has("dayChangePaise")) {
+                    val change = o.getLong("dayChangePaise")
+                    val pct = o.optDouble("dayChangePct", 0.0)
+                    val sign = if (change < 0) "-" else "+"
+                    marketColor = if (change < 0) RED else GREEN
+                    marketChange = "$sign${formatMoney(kotlin.math.abs(change))} ($sign${String.format(Locale.US, "%.1f", kotlin.math.abs(pct))}%)"
+                }
+                if (o.has("portfolioValuePaise")) {
+                    marketValue = "NET ${formatMoney(o.getLong("portfolioValuePaise"))}"
+                }
             } catch (_: Exception) {
                 // Malformed payload → keep placeholders
             }
@@ -129,6 +142,9 @@ class StatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.stats_tasks, tasks)
         views.setTextColor(R.id.stats_tasks, tasksColor)
         views.setTextViewText(R.id.stats_wealth, wealth)
+        views.setTextViewText(R.id.stats_market_change, marketChange)
+        views.setTextColor(R.id.stats_market_change, marketColor)
+        views.setTextViewText(R.id.stats_market_value, marketValue)
 
         views.setOnClickPendingIntent(R.id.stats_card_spend, deepLink(context, "meridian://monthly-spend"))
         views.setOnClickPendingIntent(R.id.stats_card_cards, deepLink(context, "meridian://credit-cards"))
@@ -136,6 +152,7 @@ class StatsWidget : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.stats_card_lent, deepLink(context, "meridian://lent-borrowed"))
         views.setOnClickPendingIntent(R.id.stats_card_tasks, deepLink(context, "meridian://tasks"))
         views.setOnClickPendingIntent(R.id.stats_card_wealth, deepLink(context, "meridian://wealth"))
+        views.setOnClickPendingIntent(R.id.stats_card_market, deepLink(context, "meridian://wealth"))
 
         return views
     }
