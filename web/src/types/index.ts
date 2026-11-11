@@ -72,6 +72,8 @@ export interface CreditCard {
   annual_charge?: number | null
   annual_charge_date?: string | null
   is_ltf?: boolean | null
+  /** Reward points collected on the card (see lib/cardRewards.ts) */
+  points?: number | null
   created_at?: string
   updated_at?: string
 }

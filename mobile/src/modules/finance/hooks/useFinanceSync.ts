@@ -252,6 +252,7 @@ const TABLE_MAP: SyncTable[] = [
         annualCharge: r.annual_charge as number ?? 0,
         annualChargeDate: r.annual_charge_date as string ?? undefined,
         isLtf: r.is_ltf as boolean ?? false,
+        points: r.points as number ?? 0,
       })
     ),
     getLocalItems: () => getStore().getState().cards as CreditCard[],
@@ -266,6 +267,7 @@ const TABLE_MAP: SyncTable[] = [
         annual_charge: c.annualCharge ?? 0,
         annual_charge_date: c.annualChargeDate ?? null,
         is_ltf: c.isLtf ?? false,
+        points: c.points ?? 0,
       }));
     },
   },

@@ -35,6 +35,8 @@ export interface CreditCard {
   annualCharge?: number; // annual maintenance charge in paise (0 = free)
   annualChargeDate?: string; // next AMC due date (ISO date string)
   isLtf?: boolean; // lifetime free card
+  /** Reward points collected on the card (see cardRewards.ts for the value) */
+  points?: number;
 }
 
 export interface Receivable {
@@ -536,6 +538,7 @@ export const useFinanceStore = create<FinanceState>()(
           if (updated.annualCharge !== undefined) payload.annual_charge = updated.annualCharge;
           if (updated.annualChargeDate !== undefined) payload.annual_charge_date = updated.annualChargeDate;
           if (updated.isLtf !== undefined) payload.is_ltf = updated.isLtf;
+          if (updated.points !== undefined) payload.points = updated.points;
           enqFlush("credit_cards", "update", payload);
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
@@ -563,6 +566,7 @@ export const useFinanceStore = create<FinanceState>()(
             annual_charge: newCard.annualCharge ?? 0,
             annual_charge_date: newCard.annualChargeDate ?? null,
             is_ltf: newCard.isLtf ?? false,
+            points: newCard.points ?? 0,
           });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },

@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { useFinanceStore, CreditCard } from '../store';
+import { cardRewardValue } from '../cardRewards';
 import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
@@ -134,6 +135,7 @@ export default function CreditCardsScreen() {
         {/* Vertical Card Stack */}
         {sortedCards.map((card: CreditCard, i: number) => {
           const initial = (card.name || 'M').trim().charAt(0).toUpperCase();
+          const reward = cardRewardValue(card, card.points);
           const daysUntilDue = Math.ceil(
             (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
           );
@@ -168,6 +170,15 @@ export default function CreditCardsScreen() {
                 <Ionicons name="hardware-chip-outline" size={26} color="rgba(255,255,255,0.5)" />
                 <Text style={styles.stackNumber}>•••• •••• •••• {card.endingWith}</Text>
               </View>
+              {reward.points > 0 && (
+                <View style={styles.stackRewardsRow}>
+                  <Ionicons name="star" size={11} color="#FFD79A" />
+                  <Text style={styles.stackRewardsText} numberOfLines={1}>
+                    {reward.points.toLocaleString('en-IN')} pts
+                    {reward.rewardPaise > 0 && ` · ${formatCurrency(reward.rewardPaise)} ${reward.rule.directCashback ? 'cashback' : 'rewards'}`}
+                  </Text>
+                </View>
+              )}
               <View style={styles.stackBottom}>
                 <CardBrandLogo network={card.network || ''} size={40} />
                 <View style={styles.stackBadge}>
@@ -462,6 +473,8 @@ const styles = StyleSheet.create({
   stackTopRight: { flex: 1, marginLeft: 12, marginRight: 90, flexDirection: 'row', alignItems: 'center', gap: 8 },
   stackName: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 1, width: '100%' },
   stackChipNumberRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stackRewardsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  stackRewardsText: { fontSize: 10, fontWeight: '600', color: '#FFD79A', flexShrink: 1 },
   stackNumber: { fontSize: 17, fontWeight: '600', color: '#FFFFFF', letterSpacing: 3, flex: 1 },
   stackBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   stackBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },

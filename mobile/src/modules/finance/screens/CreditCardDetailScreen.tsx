@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useFinanceStore } from '../store';
+import { cardRewardValue } from '../cardRewards';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
@@ -54,6 +55,8 @@ export default function CreditCardDetailScreen() {
   const [paymentInput, setPaymentInput] = useState('');
   const [showEditAmountModal, setShowEditAmountModal] = useState(false);
   const [editAmountInput, setEditAmountInput] = useState('');
+  const [showPointsModal, setShowPointsModal] = useState(false);
+  const [pointsInput, setPointsInput] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [settingsBillingDay, setSettingsBillingDay] = useState('');
   const [settingsAmc, setSettingsAmc] = useState('');
@@ -63,6 +66,7 @@ export default function CreditCardDetailScreen() {
   const [settingsDueCalendarVisible, setSettingsDueCalendarVisible] = useState(false);
 
   const card = (cards as any[]).find((c: any) => c.id === cardId);
+  const reward = cardRewardValue(card ?? { name: '' }, card?.points);
 
   if (!card) {
     return (
@@ -369,6 +373,39 @@ export default function CreditCardDetailScreen() {
           </View>
         )}
 
+        {/* Reward Points */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Reward Points</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setPointsInput(String(reward.points || ''));
+                setShowPointsModal(true);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={15} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.billRow}>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>POINTS</Text>
+              <Text style={styles.billValue}>{reward.points.toLocaleString('en-IN')}</Text>
+            </View>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>{reward.rule.directCashback ? 'CASHBACK' : 'REWARD VALUE'}</Text>
+              <Text style={[styles.billValue, { color: '#FFD79A' }]}>
+                {formatCurrency(reward.rewardPaise)}
+              </Text>
+            </View>
+            <View style={styles.billItem}>
+              <Text style={styles.billLabel}>RATE</Text>
+              <Text style={[styles.billValue, { fontSize: 13 }]}>{reward.rule.label}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Bill Payment */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -534,6 +571,47 @@ export default function CreditCardDetailScreen() {
                 }}
               >
                 <Text style={styles.payModalBtnSaveText}>Update Amount</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showPointsModal} transparent animationType="fade" onRequestClose={() => setShowPointsModal(false)}>
+        <View style={styles.payModalOverlay}>
+          <View style={styles.payModalContent}>
+            <Text style={styles.payModalTitle}>Reward Points — {card.name}</Text>
+            <Text style={styles.payModalSub}>
+              {reward.rule.label}. {reward.rule.directCashback
+                ? 'These points redeem directly as cashback.'
+                : 'Reward value = points ÷ 4.'}
+            </Text>
+            <Text style={styles.payInputLabel}>POINTS COLLECTED</Text>
+            <TextInput
+              style={styles.payTextInput}
+              value={pointsInput}
+              onChangeText={setPointsInput}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={colors.onSurfaceVariant}
+            />
+            <View style={styles.payModalButtons}>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnCancel]}
+                onPress={() => setShowPointsModal(false)}
+              >
+                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                onPress={() => {
+                  const pts = Math.round(parseFloat(pointsInput.replace(/,/g, '')));
+                  if (isNaN(pts) || pts < 0) { alert('Enter a valid points count'); return; }
+                  editCard(cardId, { points: pts }, user?.id);
+                  setShowPointsModal(false);
+                }}
+              >
+                <Text style={styles.payModalBtnSaveText}>Save Points</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -13,6 +13,7 @@ import { Card, CardBody, CardHeader } from '../../components/ui/Card'
 import { ConfirmDialog, Modal } from '../../components/ui/Modal'
 import { Field } from '../../components/ui/Field'
 import { formatDate, paiseToRupees, parseRupees, rupeesToPaise } from '../../lib/format'
+import { cardRewardValue } from '../../lib/cardRewards'
 import { toast } from '../../components/ui/Toast'
 import type { CreditCard } from '../../types'
 
@@ -56,6 +57,7 @@ export function CreditCardsPage() {
         card_limit: form.card_limit || null,
         annual_charge: form.annual_charge || 0,
         is_ltf: form.is_ltf || false,
+        points: form.points ?? 0,
       }
       if (editing) {
         await updateCard.mutateAsync({ id: editing, row })
@@ -113,6 +115,7 @@ export function CreditCardsPage() {
             const outstanding = c.balance ?? c.current_outstanding ?? 0
             const limit = c.card_limit
             const usagePct = limit && limit > 0 ? Math.round((outstanding / limit) * 100) : 0
+            const reward = cardRewardValue(c, c.points)
             return (
               <Link key={c.id} to={`/finance/cards/${c.id}`}>
                 <Card className="p-5 group hover:border-white/25 transition-colors">
@@ -131,6 +134,12 @@ export function CreditCardsPage() {
                           </div>
                           <span className="text-[11px] text-white/40">{usagePct}% used</span>
                         </div>
+                      )}
+                      {reward.points > 0 && (
+                        <p className="mt-2 text-[11px] font-medium text-[#FFD79A]">
+                          {reward.points.toLocaleString('en-IN')} pts · {paiseToRupees(reward.rewardPaise)}{' '}
+                          {reward.rule.directCashback ? 'cashback' : 'rewards'} ({reward.rule.label})
+                        </p>
                       )}
                     </div>
                     <ArrowRight className="mt-1 h-4 w-4 text-white/20 group-hover:text-white/50 transition-colors" />
@@ -164,6 +173,19 @@ export function CreditCardsPage() {
           <Field.Input label="Balance (₹)" type="number" step="0.01" value={form.balance ? String(form.balance / 100) : '0'} onChange={(e) => setForm({ ...form, balance: rupeesToPaise(parseRupees(e.target.value)) })} />
           <Field.Input label="Card limit (₹)" type="number" step="0.01" value={form.card_limit ? String(form.card_limit / 100) : ''} onChange={(e) => setForm({ ...form, card_limit: rupeesToPaise(parseRupees(e.target.value)) })} />
           <Field.Input label="Annual charge (₹)" type="number" step="0.01" value={form.annual_charge ? String(form.annual_charge / 100) : '0'} onChange={(e) => setForm({ ...form, annual_charge: rupeesToPaise(parseRupees(e.target.value)) })} />
+          <Field.Input
+            label="Reward points"
+            type="number"
+            min={0}
+            value={form.points ?? 0}
+            onChange={(e) => setForm({ ...form, points: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+          />
+          <p className="col-span-2 -mt-2 text-[11px] text-white/35">
+            {cardRewardValue({ name: form.name, bank: form.bank }, form.points).rule.label} —{' '}
+            {cardRewardValue({ name: form.name, bank: form.bank }, form.points).rule.directCashback
+              ? 'points redeem directly as cashback.'
+              : 'reward value = points ÷ 4 for IDFC cards, points ÷ 1 otherwise.'}
+          </p>
           <label className="flex items-center gap-2 text-sm text-white/70">
             <input type="checkbox" checked={form.is_ltf ?? false} onChange={(e) => setForm({ ...form, is_ltf: e.target.checked })} className="rounded border-white/20 bg-white/5" />
             Lifetime free
@@ -200,6 +222,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
   const outstanding = card.balance ?? card.current_outstanding ?? 0
   const billAmount = card.bill_amount ?? card.balance ?? 0
   const paidAmount = card.paid_amount ?? 0
+  const reward = cardRewardValue(card, card.points)
   const dueSoon = card.due_date && new Date(card.due_date).getTime() < Date.now() + 7 * 86400000
 
   const openEdit = () => {
@@ -225,6 +248,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         annual_charge: form.annual_charge ?? card.annual_charge ?? 0,
         annual_charge_date: form.annual_charge_date ?? card.annual_charge_date ?? null,
         is_ltf: form.is_ltf ?? card.is_ltf ?? false,
+        points: form.points ?? card.points ?? 0,
       }
       await updateCard.mutateAsync({ id: card.id, row })
       toast.success('Card updated')
@@ -277,6 +301,15 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Paid</p>
           <p className="mt-1 text-2xl font-bold text-[#59D6C7]">{paiseToRupees(paidAmount)}</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-medium text-white/50">Reward points</p>
+          <p className="mt-1 text-2xl font-bold text-[#FFD79A]">{reward.points.toLocaleString('en-IN')}</p>
+          <p className="mt-0.5 text-[11px] text-white/40">
+            {reward.rewardPaise > 0
+              ? `${paiseToRupees(reward.rewardPaise)} ${reward.rule.directCashback ? 'cashback' : 'rewards'} · ${reward.rule.label}`
+              : reward.rule.label}
+          </p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Due date</p>
@@ -340,6 +373,13 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
           />
           <Field.Input label="Last 4 digits" value={form.ending_with ?? ''} onChange={(e) => setForm({ ...form, ending_with: e.target.value })} maxLength={4} />
           <Field.Input label="Bank" value={form.bank ?? ''} onChange={(e) => setForm({ ...form, bank: e.target.value })} />
+          <Field.Input
+            label="Reward points"
+            type="number"
+            min={0}
+            value={form.points ?? card.points ?? 0}
+            onChange={(e) => setForm({ ...form, points: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+          />
           <Field.Input label="Billing day" type="number" min={1} max={31} value={form.billing_day ?? 1} onChange={(e) => setForm({ ...form, billing_day: Number(e.target.value) })} />
           <Field.Input label="Due date" type="date" value={form.due_date?.slice(0, 10) ?? ''} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
           <Field.Input label="Balance / outstanding (₹)" type="number" step="0.01" value={form.balance != null ? String(form.balance / 100) : ''} onChange={(e) => setForm({ ...form, balance: rupeesToPaise(parseRupees(e.target.value)) })} />
