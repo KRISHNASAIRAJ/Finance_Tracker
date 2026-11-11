@@ -504,6 +504,28 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
 
+## 17. Wallets section (Balance Summary) (v4)
+
+- **New entity `wallets`** (migration `0046_wallets.sql`): `id`, `user_id`,
+  `name`, `amount` (paise) + RLS ("User owns wallets") and realtime
+  publication, so mobile and web mirror each other instantly.
+- **Store:** finance store gains `wallets`, `seedWallets()` (idempotent),
+  `setWalletAmount()` (never negative / non-finite) and `deleteWallet()`;
+  edits go through the central sync queue (`wallets` entity) and the cloud
+  pull merges them like every other entity.
+- **Wallets section** in the Balance Summary, directly under **Bank
+  Balances** (mobile + web): one row per wallet with its balance, a
+  section total, and an inline editor (tap a row on mobile → modal; blur a
+  field on web) to set the balance.
+- **Standard providers** seeded on first open (stable ids so balances
+  follow the row across devices): Amazon Pay, PayPal, PhonePe, Airtel
+  Thanks, Zepto, Blinkit, BigBasket — editable in
+  `WALLET_PROVIDERS` (mobile `modules/finance/store.ts`, web
+  `hooks/data/useWallets.ts`).
+- **Tests:** `modules/finance/__tests__/wallets.test.ts` (5) — seeding is
+  idempotent, balances update in paise, negative/NaN amounts are rejected,
+  deletion, and the provider list.
+
 ## 16. Notification hygiene: service spam + market-sync watchdog + MF SIP naming (v4)
 
 - **Vehicle service reminder was spamming.** The trigger was a rolling

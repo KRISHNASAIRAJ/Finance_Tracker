@@ -13,12 +13,16 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Modal,
+  Pressable,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../shared/theme/colors';
 import { spacing } from '../../../shared/theme/spacing';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
+import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';
 import BankLogo from '../../../shared/components/BankLogo';
 
@@ -40,6 +44,8 @@ interface SectionItem {
   subtitle: string;
   alert: boolean;
   bank?: string;
+  /** When set, the row becomes tappable (used by the Wallets section). */
+  onPress?: () => void;
 }
 
 const ordinalSuffix = (n: number): string => {
@@ -60,16 +66,37 @@ const formatDueDate = (isoDate?: string): string => {
 
 export default function BalanceSummaryScreen() {
   const navigation = useNavigation();
-  const { transactions, cards, receivables, accounts, fixedExpenses } = useFinanceStore();
+  const { transactions, cards, receivables, accounts, fixedExpenses, wallets, setWalletAmount, seedWallets } = useFinanceStore();
+  const { user } = useAuth();
 
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [editingWallet, setEditingWallet] = useState<{ id: string; name: string } | null>(null);
+  const [walletAmountInput, setWalletAmountInput] = useState('');
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) => ({ ...prev, [title]: !prev[title] }));
   };
+
+  const openWalletEditor = (id: string, name: string, current: number) => {
+    setEditingWallet({ id, name });
+    setWalletAmountInput(current > 0 ? String(current / 100) : '');
+  };
+
+  const saveWalletAmount = () => {
+    if (!editingWallet) return;
+    const rupees = parseFloat(walletAmountInput.replace(/,/g, ''));
+    setWalletAmount(editingWallet.id, Number.isFinite(rupees) ? Math.round(rupees * 100) : 0, user?.id);
+    setEditingWallet(null);
+    setWalletAmountInput('');
+  };
+
+  // Make sure the standard wallet rows exist (idempotent).
+  React.useEffect(() => {
+    seedWallets(user?.id);
+  }, [user?.id]);
 
   const totalBalance = accounts.reduce((sum, acc) => sum + acc.amount, 0);
   const totalMinBalance = accounts.reduce((sum, acc) => sum + getMinBalanceForAccount(acc.title), 0);
@@ -128,6 +155,20 @@ export default function BalanceSummaryScreen() {
       })),
       total: totalBalance,
       totalLabel: 'Total Bank Balance',
+    },
+    {
+      title: 'Wallets',
+      icon: 'wallet-outline',
+      color: DONUT.cyan,
+      items: (wallets || []).map((w) => ({
+        label: w.name,
+        value: w.amount,
+        subtitle: w.amount > 0 ? 'Tap to update balance' : 'Tap to set balance',
+        alert: false,
+        onPress: () => openWalletEditor(w.id, w.name, w.amount),
+      })),
+      total: (wallets || []).reduce((sum, w) => sum + w.amount, 0),
+      totalLabel: 'Total Wallet Balance',
     },
     {
       title: 'Credit Card Bills',
@@ -264,7 +305,11 @@ export default function BalanceSummaryScreen() {
             {section.items.length > 0 && (
               <View style={styles.sectionBody}>
                 {(expandedSections[section.title] ? section.items : section.items.slice(0, 3)).map((item, idx) => (
-                  <View key={idx} style={[styles.itemRow, idx === (expandedSections[section.title] ? section.items.length : Math.min(3, section.items.length)) - 1 && { borderBottomWidth: 0 }]}>
+                  <TouchableOpacity
+                    key={idx}
+                    activeOpacity={item.onPress ? 0.7 : 1}
+                    onPress={item.onPress}
+                    style={[styles.itemRow, idx === (expandedSections[section.title] ? section.items.length : Math.min(3, section.items.length)) - 1 && { borderBottomWidth: 0 }]}>
                     <View style={styles.itemLeft}>
                       {item.bank && <BankLogo title={item.bank} size={30} />}
                       <View style={{ flex: 1 }}>
@@ -274,8 +319,13 @@ export default function BalanceSummaryScreen() {
                         )}
                       </View>
                     </View>
-                    <Text style={[styles.itemValue, item.alert && { color: DONUT.red }]}>{formatCurrency(item.value)}</Text>
-                  </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={[styles.itemValue, item.alert && { color: DONUT.red }]}>{formatCurrency(item.value)}</Text>
+                      {item.onPress && (
+                        <Ionicons name="create-outline" size={15} color={colors.onSurfaceVariant} style={{ marginLeft: 8 }} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
                 ))}
                 {section.items.length > 3 && (
                   <TouchableOpacity
@@ -320,6 +370,41 @@ export default function BalanceSummaryScreen() {
         onSelect={setSelectedMonth}
         onClose={() => setMonthPickerVisible(false)}
       />
+
+      {/* Wallet balance editor */}
+      <Modal
+        visible={!!editingWallet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingWallet(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setEditingWallet(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>{editingWallet?.name}</Text>
+            <Text style={styles.modalSubtitle}>Current balance in this wallet (₹)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={walletAmountInput}
+              onChangeText={setWalletAmountInput}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.onSurfaceVariant}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { setEditingWallet(null); setWalletAmountInput(''); }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSave} onPress={saveWalletAmount}>
+                <Text style={styles.modalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -491,6 +576,73 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 20,
+    padding: 20,
+    backgroundColor: '#1E1E2A',
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.onSurface,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginTop: 4,
+  },
+  modalInput: {
+    marginTop: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+    backgroundColor: '#15151F',
+    color: colors.onSurface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalCancel: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2E2E42',
+  },
+  modalCancelText: {
+    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  modalSave: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  modalSaveText: {
+    color: '#0B0F1A',
+    fontWeight: '700',
+    fontSize: 13,
   },
   deficitBanner: {
     flexDirection: 'row',

@@ -54,6 +54,27 @@ export interface BankAccount {
   amount: number; // in paise
 }
 
+/** A wallet balance (Amazon Pay, PayPal, PhonePe, ...). */
+export interface Wallet {
+  id: string;
+  name: string;
+  amount: number; // in paise
+}
+
+/**
+ * Wallet providers the app offers out of the box. The ids are stable so a
+ * seeded row keeps its balance across devices.
+ */
+export const WALLET_PROVIDERS: { id: string; name: string }[] = [
+  { id: 'amazon_pay', name: 'Amazon Pay' },
+  { id: 'paypal', name: 'PayPal' },
+  { id: 'phonepe', name: 'PhonePe' },
+  { id: 'airtel', name: 'Airtel Thanks' },
+  { id: 'zepto', name: 'Zepto' },
+  { id: 'blinkit', name: 'Blinkit' },
+  { id: 'bigbasket', name: 'BigBasket' },
+];
+
 export interface FixedExpense {
   id: string;
   name: string;
@@ -97,6 +118,11 @@ interface FinanceState {
   cards: CreditCard[];
   receivables: Receivable[];
   accounts: BankAccount[];
+  wallets: Wallet[];
+  /** Create any missing standard wallet rows (idempotent). */
+  seedWallets: (userId?: string) => void;
+  setWalletAmount: (id: string, amount: number, userId?: string) => void;
+  deleteWallet: (id: string, userId?: string) => void;
   fixedExpenses: FixedExpense[];
   categoryBudgets: CategoryBudget[];
   lastSyncedAt: string | null;
@@ -187,6 +213,7 @@ export const useFinanceStore = create<FinanceState>()(
       cards: [],
       receivables: [],
       accounts: [],
+      wallets: [],
       fixedExpenses: [],
       addTransaction: (tx, userId) => {
         const generatedId = Math.random().toString(36).substring(2, 9);
@@ -223,6 +250,29 @@ export const useFinanceStore = create<FinanceState>()(
           ),
         }));
         enqFlush("bank_accounts", "update", { id, amount, user_id: userId || null });
+      },
+      seedWallets: (userId) => {
+        const existing = new Set(get().wallets.map((w) => w.id));
+        const missing = WALLET_PROVIDERS.filter((p) => !existing.has(p.id));
+        if (missing.length === 0) return;
+        const rows: Wallet[] = missing.map((p) => ({ id: p.id, name: p.name, amount: 0 }));
+        set((state) => ({ wallets: [...state.wallets, ...rows] }));
+        for (const w of rows) {
+          enqFlush("wallets", "create", {
+            id: w.id, name: w.name, amount: w.amount, user_id: userId || null,
+          });
+        }
+      },
+      setWalletAmount: (id, amount, userId) => {
+        const safe = Number.isFinite(amount) ? Math.max(0, Math.round(amount)) : 0;
+        set((state) => ({
+          wallets: state.wallets.map((w) => (w.id === id ? { ...w, amount: safe } : w)),
+        }));
+        enqFlush("wallets", "update", { id, amount: safe, user_id: userId || null });
+      },
+      deleteWallet: (id, userId) => {
+        set((state) => ({ wallets: state.wallets.filter((w) => w.id !== id) }));
+        enqFlush("wallets", "delete", { id, user_id: userId || null });
       },
       addReceivable: (item, userId) => {
         const newItem: Receivable = {

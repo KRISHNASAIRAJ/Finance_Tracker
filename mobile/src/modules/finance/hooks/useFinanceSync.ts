@@ -11,6 +11,7 @@ import type {
   CreditCard,
   Receivable,
   BankAccount,
+  Wallet,
   FixedExpense,
   ExpectedIncome,
   CategoryBudget,
@@ -279,6 +280,24 @@ const TABLE_MAP: SyncTable[] = [
     toRows(userId, items) {
       return (items as BankAccount[]).map((a) => ({
         id: a.id, user_id: userId, title: a.title, amount: a.amount,
+      }));
+    },
+  },
+  {
+    supabaseTable: "wallets",
+    mergeIntoStore: makeMerge(
+      () => getStore().getState().wallets as Wallet[],
+      (items) => getStore().setState({ wallets: items }),
+      (r) => ({
+        id: r.id as string,
+        name: r.name as string ?? "",
+        amount: (r.amount as number) ?? 0,
+      })
+    ),
+    getLocalItems: () => getStore().getState().wallets as Wallet[],
+    toRows(userId, items) {
+      return (items as Wallet[]).map((w) => ({
+        id: w.id, user_id: userId, name: w.name, amount: w.amount,
       }));
     },
   },

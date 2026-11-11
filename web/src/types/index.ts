@@ -85,6 +85,16 @@ export interface BankAccount {
   updated_at?: string
 }
 
+/** A wallet balance (Amazon Pay, PayPal, PhonePe, ...). */
+export interface Wallet {
+  id: string
+  user_id: string
+  name: string
+  amount: number
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Receivable {
   id: string
   user_id: string

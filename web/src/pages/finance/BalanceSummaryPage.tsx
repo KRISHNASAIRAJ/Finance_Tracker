@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
 import { useCreditCards } from '../../hooks/data/useCreditCards'
 import { useReceivables } from '../../hooks/data/useReceivables'
 import { useTransactions } from '../../hooks/data/useTransactions'
+import { useWallets, useUpsertWallet, WALLET_PROVIDERS } from '../../hooks/data/useWallets'
 import { PageHeader, Skeleton } from '../../components/ui/Shared'
 import { Card, CardHeader, CardBody } from '../../components/ui/Card'
+import { Button } from '../../components/ui/Button'
 import { paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { istMonthKey } from '../../lib/istDate'
 
@@ -16,6 +18,14 @@ export function BalanceSummaryPage() {
   const { data: cards } = useCreditCards(userId)
   const { data: receivables } = useReceivables(userId)
   const { data: txns } = useTransactions(userId)
+  const { data: wallets } = useWallets(userId)
+  const upsertWallet = useUpsertWallet(userId)
+  const [selectedWalletId, setSelectedWalletId] = useState('')
+
+  const walletTotal = (wallets ?? []).reduce((s, w) => s + w.amount, 0)
+  const missingWalletProviders = WALLET_PROVIDERS.filter(
+    (p) => !(wallets ?? []).some((w) => w.id === p.id)
+  )
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
   const totalOutstanding = (cards ?? []).reduce((s, c) => s + (c.balance ?? c.current_outstanding ?? 0), 0)
@@ -101,6 +111,68 @@ export function BalanceSummaryPage() {
                 <p className="text-sm font-semibold text-white tnum">{paiseToRupees(a.amount)}</p>
               </div>
             ))}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Wallets"
+            action={
+              <span className="text-xs text-white/40">
+                {paiseToRupees(walletTotal)} across {wallets?.length ?? 0} wallets
+              </span>
+            }
+          />
+          <CardBody className="space-y-3">
+            {(wallets ?? []).length === 0 && (
+              <p className="text-sm text-white/30 py-4 text-center">No wallets yet</p>
+            )}
+            {(wallets ?? []).map((w) => (
+              <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3">
+                <p className="text-sm text-white/80">{w.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-white tnum">{paiseToRupees(w.amount)}</p>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    defaultValue={(w.amount / 100).toString()}
+                    onBlur={(e) => {
+                      const rupees = parseFloat(e.target.value)
+                      const amount = Number.isFinite(rupees) ? Math.round(rupees * 100) : 0
+                      if (amount !== w.amount) upsertWallet.mutate({ id: w.id, name: w.name, amount })
+                    }}
+                    className="h-9 w-24 rounded-lg border border-white/10 bg-white/5 px-2 text-right text-sm text-white/80"
+                  />
+                </div>
+              </div>
+            ))}
+            {missingWalletProviders.length > 0 && (
+              <div className="flex items-center gap-2 pt-1">
+                <select
+                  value={selectedWalletId}
+                  onChange={(e) => setSelectedWalletId(e.target.value)}
+                  className="h-9 flex-1 rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-white/80"
+                >
+                  {missingWalletProviders.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const provider = missingWalletProviders.find((p) => p.id === selectedWalletId)
+                    if (!provider) return
+                    upsertWallet.mutate({ id: provider.id, name: provider.name, amount: 0 })
+                    setSelectedWalletId('')
+                  }}
+                >
+                  Add wallet
+                </Button>
+              </div>
+            )}
           </CardBody>
         </Card>
 
