@@ -1,5 +1,6 @@
 /**
- * Clock + Sleep home-screen widget — the payload pushed to the native widget.
+ * Clock + Sleep + Sleep-only home-screen widgets — the payload pushed to the
+ * native widgets.
  */
 import {
   computeSleepWidgetPayload,
@@ -61,5 +62,27 @@ describe('computeSleepWidgetPayload', () => {
     expect(payload.rem2Start).toBeGreaterThan(payload.rem1End);
     expect(payload.rem2End).toBeLessThanOrEqual(payload.wakeTime);
     expect(payload.rem2Start).toBeGreaterThanOrEqual(payload.bedTime);
+  });
+
+  it('carries the wake-ups and the rating of the night', () => {
+    const now = new Date('2026-11-11T12:00:00.000Z');
+    const night = {
+      ...entry('2026-11-10T16:00:00.000Z', '2026-11-11T00:20:00.000Z'),
+      interruptions: 2,
+      quality: 4,
+    };
+    const payload = computeSleepWidgetPayload([night], now);
+    expect(payload.interruptions).toBe(2);
+    expect(payload.quality).toBe(4);
+  });
+
+  it('never reports a rating outside 1–5', () => {
+    const now = new Date('2026-11-11T12:00:00.000Z');
+    const night = {
+      ...entry('2026-11-10T16:00:00.000Z', '2026-11-11T00:20:00.000Z'),
+      quality: 9,
+    };
+    const payload = computeSleepWidgetPayload([night], now);
+    expect(payload.quality).toBe(5);
   });
 });

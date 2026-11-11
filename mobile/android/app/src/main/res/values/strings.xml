@@ -3,4 +3,6 @@
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
   <string name="expo_runtime_version">1.0.0</string>
+  <string name="widget_sleep_stats_description">Your last night of sleep — refreshed every morning at 9 AM</string>
+  <string name="widget_clock_sleep_description">A live clock with your last night of sleep</string>
 </resources>

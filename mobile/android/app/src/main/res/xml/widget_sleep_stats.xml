@@ -2,8 +2,8 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"
     android:minHeight="110dp"
-    android:resizeMode="none"
+    android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:initialLayout="@layout/widget_quick_action"
-    android:previewImage="@drawable/widget_add_task"
-    android:label="Add Task" />
+    android:initialLayout="@layout/widget_sleep_stats"
+    android:description="@string/widget_sleep_stats_description"
+    android:label="Sleep" />

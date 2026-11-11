@@ -56,10 +56,14 @@ class ClockSleepWidget : AppWidgetProvider() {
 
         /** Redraw every instance of this widget with the current state. */
         fun pushUpdate(ctx: Context) {
-            val mgr = AppWidgetManager.getInstance(ctx)
-            val ids = mgr.getAppWidgetIds(ComponentName(ctx, ClockSleepWidget::class.java))
-            if (ids.isNotEmpty()) {
-                ClockSleepWidget().onUpdate(ctx, mgr, ids)
+            try {
+                val mgr = AppWidgetManager.getInstance(ctx)
+                val ids = mgr.getAppWidgetIds(ComponentName(ctx, ClockSleepWidget::class.java))
+                if (ids.isNotEmpty()) {
+                    ClockSleepWidget().onUpdate(ctx, mgr, ids)
+                }
+            } catch (e: Exception) {
+                /* best-effort */
             }
         }
     }
@@ -69,14 +73,35 @@ class ClockSleepWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        // Keep the daily 9:00 AM refresh armed.
+        SleepWidgetScheduler.schedule(context)
         val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_JSON, null)
         for (id in appWidgetIds) {
-            appWidgetManager.updateAppWidget(
-                id,
+            val views = try {
                 buildViews(context, appWidgetManager, id, json)
-            )
+            } catch (e: Exception) {
+                // Never crash the launcher: fall back to a plain clock.
+                fallbackViews(context)
+            }
+            try {
+                appWidgetManager.updateAppWidget(id, views)
+            } catch (e: Exception) {
+                /* best-effort */
+            }
         }
+    }
+
+    /** A minimal widget that only shows the clock (used when rendering fails). */
+    private fun fallbackViews(context: Context): RemoteViews {
+        val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
+        views.setTextViewText(R.id.clock_sleep_duration, NO_VALUE)
+        views.setTextViewText(R.id.clock_sleep_weather, DEFAULT_WEATHER)
+        views.setTextViewText(R.id.clock_sleep_rem1_time, NO_VALUE)
+        views.setTextViewText(R.id.clock_sleep_rem2_time, NO_VALUE)
+        views.setTextViewText(R.id.clock_sleep_rem1_label, "")
+        views.setTextViewText(R.id.clock_sleep_rem2_label, "")
+        return views
     }
 
     private fun buildViews(

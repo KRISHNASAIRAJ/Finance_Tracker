@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -43,42 +42,31 @@
         <data android:scheme="meridian"/>
       </intent-filter>
     </activity>
-    <receiver android:name=".widgets.AddExpenseWidget" android:label="Add Expense" android:exported="true">
-      <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-      </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_add_expense"/>
-    </receiver>
-    <receiver android:name=".widgets.AddFuelWidget" android:label="Add Fuel" android:exported="true">
-      <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-      </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_add_fuel"/>
-    </receiver>
-    <receiver android:name=".widgets.AddTaskWidget" android:label="Add Task" android:exported="true">
-      <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-      </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_add_task"/>
-    </receiver>
     <receiver android:name=".widgets.StatsWidget" android:label="Stats" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stats"/>
     </receiver>
-    <receiver android:name=".widgets.BedtimeWidget" android:label="Bedtime" android:exported="true">
-      <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-        <action android:name="com.krishnasairaj.meridian.widgets.ACTION_BEDTIME_TOGGLE"/>
-      </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_bedtime"/>
-    </receiver>
     <receiver android:name=".widgets.ClockSleepWidget" android:label="Clock &amp; Sleep" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_clock_sleep"/>
+    </receiver>
+    <!-- Sleep-only 2x2 widget (last night) -->
+    <receiver android:name=".widgets.SleepStatsWidget" android:label="Sleep" android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_sleep_stats"/>
+    </receiver>
+    <!-- Daily 9:00 AM refresh of the sleep widgets -->
+    <receiver android:name=".widgets.SleepWidgetAlarmReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="com.krishnasairaj.meridian.widgets.ACTION_SLEEP_WIDGET_REFRESH"/>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+      </intent-filter>
     </receiver>
     <!-- Automatic sleep tracker (accelerometer) + smart alarm -->
     <service

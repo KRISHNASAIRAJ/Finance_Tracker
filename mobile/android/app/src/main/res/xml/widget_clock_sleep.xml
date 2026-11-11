@@ -5,6 +5,5 @@
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/widget_clock_sleep"
-    android:previewLayout="@layout/widget_clock_sleep"
-    android:updatePeriodMillis="0"
+    android:description="@string/widget_clock_sleep_description"
     android:label="Clock &amp; Sleep" />

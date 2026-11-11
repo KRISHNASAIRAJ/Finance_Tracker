@@ -1,10 +1,11 @@
 /**
- * sleepWidget — pushes the last night of sleep to the Android "Clock + Sleep"
- * home-screen widget (native ClockSleepWidget, 2x2).
+ * sleepWidget — pushes the last night of sleep to the Android home-screen
+ * widgets (native ClockSleepWidget 2x2 and SleepStatsWidget 2x2).
  *
- * The widget itself shows a live clock (TextClock keeps itself up to date);
- * only the sleep part is data — the duration, the two REM windows on the
- * timeline and the weather line (a placeholder until an API is wired up).
+ * The clock part of the Clock & Sleep widget ticks on its own (TextClock keeps
+ * itself up to date); only the sleep part is data — the duration, the two REM
+ * windows on the timeline and the weather line (a placeholder until an API is
+ * wired up).
  *
  * Degrades gracefully (no-ops) on iOS / Expo Go where the module is absent.
  */
@@ -12,6 +13,10 @@ import { NativeModules, Platform } from 'react-native';
 import { useSleepStore, type SleepEntry } from '../modules/sleep/store';
 
 const SleepWidgetModule = NativeModules.ClockSleepWidgetBridge as
+  | { setSleep: (json: string) => Promise<void> }
+  | undefined;
+
+const SleepStatsWidgetModule = NativeModules.SleepStatsWidgetBridge as
   | { setSleep: (json: string) => Promise<void> }
   | undefined;
 
@@ -30,6 +35,10 @@ export interface SleepWidgetPayload {
   /** Last REM window (epoch ms). */
   rem2Start: number;
   rem2End: number;
+  /** Night wake-ups. */
+  interruptions: number;
+  /** Sleep rating (1–5), 0 when it was not rated yet. */
+  quality: number;
   /** Weather label, e.g. "19 °C" — a placeholder until an API is connected. */
   weatherText: string;
 }
@@ -79,6 +88,8 @@ export function computeSleepWidgetPayload(
       rem1End: 0,
       rem2Start: 0,
       rem2End: 0,
+      interruptions: 0,
+      quality: 0,
       weatherText: DEFAULT_WEATHER_TEXT,
     };
   }
@@ -98,6 +109,8 @@ export function computeSleepWidgetPayload(
     rem1End: bedTime + offsetMs + lengthMs,
     rem2Start: Math.max(bedTime, wakeTime - offsetMs - lengthMs),
     rem2End: Math.max(bedTime, wakeTime - offsetMs),
+    interruptions: Math.max(0, Number(entry.interruptions) || 0),
+    quality: Math.max(0, Math.min(5, Number(entry.quality) || 0)),
     weatherText: DEFAULT_WEATHER_TEXT,
   };
 }
@@ -106,14 +119,28 @@ export function isSleepWidgetAvailable(): boolean {
   return Platform.OS === 'android' && !!SleepWidgetModule;
 }
 
-/** Push the current sleep data to the widget. Never throws. */
+/** True when the sleep-only 2x2 widget is available. */
+export function isSleepStatsWidgetAvailable(): boolean {
+  return Platform.OS === 'android' && !!SleepStatsWidgetModule;
+}
+
+/** Push the current sleep data to the widgets. Never throws. */
 export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<void> {
-  if (!isSleepWidgetAvailable()) return;
-  try {
-    const data =
-      payload ?? computeSleepWidgetPayload(useSleepStore.getState().entries);
-    await SleepWidgetModule!.setSleep(JSON.stringify(data));
-  } catch {
-    /* best-effort */
+  const data =
+    payload ?? computeSleepWidgetPayload(useSleepStore.getState().entries);
+  const json = JSON.stringify(data);
+  if (SleepWidgetModule) {
+    try {
+      await SleepWidgetModule.setSleep(json);
+    } catch {
+      /* best-effort */
+    }
+  }
+  if (SleepStatsWidgetModule) {
+    try {
+      await SleepStatsWidgetModule.setSleep(json);
+    } catch {
+      /* best-effort */
+    }
   }
 }
