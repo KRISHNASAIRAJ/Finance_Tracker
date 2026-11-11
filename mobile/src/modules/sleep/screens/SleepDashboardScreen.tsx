@@ -7,7 +7,7 @@
  * - History with edit/delete
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -20,6 +20,7 @@ import {
   Platform,
   StatusBar,
   Alert,
+  Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +29,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Lin
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useAuth } from '../../../services/AuthProvider';
+import TimePicker from '../../../shared/components/TimePicker';
 import {
   useSleepStore,
   SleepEntry,
@@ -35,12 +37,45 @@ import {
   formatSleepDuration,
 } from '../store';
 import { detectLastSleep, hasUsageAccess, isSleepDetectAvailable, openUsageAccessSettings, DetectedSleep } from '../sleepDetect';
+import {
+  isSleepMotionAvailable,
+  startMotionTracking,
+  stopMotionTracking,
+  setMotionConfig,
+  getMotionStatus,
+  getMotionBuckets,
+  type SleepMotionStatus,
+  type MotionBucket,
+  type SleepSensitivity,
+  type SleepAlarmMode,
+} from '../sleepMotion';
+import { inferSleepSession, motionThreshold, currentStillness, type InferredSleep } from '../sleepInference';
 import { widgetBedtimeStart, widgetEndedSession, setWidgetBedtimeStart } from '../bedtimeWidget';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { toLocalInput, parseLocalInput } from './sleepTime';
 
 const STORAGE_KEY = 'meridian_sleep_pending_bedtime';
+
+/** A sleep session shorter than this is never accepted as sleep. */
+const MIN_SESSION_MIN = 120;
+
+/** "22:30" → "10:30 PM" */
+function fmtClock(minutesFromMidnight: number): string {
+  const total = ((minutesFromMidnight % 1440) + 1440) % 1440;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+/** Minutes from midnight → a Date today (for the time picker). */
+function dateFromMinutes(minutesFromMidnight: number): Date {
+  const d = new Date();
+  d.setHours(Math.floor(minutesFromMidnight / 60) % 24, minutesFromMidnight % 60, 0, 0);
+  return d;
+}
 
 function hoursAgo(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 3600000;
@@ -65,6 +100,18 @@ export default function SleepDashboardScreen() {
   const [usageGranted, setUsageGranted] = useState<boolean | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+
+  // --- automatic (accelerometer) sleep tracking ---
+  const autoConfig = useSleepStore((s) => s.autoConfig);
+  const setAutoConfig = useSleepStore((s) => s.setAutoConfig);
+  const [autoStatus, setAutoStatus] = useState<SleepMotionStatus | null>(null);
+  const [autoBuckets, setAutoBuckets] = useState<MotionBucket[]>([]);
+  const [autoSession, setAutoSession] = useState<InferredSleep | null>(null);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const [timePicker, setTimePicker] = useState<
+    { kind: 'nightStart' | 'nightEnd' | 'wakeStart' | 'wakeEnd'; value: number } | null
+  >(null);
+  const autoAvailable = isSleepMotionAvailable();
 
   const fetchInsight = async () => {
     if (insightLoading || entries.length === 0) return;
@@ -187,6 +234,113 @@ export default function SleepDashboardScreen() {
     hasUsageAccess().then(setUsageGranted).catch(() => setUsageGranted(false));
   }, []);
 
+  // --- automatic (accelerometer) sleep tracking -----------------------------
+  // The native tracker keeps running in the background; this screen only reads
+  // its timeline, infers the sleep session and offers it to the user.
+  const refreshAuto = useCallback(async () => {
+    if (!isSleepMotionAvailable()) return;
+    const status = await getMotionStatus();
+    if (status) setAutoStatus(status);
+    const buckets = await getMotionBuckets();
+    setAutoBuckets(buckets);
+
+    const inferred = inferSleepSession(buckets, {
+      threshold: motionThreshold(autoConfig.sensitivity),
+      sleepStartMin: autoConfig.sleepStartMin,
+      sleepEndMin: autoConfig.sleepEndMin,
+      minSessionMin: MIN_SESSION_MIN,
+    });
+    setAutoSession(inferred);
+    if (!inferred) {
+      setAutoSaved(false);
+      return;
+    }
+
+    const already = (entries || []).some(
+      (e) => Math.abs(new Date(e.startTime).getTime() - inferred.bedTime) < 30 * 60000
+    );
+    setAutoSaved(already);
+
+    // Auto-save once the session has settled (the phone was picked up).
+    const settled = Date.now() - inferred.wakeTime > 5 * 60000;
+    if (autoConfig.autoSave && settled && !already) {
+      addEntry(
+        {
+          startTime: new Date(inferred.bedTime).toISOString(),
+          endTime: new Date(inferred.wakeTime).toISOString(),
+          quality: null,
+          mood: null,
+          interruptions: inferred.interruptions,
+          notes: 'Detected automatically (motion sensor)',
+          source: 'auto-motion',
+        },
+        user?.id
+      );
+      setAutoSaved(true);
+    }
+  }, [autoConfig, entries, addEntry, user?.id]);
+
+  useEffect(() => {
+    if (!autoAvailable) return;
+    refreshAuto();
+    const timer = setInterval(() => {
+      refreshAuto();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [autoAvailable, refreshAuto]);
+
+  const toggleAuto = async (next: boolean) => {
+    setAutoConfig({ enabled: next });
+    if (next) {
+      await startMotionTracking({ ...autoConfig, enabled: true });
+    } else {
+      await stopMotionTracking();
+    }
+    refreshAuto();
+  };
+
+  const changeSensitivity = async (sensitivity: SleepSensitivity) => {
+    const next = { ...autoConfig, sensitivity };
+    setAutoConfig(next);
+    await setMotionConfig(next);
+  };
+
+  const toggleAlarm = async (enabled: boolean) => {
+    const next = { ...autoConfig, alarmEnabled: enabled };
+    setAutoConfig(next);
+    await setMotionConfig(next);
+  };
+
+  const applyPickedTime = (minutes: number) => {
+    if (!timePicker) return;
+    const kind = timePicker.kind;
+    const next = { ...autoConfig };
+    if (kind === 'nightStart') next.sleepStartMin = minutes;
+    else if (kind === 'nightEnd') next.sleepEndMin = minutes;
+    else if (kind === 'wakeStart') next.wakeStartMin = minutes;
+    else next.wakeEndMin = minutes;
+    setAutoConfig(next);
+    setMotionConfig(next);
+    setTimePicker(null);
+  };
+
+  const saveDetectedSession = () => {
+    if (!autoSession) return;
+    addEntry(
+      {
+        startTime: new Date(autoSession.bedTime).toISOString(),
+        endTime: new Date(autoSession.wakeTime).toISOString(),
+        quality: null,
+        mood: null,
+        interruptions: autoSession.interruptions,
+        notes: 'Detected automatically (motion sensor)',
+        source: 'auto-motion',
+      },
+      user?.id
+    );
+    setAutoSaved(true);
+  };
+
   const changeReminder = (time: { hour: number; minute: number } | null) => {
     setReminderTime(time);
     // Reschedule all reminders so the bedtime nudge takes effect tonight
@@ -215,6 +369,21 @@ export default function SleepDashboardScreen() {
     : null;
   const latest = sorted[0] ?? null;
   const lastAvg = avgHours ? formatSleepDuration(avgHours) : null;
+
+  // --- automatic tracking status -------------------------------------------
+  const autoStatusText = useMemo(() => {
+    if (!autoConfig.enabled) return 'Off';
+    if (!autoStatus) return 'Starting…';
+    return autoStatus.running ? 'Tracking' : 'Paused';
+  }, [autoConfig.enabled, autoStatus]);
+
+  const stillText = useMemo(() => {
+    const streak = currentStillness(autoBuckets, motionThreshold(autoConfig.sensitivity));
+    if (!streak || streak.minutes < 1) return '—';
+    const h = Math.floor(streak.minutes / 60);
+    const m = streak.minutes % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }, [autoBuckets, autoConfig.sensitivity]);
 
   // Chart: duration trend (last 7 nights, oldest → newest)
   const CHART_W = 340;
@@ -372,6 +541,34 @@ export default function SleepDashboardScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Session detected by the motion sensor */}
+        {autoAvailable && autoSession && !autoSaved && (
+          <View style={styles.autoDetectCard}>
+            <View style={styles.detectHead}>
+              <Ionicons name="radio-outline" size={18} color={colors.primary} />
+              <Text style={styles.detectTitle}>Detected automatically</Text>
+            </View>
+            <Text style={styles.detectTimes}>
+              {new Date(autoSession.bedTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}{' '}
+              → {new Date(autoSession.wakeTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              {'  '}({formatSleepDuration(autoSession.durationMin / 60)})
+            </Text>
+            <Text style={styles.autoDetectMeta}>
+              {autoSession.interruptions > 0
+                ? `${autoSession.interruptions} wake-up${autoSession.interruptions > 1 ? 's' : ''} · ${Math.round(autoSession.confidence * 100)}% confident`
+                : `${Math.round(autoSession.confidence * 100)}% confident`}
+            </Text>
+            <View style={styles.detectActions}>
+              <TouchableOpacity style={styles.detectAccept} onPress={saveDetectedSession}>
+                <Text style={styles.detectAcceptText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.detectDismiss} onPress={() => setAutoSession(null)}>
+                <Text style={styles.detectDismissText}>Dismiss</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Auto-detect suggestion */}
         {detectLoading && (
           <View style={styles.detectCard}>
@@ -428,6 +625,131 @@ export default function SleepDashboardScreen() {
             <TouchableOpacity style={styles.cancelBed} onPress={() => savePendingBedtime(null)}>
               <Text style={styles.cancelBedText}>Cancel session</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Automatic tracking (accelerometer) */}
+        {autoAvailable && (
+          <View style={styles.autoCard}>
+            <View style={styles.autoHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.autoTitle}>Automatic tracking</Text>
+                <Text style={styles.autoSub}>Uses the motion sensor — no watch needed</Text>
+              </View>
+              <Switch
+                value={autoConfig.enabled}
+                onValueChange={toggleAuto}
+                trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.primaryContainer }}
+                thumbColor={autoConfig.enabled ? colors.primary : 'rgba(255,255,255,0.5)'}
+              />
+            </View>
+
+            {autoConfig.enabled ? (
+              <>
+                <View style={styles.autoStatusRow}>
+                  <View style={styles.autoStat}>
+                    <Text style={styles.autoStatLabel}>STATUS</Text>
+                    <Text style={styles.autoStatValue}>{autoStatusText}</Text>
+                  </View>
+                  <View style={styles.autoStat}>
+                    <Text style={styles.autoStatLabel}>STILL FOR</Text>
+                    <Text style={styles.autoStatValue}>{stillText}</Text>
+                  </View>
+                  {autoStatus?.alarmActive && (
+                    <View style={styles.autoStat}>
+                      <Text style={styles.autoStatLabel}>ALARM</Text>
+                      <Text style={[styles.autoStatValue, { color: colors.error }]}>Ringing</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.autoFieldLabel}>SENSITIVITY</Text>
+                <View style={styles.chipRow}>
+                  {(['low', 'medium', 'high'] as SleepSensitivity[]).map((s) => (
+                    <TouchableOpacity
+                      key={s}
+                      style={[styles.chip, autoConfig.sensitivity === s && styles.chipActive]}
+                      onPress={() => changeSensitivity(s)}
+                    >
+                      <Text style={[styles.chipText, autoConfig.sensitivity === s && styles.chipTextActive]}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.autoFieldLabel}>NIGHT WINDOW</Text>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={styles.chip}
+                    onPress={() => setTimePicker({ kind: 'nightStart', value: autoConfig.sleepStartMin })}
+                  >
+                    <Text style={styles.chipText}>From {fmtClock(autoConfig.sleepStartMin)}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.chip}
+                    onPress={() => setTimePicker({ kind: 'nightEnd', value: autoConfig.sleepEndMin })}
+                  >
+                    <Text style={styles.chipText}>Until {fmtClock(autoConfig.sleepEndMin)}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.autoAlarmRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.autoTitle}>Smart alarm</Text>
+                    <Text style={styles.autoSub}>Rings inside the wake window with Stop / Snooze</Text>
+                  </View>
+                  <Switch
+                    value={autoConfig.alarmEnabled}
+                    onValueChange={toggleAlarm}
+                    trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.primaryContainer }}
+                    thumbColor={autoConfig.alarmEnabled ? colors.primary : 'rgba(255,255,255,0.5)'}
+                  />
+                </View>
+
+                {autoConfig.alarmEnabled && (
+                  <>
+                    <Text style={styles.autoFieldLabel}>WAKE WINDOW</Text>
+                    <View style={styles.chipRow}>
+                      <TouchableOpacity
+                        style={styles.chip}
+                        onPress={() => setTimePicker({ kind: 'wakeStart', value: autoConfig.wakeStartMin })}
+                      >
+                        <Text style={styles.chipText}>{fmtClock(autoConfig.wakeStartMin)}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.chip}
+                        onPress={() => setTimePicker({ kind: 'wakeEnd', value: autoConfig.wakeEndMin })}
+                      >
+                        <Text style={styles.chipText}>{fmtClock(autoConfig.wakeEndMin)}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.chip, autoConfig.alarmMode === 'fixed' && styles.chipActive]}
+                        onPress={async () => {
+                          const next = {
+                            ...autoConfig,
+                            alarmMode: (autoConfig.alarmMode === 'fixed'
+                              ? 'smart'
+                              : 'fixed') as SleepAlarmMode,
+                          };
+                          setAutoConfig(next);
+                          await setMotionConfig(next);
+                        }}
+                      >
+                        <Text style={[styles.chipText, autoConfig.alarmMode === 'fixed' && styles.chipTextActive]}>
+                          {autoConfig.alarmMode === 'fixed' ? 'Exact time' : 'Light sleep'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </>
+            ) : (
+              <Text style={styles.autoHint}>
+                Meridian watches your phone's motion overnight and works out when you fell asleep and woke
+                up. Nothing leaves the phone.
+              </Text>
+            )}
           </View>
         )}
 
@@ -555,7 +877,7 @@ export default function SleepDashboardScreen() {
               <View key={e.id} style={styles.entryCard}>
                 <TouchableOpacity style={styles.entryMain} onPress={() => openEdit(e)} activeOpacity={0.7}>
                   <View style={styles.entryIcon}>
-                    <Ionicons name={e.source === 'auto' ? 'sparkles-outline' : 'moon-outline'} size={18} color={colors.primary} />
+                    <Ionicons name={e.source?.startsWith('auto') ? 'sparkles-outline' : 'moon-outline'} size={18} color={colors.primary} />
                   </View>
                   <View style={styles.entryInfo}>
                     <Text style={styles.entryDate}>
@@ -664,6 +986,14 @@ export default function SleepDashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Night window / wake window picker */}
+      <TimePicker
+        visible={!!timePicker}
+        selected={dateFromMinutes(timePicker?.value ?? 0)}
+        onSelect={(d) => applyPickedTime(d.getHours() * 60 + d.getMinutes())}
+        onClose={() => setTimePicker(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -730,6 +1060,25 @@ const styles = StyleSheet.create({
   reminderOffText: { fontSize: 11, fontWeight: '600', color: colors.error },
   detectEnable: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   detectEnableText: { fontSize: 12, fontWeight: '600', color: colors.primary, flex: 1 },
+
+  autoCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  autoHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  autoTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
+  autoSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  autoHint: { fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
+  autoStatusRow: { flexDirection: 'row', gap: 18, paddingVertical: 2 },
+  autoStat: { gap: 2 },
+  autoStatLabel: { fontSize: 9, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  autoStatValue: { fontSize: 13, fontWeight: '700', color: colors.onSurface },
+  autoFieldLabel: { fontSize: 9, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
+  autoAlarmRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  chipActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
+  chipText: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant },
+  chipTextActive: { color: colors.onSurface },
+  autoDetectCard: { backgroundColor: colors.primaryContainer, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  autoDetectMeta: { fontSize: 11, color: colors.onSurfaceVariant },
 
   sectionTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
   emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 20 },

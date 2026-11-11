@@ -425,7 +425,7 @@ export interface SleepEntry {
   mood?: string | null
   interruptions: number
   notes?: string | null
-  source: 'manual' | 'auto'
+  source: 'manual' | 'auto' | 'auto-motion'
   created_at?: string
   updated_at?: string
 }

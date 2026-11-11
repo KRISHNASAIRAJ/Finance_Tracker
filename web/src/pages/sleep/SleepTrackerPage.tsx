@@ -230,7 +230,7 @@ export function SleepTrackerPage() {
                     <tr key={e.id} className="border-b border-white/5 last:border-0 group">
                       <td className="px-5 py-3 text-white/80">
                         {new Date(e.start_time).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                        {e.source === 'auto' && <span className="ml-2 rounded bg-[#7B8EFF]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#7B8EFF]">auto</span>}
+                        {e.source?.startsWith('auto') && <span className="ml-2 rounded bg-[#7B8EFF]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#7B8EFF]">{e.source === 'auto-motion' ? 'motion' : 'auto'}</span>}
                       </td>
                       <td className="px-5 py-3 text-white/50">
                         {new Date(e.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} → {new Date(e.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}

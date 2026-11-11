@@ -16,6 +16,7 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 import com.krishnasairaj.meridian.sleep.SleepDetectPackage
+import com.krishnasairaj.meridian.sleep.SleepMotionPackage
 import com.krishnasairaj.meridian.widgets.BedtimeWidgetPackage
 import com.krishnasairaj.meridian.widgets.StatsWidgetPackage
 
@@ -29,6 +30,7 @@ class MainApplication : Application(), ReactApplication {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
               add(SleepDetectPackage())
+              add(SleepMotionPackage())
               add(BedtimeWidgetPackage())
               add(StatsWidgetPackage())
             }

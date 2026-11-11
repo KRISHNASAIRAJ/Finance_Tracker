@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEFAULT_SLEEP_MOTION_CONFIG, type SleepMotionConfig } from './sleepMotion';
 
 export interface SleepEntry {
   id: string;
@@ -19,18 +20,32 @@ export interface SleepEntry {
   /** night wake-ups */
   interruptions: number;
   notes: string;
-  /** 'manual' | 'auto' */
+  /** 'manual' | 'auto' | 'auto-motion' */
   source: string;
+}
+
+/** A session detected by the motion tracker, offered to the user. */
+export interface DetectedSleepSession {
+  bedTime: number;
+  wakeTime: number;
+  interruptions: number;
+  durationMin: number;
 }
 
 interface SleepState {
   entries: SleepEntry[];
   /** bedtime reminder hour/min (IST) — user-configurable, null = off */
   reminderTime: { hour: number; minute: number } | null;
+  /** Settings of the automatic (accelerometer) sleep tracker. */
+  autoConfig: SleepMotionConfig;
+  /** Latest session detected by the motion tracker (not saved yet). */
+  autoSession: DetectedSleepSession | null;
   addEntry: (entry: Omit<SleepEntry, 'id'>, userId?: string) => string;
   editEntry: (id: string, data: Partial<SleepEntry>, userId?: string) => void;
   deleteEntry: (id: string, userId?: string) => void;
   setReminderTime: (time: { hour: number; minute: number } | null) => void;
+  setAutoConfig: (patch: Partial<SleepMotionConfig>) => void;
+  setAutoSession: (session: DetectedSleepSession | null) => void;
 }
 
 function flush() {
@@ -73,6 +88,8 @@ export const useSleepStore = create<SleepState>()(
     (set, get) => ({
       entries: [],
       reminderTime: null,
+      autoConfig: { ...DEFAULT_SLEEP_MOTION_CONFIG },
+      autoSession: null,
 
       addEntry: (entry, userId) => {
         // Idempotency guard: a start time (same minute) identifies one sleep
@@ -148,6 +165,14 @@ export const useSleepStore = create<SleepState>()(
         // Local-only setting (persisted via AsyncStorage by zustand persist).
         // Not synced to user_settings to avoid schema coupling.
         set({ reminderTime: time });
+      },
+
+      setAutoConfig: (patch) => {
+        set((s) => ({ autoConfig: { ...s.autoConfig, ...patch } }));
+      },
+
+      setAutoSession: (session) => {
+        set({ autoSession: session });
       },
     }),
     {

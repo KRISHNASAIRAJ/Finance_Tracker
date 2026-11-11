@@ -1,0 +1,541 @@
+package com.krishnasairaj.meridian.sleep
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.graphics.drawable.Icon
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import com.krishnasairaj.meridian.MainActivity
+import java.util.Calendar
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sqrt
+
+/**
+ * SleepMotionService — the automatic sleep tracker.
+ *
+ * A foreground service that samples the accelerometer all night (screen off,
+ * app closed) and turns the movement into a per-minute timeline. The phone
+ * lying still on the mattress = asleep; the phone being picked up = awake.
+ *
+ * It also hosts the smart alarm: inside the wake window the alarm rings on the
+ * first sign of movement (light sleep), with Stop / Snooze buttons.
+ *
+ * The raw timeline is persisted in SharedPreferences (SleepMotionStore) so the
+ * JS side can infer the sleep session whenever the app is opened.
+ */
+class SleepMotionService : Service(), SensorEventListener {
+
+    companion object {
+        const val CHANNEL_TRACKING = "sleep-tracking"
+        const val CHANNEL_ALARM = "sleep-alarm"
+        const val NOTIF_TRACKING = 1001
+        const val NOTIF_ALARM = 1002
+
+        const val ACTION_STOP_ALARM = "com.krishnasairaj.meridian.sleep.action.STOP_ALARM"
+        const val ACTION_SNOOZE_ALARM = "com.krishnasairaj.meridian.sleep.action.SNOOZE_ALARM"
+        const val ACTION_STOP_TRACKING = "com.krishnasairaj.meridian.sleep.action.STOP_TRACKING"
+
+        /** Accelerometer sampling period: 5 seconds. */
+        private const val SAMPLE_PERIOD_US = 5_000_000
+
+        /** Persist the timeline at most once a minute. */
+        private const val PERSIST_INTERVAL_MS = 60_000L
+
+        /** The running service (used by the alarm receiver). */
+        @Volatile
+        var instance: SleepMotionService? = null
+    }
+
+    private var sensorManager: SensorManager? = null
+    private var accelerometer: Sensor? = null
+    private var registered = false
+
+    private var lastX = 0f
+    private var lastY = 0f
+    private var lastZ = 0f
+    private var hasLastVector = false
+
+    private val buckets = mutableListOf<MotionBucket>()
+    private var config: SleepMotionConfig = SleepMotionConfig()
+
+    private var player: MediaPlayer? = null
+    private var vibrator: Vibrator? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var alarmActive = false
+    private var lastPersistAt = 0L
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    // --- lifecycle ----------------------------------------------------------
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        config = SleepMotionStore.loadConfig(this)
+        buckets.addAll(SleepMotionStore.loadBuckets(this))
+        createChannels()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Re-read the config on every start so changes made in the app apply
+        // even when the service was already running.
+        config = SleepMotionStore.loadConfig(this)
+        // Android gives a foreground service ~5s to show its notification —
+        // always do that first, even when we are about to stop again.
+        startInForeground()
+        if (!config.enabled) {
+            stopTracking()
+            return START_NOT_STICKY
+        }
+        registerSensor()
+        if (SleepMotionStore.startedAt(this) <= 0L) {
+            SleepMotionStore.setStartedAt(this, System.currentTimeMillis())
+        }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        unregisterSensor()
+        stopAlarmSound()
+        persist(true)
+        instance = null
+        super.onDestroy()
+    }
+
+    // --- sensor -------------------------------------------------------------
+
+    private fun registerSensor() {
+        if (registered) return
+        try {
+            if (sensorManager == null) {
+                sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            }
+            if (accelerometer == null) {
+                accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            }
+            val sensor = accelerometer
+            if (sensor == null) return
+            registered = sensorManager?.registerListener(this, sensor, SAMPLE_PERIOD_US) ?: false
+        } catch (e: Exception) {
+            registered = false
+        }
+    }
+
+    private fun unregisterSensor() {
+        if (!registered) return
+        try {
+            sensorManager?.unregisterListener(this)
+        } catch (e: Exception) {
+            /* ignore */
+        }
+        registered = false
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        /* not used */
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        try {
+            val values = event?.values ?: return
+            if (values.size < 3) return
+            val x = values[0]
+            val y = values[1]
+            val z = values[2]
+
+            val magnitude = sqrt(x * x + y * y + z * z)
+            // Distance from "flat and calm" — a phone lying on a mattress reads
+            // roughly one g.
+            var movement = abs(magnitude - SensorManager.GRAVITY_EARTH)
+
+            // A phone that is picked up or turned over changes orientation even
+            // when the total force stays the same — treat that as movement too.
+            if (hasLastVector) {
+                val lastMagnitude = sqrt(lastX * lastX + lastY * lastY + lastZ * lastZ)
+                if (lastMagnitude > 0.01f && magnitude > 0.01f) {
+                    val cosine = (x * lastX + y * lastY + z * lastZ) / (magnitude * lastMagnitude)
+                    val turn = (1f - cosine).coerceIn(0f, 2f) * SensorManager.GRAVITY_EARTH
+                    if (turn > movement) movement = turn
+                }
+            }
+            lastX = x
+            lastY = y
+            lastZ = z
+            hasLastVector = true
+
+            val now = System.currentTimeMillis()
+            recordBucket(now, movement)
+            handleMovement(now, movement)
+            persist(false)
+        } catch (e: Exception) {
+            /* never crash the service */
+        }
+    }
+
+    /** Keep one bucket per minute holding the peak movement of that minute. */
+    private fun recordBucket(now: Long, movement: Float) {
+        val minute = now / 60000L
+        val last = buckets.lastOrNull()
+        if (last == null || last.minute != minute) {
+            buckets.add(MotionBucket(minute, movement))
+        } else {
+            buckets.removeAt(buckets.size - 1)
+            buckets.add(MotionBucket(minute, max(last.value, movement)))
+        }
+    }
+
+    /** Track the stillness / movement streaks and drive the smart alarm. */
+    private fun handleMovement(now: Long, movement: Float) {
+        val threshold = config.threshold()
+        val lastMovementAt = SleepMotionStore.lastMovementAt(this)
+        val stillForMs = if (lastMovementAt <= 0L) Long.MAX_VALUE else now - lastMovementAt
+
+        if (movement > threshold) {
+            SleepMotionStore.setLastMovementAt(this, now)
+            SleepMotionStore.setStillSince(this, 0L)
+        } else if (SleepMotionStore.stillSince(this) <= 0L) {
+            SleepMotionStore.setStillSince(this, now)
+        }
+
+        maybeFireAlarm(now, movement, stillForMs)
+    }
+
+    // --- smart alarm --------------------------------------------------------
+
+    private fun maybeFireAlarm(now: Long, movement: Float, stillForMs: Long) {
+        if (!config.alarmEnabled) return
+        if (alarmActive) return
+
+        // One alarm per calendar day.
+        val today = localDateKey(now)
+        if (SleepMotionStore.alarmDate(this) != today) {
+            SleepMotionStore.setAlarmDate(this, today)
+            SleepMotionStore.setAlarmFired(this, false)
+        }
+        if (SleepMotionStore.alarmFired(this)) return
+        if (now < SleepMotionStore.snoozeUntil(this)) return
+
+        val minuteOfDay = localMinutesOfDay(now)
+        if (minuteOfDay < config.wakeStartMin || minuteOfDay > config.wakeEndMin) return
+
+        if (config.alarmMode == SleepMotionConfig.ALARM_FIXED) {
+            fireAlarm(now)
+            return
+        }
+
+        // Smart alarm: ring on the first movement inside the wake window, but
+        // only when the phone has been still for a while (the user is asleep).
+        val minStillMs = config.minStillMinutes() * 60_000L
+        if (movement > config.threshold() && stillForMs >= minStillMs) {
+            fireAlarm(now)
+        }
+    }
+
+    private fun fireAlarm(now: Long) {
+        alarmActive = true
+        SleepMotionStore.setAlarmFired(this, true)
+        startAlarmSound()
+        startVibration()
+        acquireWakeLock()
+        showAlarmNotification()
+        // Stop ringing after the configured duration, but keep it "fired" so it
+        // does not ring again on the next movement.
+        handler.postDelayed({
+            stopAlarmSound()
+            releaseWakeLock()
+            alarmActive = false
+        }, config.alarmDurationMin.coerceAtLeast(1) * 60_000L)
+    }
+
+    /** Stop (or snooze) the ringing alarm. Safe to call when nothing rings. */
+    fun stopAlarm(snooze: Boolean) {
+        stopAlarmSound()
+        releaseWakeLock()
+        cancelNotification(NOTIF_ALARM)
+        alarmActive = false
+        if (snooze) {
+            // Ring again once the snooze is over.
+            SleepMotionStore.setAlarmFired(this, false)
+            SleepMotionStore.setSnoozeUntil(this, System.currentTimeMillis() + config.snoozeMin * 60_000L)
+        }
+    }
+
+    fun isAlarmActive(): Boolean = alarmActive
+
+    /** Stop the whole tracker (sensor + notification). */
+    fun stopTracking() {
+        unregisterSensor()
+        cancelNotification(NOTIF_TRACKING)
+        stopAlarmSound()
+        releaseWakeLock()
+        alarmActive = false
+        stopForeground(Service.STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun startAlarmSound() {
+        try {
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            if (uri == null) return
+            stopAlarmSound()
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            mp.setDataSource(this, uri)
+            mp.isLooping = true
+            mp.prepare()
+            mp.start()
+            player = mp
+        } catch (e: Exception) {
+            player = null
+        }
+    }
+
+    private fun stopAlarmSound() {
+        try {
+            player?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+        } catch (e: Exception) {
+            /* ignore */
+        }
+        player = null
+        try {
+            vibrator?.cancel()
+        } catch (e: Exception) {
+            /* ignore */
+        }
+        vibrator = null
+    }
+
+    private fun startVibration() {
+        try {
+            val v: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
+            vibrator = v
+            val pattern = longArrayOf(0, 500, 500, 500, 1000)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createWaveform(pattern, 0))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(pattern, 0)
+            }
+        } catch (e: Exception) {
+            /* ignore */
+        }
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock != null) return
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "meridian:sleep-alarm").apply {
+                setReferenceCounted(false)
+                acquire(config.alarmDurationMin.coerceAtLeast(1) * 60_000L, TimeUnit.MILLISECONDS)
+            }
+        } catch (e: Exception) {
+            wakeLock = null
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) it.release()
+            }
+        } catch (e: Exception) {
+            /* ignore */
+        }
+        wakeLock = null
+    }
+
+    // --- notifications ------------------------------------------------------
+
+    private fun createChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val tracking = NotificationChannel(
+                CHANNEL_TRACKING,
+                "Sleep tracking",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shown while Meridian tracks your sleep automatically"
+                setShowBadge(false)
+            }
+            val alarm = NotificationChannel(
+                CHANNEL_ALARM,
+                "Smart alarm",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Wake-up alarm for automatic sleep tracking"
+                enableVibration(true)
+                setSound(null, null)
+            }
+            nm.createNotificationChannel(tracking)
+            nm.createNotificationChannel(alarm)
+        } catch (e: Exception) {
+            /* ignore */
+        }
+    }
+
+    private fun startInForeground() {
+        try {
+            val notification = buildTrackingNotification()
+            startForeground(NOTIF_TRACKING, notification)
+        } catch (e: Exception) {
+            /* ignore — the service still runs, just without a notification */
+        }
+    }
+
+    private fun builder(channelId: String): Notification.Builder {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, channelId)
+        } else {
+            Notification.Builder(this)
+        }
+    }
+
+    private fun buildTrackingNotification(): Notification {
+        val stopIntent = PendingIntent.getBroadcast(
+            this,
+            10,
+            Intent(this, SleepMotionAlarmReceiver::class.java).setAction(ACTION_STOP_TRACKING),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return builder(CHANNEL_TRACKING)
+            .setContentTitle("Tracking your sleep")
+            .setContentText("Using the motion sensor — no watch needed")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setOngoing(true)
+            .setContentIntent(openAppIntent())
+            .addAction(Notification.Action.Builder(null as Icon?, "Stop", stopIntent).build())
+            .build()
+    }
+
+    private fun showAlarmNotification() {
+        try {
+            val stopIntent = PendingIntent.getBroadcast(
+                this,
+                11,
+                Intent(this, SleepMotionAlarmReceiver::class.java).setAction(ACTION_STOP_ALARM),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val snoozeIntent = PendingIntent.getBroadcast(
+                this,
+                12,
+                Intent(this, SleepMotionAlarmReceiver::class.java).setAction(ACTION_SNOOZE_ALARM),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = builder(CHANNEL_ALARM)
+                .setContentTitle("⏰ Good morning")
+                .setContentText("Time to wake up")
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setPriority(Notification.PRIORITY_MAX)
+                .setContentIntent(openAppIntent())
+                .addAction(Notification.Action.Builder(null as Icon?, "Snooze ${config.snoozeMin} min", snoozeIntent).build())
+                .addAction(Notification.Action.Builder(null as Icon?, "Stop", stopIntent).build())
+                .build()
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIF_ALARM, notification)
+        } catch (e: Exception) {
+            /* ignore */
+        }
+    }
+
+    private fun cancelNotification(id: Int) {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(id)
+        } catch (e: Exception) {
+            /* ignore */
+        }
+    }
+
+    private fun openAppIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    // --- persistence --------------------------------------------------------
+
+    private fun persist(force: Boolean) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastPersistAt < PERSIST_INTERVAL_MS) return
+        lastPersistAt = now
+        try {
+            // Pick up config changes made in the app while we were running.
+            val fresh = SleepMotionStore.loadConfig(this)
+            if (fresh.toJson() != config.toJson()) config = fresh
+            SleepMotionStore.saveBuckets(this, buckets)
+            SleepMotionStore.setLastSampleAt(this, now)
+        } catch (e: Exception) {
+            /* ignore */
+        }
+    }
+
+    // --- helpers ------------------------------------------------------------
+
+    private fun localMinutesOfDay(ts: Long): Int {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = ts
+        return cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+    }
+
+    private fun localDateKey(ts: Long): String {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = ts
+        return String.format(
+            Locale.US,
+            "%04d%02d%02d",
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+}

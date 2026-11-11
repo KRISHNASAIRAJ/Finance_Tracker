@@ -25,6 +25,8 @@ import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { pushStatsWidget } from './src/services/statsWidget';
 import { runMarketSyncWatchdog } from './src/services/marketSyncWatchdog';
 import { scheduleMedicationReminders, handleMedicationAction } from './src/services/medicationReminders';
+import { startMotionTracking } from './src/modules/sleep/sleepMotion';
+import { useSleepStore } from './src/modules/sleep/store';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
@@ -232,6 +234,16 @@ if (data.screen === 'TaskDetail' && data.taskId) {
     // Market data watchdog — one notification per day if Kite/NAV data has
     // not synced since the previous trading day (never on Sat/Sun).
     runMarketSyncWatchdog().catch(() => {});
+
+    // Automatic sleep tracking — re-arm the native tracker when the user has
+    // it enabled. The persisted config hydrates a moment after boot, so this
+    // runs a little later.
+    setTimeout(() => {
+      try {
+        const cfg = useSleepStore.getState().autoConfig;
+        if (cfg?.enabled) startMotionTracking(cfg);
+      } catch (_e) { /* best-effort */ }
+    }, 2500);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {

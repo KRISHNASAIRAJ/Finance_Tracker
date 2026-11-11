@@ -9,6 +9,9 @@
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!-- Automatic sleep tracking: foreground service that samples the accelerometer -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:targetApi="34"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -68,6 +71,21 @@
         <action android:name="com.krishnasairaj.meridian.widgets.ACTION_BEDTIME_TOGGLE"/>
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_bedtime"/>
+    </receiver>
+    <!-- Automatic sleep tracker (accelerometer) + smart alarm -->
+    <service
+      android:name=".sleep.SleepMotionService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse"
+      tools:targetApi="34">
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="automatic_sleep_tracking"/>
+    </service>
+    <receiver android:name=".sleep.SleepMotionAlarmReceiver" android:exported="false"/>
+    <receiver android:name=".sleep.SleepMotionBootReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+      </intent-filter>
     </receiver>
   </application>
 </manifest>
