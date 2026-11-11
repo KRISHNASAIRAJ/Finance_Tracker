@@ -518,10 +518,15 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
   section total, and an inline editor (tap a row on mobile → modal; blur a
   field on web) to set the balance.
 - **Standard providers** seeded on first open (stable ids so balances
-  follow the row across devices): Amazon Pay, PayPal, PhonePe, Airtel
-  Thanks, Zepto, Blinkit, BigBasket — editable in
-  `WALLET_PROVIDERS` (mobile `modules/finance/store.ts`, web
-  `hooks/data/useWallets.ts`).
+  follow the row across devices): Amazon Pay, PhonePe, Zepto, Blinkit,
+  BigBasket — editable in `WALLET_PROVIDERS` (mobile
+  `modules/finance/store.ts`, web `hooks/data/useWallets.ts`). Rows for
+  providers that leave the catalog (PayPal, Airtel Thanks) are pruned
+  automatically, locally and in the cloud (`RETIRED_WALLET_IDS`).
+- **Migration note:** the `wallets` table uses `gen_random_uuid()::TEXT`
+  (not `uuid_generate_v4()` — the uuid-ossp extension is not enabled on
+  the hosted project) and adds the table to the realtime publication in a
+  best-effort block so a publication error can never block the migration.
 - **Tests:** `modules/finance/__tests__/wallets.test.ts` (5) — seeding is
   idempotent, balances update in paise, negative/NaN amounts are rejected,
   deletion, and the provider list.

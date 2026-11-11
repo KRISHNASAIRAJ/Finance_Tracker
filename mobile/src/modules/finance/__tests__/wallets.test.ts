@@ -38,11 +38,11 @@ describe('Finance store — wallets', () => {
 
   it('never stores a negative or non-finite balance', () => {
     useFinanceStore.getState().seedWallets('u1');
-    useFinanceStore.getState().setWalletAmount('paypal', -500, 'u1');
-    expect(useFinanceStore.getState().wallets.find((w) => w.id === 'paypal')?.amount).toBe(0);
+    useFinanceStore.getState().setWalletAmount('phonepe', -500, 'u1');
+    expect(useFinanceStore.getState().wallets.find((w) => w.id === 'phonepe')?.amount).toBe(0);
 
-    useFinanceStore.getState().setWalletAmount('paypal', NaN, 'u1');
-    expect(useFinanceStore.getState().wallets.find((w) => w.id === 'paypal')?.amount).toBe(0);
+    useFinanceStore.getState().setWalletAmount('phonepe', NaN, 'u1');
+    expect(useFinanceStore.getState().wallets.find((w) => w.id === 'phonepe')?.amount).toBe(0);
   });
 
   it('deletes a wallet row', () => {
@@ -54,7 +54,25 @@ describe('Finance store — wallets', () => {
   it('covers the wallets the user asked for', () => {
     const names = WALLET_PROVIDERS.map((p) => p.name);
     expect(names).toEqual(
-      expect.arrayContaining(['Amazon Pay', 'PayPal', 'PhonePe', 'Zepto', 'Blinkit', 'BigBasket'])
+      expect.arrayContaining(['Amazon Pay', 'PhonePe', 'Zepto', 'Blinkit', 'BigBasket'])
     );
+    expect(names).not.toContain('PayPal');
+    expect(names).not.toContain('Airtel Thanks');
+  });
+
+  it('prunes rows for providers that left the catalog', () => {
+    useFinanceStore.setState({
+      wallets: [
+        { id: 'paypal', name: 'PayPal', amount: 5000 },
+        { id: 'airtel', name: 'Airtel Thanks', amount: 0 },
+      ],
+    });
+
+    useFinanceStore.getState().seedWallets('u1');
+
+    const wallets = useFinanceStore.getState().wallets;
+    expect(wallets.find((w) => w.id === 'paypal')).toBeUndefined();
+    expect(wallets.find((w) => w.id === 'airtel')).toBeUndefined();
+    expect(wallets).toHaveLength(WALLET_PROVIDERS.length);
   });
 });

@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useBankAccounts } from '../../hooks/data/useBankAccounts'
 import { useCreditCards } from '../../hooks/data/useCreditCards'
 import { useReceivables } from '../../hooks/data/useReceivables'
 import { useTransactions } from '../../hooks/data/useTransactions'
-import { useWallets, useUpsertWallet, WALLET_PROVIDERS } from '../../hooks/data/useWallets'
+import { useWallets, useUpsertWallet, useDeleteWallet, WALLET_PROVIDERS, RETIRED_WALLET_IDS } from '../../hooks/data/useWallets'
 import { PageHeader, Skeleton } from '../../components/ui/Shared'
 import { Card, CardHeader, CardBody } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
@@ -20,11 +20,20 @@ export function BalanceSummaryPage() {
   const { data: txns } = useTransactions(userId)
   const { data: wallets } = useWallets(userId)
   const upsertWallet = useUpsertWallet(userId)
+  const deleteWallet = useDeleteWallet(userId)
   const [selectedWalletId, setSelectedWalletId] = useState('')
 
-  const walletTotal = (wallets ?? []).reduce((s, w) => s + w.amount, 0)
+  // Providers that left the catalog are hidden and removed from the cloud.
+  const visibleWallets = (wallets ?? []).filter((w) => !RETIRED_WALLET_IDS.includes(w.id))
+  useEffect(() => {
+    for (const w of (wallets ?? []).filter((x) => RETIRED_WALLET_IDS.includes(x.id))) {
+      deleteWallet.mutate(w.id)
+    }
+  }, [wallets, deleteWallet])
+
+  const walletTotal = visibleWallets.reduce((s, w) => s + w.amount, 0)
   const missingWalletProviders = WALLET_PROVIDERS.filter(
-    (p) => !(wallets ?? []).some((w) => w.id === p.id)
+    (p) => !visibleWallets.some((w) => w.id === p.id)
   )
 
   const totalBalance = (accounts ?? []).reduce((s, a) => s + a.amount, 0)
@@ -119,15 +128,15 @@ export function BalanceSummaryPage() {
             title="Wallets"
             action={
               <span className="text-xs text-white/40">
-                {paiseToRupees(walletTotal)} across {wallets?.length ?? 0} wallets
+                {paiseToRupees(walletTotal)} across {visibleWallets.length} wallets
               </span>
             }
           />
           <CardBody className="space-y-3">
-            {(wallets ?? []).length === 0 && (
+            {visibleWallets.length === 0 && (
               <p className="text-sm text-white/30 py-4 text-center">No wallets yet</p>
             )}
-            {(wallets ?? []).map((w) => (
+            {visibleWallets.map((w) => (
               <div key={w.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 px-4 py-3">
                 <p className="text-sm text-white/80">{w.name}</p>
                 <div className="flex items-center gap-2">

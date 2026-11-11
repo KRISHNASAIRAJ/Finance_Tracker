@@ -12,13 +12,14 @@ export const walletKeys = {
 /** Wallet providers the app offers out of the box. */
 export const WALLET_PROVIDERS = [
   { id: 'amazon_pay', name: 'Amazon Pay' },
-  { id: 'paypal', name: 'PayPal' },
   { id: 'phonepe', name: 'PhonePe' },
-  { id: 'airtel', name: 'Airtel Thanks' },
   { id: 'zepto', name: 'Zepto' },
   { id: 'blinkit', name: 'Blinkit' },
   { id: 'bigbasket', name: 'BigBasket' },
 ]
+
+/** Providers that left the catalog — their rows are hidden and pruned. */
+export const RETIRED_WALLET_IDS = ['paypal', 'airtel']
 
 export function useWallets(userId: string) {
   return useQuery({

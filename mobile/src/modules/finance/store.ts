@@ -67,13 +67,14 @@ export interface Wallet {
  */
 export const WALLET_PROVIDERS: { id: string; name: string }[] = [
   { id: 'amazon_pay', name: 'Amazon Pay' },
-  { id: 'paypal', name: 'PayPal' },
   { id: 'phonepe', name: 'PhonePe' },
-  { id: 'airtel', name: 'Airtel Thanks' },
   { id: 'zepto', name: 'Zepto' },
   { id: 'blinkit', name: 'Blinkit' },
   { id: 'bigbasket', name: 'BigBasket' },
 ];
+
+/** Providers that were dropped from the catalog — their rows are pruned. */
+const RETIRED_WALLET_IDS = ['paypal', 'airtel'];
 
 export interface FixedExpense {
   id: string;
@@ -252,11 +253,21 @@ export const useFinanceStore = create<FinanceState>()(
         enqFlush("bank_accounts", "update", { id, amount, user_id: userId || null });
       },
       seedWallets: (userId) => {
-        const existing = new Set(get().wallets.map((w) => w.id));
+        const state = get();
+        // Rows for providers that left the catalog are removed (and deleted
+        // in the cloud) so they cannot linger in the Wallets section.
+        const retired = state.wallets.filter((w) => RETIRED_WALLET_IDS.includes(w.id));
+        const kept = state.wallets.filter((w) => !RETIRED_WALLET_IDS.includes(w.id));
+        const existing = new Set(kept.map((w) => w.id));
         const missing = WALLET_PROVIDERS.filter((p) => !existing.has(p.id));
-        if (missing.length === 0) return;
+        if (retired.length === 0 && missing.length === 0) return;
+
         const rows: Wallet[] = missing.map((p) => ({ id: p.id, name: p.name, amount: 0 }));
-        set((state) => ({ wallets: [...state.wallets, ...rows] }));
+        set({ wallets: [...kept, ...rows] });
+
+        for (const w of retired) {
+          enqFlush("wallets", "delete", { id: w.id, user_id: userId || null });
+        }
         for (const w of rows) {
           enqFlush("wallets", "create", {
             id: w.id, name: w.name, amount: w.amount, user_id: userId || null,
