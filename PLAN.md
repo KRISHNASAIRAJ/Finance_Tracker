@@ -504,8 +504,45 @@ combined report) becomes a 2×2 auto-scrolling stats carousel.
     `--max-warnings 80`; the repo now reports 12 warnings (all
     intentional `console` diagnostics) instead of 74.
 
-## 15. Widget CC BILLS + snapshot date order (v4)
+## 16. Notification hygiene: service spam + market-sync watchdog + MF SIP naming (v4)
 
+- **Vehicle service reminder was spamming.** The trigger was a rolling
+  "now + 60 min" with a constant dedup key (`service_<vehicle>`), so every
+  app open re-armed it and a due service could notify every hour (and a
+  delivered notification is no longer in the scheduled list, so the dedup
+  scan could not stop it either). It now fires **once per day per vehicle**
+  at 9:00 AM (today if still ahead, otherwise tomorrow) with a day-keyed
+  dedup (`service_<vehicle>_<YYYY-MM-DD>`).
+- **Market-sync watchdog** (`services/marketSyncWatchdog.ts`) — one
+  notification per day when the market data has not synced since the
+  previous trading day:
+  - **Never on Saturday or Sunday** (market holidays).
+  - **At most one notification per calendar day** — day-keyed dedup key plus
+    a persisted "already notified" marker, so repeated app opens never
+    stack copies.
+  - Kite freshness uses `holdings.last_synced_at` (set by
+    `kite-holdings-sync`); MF/ETF NAV freshness uses `holdings.updated_at`
+    (set by `refresh-portfolio-prices`). A holding counts as fresh when it
+    was synced on or after the **previous trading day** — mutual fund NAV
+    for a day is published the next morning, so "today's NAV missing" is
+    normal and never triggers the warning.
+  - Runs on app boot and on every foreground; tapping the notification
+    opens the Wealth dashboard (new `InvestmentsDashboard` tap target).
+  - Holdings rows now carry `lastSyncedAt` / `updatedAt` in the mobile
+    store (mapped in `useEquitySync`).
+- **Mutual funds are SIPs due on the 1st**:
+  - `holdingDisplayName()` appends " (SIP)" to mutual fund names in the
+    holdings list, dashboard preview and portfolio breakdown (mirrored in
+    the web app's holdings list).
+  - `MF_SIP_DAY = 1` — the SIP day defaults to the 1st for every MF row
+    (mobile pull mapping + web holding form), and migration
+    `0045_mf_sip_day.sql` backfills existing MF rows to `sip_day = 1`.
+- **Tests:** `services/__tests__/marketSyncWatchdog.test.ts` (11) — weekend
+  skip, previous-trading-day maths, Kite/MF freshness rules, one
+  notification per day; `modules/equity/__tests__/store.test.ts` — the
+  " (SIP)" name rule.
+
+## 15. Widget CC BILLS + snapshot date order (v4)
 - **CC BILLS (widget):** the widget summed the gross statement
   (`billAmount`, ignoring `paidAmount`) and preferred a stale
   `currentOutstanding`, so the number did not match anything in the app.

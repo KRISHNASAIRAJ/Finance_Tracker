@@ -23,6 +23,7 @@ import { registerSyncTask } from './src/services/syncScheduler';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { pushStatsWidget } from './src/services/statsWidget';
+import { runMarketSyncWatchdog } from './src/services/marketSyncWatchdog';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
 import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
@@ -94,6 +95,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MainTabs', { screen: 'HomeTab' });
           } else if (data.screen === 'HabitTracker') {
             nav.navigate('MoreStack', { screen: 'HabitTracker' });
+          } else if (data.screen === 'InvestmentsDashboard') {
+            nav.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } });
+          } else if (data.screen === 'FixedExpenses') {
+            nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'FixedExpenses' } });
           } else if (data.type === 'PORTFOLIO_REPORT') {
           nav.navigate('MainTabs', { screen: 'InvestmentsTab' });
         }
@@ -191,11 +196,16 @@ if (data.screen === 'TaskDetail' && data.taskId) {
     pushStatsWidget();
     const statsRetry = setTimeout(() => pushStatsWidget(), 2500);
 
+    // Market data watchdog — one notification per day if Kite/NAV data has
+    // not synced since the previous trading day (never on Sat/Sun).
+    runMarketSyncWatchdog().catch(() => {});
+
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
         processSyncQueue()
           .then(() => pushStatsWidget())
           .catch((e) => console.warn('[App] foreground sync failed:', e));
+        runMarketSyncWatchdog().catch(() => {});
       }
       if (nextState === 'background') {
         processSyncQueue()

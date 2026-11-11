@@ -33,6 +33,17 @@ const TYPE_COLORS: Record<HoldingType, string> = {
 
 const ALLOC_CATEGORIES = ['Gold', 'Realty', 'Equity', 'Mutual Funds', 'ETF', 'Other']
 
+/**
+ * Display name — mutual funds carry a "SIP" suffix (mirrors
+ * mobile/src/modules/equity/store.ts holdingDisplayName).
+ */
+function holdingDisplayName(h: Holding): string {
+  const name = (h.fund_name ?? '').trim()
+  if (h.type !== 'mf') return name
+  if (!name || /\(sip\)\s*$/i.test(name)) return name
+  return `${name} (SIP)`
+}
+
 function holdingValue(h: Holding): number {
   return h.current_value ?? h.quantity * (h.current_price ?? 0)
 }
@@ -106,7 +117,7 @@ export function HoldingsListPage() {
                     <Badge color={TYPE_COLORS[h.type]}>{h.type.toUpperCase()}</Badge>
                     {h.allocation_category && <Badge>{h.allocation_category}</Badge>}
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-white/35">{h.fund_name ?? '—'}</p>
+                  <p className="mt-0.5 truncate text-xs text-white/35">{holdingDisplayName(h)}</p>
                   <p className="mt-0.5 text-xs text-white/50">
                     Qty {formatNumber(h.quantity)} · Avg {paiseToRupeesDetailed(h.avg_buy_price)} · Curr {h.current_price != null ? paiseToRupeesDetailed(h.current_price) : '—'}
                   </p>
@@ -214,7 +225,8 @@ function HoldingForm({ id }: { id?: string }) {
       folio_number: folio.trim() || null,
       amc: amc.trim() || null,
       sip_amount: sipAmount.trim() ? rupeesToPaise(parseRupees(sipAmount)) : null,
-      sip_day: sipDay.trim() ? parseInt(sipDay, 10) : null,
+      // Every mutual fund here is a SIP due on the 1st of the month.
+      sip_day: type === 'mf' ? (sipDay.trim() ? parseInt(sipDay, 10) : 1) : sipDay.trim() ? parseInt(sipDay, 10) : null,
       source: 'manual',
     }
     try {

@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore } from '../store';
+import { useInvestmentsStore, holdingDisplayName } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<InvestmentsStackParamList, 'HoldingsList'>;
@@ -88,7 +88,7 @@ export default function HoldingsListScreen() {
                   <View style={styles.holdingLeft}>
                     {isMF ? (
                       <>
-                        <Text style={styles.holdingName} numberOfLines={1}>{h.name}</Text>
+                        <Text style={styles.holdingName} numberOfLines={1}>{holdingDisplayName(h)}</Text>
                         <Text style={styles.holdingCode}>{h.symbol}</Text>
                         <Text style={styles.holdingQty}>
                           {h.quantity.toFixed(2)} Units · NAV {formatCurrencyDetailed(h.currentPrice)}
@@ -97,7 +97,7 @@ export default function HoldingsListScreen() {
                     ) : (
                       <>
                         <Text style={styles.holdingSymbol}>{h.symbol}</Text>
-                        <Text style={styles.holdingName} numberOfLines={1}>{h.name}</Text>
+                        <Text style={styles.holdingName} numberOfLines={1}>{holdingDisplayName(h)}</Text>
                         <Text style={styles.holdingQty}>
                           {h.quantity} Shares · Avg {formatCurrencyDetailed(h.avgPrice)}
                         </Text>

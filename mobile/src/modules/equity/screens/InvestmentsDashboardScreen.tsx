@@ -24,7 +24,7 @@ import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore, allocationCategoryOf, allocationBuckets } from '../store';
+import { useInvestmentsStore, allocationCategoryOf, allocationBuckets, holdingDisplayName } from '../store';
 import { InvestmentsStackParamList } from '../../../navigation/RootNavigator';
 import { useEquitySync, syncActionPlan } from '../hooks/useEquitySync';
 import { processSyncQueue } from '../../../services/syncQueue';
@@ -432,7 +432,7 @@ export default function InvestmentsDashboardScreen() {
                       {isMF ? (
                         <>
                           <View style={styles.holdingTitleRow}>
-                            <Text style={styles.holdingSymbol} numberOfLines={1}>{h.name}</Text>
+                            <Text style={styles.holdingSymbol} numberOfLines={1}>{holdingDisplayName(h)}</Text>
                           </View>
                           <Text style={styles.mfSchemeCode}>{h.symbol}</Text>
                           <Text style={styles.holdingQuantity}>
@@ -447,7 +447,7 @@ export default function InvestmentsDashboardScreen() {
                           <View style={styles.holdingTitleRow}>
                             <Text style={styles.holdingSymbol}>{h.symbol}</Text>
                           </View>
-                          <Text style={styles.holdingName}>{h.name}</Text>
+                          <Text style={styles.holdingName}>{holdingDisplayName(h)}</Text>
                           <Text style={styles.holdingQuantity}>
                             {h.quantity} Shares · Avg {formatCurrencyDetailed(h.avgPrice)}
                           </Text>

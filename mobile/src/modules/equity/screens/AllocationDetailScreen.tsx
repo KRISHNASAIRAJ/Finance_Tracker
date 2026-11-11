@@ -19,7 +19,7 @@ import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useInvestmentsStore, Holding, holdingValueOf } from '../store';
+import { useInvestmentsStore, Holding, holdingValueOf, holdingDisplayName } from '../store';
 
 const HOLDING_COLORS = [
   '#9BA5FF', '#59D6C7', '#FF887D', '#E2A45C', '#BCE85D',
@@ -191,7 +191,7 @@ export default function AllocationDetailScreen() {
                     <View style={[styles.dot, { backgroundColor: h.color }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.holdingName} numberOfLines={1}>
-                        {isMF ? h.name : h.symbol}
+                        {isMF ? holdingDisplayName(h) : h.symbol}
                       </Text>
                       <Text style={styles.holdingSub} numberOfLines={1}>
                         {isMF ? h.symbol : h.name} · {h.allocation ?? (h.type === 'mf' ? 'Mutual Funds' : 'Equity')}

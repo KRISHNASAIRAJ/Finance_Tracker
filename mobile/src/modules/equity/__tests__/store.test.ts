@@ -8,7 +8,13 @@ jest.mock('../../../services/syncQueue', () => ({
   getQueueLength: jest.fn(() => 0),
 }));
 
-import { useInvestmentsStore, allocationCategoryOf, allocationBuckets, type Holding } from '../store';
+import {
+  useInvestmentsStore,
+  allocationCategoryOf,
+  allocationBuckets,
+  holdingDisplayName,
+  type Holding,
+} from '../store';
 
 const reset = () =>
   useInvestmentsStore.setState({
@@ -71,6 +77,27 @@ describe('Equity — loan adjust', () => {
     adjustLoanAmount('missing-id', 1000);
 
     expect(useInvestmentsStore.getState().loans[0].amount).toBe(5000000);
+  });
+});
+
+describe('Equity — display names', () => {
+  it('suffixes mutual funds with SIP', () => {
+    expect(holdingDisplayName({ name: 'HDFC Mid Cap', type: 'mf' })).toBe('HDFC Mid Cap (SIP)');
+  });
+
+  it('leaves equities, ETFs and others untouched', () => {
+    expect(holdingDisplayName({ name: 'RELIANCE', type: 'equity' })).toBe('RELIANCE');
+    expect(holdingDisplayName({ name: 'NIFTYBEES', type: 'etf' })).toBe('NIFTYBEES');
+    expect(holdingDisplayName({ name: 'Sovereign Gold', type: 'other' })).toBe('Sovereign Gold');
+  });
+
+  it('does not double-suffix an already tagged name', () => {
+    expect(holdingDisplayName({ name: 'HDFC Mid Cap (SIP)', type: 'mf' })).toBe('HDFC Mid Cap (SIP)');
+    expect(holdingDisplayName({ name: 'HDFC Mid Cap (sip)', type: 'mf' })).toBe('HDFC Mid Cap (sip)');
+  });
+
+  it('handles an empty name', () => {
+    expect(holdingDisplayName({ name: '', type: 'mf' })).toBe('');
   });
 });
 

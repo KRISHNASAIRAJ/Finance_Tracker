@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../services/supabaseClient";
 import { useAuth } from "../../../services/AuthProvider";
 import { enqueue } from "../../../services/syncQueue";
-import { useInvestmentsStore, Holding, InvestmentGoal, Loan, FixedDeposit } from "../store";
+import { useInvestmentsStore, Holding, InvestmentGoal, Loan, FixedDeposit, MF_SIP_DAY } from "../store";
 
 interface SyncState {
   loading: boolean;
@@ -106,8 +106,12 @@ async function doPull(userId: string) {
       schemeCode: (r.scheme_code as string) ?? undefined,
       isin: (r.isin as string) ?? undefined,
       sipAmount: (r.sip_amount as number) ?? undefined,
-      sipDay: (r.sip_day as number) ?? undefined,
+      // Every mutual fund here is a SIP due on the 1st — default the day
+      // when the row does not carry one.
+      sipDay: ((r.sip_day as number) ?? undefined) ?? ((r.type as string) === 'mf' ? MF_SIP_DAY : undefined),
       allocation: (r.allocation_category as string) ?? undefined,
+      lastSyncedAt: (r.last_synced_at as string) ?? null,
+      updatedAt: (r.updated_at as string) ?? null,
     }));
     // Rows with pending local ops keep their (newer) local state instead of
     // being replaced by the cloud's stale copy.

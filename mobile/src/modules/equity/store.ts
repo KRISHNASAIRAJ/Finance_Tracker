@@ -24,6 +24,25 @@ export interface Holding {
   ip?: string;
   sipDay?: number;
   allocation?: string;
+  /** Last Kite sync timestamp for this holding (ISO) */
+  lastSyncedAt?: string | null;
+  /** Last row update timestamp — price/NAV refresh (ISO) */
+  updatedAt?: string | null;
+}
+
+/** Every mutual fund in this portfolio is a SIP, due on the 1st of the month. */
+export const MF_SIP_DAY = 1;
+
+/**
+ * Display name for a holding — mutual funds carry a "SIP" suffix so the
+ * recurring nature is visible wherever a holding is listed (holdings list,
+ * dashboard preview, portfolio breakdown).
+ */
+export function holdingDisplayName(h: Pick<Holding, 'name' | 'type'>): string {
+  const name = (h.name || '').trim();
+  if (h.type !== 'mf') return name;
+  if (!name || /\(sip\)\s*$/i.test(name)) return name;
+  return `${name} (SIP)`;
 }
 
 export interface InvestmentGoal {

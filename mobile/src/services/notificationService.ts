@@ -714,14 +714,20 @@ export async function scheduleAllReminders(force = false) {
       }
 
       if (title && body) {
-        const trigger = new Date(now.getTime() + 30 * 60000);
-        trigger.setMinutes(trigger.getMinutes() + 30, 0, 0);
+        // ONE nudge per day, at 9 AM (today if that is still ahead, else
+        // tomorrow). The old trigger was "now + 60 min" with a constant
+        // dedup key, so every app open re-armed it and a due service could
+        // notify every hour. The day-keyed dedup makes it strictly once a
+        // day per vehicle.
+        const trigger = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
+        if (trigger <= now) trigger.setDate(trigger.getDate() + 1);
+        const triggerDay = `${trigger.getFullYear()}-${String(trigger.getMonth() + 1).padStart(2, '0')}-${String(trigger.getDate()).padStart(2, '0')}`;
         await scheduleLocal(
           title,
           body,
           trigger,
           'bills_due',
-          { screen: 'AllMaintenance', dedupKey: `service_${vehicle}` }
+          { screen: 'AllMaintenance', dedupKey: `service_${vehicle}_${triggerDay}` }
         );
       }
     }
