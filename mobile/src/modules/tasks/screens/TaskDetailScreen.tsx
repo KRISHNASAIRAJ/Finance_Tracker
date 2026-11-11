@@ -51,7 +51,7 @@ export default function TaskDetailScreen() {
 
   const handleDelete = () => {
     deleteTask(task.id, user?.id);
-    scheduleAllReminders();
+    scheduleAllReminders(true);
     setTimeout(() => navigation.goBack(), 50);
   };
 

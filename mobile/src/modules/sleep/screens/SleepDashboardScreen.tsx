@@ -191,7 +191,7 @@ export default function SleepDashboardScreen() {
   const changeReminder = (time: { hour: number; minute: number } | null) => {
     setReminderTime(time);
     // Reschedule all reminders so the bedtime nudge takes effect tonight
-    scheduleAllReminders().catch(() => {});
+    scheduleAllReminders(true).catch(() => {});
   };
 
   const promptUsageAccess = () => {

@@ -570,7 +570,9 @@ export default function CreditCardDetailScreen() {
                 style={[styles.payModalBtn, styles.payModalBtnSave]}
                 onPress={() => {
                   const amount = Math.round(parseFloat(paymentInput) * 100);
-                  if (isNaN(amount) || amount <= 0) { alert('Enter a valid amount'); return; }
+                  // 0 is valid — paying 0 on an already-clear bill just rolls
+                  // the due date to the next cycle.
+                  if (isNaN(amount) || amount < 0) { alert('Enter a valid amount'); return; }
                   markCardBillPaid(cardId, amount, user?.id);
                   setShowPayModal(false);
                 }}

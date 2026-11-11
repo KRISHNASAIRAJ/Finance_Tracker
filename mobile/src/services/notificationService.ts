@@ -14,7 +14,11 @@ const WALLET_TARGET = 4000000;
 
 interface MealSlot { slot: string; hour: number; minute: number; label: string }
 
-const MEAL_SLOTS: MealSlot[] = [
+/**
+ * Single source of truth for meal reminder slots (IST).
+ * dietNotifications.ts imports this — do NOT duplicate the table.
+ */
+export const MEAL_SLOTS: MealSlot[] = [
   { slot: 'breakfast', hour: 9, minute: 0, label: 'Breakfast' },
   { slot: 'lunch', hour: 14, minute: 15, label: 'Lunch' },
   { slot: 'snack', hour: 18, minute: 30, label: 'Snack' },
@@ -64,6 +68,11 @@ function formatCurrencyAmount(paise: number): string {
 }
 
 let isScheduling = false;
+// Cooldown so repeated mount-time calls can't cancel-all + reschedule in a
+// tight loop. Explicit change points (task save/delete, toggles) pass
+// force=true to bypass it.
+const RESCHEDULE_COOLDOWN_MS = 45000;
+let lastScheduleRun = 0;
 let Notifications: any = null;
 let _initialized = false;
 let channelsCreated = false;
@@ -326,8 +335,12 @@ export async function refreshOfferReminders(): Promise<void> {
   } catch (e) { console.warn('[notificationService] offer reminders failed:', e); }
 }
 
-export async function scheduleAllReminders() {
+export async function scheduleAllReminders(force = false) {
   if (isScheduling) return;
+  if (!force && Date.now() - lastScheduleRun < RESCHEDULE_COOLDOWN_MS) {
+    console.log('[notificationService] scheduleAllReminders: cooldown active, skipping');
+    return;
+  }
   isScheduling = true;
   try {
     if (!ensureInit()) {
@@ -348,8 +361,10 @@ export async function scheduleAllReminders() {
 
     // Meal reminders — ONE per slot per day, only for slots not yet logged today.
     // No recurring daily triggers (that caused notification spam).
+    // Gated by the user's Meal Logger toggle (mealRemindersEnabled).
     const nowIst = istNow();
     const todayKey = `${nowIst.getFullYear()}-${String(nowIst.getMonth() + 1).padStart(2, '0')}-${String(nowIst.getDate()).padStart(2, '0')}`;
+    const mealRemindersOn = useMealStore.getState().mealRemindersEnabled !== false;
     const { entries: mealEntries } = useMealStore.getState();
     const loggedMealTypes = new Set(
       (mealEntries || [])
@@ -357,6 +372,7 @@ export async function scheduleAllReminders() {
         .map((e: any) => e.mealType)
     );
     for (const { slot, hour, minute, label } of MEAL_SLOTS) {
+      if (!mealRemindersOn) break;
       if (loggedMealTypes.has(slot)) continue;
       const triggerTime = new Date(nowIst.getFullYear(), nowIst.getMonth(), nowIst.getDate(), hour, minute, 0);
       if (triggerTime <= nowIst) continue;
@@ -388,7 +404,7 @@ export async function scheduleAllReminders() {
         `${fxAmount} due today${fx.name.toLowerCase().includes('emergency') ? ' — SIP into Kite (Zerodha)' : ''}.`,
         fxDueStart,
         'bills_due',
-        { screen: 'FixedExpenses' }
+        { screen: 'FixedExpenses', dedupKey: `fx_${fx.id}_${fxDueStart.toISOString().slice(0, 10)}` }
       );
     }
 
@@ -412,7 +428,9 @@ export async function scheduleAllReminders() {
         await scheduleLocal(
           `\u{1F4B3} ${cardName} Bill Due`,
           `${billStr} due on ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Pay now to avoid late fees.`,
-          remind2d
+          remind2d,
+          'bills_due',
+          { dedupKey: `card_${card.id}_due2d_${dueDateStart.toISOString().slice(0, 10)}` }
         );
       }
 
@@ -422,7 +440,9 @@ export async function scheduleAllReminders() {
         await scheduleLocal(
           `\u{1F4B3} ${cardName} Bill Due Today`,
           `${billStr} is due today. Pay now to avoid late charges.`,
-          onDue
+          onDue,
+          'bills_due',
+          { dedupKey: `card_${card.id}_due_${dueDateStart.toISOString().slice(0, 10)}` }
         );
       }
 
@@ -436,7 +456,9 @@ export async function scheduleAllReminders() {
           await scheduleLocal(
             `\u23F0 ${cardName} Bill Overdue`,
             `${leftStr} still pending. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
-            overdueDate
+            overdueDate,
+            'bills_due',
+            { dedupKey: `card_${card.id}_overdue_${hours}h` }
           );
         }
       }
@@ -468,7 +490,8 @@ export async function scheduleAllReminders() {
           `\u{1F4B3} ${cardName} AMC Due in 1 Month`,
           `${amcStr} annual charges due on ${dueStr}. Start getting ready!`,
           remind30d,
-          'bills_due'
+          'bills_due',
+          { dedupKey: `card_${card.id}_amc30d_${nextAc.getFullYear()}` }
         );
       }
 
@@ -478,7 +501,8 @@ export async function scheduleAllReminders() {
           `\u{1F4B3} ${cardName} AMC Due Soon`,
           `${amcStr} annual charges due on ${dueStr} (in 1 week).`,
           remind7d,
-          'bills_due'
+          'bills_due',
+          { dedupKey: `card_${card.id}_amc7d_${nextAc.getFullYear()}` }
         );
       }
 
@@ -487,7 +511,8 @@ export async function scheduleAllReminders() {
           `\u{1F4B3} ${cardName} AMC Due Today`,
           `${amcStr} annual charges due today (${dueStr}).`,
           nextAc,
-          'bills_due'
+          'bills_due',
+          { dedupKey: `card_${card.id}_amc_${nextAc.getFullYear()}` }
         );
       }
     }
@@ -509,7 +534,7 @@ export async function scheduleAllReminders() {
           `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
           tenAm,
           'bills_due',
-          { screen: 'LentBorrowed' }
+          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${tenAm.toISOString().slice(0, 10)}_am` }
         );
       }
 
@@ -521,7 +546,7 @@ export async function scheduleAllReminders() {
           `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
           eightThirtyPm,
           'bills_due',
-          { screen: 'LentBorrowed' }
+          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${eightThirtyPm.toISOString().slice(0, 10)}_pm` }
         );
       }
 
@@ -536,7 +561,7 @@ export async function scheduleAllReminders() {
             `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
             morningReminder,
             'bills_due',
-            { screen: 'LentBorrowed' }
+            { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_od_${d}_am` }
           );
           const eveningReminder = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 20, 30, 0);
           await scheduleLocal(
@@ -544,7 +569,7 @@ export async function scheduleAllReminders() {
             `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
             eveningReminder,
             'bills_due',
-            { screen: 'LentBorrowed' }
+            { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_od_${d}_pm` }
           );
         }
       }
@@ -561,7 +586,8 @@ export async function scheduleAllReminders() {
           '\u{1F4B0} Payzapp Wallet Incomplete',
           `${completed} loaded. ${left} left to reach \u20B940K target this month. Load via HDFC Millennia debit for 1% cashback.`,
           nextThu,
-          'bills_due'
+          'bills_due',
+          { dedupKey: `wallet_thu_${nextThu.toISOString().slice(0, 10)}` }
         );
       }
     }
@@ -592,7 +618,7 @@ export async function scheduleAllReminders() {
           `On your ${label.toLowerCase()} list for today${qty}. Time to get it!`,
           trigger,
           'bills_due',
-          { screen: entity === 'grocery_items' ? 'GroceryList' : 'BuyList' }
+          { screen: entity === 'grocery_items' ? 'GroceryList' : 'BuyList', dedupKey: `${entity}_${item.id}_${item.itemDate}` }
         );
       }
     }
@@ -701,5 +727,6 @@ export async function scheduleAllReminders() {
     }
   } finally {
     isScheduling = false;
+    lastScheduleRun = Date.now();
   }
 }

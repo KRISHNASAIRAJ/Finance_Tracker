@@ -170,32 +170,32 @@ rest of the app).
   tab ("Finance"); Home is first in tab bar + drawer.
 - **Sidebar fix (regression):** hamburger trigger no longer depends on
   navigation-state listener timing at cold start. Each tab dashboard renders
-  its own `DrawerTrigger` (shared component) � deterministic visibility.
+  its own `DrawerTrigger` (shared component) � deterministic visibility.
   DrawerMenu keeps the left-edge swipe strip; active-route tracking now maps
   MainHome/FinanceHome separately.
 - **Habit Tracker module** (`src/modules/habits/`): 10 canonical habits
-  (sleep 6�7h, cook meals, fruit, no junk, 3L water, sleep by 11, chia seeds,
+  (sleep 6�7h, cook meals, fruit, no junk, 3L water, sleep by 11, chia seeds,
   learn 1 topic, read 1 page, plan tomorrow), Notion-style tick boxes, daily
   completion %, 10-segment progress blocks, per-habit streaks (?? at 3+),
-  monthly overview grid (day columns � habit rows) with month average and
+  monthly overview grid (day columns � habit rows) with month average and
   month navigation. Offline-first store (one row per day, deterministic ids,
   upsert on user_id+log_date) via central sync queue.
-- **Schema:** migration `0038_habit_logs.sql` � habit_logs (user_id, log_date
+- **Schema:** migration `0038_habit_logs.sql` � habit_logs (user_id, log_date
   IST day, habits JSON, notes) UNIQUE(user_id, log_date) + RLS + realtime.
 - **Career Goals screen** (`src/modules/habits/screens/CareerGoalsScreen.tsx`):
   2025?2031 roadmap timeline (net worth ?80.7K ? ?12L, equity/MF portfolio
   targets per year, Project 2029 Phase M, Project Green 2 acres, Mission
   Hometown Base) with focus-year banner.
 - **9 AM morning brief notification:** next 7 days scheduled in the
-  `morning-brief` channel � today's quote + habits nudge, deep-links to Home.
-- **Drawer:** new entries � Habit Tracker, Sleep Tracker, Career Goals;
+  `morning-brief` channel � today's quote + habits nudge, deep-links to Home.
+- **Drawer:** new entries � Habit Tracker, Sleep Tracker, Career Goals;
   Home + Finance both in the primary row.
 - **Web mirror:** `/habits` (tick boxes + monthly grid) and `/career/goals`
   pages, HomePage hero (quote + habit progress + stress + principles), habit
   hooks (upsert on user_id,log_date), sidebar entries, realtime auto-covers
   habit_logs via the schema-wide channel.
 - **IST day math fixed:** istDayKey/dayOfYearIST now use pure UTC+5:30 offset
-  math (correct from any runtime timezone � device or CI runner).
+  math (correct from any runtime timezone � device or CI runner).
 - **Tests:** mobile 70/70 (habits utils, store toggle semantics, dailyContent
   determinism, boot e2e); web 17/17, lint/typecheck/build green.
 
@@ -205,7 +205,7 @@ rest of the app).
 
 - **Home screen v2:** sleep info card (last night + 7-night avg + nights
   count, deep-links to Sleep Tracker), AI finance commentary card
-  (Groq `ai-finance-comment` edge fn � 20/day cap, caller-supplied month
+  (Groq `ai-finance-comment` edge fn � 20/day cap, caller-supplied month
   spend context incl. category breakdown, top day, biggest txn, last-month
   delta; 6h client cache + manual refresh), growth principles now an
   auto-rotating side-by-side carousel (5s, fade+slide, dot indicators),
@@ -231,3 +231,129 @@ rest of the app).
 - **Verification:** mobile 70/70 tests, tsc clean, eslint 0 errors; web
   typecheck/lint/17 tests/build green; migrations 0038+0039 pushed;
   ai-finance-comment deployed.
+
+---
+
+## 11. Rework + Sidebar + Notification Dupes + Fixed Expenses 2027 + Share Sheet + Receive Flow (v4)
+
+### 11a. Rework the last 11 commits (2026-10-17) properly
+- **PLAN.md backfill:** document the 11 shipped commits (offers module
+  mobile + web mirror + `0043_offers.sql`, equity NaN-guards +
+  `0044_holdings_missing_sync_count.sql`, loans ± adjust, drawer trim to
+  meals/sleep/buylist/notes/offers, dinner slot 21:30→20:30) as feature-log
+  entries — currently PLAN.md ends at §10 with none of them.
+- **docs/db-schema.md:** add `missing_sync_count` (0044) — holdings.sync
+  ops that returned "not found" get counted so silent sync drops surface
+  in UI; also verify the offers table block matches 0043 exactly.
+- **Missing tests:** offers module (store create/delete + FIELD_ALIASES
+  sync-queue mapping + expiry reminder refresh), equity NaN guards
+  (malformed price rows must not NaN the dashboard), loans ± adjust math,
+  fixed-expense seed v4 (see 11d).
+- **`transactions` spine check:** offers are non-spend annotations (no
+  transactions write) — document that decision in ARCHITECTURE.md.
+
+### 11b. Sidebar (drawer) redesign — direction TBD, options
+- Current: Telos-style aurora panel, habit ring header, bricks strip,
+  5 tool rows + Settings/Logout — **no primary tabs in the drawer at all**
+  (ACTIVE_MAP exists but Home/Finance/Garage/Tasks/Wealth are missing).
+- Option A (recommended): fold.money/web-Sidebar style flat nav — all
+  modules in one list (Home, Finance, Garage, Tasks, Wealth, Meals, Sleep,
+  Career, Diary, Buy List, Offers, Notes) + Settings/Logout footer, active
+  pill, no gradient bricks. Matches the web AppShell 1:1.
+- Option B: keep Telos aurora shell but add a SPACES section with the 5
+  primary tabs above TOOLBELT.
+- Decision needed from user before implementing.
+
+### 11c. Notifications pop twice 5–7 min apart
+- **Root-cause analysis:** system reminder fires at slot time
+  (e.g. "Breakfast Time" 9:00) AND `dietNotifications.
+  checkMealReminderNotifications` adds an in-app "Missed Breakfast" at
+  slot+5 min (9:00→9:05, 14:15→14:20, 18:30→18:35, 20:30→20:35) — the
+  5-minute offset matches the reported 5–7 min gap exactly.
+- **Fixes:**
+  1. Gate the missed-meal nudge behind the new meal-reminder toggle (11e)
+     and push its threshold from slot+5 → slot+45 min so it can never
+     feel like a duplicate pop of the scheduled reminder.
+  2. `scheduleAllReminders`: add a 45s single-flight cooldown (skip if a
+     run completed <45s ago) in addition to the `isScheduling` guard.
+  3. Add `dedupKey` to every `scheduleLocal` call that lacks one
+     (card 2d/due/overdue×4/AMC×3, fixed-expense dues, receivables,
+     wallet, buy/grocery lists) so any re-run can't stack copies.
+  4. Drop redundant mount-time triggers: remove `scheduleAllReminders()`
+     from FinanceHomeScreen + TasksDashboardScreen mounts and
+     `scheduleMealReminders()` from MealLoggerScreen focus — keep App.tsx
+     boot + explicit change points (task add/edit/delete, sleep reminder
+     change, meal toggle change).
+  5. Unify `MEAL_SLOTS` into one shared constant (export from
+     notificationService, import in dietNotifications) to end the
+     keep-in-sync comment drift.
+
+### 11d. Fixed expenses — 2027 changes (one-time seed v4, `seedFixedExpenseFixesV4`)
+- Keep: Rent ₹10,400 (1st), Electricity Bill ₹500 (1st), Parag Parikh
+  Flexi Cap (1st, amount unchanged).
+- Change effective 2027-01-01: HDFC Mid Cap → ₹500 and HDFC Small Cap →
+  ₹500 (amounts stored in paise = 50000). Implemented as an
+  effective-dated boot rule: seed writes a pending rule
+  (`meridian-fixed-expense-schedule-v4` in AsyncStorage with
+  effective_date=2027-01-01); on every app boot, if today ≥ effective date
+  and the rule is pending, set the scheduled amounts + clear flag. UI
+  shows a "changes on 1 Jan 2027" hint on affected rows until applied.
+- Scheduled rule (2027-01-01): HDFC Mid Cap → ₹500 (50000), HDFC Small
+  Cap → ₹500 (50000), Motilal Oswal Green ₹500 → ₹1,000 (100000) —
+  Motilal row is matched/created now at its current ₹500.
+- Add: Invesco Flexi Cap SIP ₹1,000/month (100000 paise), billingDay 1,
+  category Investments, added now but due reminders suppressed until
+  2027-01 (lastPaidMonth pre-set to 2026-12; dueDate 2027-01-01) so it
+  "starts from Jan 1st".
+- Remove: Emergency Fund SIP (₹120, last-day) — delete the row now and
+  enqueue the cloud delete (fixed_expenses sync).
+- ORDER in FixedExpensesScreen gains 'invesco' before 'midcap'.
+
+### 11e. Meal-logging reminder toggle inside Meal Logger
+- New persisted `mealRemindersEnabled` (default ON) in the meal store
+  (AsyncStorage-persisted, syncs nothing new).
+- Toggle UI: switch row in MealLoggerScreen header ("Meal reminders").
+- scheduleAllReminders skips all 4 meal slots when OFF; the missed-meal
+  nudge (11c) is also gated by it. Toggling calls scheduleAllReminders
+  once (cancel-all + reschedule without meal slots).
+
+### 11f. Lent & Borrow — native share sheet instead of clipboard copy
+- Replace `Clipboard.setStringAsync` in copyGroupDetails (LentBorrowedScreen)
+  with React Native `Share.share({ message })` — the Android share sheet
+  offers WhatsApp, Instagram, Telegram, etc. Keep clipboard as a silent
+  fallback only if the share sheet is unavailable. Web mirror
+  (LentBorrowedPage) keeps its copy button (navigator.clipboard) since the
+  web has no share sheet everywhere.
+
+### 11g. Receive flow for the Lent & Borrowed feature (default button on expansion)
+- **Every lent entry card** (LentBorrowedScreen receivables) shows a
+  "Receive" button when the card is expanded.
+- Tap → modal: enter amount received (₹, integers in paise).
+- On confirm, walk that borrower's/group's outstanding lent entries
+  ascending by date: fully-covered entries get removed; the first
+  partially-covered entry is reduced by the remainder; the screen then
+  shows remaining entries with adjusted amounts.
+- **Log:** each receive is appended to a receive log (amount, date, per-
+  entry breakdown) persisted in an AsyncStorage-backed store; NOT shown
+  inline — accessible via a "Log" option inside the Receive modal. The
+  receive write also goes through the existing sync queue so the adjusted
+  lent entries stay consistent with the cloud.
+- Scope confirmed by user: applies ONLY to the Lent & Borrowed feature
+  (not general expense transactions).
+
+### 11h. Credit card pay — allow ₹0 when due is ₹0 + auto-roll due date
+- Bug: when a card's remaining due is ₹0, the Pay sheet rejects entering 0
+  ("invalid") so the user can never clear/confirm a paid-off bill.
+- Fix: allow 0 as a valid payment amount. When the remaining due reaches 0
+  (payment applied or 0 submitted on an already-clear bill), advance the
+  card's billing/due date to the same day next month so the cycle keeps
+  moving without a stale overdue state.
+
+### Verification checklist
+- mobile: npm run typecheck, npm run lint, npm test (new tests green),
+  npm run android manual pass: drawer nav, one reminder per slot, Receive
+  flow end-to-end, share sheet, toggle.
+- web: typecheck/lint/test/build (LentBorrowedPage + OffersPage untouched
+  behavior).
+- Migration: none required (no new tables; fixed-expense changes go
+  through the existing sync queue upsert/delete).

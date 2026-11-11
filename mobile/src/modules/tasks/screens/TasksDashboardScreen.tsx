@@ -39,7 +39,6 @@ export default function TasksDashboardScreen() {
 
   React.useEffect(() => {
     purgeOldCompletedTasks();
-    scheduleAllReminders();
   }, []);
 
   useFocusEffect(

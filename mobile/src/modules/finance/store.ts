@@ -78,6 +78,20 @@ export interface CategoryBudget {
   amountPaise: number; // monthly limit in paise
 }
 
+/**
+ * Log of Receive actions on lent/borrowed receivables. Local-only
+ * (AsyncStorage-persisted via the store) — intentionally NOT synced.
+ */
+export interface ReceiveLogEntry {
+  id: string;
+  date: string; // ISO
+  personName: string;
+  type: 'lent' | 'borrowed';
+  amount: number; // paise received
+  unapplied: number; // paise that had no outstanding left to apply to
+  breakdown: Array<{ label: string; date: string; applied: number }>;
+}
+
 interface FinanceState {
   transactions: Transaction[];
   cards: CreditCard[];
@@ -119,6 +133,9 @@ interface FinanceState {
   editReceivable: (id: string, updated: Partial<Receivable>, userId?: string) => void;
   markReceivablePayment: (id: string, paymentAmount: number, userId?: string) => void;
   deleteReceivable: (id: string, userId?: string) => void;
+  receiveLog: ReceiveLogEntry[];
+  addReceiveLog: (entry: Omit<ReceiveLogEntry, 'id' | 'date'>) => void;
+  clearReceiveLog: () => void;
   editCard: (id: string, updated: Partial<CreditCard>, userId?: string) => void;
   addCard: (card: Omit<CreditCard, 'id'>, userId?: string) => void;
   deleteCard: (id: string, userId?: string) => void;
@@ -271,6 +288,16 @@ export const useFinanceStore = create<FinanceState>()(
         }));
         enqFlush("receivables", "delete", { id, user_id: userId || null });
       },
+      receiveLog: [],
+      addReceiveLog: (entry) => {
+        const logEntry: ReceiveLogEntry = {
+          ...entry,
+          id: Math.random().toString(36).substring(2, 9),
+          date: new Date().toISOString(),
+        };
+        set((state) => ({ receiveLog: [logEntry, ...state.receiveLog].slice(0, 100) }));
+      },
+      clearReceiveLog: () => set({ receiveLog: [] }),
       markFixedExpensePaid: (id, userId) => {
         const currentExp = get().fixedExpenses.find((f) => f.id === id);
         if (!currentExp) return;
@@ -517,7 +544,9 @@ export const useFinanceStore = create<FinanceState>()(
           }
 
           const generatedTxId = Math.random().toString(36).substring(2, 9);
-          const newTransaction: Transaction = {
+          // Only log a credit_card_bill transaction when there was an actual
+          // bill to pay — a ₹0 "Bill Paid" row is noise.
+          const newTransaction: Transaction | null = billAmt > 0 ? {
             id: generatedTxId,
             type: 'credit_card_bill',
             amount: billAmt,
@@ -527,7 +556,7 @@ export const useFinanceStore = create<FinanceState>()(
             notes: `${card.name} — Bill Paid`,
             source: 'manual',
             linkedCardId: card.id,
-          };
+          } : null;
 
           set((state) => ({
             cards: state.cards.map((c) =>
@@ -535,15 +564,17 @@ export const useFinanceStore = create<FinanceState>()(
                 ? { ...c, dueDate: nextDueDate.toISOString(), billAmount: 0, paidAmount: 0, balance: 0, currentOutstanding: 0 }
                 : c
             ),
-            transactions: [newTransaction, ...state.transactions],
+            transactions: newTransaction ? [newTransaction, ...state.transactions] : state.transactions,
           }));
 
-          enqFlush('transactions', 'create', {
-            id: generatedTxId, type: 'credit_card_bill', amount: billAmt,
-            currency: 'INR', date: new Date().toISOString(),
-            category: 'Credit Card Bill', notes: `${card.name} — Bill Paid`,
-            source: 'manual', user_id: userId || null, linked_card_id: card.id,
-          });
+          if (newTransaction) {
+            enqFlush('transactions', 'create', {
+              id: generatedTxId, type: 'credit_card_bill', amount: billAmt,
+              currency: 'INR', date: new Date().toISOString(),
+              category: 'Credit Card Bill', notes: `${card.name} — Bill Paid`,
+              source: 'manual', user_id: userId || null, linked_card_id: card.id,
+            });
+          }
           enqFlush('credit_cards', 'update', {
             id, user_id: userId || null, due_date: nextDueDate.toISOString(),
             bill_amount: 0, paid_amount: 0, balance: 0, current_outstanding: 0,
@@ -784,7 +815,7 @@ export async function seedFixedExpenseFixes(): Promise<void> {
       changed = true;
     }
 
-    const ORDER = ['rent', 'electricity', 'flexi', 'midcap', 'small cap'];
+    const ORDER = ['rent', 'electricity', 'flexi', 'invesco', 'motilal', 'midcap', 'mid cap', 'small cap'];
     const ranked = new Map<string, number>();
     fixedExpenses.forEach((f) => {
       const name = (f.name || '').toLowerCase();
@@ -915,6 +946,180 @@ export async function seedFixedExpenseFixesV3(userId?: string): Promise<void> {
     await AsyncStorage.setItem(FIXED_EXPENSES_FIX_V3_FLAG, 'done');
   } catch (e) {
     console.warn('[FinanceStore] seedFixedExpenseFixesV3 failed:', e);
+  }
+}
+
+const FIXED_EXPENSES_FIX_V4_FLAG = 'meridian-fixed-expense-fixes-v4';
+const FIXED_EXPENSE_SCHEDULE_V4_FLAG = 'meridian-fixed-expense-schedule-v4';
+
+/** IST date key (YYYY-MM-DD) — safe from any runtime timezone. */
+function istDateKey(d: Date = new Date()): string {
+  return new Date(d.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+}
+
+/**
+ * Amount changes scheduled for 2027-01-01 (seeded as pending, applied on
+ * the first boot on/after that date). Amounts are integers in paise.
+ */
+const SCHEDULE_V4_EFFECTIVE = '2027-01-01';
+const SCHEDULE_V4_AMOUNTS: Array<{ matchKeys: string[]; amount: number }> = [
+  { matchKeys: ['mid cap', 'midcap'], amount: 50000 },   // HDFC Mid Cap → ₹500
+  { matchKeys: ['small cap'], amount: 50000 },           // HDFC Small Cap → ₹500
+  { matchKeys: ['motilal'], amount: 100000 },            // Motilal Oswal Green ₹500 → ₹1,000
+];
+
+/**
+ * One-time data fix (v4): removes the Emergency Fund SIP, adds the
+ * Invesco Flexi Cap SIP (₹1,000, active from Jan 2027) and the Motilal
+ * Oswal Green row (₹500 today), and arms the scheduled 2027-01-01 amount
+ * changes (HDFC Mid/Small Cap → ₹500, Motilal → ₹1,000). Runs AFTER the
+ * cloud pull; edits sync back through the central queue.
+ * Guarded by its own AsyncStorage flag.
+ */
+export async function seedFixedExpenseFixesV4(userId?: string): Promise<void> {
+  try {
+    const flag = await AsyncStorage.getItem(FIXED_EXPENSES_FIX_V4_FLAG);
+    if (flag === 'done') return;
+
+    const state = useFinanceStore.getState();
+    let fixedExpenses = [...state.fixedExpenses];
+    const changes: Array<{ action: 'create' | 'update' | 'delete'; data: Record<string, unknown> }> = [];
+
+    const rowFor = (keys: string[]) =>
+      fixedExpenses.find((f) => keys.some((k) => (f.name || '').toLowerCase().includes(k)));
+
+    // 1) Emergency Fund SIP — retired.
+    const emergency = rowFor(['emergency']);
+    if (emergency) {
+      fixedExpenses = fixedExpenses.filter((f) => f.id !== emergency.id);
+      changes.push({ action: 'delete', data: { id: emergency.id, user_id: userId || null } });
+    }
+
+    // 2) Invesco Flexi Cap SIP ₹1,000 — added now, starts Jan 2027:
+    //    lastPaidMonth is pre-set past the current month so the 9 AM due
+    //    reminder stays silent until 2027-01.
+    if (!rowFor(['invesco'])) {
+      const invesco: FixedExpense = {
+        id: `fx_invesco_${Math.random().toString(36).substring(2, 8)}`,
+        name: 'Invesco Flexi Cap SIP',
+        amount: 100000,
+        billingDay: 1,
+        category: 'Investments',
+        lastPaidMonth: '2026-12',
+        dueDate: new Date(2027, 0, 1).toISOString(),
+      };
+      fixedExpenses.push(invesco);
+      changes.push({
+        action: 'create',
+        data: {
+          id: invesco.id, name: invesco.name, amount: invesco.amount,
+          billing_day: invesco.billingDay, category: invesco.category,
+          last_paid_month: invesco.lastPaidMonth, due_date: invesco.dueDate,
+          user_id: userId || null,
+        },
+      });
+    }
+
+    // 3) Motilal Oswal Green — currently ₹500/month due the 1st. Create if
+    //    missing; the ₹1,000 change is scheduled (see SCHEDULE_V4_AMOUNTS).
+    if (!rowFor(['motilal'])) {
+      const motilal: FixedExpense = {
+        id: `fx_motilal_${Math.random().toString(36).substring(2, 8)}`,
+        name: 'Motilal Oswal Green',
+        amount: 50000,
+        billingDay: 1,
+        category: 'Investments',
+        lastPaidMonth: '',
+        dueDate: nextDayOfMonth(1).toISOString(),
+      };
+      fixedExpenses.push(motilal);
+      changes.push({
+        action: 'create',
+        data: {
+          id: motilal.id, name: motilal.name, amount: motilal.amount,
+          billing_day: motilal.billingDay, category: motilal.category,
+          last_paid_month: motilal.lastPaidMonth, due_date: motilal.dueDate,
+          user_id: userId || null,
+        },
+      });
+    }
+
+    if (changes.length > 0) {
+      useFinanceStore.setState({ fixedExpenses });
+      for (const c of changes) {
+        enqFlush('fixed_expenses', c.action, c.data);
+      }
+    }
+
+    // Arm the 2027 scheduled amount changes.
+    const scheduleFlag = await AsyncStorage.getItem(FIXED_EXPENSE_SCHEDULE_V4_FLAG);
+    if (!scheduleFlag) {
+      await AsyncStorage.setItem(FIXED_EXPENSE_SCHEDULE_V4_FLAG, 'pending');
+    }
+
+    await AsyncStorage.setItem(FIXED_EXPENSES_FIX_V4_FLAG, 'done');
+    console.log('[FinanceStore] Applied fixed expense fixes v4 (no Emergency SIP, +Invesco/Motilal, 2027 schedule armed)');
+  } catch (e) {
+    console.warn('[FinanceStore] seedFixedExpenseFixesV4 failed:', e);
+  }
+}
+
+/**
+ * Applies the scheduled 2027-01-01 fixed-expense amount changes on the
+ * first boot on/after the effective date. Cheap to call every boot: it
+ * exits immediately once applied (flag) and before the effective date.
+ */
+export async function applyScheduledFixedExpenseChanges(userId?: string): Promise<void> {
+  try {
+    const scheduleFlag = await AsyncStorage.getItem(FIXED_EXPENSE_SCHEDULE_V4_FLAG);
+    if (scheduleFlag !== 'pending') return;
+    if (istDateKey() < SCHEDULE_V4_EFFECTIVE) return;
+
+    const state = useFinanceStore.getState();
+    let fixedExpenses = [...state.fixedExpenses];
+    const changes: Array<{ data: Record<string, unknown> }> = [];
+
+    for (const { matchKeys, amount } of SCHEDULE_V4_AMOUNTS) {
+      const row = fixedExpenses.find((f) => matchKeys.some((k) => (f.name || '').toLowerCase().includes(k)));
+      if (!row || row.amount === amount) continue;
+      const idx = fixedExpenses.findIndex((f) => f.id === row.id);
+      fixedExpenses[idx] = { ...fixedExpenses[idx], amount };
+      changes.push({ data: { id: row.id, amount, user_id: userId || null } });
+    }
+
+    // Defensive: the Invesco row must exist on/after the effective date.
+    if (!fixedExpenses.some((f) => (f.name || '').toLowerCase().includes('invesco'))) {
+      const invesco: FixedExpense = {
+        id: `fx_invesco_${Math.random().toString(36).substring(2, 8)}`,
+        name: 'Invesco Flexi Cap SIP',
+        amount: 100000,
+        billingDay: 1,
+        category: 'Investments',
+        lastPaidMonth: '2026-12',
+        dueDate: new Date(2027, 0, 1).toISOString(),
+      };
+      fixedExpenses.push(invesco);
+      changes.push({
+        data: {
+          id: invesco.id, name: invesco.name, amount: invesco.amount,
+          billing_day: invesco.billingDay, category: invesco.category,
+          last_paid_month: invesco.lastPaidMonth, due_date: invesco.dueDate,
+          user_id: userId || null,
+        },
+      });
+    }
+
+    if (changes.length > 0) {
+      useFinanceStore.setState({ fixedExpenses });
+      for (const c of changes) {
+        const isCreate = 'name' in c.data;
+        enqFlush('fixed_expenses', isCreate ? 'create' : 'update', c.data);
+      }
+    }
+    await AsyncStorage.setItem(FIXED_EXPENSE_SCHEDULE_V4_FLAG, 'done');
+    console.log('[FinanceStore] Applied scheduled 2027 fixed expense changes (mid/small ₹500, motilal ₹1,000)');
+  } catch (e) {
+    console.warn('[FinanceStore] applyScheduledFixedExpenseChanges failed:', e);
   }
 }
 

@@ -100,8 +100,12 @@ async function doFullSync(userId: string) {
   // Fund SIP) AFTER the cloud pull so they edit real data, then flush the
   // enqueued updates back to the cloud.
   try {
-    const { seedFixedExpenseFixesV3 } = require("../store");
+    const { seedFixedExpenseFixesV3, seedFixedExpenseFixesV4, applyScheduledFixedExpenseChanges } = require("../store");
     await seedFixedExpenseFixesV3(userId);
+    await seedFixedExpenseFixesV4(userId);
+    // Applies the armed 2027-01-01 amount changes on the first boot on/after
+    // that date; exits immediately otherwise.
+    await applyScheduledFixedExpenseChanges(userId);
     const { processSyncQueue } = require("../../../services/syncQueue");
     await processSyncQueue(true);
   } catch (_e) { /* seed is guarded by its own flag */ }

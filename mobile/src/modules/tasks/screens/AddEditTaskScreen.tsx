@@ -111,7 +111,7 @@ export default function AddEditTaskScreen() {
       }, user?.id);
     }
 
-    scheduleAllReminders();
+    scheduleAllReminders(true);
     navigation.goBack();
   };
 

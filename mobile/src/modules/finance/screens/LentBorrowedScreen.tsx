@@ -15,6 +15,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Share,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
@@ -22,13 +23,13 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useFinanceStore, Receivable, ExpectedIncome } from '../store';
+import { useFinanceStore, Receivable, ExpectedIncome, ReceiveLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
-  const { receivables, addReceivable, editReceivable, markReceivablePayment, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome } = useFinanceStore();
+  const { receivables, addReceivable, editReceivable, markReceivablePayment, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome, receiveLog, addReceiveLog } = useFinanceStore();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'lent' | 'borrowed'>('lent');
@@ -51,6 +52,12 @@ export default function LentBorrowedScreen() {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentItem, setPaymentItem] = useState<Receivable | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  // Group Receive flow — applies an amount across a person's outstanding
+  // entries oldest-first (full entries removed, partial one reduced), plus a
+  // receive log hidden behind a "Log" option.
+  const [receiveGroup, setReceiveGroup] = useState<{ personName: string; type: 'lent' | 'borrowed'; items: Receivable[] } | null>(null);
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [receiveLogVisible, setReceiveLogVisible] = useState(false);
   const [incomeModalVisible, setIncomeModalVisible] = useState(false);
   const [incomeEditItem, setIncomeEditItem] = useState<ExpectedIncome | null>(null);
   const [incomeName, setIncomeName] = useState('');
@@ -165,8 +172,16 @@ export default function LentBorrowedScreen() {
     });
     const total = remainingFor(sorted);
     const text = `${lines.join('\n')}\n\nTOTAL ${Math.round(total / 100).toLocaleString('en-IN')}`;
-    await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', `Lent details for ${group.personName} copied to clipboard.`);
+    // Native share sheet (WhatsApp, Instagram, Telegram, ...) with a
+    // clipboard fallback only when sharing genuinely fails — dismissing
+    // the sheet must NOT copy.
+    try {
+      await Share.share({ message: text, title: `Lent details — ${group.personName}` });
+    } catch (e: any) {
+      if (e?.code === 'cancel' || String(e?.message || '').toLowerCase().includes('cancel')) return;
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', `Lent details for ${group.personName} copied to clipboard.`);
+    }
   };
 
   const openAddModal = () => {
@@ -256,6 +271,53 @@ export default function LentBorrowedScreen() {
     setPaymentItem(item);
     setPaymentAmount('');
     setPaymentModalVisible(true);
+  };
+
+  const openReceiveGroupModal = (group: { personName: string; type: 'lent' | 'borrowed'; items: Receivable[] }) => {
+    setReceiveGroup(group);
+    setReceiveAmount('');
+  };
+
+  const handleGroupReceive = () => {
+    if (!receiveGroup) return;
+    const raw = parseFloat(receiveAmount);
+    if (isNaN(raw) || raw <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    const requested = Math.round(raw * 100);
+    let pool = requested;
+    const outstanding = receiveGroup.items
+      .filter((item) => item.amount - (item.paidAmount || 0) > 0)
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    const breakdown: ReceiveLogEntry['breakdown'] = [];
+    for (const item of outstanding) {
+      if (pool <= 0) break;
+      const remaining = item.amount - (item.paidAmount || 0);
+      const applied = Math.min(pool, remaining);
+      if (applied >= remaining) {
+        // Fully covered — the entry is removed entirely.
+        deleteReceivable(item.id, user?.id);
+      } else {
+        // Partially covered — reduce it by what was applied.
+        markReceivablePayment(item.id, applied, user?.id);
+      }
+      breakdown.push({
+        label: item.note?.trim() || 'Entry',
+        date: item.dueDate,
+        applied,
+      });
+      pool -= applied;
+    }
+    addReceiveLog({
+      personName: receiveGroup.personName,
+      type: receiveGroup.type,
+      amount: requested,
+      unapplied: pool,
+      breakdown,
+    });
+    setReceiveAmount('');
+    setReceiveGroup(null);
   };
 
   const expectedTotal = expectedIncomes.reduce((sum, ei) => sum + ei.amount, 0);
@@ -405,6 +467,35 @@ export default function LentBorrowedScreen() {
 
                     {isExpanded && (
                       <View style={styles.expandedSection}>
+                        {/* Default group actions: Receive (oldest-first) + hidden log */}
+                        <View style={styles.groupActions}>
+                          <TouchableOpacity
+                            style={styles.receiveAllBtn}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              openReceiveGroupModal({ personName: group.personName, type: group.type as 'lent' | 'borrowed', items: group.items });
+                            }}
+                          >
+                            <Ionicons
+                              name={group.type === 'lent' ? 'download-outline' : 'cash-outline'}
+                              size={12}
+                              color={colors.textPrimary}
+                            />
+                            <Text style={styles.receiveAllText}>
+                              {group.type === 'lent' ? 'Receive' : 'Pay back'}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.logBtn}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              setReceiveLogVisible(true);
+                            }}
+                          >
+                            <Ionicons name="receipt-outline" size={12} color={colors.primary} />
+                            <Text style={styles.logBtnText}>Log</Text>
+                          </TouchableOpacity>
+                        </View>
                         {group.items.map((item) => {
                           const remaining = item.amount - (item.paidAmount || 0);
                           const isFullyPaid = item.status === 'paid';
@@ -819,6 +910,85 @@ export default function LentBorrowedScreen() {
           </View>
         </View>
       </Modal>
+      <Modal visible={!!receiveGroup} transparent animationType="fade" onRequestClose={() => setReceiveGroup(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {receiveGroup?.type === 'lent' ? 'Receive —' : 'Pay back —'} {receiveGroup?.personName}
+            </Text>
+            <Text style={styles.paymentInfo}>
+              Applied oldest-first: fully covered entries are removed, a
+              partially covered entry is reduced by the remainder.
+            </Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>
+                {receiveGroup?.type === 'lent' ? 'AMOUNT RECEIVED (₹)' : 'AMOUNT PAID (₹)'}
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="0.00"
+                placeholderTextColor={colors.outline}
+                keyboardType="numeric"
+                value={receiveAmount}
+                onChangeText={setReceiveAmount}
+                autoFocus
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setReceiveGroup(null)}>
+                <Text style={styles.modalBtnTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnSave]} onPress={handleGroupReceive}>
+                <Text style={styles.modalBtnTextSave}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.logLink} onPress={() => setReceiveLogVisible(true)}>
+              <Ionicons name="receipt-outline" size={12} color={colors.primary} />
+              <Text style={styles.logLinkText}>Receive log</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={receiveLogVisible} transparent animationType="fade" onRequestClose={() => setReceiveLogVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Receive Log</Text>
+            <ScrollView style={styles.logScroll} showsVerticalScrollIndicator={false}>
+              {receiveLog.length === 0 ? (
+                <Text style={styles.logEmpty}>No receive activity yet.</Text>
+              ) : (
+                receiveLog.map((entry) => (
+                  <View key={entry.id} style={styles.logEntry}>
+                    <View style={styles.logEntryHeader}>
+                      <Text style={styles.logEntryName}>
+                        {entry.personName} · {entry.type === 'lent' ? 'lent' : 'borrowed'}
+                      </Text>
+                      <Text style={styles.logEntryAmount}>{formatCurrency(entry.amount)}</Text>
+                    </View>
+                    <Text style={styles.logEntryDate}>
+                      {new Date(entry.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                    </Text>
+                    {entry.breakdown.map((b, i) => (
+                      <Text key={`${entry.id}_bd_${i}`} style={styles.logBreakdown}>
+                        {b.label} — {formatCurrency(b.applied)} ({new Date(b.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })})
+                      </Text>
+                    ))}
+                    {entry.unapplied > 0 && (
+                      <Text style={styles.logUnapplied}>Unapplied: {formatCurrency(entry.unapplied)}</Text>
+                    )}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalBtnCancel]} onPress={() => setReceiveLogVisible(false)}>
+                <Text style={styles.modalBtnTextCancel}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1181,5 +1351,98 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  groupActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  receiveAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: rounded.full,
+  },
+  receiveAllText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  logBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: rounded.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  logBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  logLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingTop: 10,
+  },
+  logLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  logScroll: { maxHeight: 320, marginBottom: 8 },
+  logEmpty: {
+    fontSize: 13,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  logEntry: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    gap: 3,
+  },
+  logEntryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logEntryName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.onSurface,
+    flex: 1,
+  },
+  logEntryAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  logEntryDate: {
+    fontSize: 10,
+    color: colors.onSurfaceVariant,
+  },
+  logBreakdown: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    paddingLeft: 6,
+  },
+  logUnapplied: {
+    fontSize: 11,
+    color: colors.warning,
+    fontWeight: '600',
+    paddingLeft: 6,
   },
 });

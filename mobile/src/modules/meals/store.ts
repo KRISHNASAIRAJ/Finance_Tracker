@@ -38,7 +38,10 @@ interface MealState {
   dailyCarbsTarget: number;
   dailyFatTarget: number;
   dailyWaterTarget: number;
+  /** When OFF, no meal-slot system reminders and no missed-meal nudges fire. */
+  mealRemindersEnabled: boolean;
   setTargets: (calories: number, protein: number, carbs: number, fat: number, water: number) => void;
+  setMealRemindersEnabled: (enabled: boolean) => void;
   addEntry: (entry: Omit<MealLogEntry, 'id'>, userId?: string) => string;
   editEntry: (id: string, data: Partial<MealLogEntry>, userId?: string) => void;
   deleteEntry: (id: string, userId?: string) => void;
@@ -74,7 +77,9 @@ export const useMealStore = create<MealState>()(
       dailyCarbsTarget: 340,
       dailyFatTarget: 85,
       dailyWaterTarget: 2.8,
+      mealRemindersEnabled: true,
       setTargets: (calories, protein, carbs, fat, water) => set({ dailyCalorieTarget: calories, dailyProteinTarget: protein, dailyCarbsTarget: carbs, dailyFatTarget: fat, dailyWaterTarget: water }),
+      setMealRemindersEnabled: (enabled) => set({ mealRemindersEnabled: enabled }),
       addEntry: (entry, userId) => {
         const id = Math.random().toString(36).substring(2, 9);
         const newEntry: MealLogEntry = { ...entry, id };

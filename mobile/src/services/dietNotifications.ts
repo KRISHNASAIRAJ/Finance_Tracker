@@ -4,14 +4,10 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isExpoGo } from '../shared/isExpoGo';
-
-const MEAL_SLOTS = [
-  { slot: 'breakfast', hour: 9, minute: 0, label: 'Breakfast' },
-  { slot: 'lunch', hour: 14, minute: 15, label: 'Lunch' },
-  { slot: 'snack', hour: 18, minute: 30, label: 'Snack' },
-  // Keep in sync with notificationService.MEAL_SLOTS (dinner 20:30).
-  { slot: 'dinner', hour: 20, minute: 30, label: 'Dinner' },
-];
+// Shared slot table (breakfast 9:00 / lunch 14:15 / snack 18:30 / dinner 20:30).
+// notificationService owns it — do NOT duplicate here.
+import { MEAL_SLOTS } from './notificationService';
+import { useMealStore } from '../modules/meals/store';
 
 const REMINDED_KEY = 'meridian-meal-reminded';
 let remindedCache: Record<string, boolean | string> | null = null;
@@ -85,20 +81,28 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
 export async function scheduleMealReminders(): Promise<void> {
   if (isExpoGo()) return;
-  // Delegate to the single unified scheduler so it doesn't cancel other notifications.
+  // Delegate to the single unified scheduler (force=true: this is only
+  // called on explicit toggle changes / boot paths that must win).
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { scheduleAllReminders } = require('./notificationService');
-    await scheduleAllReminders();
+    await scheduleAllReminders(true);
   } catch {
     // Notifications not available, silently skip
   }
 }
 
+/**
+ * In-app "Missed X" nudge for unlogged meal slots. Gated by the Meal
+ * Logger reminders toggle. The threshold is slot+45 min so this can never
+ * feel like a duplicate of the system reminder that fires at the slot
+ * time itself (the old +5 min offset read as a double pop).
+ */
 export async function checkMealReminderNotifications(
   addNotification: (title: string, body: string) => void,
   loggedMealTypes: Set<string>,
 ) {
+  if (useMealStore.getState().mealRemindersEnabled === false) return;
   const cache = await loadRemindedCache();
   const now = new Date();
   const currentHour = now.getHours();
@@ -109,7 +113,7 @@ export async function checkMealReminderNotifications(
   for (const { slot, hour, minute, label } of MEAL_SLOTS) {
     if (loggedMealTypes.has(slot)) continue;
     if (cache[slot]) continue;
-    if (currentHour < hour || (currentHour === hour && currentMinute < minute + 5)) continue;
+    if (currentHour < hour || (currentHour === hour && currentMinute < minute + 45)) continue;
     if (currentHour > hour + 3) continue;
 
     addNotification(

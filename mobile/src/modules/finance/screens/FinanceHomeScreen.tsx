@@ -65,9 +65,8 @@ export default function FinanceHomeScreen() {
     }, [])
   );
 
-  useEffect(() => {
-    scheduleAllReminders();
-  }, []);
+  // Reminders are scheduled once at app boot (App.tsx). Re-scheduling on
+  // every mount caused cancel-all + reschedule churn and duplicate pops.
 
   // Donut entrance: spins in with a soft fade once on mount.
   const donutAnim = useRef(new Animated.Value(0)).current;

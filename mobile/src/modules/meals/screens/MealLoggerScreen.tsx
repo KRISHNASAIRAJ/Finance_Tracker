@@ -16,6 +16,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,18 +50,26 @@ export default function MealLoggerScreen() {
   const dailyFatTarget = useMealStore((s) => s.dailyFatTarget) || 0;
   const dailyWaterTarget = useMealStore((s) => s.dailyWaterTarget) || 0;
   const setTargets = useMealStore((s) => s.setTargets);
+  const mealRemindersEnabled = useMealStore((s) => s.mealRemindersEnabled !== false);
+  const setMealRemindersEnabled = useMealStore((s) => s.setMealRemindersEnabled);
   const addNotification = useFinanceStore((s) => s.addNotification);
   const { user } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
       requestNotificationPermissions();
-      scheduleMealReminders();
+      // Meal reminders are scheduled once at app boot; re-scheduling on
+      // every focus caused cancel-all + reschedule churn and duplicate pops.
       const todayEntries = entries.filter((e) => e.date.slice(0, 10) === getTodayDateString());
       const loggedTypes = new Set(todayEntries.map((e) => e.mealType));
       checkMealReminderNotifications(addNotification, loggedTypes);
     }, [entries, addNotification])
   );
+
+  const handleToggleMealReminders = (enabled: boolean) => {
+    setMealRemindersEnabled(enabled);
+    scheduleMealReminders();
+  };
 
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
   const [showLogOptions, setShowLogOptions] = useState(false);
@@ -337,6 +346,26 @@ export default function MealLoggerScreen() {
         <TouchableOpacity onPress={goToNextDay} style={[styles.dateArrow, dateIsToday && { opacity: 0.3 }]} disabled={dateIsToday}>
           <Ionicons name="chevron-forward" size={20} color={tc.textSecondary} />
         </TouchableOpacity>
+      </View>
+
+      {/* Meal reminder toggle */}
+      <View style={styles.remindersRow}>
+        <View style={styles.remindersIconWrap}>
+          <Ionicons name="notifications-outline" size={15} color={tc.action} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.remindersTitle}>Meal reminders</Text>
+          <Text style={styles.remindersSub}>
+            {mealRemindersEnabled ? 'Pings at each meal slot + missed-meal nudges' : 'Reminders are off'}
+          </Text>
+        </View>
+        <Switch
+          value={mealRemindersEnabled}
+          onValueChange={handleToggleMealReminders}
+          trackColor={{ false: 'rgba(255,255,255,0.15)', true: tc.actionDim }}
+          thumbColor={mealRemindersEnabled ? tc.action : 'rgba(255,255,255,0.5)'}
+          ios_backgroundColor="rgba(255,255,255,0.15)"
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -880,6 +909,39 @@ const styles = StyleSheet.create({
     color: tc.textSecondary,
   },
   dateArrow: { padding: 6 },
+
+  // Meal reminder toggle row
+  remindersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: ts.gutter,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: tr.md,
+    backgroundColor: tc.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: tc.border,
+  },
+  remindersIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: tc.actionDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  remindersTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: tc.textPrimary,
+  },
+  remindersSub: {
+    fontSize: 11,
+    color: tc.textMuted,
+    marginTop: 1,
+  },
 
   scroll: { padding: ts.gutter, gap: 14, paddingBottom: 50 },
 

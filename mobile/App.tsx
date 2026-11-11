@@ -24,7 +24,7 @@ import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { navigationRef } from './src/navigation/navigationRef';
 import { seedGarageData } from './src/modules/garage/store';
-import { seedFixedExpenseFixes, seedCardAmcFixes } from './src/modules/finance/store';
+import { seedFixedExpenseFixes, seedCardAmcFixes, applyScheduledFixedExpenseChanges } from './src/modules/finance/store';
 
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
@@ -54,6 +54,10 @@ export default function App() {
     seedGarageData();
     seedFixedExpenseFixes();
     seedCardAmcFixes();
+    // Applies the armed 2027-01-01 SIP amount changes on the first boot on/
+    // after that date (exits immediately otherwise). The sync queue attaches
+    // the session user id on flush, so no userId is needed here.
+    applyScheduledFixedExpenseChanges().catch(() => {});
     requestNotificationPermission().then(() => {
       scheduleAllReminders();
       setTimeout(() => promptBatteryOptimization(), 3000);

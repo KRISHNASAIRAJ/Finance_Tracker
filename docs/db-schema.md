@@ -37,6 +37,7 @@
 | `sleep_logs` | Sleep | Sleep sessions: start/end (timestamptz), quality 1–5, interruptions, source (manual/auto) — migration 0037 |
 | `habit_logs` | Habits | One row per user per IST day: habits JSON array of ticked habit keys, notes — UNIQUE(user_id, log_date) — migration 0038 |
 | `offers` | Offers | Discount offers/coupons: title, merchant, category, coupon_code, discount_value, min_spend_paise, expires_on (DATE) — expiry reminders 3 & 2 days before at 6 PM IST — migration 0043 |
+| `holdings.missing_sync_count` | Equity | Column on `holdings` (migration 0044): counts Kite sync operations that returned "not found" so silent sync drops surface in the UI instead of disappearing holdings |
 
 ---
 
