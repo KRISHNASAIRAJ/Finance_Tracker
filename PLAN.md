@@ -236,9 +236,10 @@ rest of the app).
 
 ## 11. Rework + Sidebar + Notification Dupes + Fixed Expenses 2027 + Share Sheet + Receive Flow (v4)
 
-> **Status:** 11b–11h shipped in `e5ee575`. 11a partially shipped
-> (`docs/db-schema.md` 0044 entry + offers store tests); equity NaN-guard,
-> loans ± adjust and seed-v4 tests still pending.
+> **Status:** 11b–11h shipped in `e5ee575`. 11a shipped too —
+> `docs/db-schema.md` 0044 entry, offers store tests, equity NaN-guard +
+> loans ± adjust tests (`modules/equity/__tests__/store.test.ts`) and
+> fixed-expense seed-v4 tests (`modules/finance/__tests__/seedV4.test.ts`).
 
 ### 11a. Rework the last 11 commits (2026-10-17) properly
 - **PLAN.md backfill:** document the 11 shipped commits (offers module
