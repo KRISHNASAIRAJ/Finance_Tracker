@@ -69,11 +69,15 @@
 
 ### Batch 3 — on the device
 
-- [ ] Install the new APK (`apk-release` from run #85) — `expo-location` is a
+- [ ] Install the new APK (`apk-release` from run #87) — `expo-location` is a
       **new native module**, so an OTA update cannot add it.
 - [ ] Check: the widget in the OxygenOS palette with the weather in the top
       right, the home weather card, the Keep in Touch list + the 10 AM digest,
       and the HP Pay fuel flow.
+- [ ] Check the batch-4 fixes: **no "Sleep tracking" notification during the
+      day** (the tracker only runs 21:30 → 09:30), the weather appears
+      **instantly** (no 3-minute wait), the red bar fills the widget, the date
+      shows the month, and all the widgets are 2×2 without overlaps.
 
 ### Batch 2 — done (shipped in build #82, verified on device)
 
