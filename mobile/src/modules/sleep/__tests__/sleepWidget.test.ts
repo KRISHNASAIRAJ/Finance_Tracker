@@ -46,6 +46,31 @@ describe('computeSleepWidgetPayload', () => {
     expect(payload.weatherText).toBe(DEFAULT_WEATHER_TEXT);
   });
 
+  it('carries the live weather into the payload', () => {
+    const now = new Date('2026-11-11T12:00:00.000Z');
+    const entries = [entry('2026-11-10T16:00:00.000Z', '2026-11-11T00:20:00.000Z')];
+    const payload = computeSleepWidgetPayload(entries, now, {
+      tempC: 28.4,
+      feelsLikeC: 30,
+      humidity: 60,
+      condition: 'Partly cloudy',
+      icon: 'cloud',
+      isDay: true,
+      minC: 21,
+      maxC: 31,
+      precipChance: 20,
+      lat: 12.97,
+      lon: 77.59,
+      placeName: 'Bengaluru',
+      fetchedAt: now.getTime(),
+    });
+    expect(payload.weatherText).toBe('28°');
+    expect(payload.weatherIcon).toBe('cloud');
+    expect(payload.weatherCondition).toBe('Partly cloudy');
+    expect(payload.weatherMaxC).toBe(31);
+    expect(payload.weatherPlace).toBe('Bengaluru');
+  });
+
   it('builds the duration and the two REM windows', () => {
     const now = new Date('2026-11-11T12:00:00.000Z');
     const entries = [entry('2026-11-10T16:00:00.000Z', '2026-11-11T00:20:00.000Z')];
