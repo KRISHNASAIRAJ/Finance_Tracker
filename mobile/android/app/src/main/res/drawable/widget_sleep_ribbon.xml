@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The night ribbon — a bold white bar that spans the whole night (from
+     bedtime to wake time). The two REM windows are cut out of it in the
+     OnePlus red, so they read as gaps in the ribbon. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/oxygen_white" />
+    <corners android:radius="5dp" />
+</shape>

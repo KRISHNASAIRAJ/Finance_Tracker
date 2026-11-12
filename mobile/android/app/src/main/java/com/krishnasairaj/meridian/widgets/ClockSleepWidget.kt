@@ -32,8 +32,8 @@ class ClockSleepWidget : AppWidgetProvider() {
         const val PREFS = "meridian_clock_sleep_widget"
         const val KEY_JSON = "clock_sleep_json"
 
-        /** Root padding + pill padding on each side (dp) — the timeline inset. */
-        private const val TRACK_INSET_DP = 32
+        /** Root padding + pill padding on each side (dp) — the ribbon inset. */
+        private const val TRACK_INSET_DP = 30
 
         private const val NO_VALUE = "—"
 
