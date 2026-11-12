@@ -6,16 +6,14 @@
   A live clock (TextClock keeps itself up to date, seconds included) with the
   last night of sleep underneath: the red pill holds the sleep duration (in the
   raised island on the right) and the two REM windows marked on the dotted
-  timeline. The live weather sits in the TOP RIGHT with the battery under it.
+  timeline.
 
-  The typography is justified: the date and the time are flush left, the
-  weather and the battery flush right, and the seconds sit on the time's
-  baseline. The red pill FILLS the remaining height (layout_weight), so there
-  is never an empty gap below it.
+  The typography is justified: the date and the time are flush left and the
+  seconds sit on the time's baseline. The red pill FILLS the remaining height
+  (layout_weight), so there is never an empty gap below it.
 
-  Nothing overlaps: the date/weather share the top row, the clock has its own
-  row, the wake-ups label stands in the top left of the pill and the timeline
-  bars (REM 1, REM 2, dots) are stacked at the bottom.
+  Nothing overlaps: the date has its own row, the clock its own row and the
+  timeline bars (REM 1, REM 2, dots) are stacked at the bottom of the pill.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clock_sleep_container"
@@ -25,93 +23,19 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Date (left) + weather & battery (right) -->
-    <LinearLayout
+    <!-- Date -->
+    <TextClock
+        android:id="@+id/clock_sleep_date"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextClock
-            android:id="@+id/clock_sleep_date"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:fontFamily="sans-serif-medium"
-            android:format12Hour="EEE d MMM"
-            android:format24Hour="EEE d MMM"
-            android:includeFontPadding="false"
-            android:maxLines="1"
-            android:textColor="@color/oxygen_muted"
-            android:textSize="10sp" />
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="end"
-            android:orientation="vertical">
-
-            <!-- The weather -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:id="@+id/clock_sleep_weather_icon"
-                    android:layout_width="13dp"
-                    android:layout_height="13dp"
-                    android:layout_marginEnd="4dp"
-                    android:contentDescription="Weather"
-                    android:src="@drawable/widget_cloud" />
-
-                <TextView
-                    android:id="@+id/clock_sleep_weather"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text="—"
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- The battery — the icon shows the real level -->
-            <LinearLayout
-                android:id="@+id/clock_sleep_battery_row"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ProgressBar
-                    android:id="@+id/clock_sleep_battery"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="16dp"
-                    android:layout_height="8dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_battery" />
-
-                <TextView
-                    android:id="@+id/clock_sleep_battery_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text="—"
-                    android:textColor="@color/oxygen_muted"
-                    android:textSize="9sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </LinearLayout>
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:format12Hour="EEE d MMM"
+        android:format24Hour="EEE d MMM"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/oxygen_muted"
+        android:textSize="10sp" />
 
     <!-- Clock — "09:34" + seconds "53" (the seconds sit on the time's baseline) -->
     <LinearLayout
@@ -131,7 +55,7 @@
             android:letterSpacing="-0.03"
             android:maxLines="1"
             android:textColor="@color/oxygen_white"
-            android:textSize="22sp" />
+            android:textSize="26sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_seconds"
@@ -147,43 +71,32 @@
             android:textSize="11sp" />
     </LinearLayout>
 
+    <!-- Sleep -->
+    <TextView
+        android:id="@+id/clock_sleep_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.14"
+        android:text="SLEEP"
+        android:textColor="@color/oxygen_muted"
+        android:textSize="8sp"
+        android:textStyle="bold" />
+
     <!-- The red sleep pill: it FILLS the rest of the widget (weight), the
-         duration sits in the raised island on the right, the wake-ups label
-         stands vertically on the left and the timeline (REM 1, REM 2, dots) is
-         stacked at the bottom. -->
+         duration sits in the raised island on the right and the timeline
+         (REM 1, REM 2, dots) is stacked at the bottom. -->
     <RelativeLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="4dp"
-        android:clipChildren="false"
         android:minHeight="32dp"
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="7dp"
         android:paddingEnd="7dp">
-
-        <!-- The wake-ups: a small vertical label above the timeline -->
-        <FrameLayout
-            android:id="@+id/clock_sleep_interruptions_wrap"
-            android:layout_width="12dp"
-            android:layout_height="28dp"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginTop="2dp"
-            android:clipChildren="false">
-
-            <TextView
-                android:id="@+id/clock_sleep_interruptions"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:fontFamily="sans-serif-medium"
-                android:rotation="-90"
-                android:text=""
-                android:textColor="@color/oxygen_ink"
-                android:textSize="6sp" />
-        </FrameLayout>
 
         <TextView
             android:id="@+id/clock_sleep_duration"

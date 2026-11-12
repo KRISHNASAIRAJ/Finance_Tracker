@@ -59,11 +59,12 @@ LogBox.ignoreLogs([
 ]);
 
 /**
- * Refresh the weather and repaint the home-screen widget with it.
+ * Refresh the weather and repaint the home-screen widget.
  *
  * Called when the app is opened and every time it comes back to the
  * foreground. The reading itself is reused for three hours, so this only
- * costs a request when the weather is actually stale.
+ * costs a request when the weather is actually stale — and the home-screen
+ * weather card then has a fresh reading waiting for it.
  */
 async function refreshWeather(): Promise<void> {
   try {

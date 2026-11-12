@@ -31,11 +31,10 @@ class StatsWidget : AppWidgetProvider() {
         const val KEY_JSON = "stats_json"
 
         private val MUTED = Color.parseColor("#8E8E93")
-        // OnePlus OxygenOS palette: white for the values, the OnePlus red for
-        // the negative ones.
-        private val GREEN = Color.parseColor("#FFFFFF")
-        private val RED = Color.parseColor("#EB0028")
-        private val PURPLE = Color.parseColor("#FFFFFF")
+        // OnePlus OxygenOS: the labels are white, the numbers are the OnePlus
+        // red. The direction is carried by the sign and by the label text
+        // ("NET LENT" / "NET DEBIT").
+        private val VALUE = Color.parseColor("#EB0028")
 
         /** Persist the latest stats JSON (from the JS bridge) and redraw. */
         fun setStats(ctx: Context, json: String) {
@@ -77,12 +76,9 @@ class StatsWidget : AppWidgetProvider() {
         var bank = "—"
         var lent = "—"
         var lentLabel = "NET LENT"
-        var lentColor = GREEN
         var tasks = "—"
-        var tasksColor = PURPLE
         var wealth = "—"
         var marketChange = "—"
-        var marketColor = GREEN
         var marketValue = "—"
 
         if (!json.isNullOrEmpty()) {
@@ -102,7 +98,6 @@ class StatsWidget : AppWidgetProvider() {
                     val net = o.getLong("netLentPaise")
                     if (net < 0) {
                         lentLabel = "NET DEBIT"
-                        lentColor = RED
                         lent = formatMoney(-net)
                     } else {
                         lent = formatMoney(net)
@@ -112,7 +107,6 @@ class StatsWidget : AppWidgetProvider() {
                     val left = o.getInt("tasksLeft")
                     if (left == 0) {
                         tasks = "✓"
-                        tasksColor = GREEN
                     } else {
                         tasks = left.toString()
                     }
@@ -124,7 +118,6 @@ class StatsWidget : AppWidgetProvider() {
                     val change = o.getLong("dayChangePaise")
                     val pct = o.optDouble("dayChangePct", 0.0)
                     val sign = if (change < 0) "-" else "+"
-                    marketColor = if (change < 0) RED else GREEN
                     marketChange = "$sign${formatMoney(kotlin.math.abs(change))} ($sign${String.format(Locale.US, "%.1f", kotlin.math.abs(pct))}%)"
                 }
                 if (o.has("portfolioValuePaise")) {
@@ -140,12 +133,12 @@ class StatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.stats_bank, bank)
         views.setTextViewText(R.id.stats_lent, lent)
         views.setTextViewText(R.id.stats_lent_label, lentLabel)
-        views.setTextColor(R.id.stats_lent, lentColor)
+        views.setTextColor(R.id.stats_lent, VALUE)
         views.setTextViewText(R.id.stats_tasks, tasks)
-        views.setTextColor(R.id.stats_tasks, tasksColor)
+        views.setTextColor(R.id.stats_tasks, VALUE)
         views.setTextViewText(R.id.stats_wealth, wealth)
         views.setTextViewText(R.id.stats_market_change, marketChange)
-        views.setTextColor(R.id.stats_market_change, marketColor)
+        views.setTextColor(R.id.stats_market_change, VALUE)
         views.setTextViewText(R.id.stats_market_value, marketValue)
         views.setTextColor(R.id.stats_market_value, MUTED)
 

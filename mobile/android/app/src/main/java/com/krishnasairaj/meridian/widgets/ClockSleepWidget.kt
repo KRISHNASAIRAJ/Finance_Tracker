@@ -7,8 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.BatteryManager
-import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -36,9 +34,6 @@ class ClockSleepWidget : AppWidgetProvider() {
 
         /** Root padding + pill padding on each side (dp) — the timeline inset. */
         private const val TRACK_INSET_DP = 32
-
-        /** Placeholder until a weather API is connected. */
-        private const val DEFAULT_WEATHER = "—"
 
         private const val NO_VALUE = "—"
 
@@ -95,7 +90,6 @@ class ClockSleepWidget : AppWidgetProvider() {
     private fun fallbackViews(context: Context): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
         views.setTextViewText(R.id.clock_sleep_duration, NO_VALUE)
-        views.setTextViewText(R.id.clock_sleep_weather, DEFAULT_WEATHER)
         return views
     }
 
@@ -108,15 +102,12 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
 
         var duration = NO_VALUE
-        var weather = NO_VALUE
-        var weatherIcon = "cloud"
         var bedTime = 0L
         var wakeTime = 0L
         var rem1Start = 0L
         var rem1End = 0L
         var rem2Start = 0L
         var rem2End = 0L
-        var interruptions = 0
 
         if (!json.isNullOrEmpty()) {
             try {
@@ -130,46 +121,12 @@ class ClockSleepWidget : AppWidgetProvider() {
                     rem2Start = o.optLong("rem2Start", 0L)
                     rem2End = o.optLong("rem2End", 0L)
                 }
-                interruptions = o.optInt("interruptions", 0)
-                // The live weather (Open-Meteo) — the top right of the widget.
-                val text = o.optString("weatherText", "")
-                if (text.isNotEmpty()) weather = text
-                weatherIcon = o.optString("weatherIcon", "cloud")
             } catch (_: Exception) {
                 // Malformed payload → keep the placeholders
             }
         }
 
         views.setTextViewText(R.id.clock_sleep_duration, duration)
-        views.setTextViewText(R.id.clock_sleep_weather, weather)
-        views.setImageViewResource(R.id.clock_sleep_weather_icon, weatherIconRes(weatherIcon))
-
-        // The wake-ups: a small vertical label above the timeline.
-        val wakeLabel = when {
-            interruptions <= 0 -> ""
-            interruptions == 1 -> "1 WAKE"
-            else -> "$interruptions WAKES"
-        }
-        views.setTextViewText(R.id.clock_sleep_interruptions, wakeLabel)
-        views.setViewVisibility(
-            R.id.clock_sleep_interruptions_wrap,
-            if (wakeLabel.isEmpty()) View.GONE else View.VISIBLE
-        )
-        // The rotation is set in the layout as well — this guarantees it even
-        // on a launcher that ignores android:rotation in a RemoteViews layout.
-        if (wakeLabel.isNotEmpty()) {
-            views.setFloat(R.id.clock_sleep_interruptions, "setRotation", -90f)
-        }
-
-        // The battery — the icon shows the real level.
-        val battery = batteryPercent(context)
-        if (battery > 0) {
-            views.setProgressBar(R.id.clock_sleep_battery, 100, battery, false)
-            views.setTextViewText(R.id.clock_sleep_battery_text, "$battery%")
-            views.setViewVisibility(R.id.clock_sleep_battery_row, View.VISIBLE)
-        } else {
-            views.setViewVisibility(R.id.clock_sleep_battery_row, View.GONE)
-        }
 
         // REM windows on the dotted timeline. The bars are drawn by padding a
         // full-width progress bar, so the segment lands exactly where it should.
@@ -222,27 +179,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         val h = minutes / 60
         val m = minutes % 60
         return "${h}H ${m}M"
-    }
-
-    /**
-     * The battery level in percent (0–100), or -1 when it cannot be read.
-     * No permission is needed for the capacity.
-     */
-    private fun batteryPercent(context: Context): Int {
-        return try {
-            val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager ?: return -1
-            val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            if (level in 1..100) level else -1
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    /** The weather icon that matches the condition. */
-    private fun weatherIconRes(icon: String): Int = when (icon) {
-        "sun" -> R.drawable.widget_sun
-        "rain" -> R.drawable.widget_rain
-        else -> R.drawable.widget_cloud
     }
 
     private fun deepLink(context: Context, uri: String): PendingIntent {

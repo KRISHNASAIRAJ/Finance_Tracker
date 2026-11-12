@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="MONTHLY SPEND"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -51,7 +51,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -70,7 +70,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="CC BILLS"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -81,7 +81,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -100,7 +100,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="BANK BALANCE"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -111,7 +111,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -130,7 +130,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="NET LENT"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -141,7 +141,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -160,7 +160,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="TASKS LEFT"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -171,7 +171,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -190,7 +190,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="NET WEALTH"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -201,7 +201,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="20sp" />
         </LinearLayout>
 
@@ -220,7 +220,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="MARKET TODAY"
-                android:textColor="@color/oxygen_red"
+                android:textColor="@color/oxygen_white"
                 android:textSize="8sp" />
 
             <TextView
@@ -231,7 +231,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
+                android:textColor="@color/oxygen_red"
                 android:textSize="18sp" />
 
             <TextView

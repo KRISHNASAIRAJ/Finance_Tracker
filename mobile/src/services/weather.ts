@@ -112,15 +112,6 @@ async function writeCache(weather: WeatherNow): Promise<void> {
   }
 }
 
-/**
- * The last reading — no GPS, no network. The widget paints with it right
- * away and refreshes in the background, so the weather never holds the
- * widget (or the app) up.
- */
-export async function getCachedWeather(): Promise<WeatherNow | null> {
-  return await readCache();
-}
-
 /** The manually picked city (the fallback when there is no GPS). */
 export async function getManualCity(): Promise<string> {
   try {

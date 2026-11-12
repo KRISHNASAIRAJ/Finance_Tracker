@@ -11,7 +11,6 @@
  */
 import { NativeModules, Platform } from 'react-native';
 import { useSleepStore, type SleepEntry } from '../modules/sleep/store';
-import { formatTemp, type WeatherIcon, type WeatherNow } from './weather';
 
 const SleepWidgetModule = NativeModules.ClockSleepWidgetBridge as
   | { setSleep: (json: string) => Promise<void> }
@@ -40,20 +39,6 @@ export interface SleepWidgetPayload {
   interruptions: number;
   /** Sleep rating (1–5), 0 when it was not rated yet. */
   quality: number;
-  /** The temperature the widget shows ("28°"). */
-  weatherText: string;
-  /** The icon that matches the weather. */
-  weatherIcon: WeatherIcon;
-  /** The current temperature in °C (0 when unknown). */
-  weatherTempC: number;
-  /** The daily low in °C. */
-  weatherMinC: number;
-  /** The daily high in °C. */
-  weatherMaxC: number;
-  /** The condition ("Partly cloudy"). */
-  weatherCondition: string;
-  /** The place name ("Bengaluru"). */
-  weatherPlace: string;
 }
 
 /** The weather placeholder (used when there is no live reading yet). */
@@ -84,24 +69,13 @@ export function latestSleepEntry(
 
 /**
  * Build the widget payload from the sleep log. The REM windows are derived
- * from the sleep cycle, not from measured sleep stages. The weather is the
- * live reading (Open-Meteo) — it is optional, the widget falls back to "—".
+ * from the sleep cycle, not from measured sleep stages.
  */
 export function computeSleepWidgetPayload(
   entries: SleepEntry[] | undefined,
-  now: Date = new Date(),
-  weather?: WeatherNow | null
+  now: Date = new Date()
 ): SleepWidgetPayload {
   const entry = latestSleepEntry(entries, now);
-  const weatherPart = {
-    weatherText: weather ? formatTemp(weather.tempC) : '—',
-    weatherIcon: (weather?.icon ?? 'cloud') as WeatherIcon,
-    weatherTempC: weather?.tempC ?? 0,
-    weatherMinC: weather?.minC ?? 0,
-    weatherMaxC: weather?.maxC ?? 0,
-    weatherCondition: weather?.condition ?? '',
-    weatherPlace: weather?.placeName ?? '',
-  };
   if (!entry) {
     return {
       hasSleep: false,
@@ -114,7 +88,6 @@ export function computeSleepWidgetPayload(
       rem2End: 0,
       interruptions: 0,
       quality: 0,
-      ...weatherPart,
     };
   }
 
@@ -135,7 +108,6 @@ export function computeSleepWidgetPayload(
     rem2End: Math.max(bedTime, wakeTime - offsetMs),
     interruptions: Math.max(0, Number(entry.interruptions) || 0),
     quality: Math.max(0, Math.min(5, Number(entry.quality) || 0)),
-    ...weatherPart,
   };
 }
 
@@ -149,29 +121,10 @@ export function isSleepStatsWidgetAvailable(): boolean {
 }
 
 /**
- * Push the current sleep data (and the live weather) to the widgets.
- * Never throws.
- *
- * The widget is painted immediately with the last known weather and is
- * refreshed in the background — a slow GPS must never hold the sleep data
- * (or the launcher) up.
+ * Push the current sleep data to the widgets. Never throws.
  */
 export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<void> {
-  let data = payload;
-  if (!data) {
-    const entries = useSleepStore.getState().entries;
-    // The cached reading — instant.
-    let weather: WeatherNow | null = null;
-    try {
-      const { getCachedWeather } = require('./weather');
-      weather = await getCachedWeather();
-    } catch {
-      weather = null;
-    }
-    data = computeSleepWidgetPayload(entries, new Date(), weather);
-    // Refresh the weather in the background and repaint when it arrives.
-    void refreshWeather(entries, weather);
-  }
+  const data = payload ?? computeSleepWidgetPayload(useSleepStore.getState().entries);
   const json = JSON.stringify(data);
   if (SleepWidgetModule) {
     try {
@@ -186,40 +139,5 @@ export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<voi
     } catch {
       /* best-effort */
     }
-  }
-}
-
-/**
- * Fetch the live weather in the background and repaint the widgets with it.
- * The sleep data is already on screen — this only refreshes the weather.
- */
-async function refreshWeather(
-  entries: SleepEntry[],
-  shown: WeatherNow | null
-): Promise<void> {
-  try {
-    const { getWeather } = require('./weather');
-    const fresh = await getWeather();
-    if (!fresh) return;
-    // Nothing new (the cached reading was already fresh).
-    if (shown && shown.fetchedAt === fresh.fetchedAt) return;
-    const payload = computeSleepWidgetPayload(entries, new Date(), fresh);
-    const json = JSON.stringify(payload);
-    if (SleepWidgetModule) {
-      try {
-        await SleepWidgetModule.setSleep(json);
-      } catch {
-        /* best-effort */
-      }
-    }
-    if (SleepStatsWidgetModule) {
-      try {
-        await SleepStatsWidgetModule.setSleep(json);
-      } catch {
-        /* best-effort */
-      }
-    }
-  } catch {
-    /* the widget keeps the previous weather */
   }
 }
