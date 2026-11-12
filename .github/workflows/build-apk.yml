@@ -60,7 +60,10 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: supabase db push --include-all --remote
+        # --yes: the runner has no terminal, so the interactive confirmation
+        # would abort the job ("This run can't ask because stdout is not a
+        # terminal"). It only matters when there is something to apply.
+        run: supabase db push --include-all --remote --yes
 
   smoke:
     name: 2 — Smoke Tests
