@@ -201,10 +201,22 @@ jobs:
           EXPO_PUBLIC_KITE_API_KEY: ${{ secrets.EXPO_PUBLIC_KITE_API_KEY }}
         run: |
           cd android
+          set -o pipefail
           ./gradlew assembleRelease \
             -PappVersionCode=${{ github.run_number }} \
             -PappVersionName=1.0.${{ github.run_number }} \
-            --no-daemon
+            --no-daemon 2>&1 | tee /tmp/gradle-build.log
+
+      # The Gradle output is uploaded even when the build fails, so the error
+      # can be read without access to the (admin-only) job logs.
+      - name: Upload Gradle build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: /tmp/gradle-build.log
+          if-no-files-found: ignore
+          retention-days: 5
 
       - name: Verify env inlined in APK
         run: |
