@@ -46,10 +46,17 @@ export interface WeatherNow {
 
 const CACHE_KEY = 'meridian_weather_cache';
 const CITY_KEY = 'meridian_weather_city';
+const POSITION_KEY = 'meridian_weather_position';
 /** A fresh reading is reused for an hour. */
 const FRESH_MS = 60 * 60 * 1000;
 /** The cached reading is still shown as a fallback for a day. */
 const STALE_MAX_MS = 24 * 60 * 60 * 1000;
+/** A GPS fix is never awaited for longer than this. */
+const LOCATION_TIMEOUT_MS = 10 * 1000;
+/** A cached position is good enough for half an hour. */
+const POSITION_MAX_AGE_MS = 30 * 60 * 1000;
+/** The network call never waits longer than this. */
+const FORECAST_TIMEOUT_MS = 8 * 1000;
 
 const OPEN_METEO_FORECAST = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -105,6 +112,15 @@ async function writeCache(weather: WeatherNow): Promise<void> {
   }
 }
 
+/**
+ * The last reading — no GPS, no network. The widget paints with it right
+ * away and refreshes in the background, so the weather never holds the
+ * widget (or the app) up.
+ */
+export async function getCachedWeather(): Promise<WeatherNow | null> {
+  return await readCache();
+}
+
 /** The manually picked city (the fallback when there is no GPS). */
 export async function getManualCity(): Promise<string> {
   try {
@@ -122,23 +138,135 @@ export async function setManualCity(city: string): Promise<void> {
   }
 }
 
-/** The GPS position (rounded to ~1 km), or null when it is not available. */
+/** A position (rounded to ~1 km) with the time it was taken. */
+interface StoredPosition {
+  lat: number;
+  lon: number;
+  at: number;
+}
+
+/** The shape of a position we care about (the expo-location object). */
+type PositionLike =
+  | { coords?: { latitude?: number; longitude?: number } | null }
+  | null
+  | undefined;
+
+/** Round the coordinates to ~1 km — good enough for a forecast. */
+function roundCoords(coords?: {
+  latitude?: number;
+  longitude?: number;
+} | null): { lat: number; lon: number } | null {
+  const lat = Number(coords?.latitude);
+  const lon = Number(coords?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100 };
+}
+
+async function readPositionCache(): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const raw = await AsyncStorage.getItem(POSITION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredPosition;
+    if (!parsed || !Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lon)) return null;
+    if (Date.now() - Number(parsed.at) > POSITION_MAX_AGE_MS) return null;
+    return { lat: parsed.lat, lon: parsed.lon };
+  } catch {
+    return null;
+  }
+}
+
+async function writePositionCache(pos: { lat: number; lon: number }): Promise<void> {
+  try {
+    const stored: StoredPosition = { lat: pos.lat, lon: pos.lon, at: Date.now() };
+    await AsyncStorage.setItem(POSITION_KEY, JSON.stringify(stored));
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Resolve a promise, but never wait longer than `ms`.
+ *
+ * The weather must never hold the app up — a slow GPS or a slow network has
+ * to fall back to the cached values instead.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, ms);
+    promise
+      .then((value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      });
+  });
+}
+
+/**
+ * The GPS position (rounded to ~1 km), or null when it is not available.
+ *
+ * The order matters — the user must never wait minutes for the weather:
+ *   1. the LAST KNOWN position (instant, no GPS lock needed)
+ *   2. a fresh fix, but never longer than 10 s
+ *   3. the position cached 30 minutes ago
+ */
 async function getGpsPosition(): Promise<{ lat: number; lon: number } | null> {
   if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
   try {
     // Lazy require: the module is missing in Expo Go / on a build without it.
     const { Location } = require('expo-location');
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return null;
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-    const lat = Number(pos?.coords?.latitude);
-    const lon = Number(pos?.coords?.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return { lat: Math.round(lat * 100) / 100, lon: Math.round(lon * 100) / 100 };
+    // Only ask for the permission when it is not granted yet.
+    let status = (await Location.getForegroundPermissionsAsync())?.status;
+    if (status !== 'granted') {
+      status = (await Location.requestForegroundPermissionsAsync())?.status;
+    }
+    if (status !== 'granted') return await readPositionCache();
+
+    // 1. The last known position — instant.
+    try {
+      const last = await withTimeout<PositionLike>(
+        Location.getLastKnownPositionAsync({
+          maxAge: POSITION_MAX_AGE_MS,
+          requiredAccuracy: 2000,
+        }),
+        3000
+      );
+      const rounded = roundCoords(last?.coords);
+      if (rounded) {
+        await writePositionCache(rounded);
+        return rounded;
+      }
+    } catch {
+      /* no last known position */
+    }
+
+    // 2. A fresh fix — but never longer than 10 s.
+    const fresh = await withTimeout<PositionLike>(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      LOCATION_TIMEOUT_MS
+    );
+    const rounded = roundCoords(fresh?.coords);
+    if (rounded) {
+      await writePositionCache(rounded);
+      return rounded;
+    }
+
+    // 3. The cached position.
+    return await readPositionCache();
   } catch {
-    return null;
+    return await readPositionCache();
   }
 }
 
@@ -147,8 +275,8 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number; na
   if (!city) return null;
   try {
     const url = `${OPEN_METEO_GEOCODE}?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
+    const res = await withTimeout(fetch(url), FORECAST_TIMEOUT_MS);
+    if (!res || !res.ok) return null;
     const json = await res.json();
     const hit = json?.results?.[0];
     if (!hit) return null;
@@ -177,8 +305,11 @@ async function fetchForecast(
       'timezone=auto',
       'forecast_days=1',
     ].join('&');
-    const res = await fetch(`${OPEN_METEO_FORECAST}?${params}`);
-    if (!res.ok) return null;
+    const res = await withTimeout(
+      fetch(`${OPEN_METEO_FORECAST}?${params}`),
+      FORECAST_TIMEOUT_MS
+    );
+    if (!res || !res.ok) return null;
     const json = await res.json();
     const current = json?.current;
     if (!current) return null;

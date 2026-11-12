@@ -39,6 +39,7 @@ import {
 } from '../store';
 import {
   isSleepMotionAvailable,
+  isTrackingTime,
   startMotionTracking,
   stopMotionTracking,
   setMotionConfig,
@@ -404,9 +405,14 @@ export default function SleepDashboardScreen() {
   // --- automatic tracking status -------------------------------------------
   const autoStatusText = useMemo(() => {
     if (!autoConfig.enabled) return 'Off';
+    // NIGHT ONLY: during the day the tracker is not running — it starts when
+    // the night window opens.
+    if (!isTrackingTime(autoConfig)) {
+      return `Starts ${fmtClock(autoConfig.sleepStartMin)}`;
+    }
     if (!autoStatus) return 'Starting…';
     return autoStatus.running ? 'Tracking' : 'Paused';
-  }, [autoConfig.enabled, autoStatus]);
+  }, [autoConfig.enabled, autoConfig.sleepStartMin, autoStatus]);
 
   const stillText = useMemo(() => {
     // Live first: the native tracker knows exactly when the phone last moved,

@@ -36,15 +36,30 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         try {
             val cfg = SleepMotionConfig.fromMap(config).copy(enabled = true)
             SleepMotionStore.saveConfig(reactApplicationContext, cfg)
+            // NIGHT ONLY: during the day the tracker waits for tonight — the
+            // service is never started, so there is no notification all day.
+            if (SleepMotionScheduler.isTrackingTime(cfg)) {
+                startTrackerService()
+            } else {
+                SleepMotionScheduler.scheduleStart(reactApplicationContext, cfg)
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("E_START_FAILED", e.message ?: "start failed", e)
+        }
+    }
+
+    /** Start the foreground service that samples the accelerometer. */
+    private fun startTrackerService() {
+        try {
             val intent = Intent(reactApplicationContext, SleepMotionService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 reactApplicationContext.startForegroundService(intent)
             } else {
                 reactApplicationContext.startService(intent)
             }
-            promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("E_START_FAILED", e.message ?: "start failed", e)
+            /* ignore */
         }
     }
 
@@ -54,6 +69,8 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         try {
             val cfg = SleepMotionStore.loadConfig(reactApplicationContext).copy(enabled = false)
             SleepMotionStore.saveConfig(reactApplicationContext, cfg)
+            // The pending "start tonight" alarm goes away too.
+            SleepMotionScheduler.cancelStart(reactApplicationContext)
             try {
                 reactApplicationContext.stopService(
                     Intent(reactApplicationContext, SleepMotionService::class.java)
@@ -76,6 +93,11 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
             // Only the enabled flag is owned by the service lifecycle.
             val merged = incoming.copy(enabled = current.enabled)
             SleepMotionStore.saveConfig(reactApplicationContext, merged)
+            // A new night window → re-arm the start (the old alarm would fire
+            // at the wrong time).
+            if (merged.enabled && !SleepMotionScheduler.isTrackingTime(merged)) {
+                SleepMotionScheduler.scheduleStart(reactApplicationContext, merged)
+            }
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("E_CONFIG_FAILED", e.message ?: "config failed", e)

@@ -3,10 +3,13 @@ package com.krishnasairaj.meridian.sleep
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 
 /**
- * SleepMotionAlarmReceiver — handles the smart-alarm notification buttons.
+ * SleepMotionAlarmReceiver — handles the smart-alarm notification buttons and
+ * the "the night window opened" alarm.
  *
+ *   Start (alarm)      → the night window opened: start the tracker
  *   Stop              → stop ringing (the alarm stays "fired" for the day)
  *   Snooze N min      → stop ringing and ring again in N minutes
  *   Stop tracking     → stop the whole tracker
@@ -17,6 +20,9 @@ class SleepMotionAlarmReceiver : BroadcastReceiver() {
         val action = intent?.action ?: return
         try {
             when (action) {
+                SleepMotionScheduler.ACTION_START -> {
+                    startTracker(context)
+                }
                 SleepMotionService.ACTION_STOP_ALARM -> {
                     SleepMotionService.instance?.stopAlarm(false)
                 }
@@ -25,6 +31,7 @@ class SleepMotionAlarmReceiver : BroadcastReceiver() {
                 }
                 SleepMotionService.ACTION_STOP_TRACKING -> {
                     SleepMotionService.instance?.stopTracking()
+                    SleepMotionScheduler.cancelStart(context)
                     try {
                         context.stopService(Intent(context, SleepMotionService::class.java))
                     } catch (e: Exception) {
@@ -34,6 +41,36 @@ class SleepMotionAlarmReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             /* ignore */
+        }
+    }
+
+    /** The night window opened — start the foreground tracker. */
+    private fun startTracker(context: Context) {
+        try {
+            val config = SleepMotionStore.loadConfig(context)
+            if (!config.enabled) return
+            // The window may have moved since the alarm was armed.
+            if (!SleepMotionScheduler.isTrackingTime(config)) {
+                SleepMotionScheduler.scheduleStart(context, config)
+                return
+            }
+            val intent = Intent(context, SleepMotionService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            // The system may refuse a background foreground-service start —
+            // try again a bit later instead of losing the night.
+            try {
+                SleepMotionScheduler.scheduleStart(
+                    context,
+                    SleepMotionStore.loadConfig(context)
+                )
+            } catch (e2: Exception) {
+                /* ignore */
+            }
         }
     }
 }

@@ -22,6 +22,13 @@ class SleepMotionBootReceiver : BroadcastReceiver() {
         try {
             val config = SleepMotionStore.loadConfig(context)
             if (!config.enabled) return
+            // NIGHT ONLY: after a reboot during the day the tracker waits for
+            // tonight instead of running (and showing its notification) all
+            // day.
+            if (!SleepMotionScheduler.isTrackingTime(config)) {
+                SleepMotionScheduler.scheduleStart(context, config)
+                return
+            }
             val serviceIntent = Intent(context, SleepMotionService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)

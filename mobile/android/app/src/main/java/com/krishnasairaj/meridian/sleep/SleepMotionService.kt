@@ -126,6 +126,14 @@ class SleepMotionService : Service(), SensorEventListener {
             stopTracking()
             return START_NOT_STICKY
         }
+        // NIGHT ONLY: outside the night window the tracker does not run at all
+        // — no service, no "Sleep tracking" notification, no battery drain.
+        // It is armed to start when the window opens.
+        if (!SleepMotionScheduler.isTrackingTime(config)) {
+            stopTracking()
+            SleepMotionScheduler.scheduleStart(this, config)
+            return START_NOT_STICKY
+        }
         registerSensor()
         val firstStart = SleepMotionStore.startedAt(this) <= 0L
         if (firstStart) {
@@ -210,6 +218,12 @@ class SleepMotionService : Service(), SensorEventListener {
             hasLastVector = true
 
             val now = System.currentTimeMillis()
+            // The night is over (the window closed) — stop tracking and arm
+            // the next night. Nothing is recorded during the day.
+            if (!SleepMotionScheduler.isTrackingTime(config, now)) {
+                endOfNight()
+                return
+            }
             recordBucket(now, movement)
             handleMovement(now, movement)
             persist(false)
@@ -303,13 +317,8 @@ class SleepMotionService : Service(), SensorEventListener {
     }
 
     /** Is this minute of the day inside the configured night window? */
-    private fun isInNightWindow(minute: Int): Boolean {
-        val m = ((minute % 1440) + 1440) % 1440
-        val s = ((config.sleepStartMin % 1440) + 1440) % 1440
-        val e = ((config.sleepEndMin % 1440) + 1440) % 1440
-        if (s == e) return true
-        return if (s < e) m >= s && m <= e else m >= s || m <= e
-    }
+    private fun isInNightWindow(minute: Int): Boolean =
+        SleepMotionScheduler.isInNightWindow(config, minute)
 
     // --- smart alarm --------------------------------------------------------
 
@@ -380,8 +389,26 @@ class SleepMotionService : Service(), SensorEventListener {
         stopAlarmSound()
         releaseWakeLock()
         alarmActive = false
+        // The pending "start tonight" alarm goes away with the tracker.
+        SleepMotionScheduler.cancelStart(this)
         stopForeground(Service.STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    /**
+     * The night window closed: the tracker stops (so there is no "Sleep
+     * tracking" notification during the day) and arms itself for the next
+     * night.
+     */
+    private fun endOfNight() {
+        stopTracking()
+        try {
+            // A new session → the "tracking is on" banner may show again.
+            SleepMotionStore.setStartedAt(this, 0L)
+            SleepMotionScheduler.scheduleStart(this, config)
+        } catch (e: Exception) {
+            /* ignore */
+        }
     }
 
     private fun startAlarmSound() {
@@ -572,7 +599,7 @@ class SleepMotionService : Service(), SensorEventListener {
             .setOngoing(false)
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setPriority(Notification.PRIORITY_MIN)
             .setContentIntent(openAppIntent())

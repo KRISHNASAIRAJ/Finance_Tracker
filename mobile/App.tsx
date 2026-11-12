@@ -84,6 +84,21 @@ export default function App() {
       setTimeout(() => promptBatteryOptimization(), 3000);
     });
 
+    // The automatic sleep tracker only runs at night (21:30 → 09:30 by
+    // default). Re-arm it whenever the app opens: during the day it just
+    // schedules tonight's start, inside the window it (re)starts the
+    // tracker.
+    try {
+      const { useSleepStore } = require('./src/modules/sleep/store');
+      const { startMotionTracking, isSleepMotionAvailable } = require('./src/modules/sleep/sleepMotion');
+      if (isSleepMotionAvailable()) {
+        const auto = useSleepStore.getState().autoConfig;
+        if (auto?.enabled) {
+          setTimeout(() => startMotionTracking({ ...auto, enabled: true }).catch(() => {}), 800);
+        }
+      }
+    } catch (_e) { /* the tracker is unavailable (iOS / Expo Go) */ }
+
     // Background handler for the pill-reminder action buttons.
     try {
       const Notifications = require('expo-notifications');

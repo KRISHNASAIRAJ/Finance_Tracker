@@ -101,6 +101,48 @@ export function isSleepMotionAvailable(): boolean {
   return Platform.OS === 'android' && !!SleepMotionModule;
 }
 
+/** The minute of the local day (0 … 1439). */
+export function minutesOfDay(now: Date = new Date()): number {
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+/**
+ * Is this minute of the day inside the night window?
+ *
+ * The tracker is a NIGHT service: outside the window it does not run at all
+ * (no "Sleep tracking" notification during the day).
+ */
+export function isInNightWindow(
+  config: Pick<SleepMotionConfig, 'sleepStartMin' | 'sleepEndMin'>,
+  minuteOfDay: number
+): boolean {
+  const m = ((minuteOfDay % 1440) + 1440) % 1440;
+  const s = ((config.sleepStartMin % 1440) + 1440) % 1440;
+  const e = ((config.sleepEndMin % 1440) + 1440) % 1440;
+  // A zero-length window means "always".
+  if (s === e) return true;
+  return s < e ? m >= s && m <= e : m >= s || m <= e;
+}
+
+/** May the tracker run right now? */
+export function isTrackingTime(
+  config: Pick<SleepMotionConfig, 'sleepStartMin' | 'sleepEndMin'>,
+  now: Date = new Date()
+): boolean {
+  return isInNightWindow(config, minutesOfDay(now));
+}
+
+/** The next time the night window opens. */
+export function nextWindowStart(
+  config: Pick<SleepMotionConfig, 'sleepStartMin'>,
+  now: Date = new Date()
+): Date {
+  const next = new Date(now.getTime());
+  next.setHours(Math.floor(config.sleepStartMin / 60), config.sleepStartMin % 60, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next;
+}
+
 /** Fill in any missing fields so the native side never gets undefined. */
 export function withDefaults(config?: Partial<SleepMotionConfig> | null): SleepMotionConfig {
   return { ...DEFAULT_SLEEP_MOTION_CONFIG, ...(config || {}) };

@@ -151,20 +151,26 @@ export function isSleepStatsWidgetAvailable(): boolean {
 /**
  * Push the current sleep data (and the live weather) to the widgets.
  * Never throws.
+ *
+ * The widget is painted immediately with the last known weather and is
+ * refreshed in the background — a slow GPS must never hold the sleep data
+ * (or the launcher) up.
  */
 export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<void> {
   let data = payload;
   if (!data) {
-    // The weather is fetched on the side — a slow or missing GPS must never
-    // hold up the sleep data.
+    const entries = useSleepStore.getState().entries;
+    // The cached reading — instant.
     let weather: WeatherNow | null = null;
     try {
-      const { getWeather } = require('./weather');
-      weather = await getWeather();
+      const { getCachedWeather } = require('./weather');
+      weather = await getCachedWeather();
     } catch {
       weather = null;
     }
-    data = computeSleepWidgetPayload(useSleepStore.getState().entries, new Date(), weather);
+    data = computeSleepWidgetPayload(entries, new Date(), weather);
+    // Refresh the weather in the background and repaint when it arrives.
+    void refreshWeather(entries, weather);
   }
   const json = JSON.stringify(data);
   if (SleepWidgetModule) {
@@ -180,5 +186,40 @@ export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<voi
     } catch {
       /* best-effort */
     }
+  }
+}
+
+/**
+ * Fetch the live weather in the background and repaint the widgets with it.
+ * The sleep data is already on screen — this only refreshes the weather.
+ */
+async function refreshWeather(
+  entries: SleepEntry[],
+  shown: WeatherNow | null
+): Promise<void> {
+  try {
+    const { getWeather } = require('./weather');
+    const fresh = await getWeather();
+    if (!fresh) return;
+    // Nothing new (the cached reading was already fresh).
+    if (shown && shown.fetchedAt === fresh.fetchedAt) return;
+    const payload = computeSleepWidgetPayload(entries, new Date(), fresh);
+    const json = JSON.stringify(payload);
+    if (SleepWidgetModule) {
+      try {
+        await SleepWidgetModule.setSleep(json);
+      } catch {
+        /* best-effort */
+      }
+    }
+    if (SleepStatsWidgetModule) {
+      try {
+        await SleepStatsWidgetModule.setSleep(json);
+      } catch {
+        /* best-effort */
+      }
+    }
+  } catch {
+    /* the widget keeps the previous weather */
   }
 }
