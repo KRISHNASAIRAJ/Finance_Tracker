@@ -49,6 +49,19 @@ export interface WidgetStats {
   dayChangePct: number;
   /** Current portfolio value of the holdings, in paise */
   portfolioValuePaise: number;
+  /**
+   * The nearest tasks for the widget's task rows — ascending by date, the
+   * overdue ones first. Each one gets a circle to tick it off.
+   */
+  upcomingTasks?: WidgetTask[];
+}
+
+/** One task in the widget's task rows. */
+export interface WidgetTask {
+  id: string;
+  name: string;
+  /** The task is already done (the circle is filled). */
+  done: boolean;
 }
 
 /**
@@ -164,6 +177,15 @@ export function computeWidgetStats(input: {
     return istDateKey(d) <= dayKey;
   }).length;
 
+  // The nearest tasks for the widget's rows — ascending by date, so the
+  // overdue ones come first.
+  const upcomingTasks: WidgetTask[] = tasks
+    .filter((t) => !t.completed && !!t.dueDate)
+    .filter((t) => !Number.isNaN(new Date(t.dueDate).getTime()))
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 2)
+    .map((t) => ({ id: t.id, name: t.name, done: false }));
+
   // Market today — same formula as the Wealth dashboard's day-change card:
   // change % is relative to the value before today's move.
   const dayChangePaise = Number.isFinite(dayChangeIn) ? dayChangeIn : 0;
@@ -183,6 +205,7 @@ export function computeWidgetStats(input: {
     dayChangePaise,
     dayChangePct,
     portfolioValuePaise,
+    upcomingTasks,
   };
 }
 

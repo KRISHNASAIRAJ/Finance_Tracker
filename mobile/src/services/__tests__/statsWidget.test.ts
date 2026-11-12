@@ -207,6 +207,30 @@ describe('computeWidgetStats — tasks and net worth', () => {
     expect(stats.netWorthPaise).toBe(0);
   });
 
+  it('lists the nearest two open tasks by date', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      tasks: [
+        { ...task('2026-11-13T10:00:00.000Z'), id: 'later', name: 'Later' },
+        { ...task('2026-11-09T10:00:00.000Z'), id: 'overdue', name: 'Overdue' },
+        { ...task('2026-11-11T10:00:00.000Z'), id: 'today', name: 'Today' },
+        { ...task('2026-11-11T10:00:00.000Z', true), id: 'done', name: 'Done' },
+      ],
+    });
+    // The overdue one first, then today's — the two nearest.
+    expect(stats.upcomingTasks?.map((t) => t.id)).toEqual(['overdue', 'today']);
+    expect(stats.upcomingTasks?.[0].name).toBe('Overdue');
+    expect(stats.upcomingTasks?.[0].done).toBe(false);
+  });
+
+  it('has no upcoming tasks when every task is done', () => {
+    const stats = computeWidgetStats({
+      ...base,
+      tasks: [task('2026-11-11T10:00:00.000Z', true)],
+    });
+    expect(stats.upcomingTasks).toEqual([]);
+  });
+
   it('returns zeros when everything is empty', () => {
     const stats = computeWidgetStats(base);
     expect(stats.monthlySpendPaise).toBe(0);
