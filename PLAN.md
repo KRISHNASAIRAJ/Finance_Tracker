@@ -37,6 +37,36 @@
       --remote --yes` — the runner has no terminal, so the interactive
       confirmation aborted the job as soon as there was something to apply.
 
+### Batch 4 — the device feedback (2026-11-12)
+
+- [x] **The sleep tracker is NIGHT ONLY** — it only runs inside the night
+      window (21:30 → 09:30 by default). During the day the service does not
+      run at all: **no "Sleep tracking" notification**, no sensor, no battery
+      drain. The user-facing feedback is the **notch banner** ("😴 Sleep
+      tracking on"), and it only appears when the tracking actually starts —
+      at 21:30.
+      → `SleepMotionScheduler.kt` (new: the window maths + the exact alarm that
+      opens the window), the gate in `SleepMotionService` / `SleepMotionModule`
+      / `SleepMotionBootReceiver`, `ACTION_START` in `SleepMotionAlarmReceiver`,
+      the app re-arms the tracker on every open (`App.tsx`).
+- [x] **The location no longer takes 3+ minutes** — the order is now
+      *last known position (instant) → a fresh fix with a 10 s timeout → the
+      position cached 30 minutes ago*. The network call has an 8 s timeout too.
+      The widget is painted with the cached weather right away and refreshed in
+      the background, so a slow GPS can never hold the widget up.
+      → `services/weather.ts`, `services/sleepWidget.ts`.
+- [x] **The red sleep bar fills the widget** — the pill is now
+      `layout_weight="1"` (it grows into the free space, so there is no empty
+      gap below it), the island is bigger (68×23dp) and the timeline bars
+      (REM 1, REM 2, dots) are **stacked instead of overlapping**.
+- [x] **The date carries the month** ("Thu 12 Nov") and the clock uses the
+      OnePlus (system) font at medium weight with tight letter spacing.
+- [x] **All the widgets are fixed 2×2** (`targetCellWidth/Height=2`,
+      `resizeMode="none"`) and **nothing overlaps**.
+- [x] **The Stats widget follows the OxygenOS palette too** — the black shell,
+      white values, muted labels and the OnePlus red for the negative numbers.
+      **The carousel animation is exactly as it was.**
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #85) — `expo-location` is a
@@ -1031,3 +1061,70 @@ rainbow values and its own shell stay as they are.
   mileage and the spend can never disagree.
 - Migration `0050_fuel_payment_mode.sql` (`fuel_fills.payment_mode` +
   `transactions.linked_fuel_fill_id`).
+
+
+## 32. Night-only sleep tracking + the widget/layout fixes (v4)
+
+The device feedback from batch 3, fixed.
+
+### The sleep tracker is NIGHT ONLY
+
+The tracker used to run (and show its "Sleep tracking" notification) all day.
+Now it only runs **inside the night window** — 21:30 → 09:30 by default, and
+the window itself is editable on the sleep screen.
+
+- **`SleepMotionScheduler.kt`** (new) — the window maths
+  (`isInNightWindow`, `nextWindowStart`) and the **exact alarm** that opens the
+  window. The alarm survives Doze (`setExactAndAllowWhileIdle`) and falls back
+  to an inexact alarm if Android revokes the exact-alarm permission.
+- **`SleepMotionService`** — the gate: outside the window the service stops
+  itself, removes the notification and arms the next night. Inside the window
+  it samples the accelerometer; when the window closes it stops and re-arms.
+- **`SleepMotionModule.start()`** — during the day the service is **never
+  started** (so there is no notification at all); the alarm is armed instead.
+  `stop()` cancels the alarm.
+- **`SleepMotionBootReceiver`** — after a reboot during the day it arms the
+  alarm instead of starting the tracker.
+- **`SleepMotionAlarmReceiver`** — the new `ACTION_START` starts the tracker
+  when the window opens (and re-arms it if the window moved).
+- **`App.tsx`** — the app re-arms the tracker on every open (during the day it
+  just schedules tonight, inside the window it (re)starts it).
+- The **notch banner** ("😴 Sleep tracking on") is the user-facing feedback and
+  it now only appears when the tracking actually starts — at 21:30. The
+  foreground-service notification is silent (`IMPORTANCE_MIN`) and hidden on
+  the lock screen (`VISIBILITY_SECRET`).
+- The sleep screen shows **"Starts 9:30 PM"** during the day.
+
+### The location is instant
+
+`expo-location` was taking **3+ minutes** (a fresh GPS fix indoors). The new
+order in `services/weather.ts`:
+
+1. the **last known position** (instant, no GPS lock),
+2. a fresh fix, but **never longer than 10 s**,
+3. the position **cached 30 minutes ago**,
+
+plus an 8 s timeout on the network call. The permission is only requested when
+it has not been granted yet. The widget is painted with the cached weather
+**immediately** and refreshed in the background (`services/sleepWidget.ts`), so
+a slow GPS can never hold the widget (or the app) up.
+
+### The widgets
+
+- The **red sleep bar fills the widget** — the pill is `layout_weight="1"`, so
+  it grows into the free space; there is no empty gap below it. The island is
+  bigger (68×23dp) and the duration is 12sp.
+- **Nothing overlaps** — the two REM bars and the dotted timeline are stacked
+  (REM 1 → REM 2 → dots) instead of sharing one anchor point.
+- The **date carries the month** ("Thu 12 Nov") and the clock uses the OnePlus
+  (system) font at medium weight with tight letter spacing.
+- **All the widgets are a fixed 2×2** (`targetCellWidth/Height="2"`,
+  `resizeMode="none"`) — they can no longer be resized into another shape.
+- The **Stats widget follows the OxygenOS palette** too (the black shell, white
+  values, muted labels, the OnePlus red for the negative numbers) — **the
+  carousel animation is untouched**.
+
+### Tests
+
+`mobile/src/modules/sleep/__tests__/sleepMotion.test.ts` (8) — the night
+window maths. Total: 242 unit tests (27 suites) + 9 e2e.
