@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="MONTHLY SPEND"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -70,7 +70,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="CC BILLS"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -100,7 +100,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="BANK BALANCE"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -130,7 +130,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="NET LENT"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -160,7 +160,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="TASKS LEFT"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -190,7 +190,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="NET WEALTH"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
@@ -220,7 +220,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="MARKET TODAY"
-                android:textColor="@color/oxygen_muted"
+                android:textColor="@color/oxygen_red"
                 android:textSize="8sp" />
 
             <TextView
