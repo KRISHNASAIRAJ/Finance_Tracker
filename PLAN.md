@@ -11,7 +11,7 @@
 > then the section of the feature you were working on. A ✅ means it is done and
 > verified; a ⬜ means it is still to do.
 
-### Batch 3 — in progress (plan: `C:\Users\krish\.opencode\plan\keep-in-touch-weather-widgets.md`)
+### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /
       45 days / Custom N days), a **daily 10:00 AM digest** notification, the
@@ -33,11 +33,17 @@
       (the old date+amount match broke as soon as one was edited) and the sync
       runs both ways: editing the transaction moves the fill (and the price per
       liter is recomputed), deleting one deletes the other.
+- [x] **CI:** the migration step now runs `supabase db push --include-all
+      --remote --yes` — the runner has no terminal, so the interactive
+      confirmation aborted the job as soon as there was something to apply.
 
-### Batch 3 — still to do
+### Batch 3 — on the device
 
-- [ ] Nothing — the batch is implemented and verified locally. **Not pushed yet**
-      (the user wants to keep adding features first).
+- [ ] Install the new APK (`apk-release` from run #85) — `expo-location` is a
+      **new native module**, so an OTA update cannot add it.
+- [ ] Check: the widget in the OxygenOS palette with the weather in the top
+      right, the home weather card, the Keep in Touch list + the 10 AM digest,
+      and the HP Pay fuel flow.
 
 ### Batch 2 — done (shipped in build #82, verified on device)
 
