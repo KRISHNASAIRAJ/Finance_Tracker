@@ -7,7 +7,39 @@
 
 ## 0. ✅ TODO — sleep, wallets and widgets (v4, this batch)
 
-**Done in this batch**
+> **This file is the source of truth.** If a session is interrupted, read §0 first,
+> then the section of the feature you were working on. A ✅ means it is done and
+> verified; a ⬜ means it is still to do.
+
+### Batch 3 — in progress (plan: `C:\Users\krish\.opencode\plan\keep-in-touch-weather-widgets.md`)
+
+- [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /
+      45 days / Custom N days), a **daily 10:00 AM digest** notification, the
+      More-menu + drawer entry. A new person becomes due after one full interval.
+      → `modules/people/` (cadence maths + store + sync + screen), migration
+      `0049_people.sql`, `schedulePeopleDigest()` in the notification service.
+- [x] **Weather (GPS + Open-Meteo)** — free, no API key. The live temperature in
+      the **top-right of the Clock & Sleep widget** and a **home-screen card**.
+      → `services/weather.ts` (+ `expo-location`), the widget payload gained the
+      weather fields, `widget_sun`/`widget_rain` drawables.
+- [x] **OxygenOS widget restyle** — the two sleep widgets in OnePlus
+      red/white/black (#EB0028). The **animated Stats carousel stays unchanged**.
+      → `values/widget_colors.xml`, the shell/pill/cloud drawables, both layouts.
+- [x] **HP Pay wallet + the fuel payment mode** — "HP Pay" is a standard wallet
+      (mobile + web) and the fuel form asks how the fill was paid; a fill paid
+      from HP Pay moves the wallet balance (add / edit / delete).
+- [x] **The fuel edit inconsistency is fixed** — a fuel fill and its
+      `fuel_purchase` transaction are now linked by `linked_fuel_fill_id`
+      (the old date+amount match broke as soon as one was edited) and the sync
+      runs both ways: editing the transaction moves the fill (and the price per
+      liter is recomputed), deleting one deletes the other.
+
+### Batch 3 — still to do
+
+- [ ] Nothing — the batch is implemented and verified locally. **Not pushed yet**
+      (the user wants to keep adding features first).
+
+### Batch 2 — done (shipped in build #82, verified on device)
 
 - [x] **Wallets are their own section** in the Balance Summary (mobile + web) and
       live in the same section as the bank accounts on the Bank Accounts screen
@@ -34,30 +66,29 @@
 - [x] **5-star rating** for the last night.
 - [x] **Widgets** — the four quick-action widgets (Add Expense / Add Fuel /
       Add Task / Bedtime) are gone; every widget is 2x2. The **Clock & Sleep**
-      widget is hardened (no preview layout, no crash on render) and a new
-      **sleep-only 2x2** widget shows the compact last night and refreshes
-      every day at **9:00 AM**.
+      widget is hardened and a new **sleep-only 2x2** widget shows the compact
+      last night and refreshes every day at **9:00 AM**.
 - [x] **"Enable morning auto-detect" removed** — the usage-access auto-detect
       (and its native module + permission) is deleted; the accelerometer
       tracker does the job.
 - [x] **Live "STILL FOR"** — the tracker status is polled every 5 s (the sensor
-      period) and the readout uses the native `stillSince` timestamp, so it
-      follows the phone in real time.
+      period) and the readout uses the native `stillSince` timestamp.
+- [x] **The widget error is fixed** — Android only allows the view classes
+      annotated with `@RemoteViews.RemoteView` inside a widget layout, so the
+      plain `<View>` spacers broke both sleep widgets ("An error occurred when
+      loading widget").
+- [x] **The card bill stays paid** — the web "Pay bill" never rolled the due
+      date, and a cloud write that hit no row was dropped silently. Both fixed
+      (plus the 31st-billing-day clamp and the persist-key migration).
 
-**Verified on device (2026-11-12, build #82)**
+### Batch 2 — verified on device (2026-11-12, build #82)
 
-- [x] The **Clock & Sleep** and the **sleep-only** widget load again — the
-      launcher refused them because a plain `<View>` is not allowed inside a
-      RemoteViews layout (only the classes annotated with
-      `@RemoteViews.RemoteView` are).
+- [x] The **Clock & Sleep** and the **sleep-only** widget load again.
 - [x] The **green sleep bar** fits the 2x2 cell (26dp pill, 54dp island) and
       the REM timeline sits at the bottom of the pill.
 - [x] The **"Tracking your sleep"** notification is quiet and dismissible; the
-      tracking feedback is a brief, soundless heads-up banner in the notch
-      area.
-- [x] The **card bill** stays paid after an app update (the web pay-bill now
-      rolls the due date, and a cloud write that hits no row falls back to an
-      upsert instead of being dropped).
+      tracking feedback is a brief, soundless heads-up banner in the notch area.
+- [x] The **card bill** stays paid after an app update.
 
 ---
 
@@ -920,3 +951,77 @@ program.
   `PACKAGE_USAGE_STATS` permission and the JS bridge — the accelerometer
   tracker does the job now.
 
+
+
+## 31. Keep in touch (people) — weekly / monthly / 45 days / custom (v4)
+
+A list of the people you want to stay in touch with, each with their own
+cadence, and ONE daily digest notification (not one notification per person).
+
+- **Cadences** (`modules/people/peopleCadence.ts`, pure + unit tested):
+  `weekly` (+7 days) · `monthly` (+1 **calendar** month, clamped to the month
+  end — 31 Jan → 28/29 Feb, never 3 March) · `days_45` (+45 days) · `custom`
+  (+N days). The next due date is the last contact + the interval; **a person
+  who was never contacted becomes due after one full interval** (the list never
+  starts with a wall of overdue names).
+- **Data:** migration `0049_people.sql` → `people(id, user_id, name, phone,
+  email, notes, cadence, interval_days, last_contacted_at, next_due_at,
+  sort_order, …)` + RLS + realtime.
+- **Module:** `modules/people/` — the cadence maths, the Zustand store
+  (`meridian-people-storage-v1`, every write through the sync queue), the cloud
+  pull (`usePeopleSync`, the pending-edit protection) and `PeopleScreen`
+  (Due now / Coming up / Later, "Mark contacted", add + edit).
+- **Reminder:** ONE notification at **10:00 AM IST** listing everyone who is due
+  that day (`schedulePeopleDigest()` in the notification service, the
+  `people_digest` channel, a day-scoped dedup key). It is re-armed whenever the
+  list changes and by `scheduleAllReminders()` on every app open. Tapping it
+  opens the list through the `meridian://people` deep link.
+- **Entry points:** the More menu and the drawer (no web page, no home card).
+- **Tests:** `peopleCadence.test.ts` (13) + `peopleStore.test.ts` (6).
+
+## 30. Weather — GPS + Open-Meteo (v4)
+
+The live weather for your location. Open-Meteo is free, needs **no API key and
+no account**, and the coordinates are rounded to ~1 km before they leave the
+phone.
+
+- **Location:** `expo-location` (the permission plugin in `app.json` →
+  `ACCESS_COARSE/FINE_LOCATION`), `Balanced` accuracy.
+- **Service** (`services/weather.ts`): GPS → `api.open-meteo.com/v1/forecast`
+  → the current temperature, feels-like, humidity, the WMO condition, the daily
+  low/high and the rain chance. Cached for an hour; the fallback chain is
+  *fresh GPS → the cached reading (up to a day) → a manually picked city
+  (Open-Meteo geocoding) → nothing*.
+- **Surfaces:** the **top-right of the Clock & Sleep widget** (the icon + the
+  temperature, with the condition under the clock) and a **home-screen card**.
+- **Tests:** `services/__tests__/weather.test.ts` (3) — the WMO code mapping.
+
+## 29. OxygenOS widget restyle (v4)
+
+The two sleep widgets now use the OnePlus palette: a black canvas, white type
+and the OnePlus red `#EB0028` as the single accent (the sleep pill, the rating
+stars, the weather icon). **The animated Stats carousel is untouched** — its
+rainbow values and its own shell stay as they are.
+
+- `values/widget_colors.xml` — the palette
+- `widget_clock_sleep_bg` (the black shell), `widget_sleep_pill` (red),
+  `widget_cloud` (red) + the new `widget_sun` / `widget_rain`
+- `widget_clock_sleep.xml` — the **weather moved to the top row**, next to the
+  date; `widget_sleep_stats.xml` — the rating stars turn red
+
+## 28. HP Pay + the fuel payment mode (v4)
+
+- **HP Pay** is a standard wallet next to Amazon Pay / PhonePe / Zepto /
+  Blinkit / BigBasket (mobile + web).
+- The **fuel form asks how the fill was paid** (Cash / UPI / Card / HP Pay).
+  A fill paid from HP Pay **moves the wallet balance** — and an edit or a
+  delete moves it back.
+- **The fuel edit inconsistency is fixed:** a fuel fill and its
+  `fuel_purchase` transaction are two views of the same purchase, so they are
+  linked by the new `transactions.linked_fuel_fill_id` column (the old
+  date+amount match broke as soon as one of them was edited). The sync now
+  runs **both ways**: editing the transaction moves the fill (and the price per
+  liter is recomputed from the liters), deleting one deletes the other — the
+  mileage and the spend can never disagree.
+- Migration `0050_fuel_payment_mode.sql` (`fuel_fills.payment_mode` +
+  `transactions.linked_fuel_fill_id`).
