@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -80,6 +81,8 @@ class StatsWidget : AppWidgetProvider() {
         var wealth = "—"
         var marketChange = "—"
         var marketValue = "—"
+        // The nearest tasks: id, name and whether they are done.
+        val upcoming = mutableListOf<Triple<String, String, Boolean>>()
 
         if (!json.isNullOrEmpty()) {
             try {
@@ -123,6 +126,17 @@ class StatsWidget : AppWidgetProvider() {
                 if (o.has("portfolioValuePaise")) {
                     marketValue = "NET ${formatMoney(o.getLong("portfolioValuePaise"))}"
                 }
+                if (o.has("upcomingTasks")) {
+                    val array = o.optJSONArray("upcomingTasks")
+                    for (i in 0 until (array?.length() ?: 0)) {
+                        val t = array?.optJSONObject(i) ?: continue
+                        val id = t.optString("id")
+                        val name = t.optString("name")
+                        if (id.isEmpty() || name.isEmpty()) continue
+                        upcoming.add(Triple(id, name, t.optBoolean("done", false)))
+                        if (upcoming.size >= 2) break
+                    }
+                }
             } catch (_: Exception) {
                 // Malformed payload → keep placeholders
             }
@@ -134,7 +148,6 @@ class StatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.stats_lent, lent)
         views.setTextViewText(R.id.stats_lent_label, lentLabel)
         views.setTextColor(R.id.stats_lent, VALUE)
-        views.setTextViewText(R.id.stats_tasks, tasks)
         views.setTextColor(R.id.stats_tasks, VALUE)
         views.setTextViewText(R.id.stats_wealth, wealth)
         views.setTextViewText(R.id.stats_market_change, marketChange)
@@ -142,15 +155,71 @@ class StatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.stats_market_value, marketValue)
         views.setTextColor(R.id.stats_market_value, MUTED)
 
+        // The tasks card: the header with the count and the nearest 2 tasks.
+        // It sits in the flipper twice, so both copies are filled.
+        views.setTextViewText(R.id.stats_tasks, tasks)
+        views.setTextViewText(R.id.stats_tasks_b, tasks)
+        bindTasks(
+            views, context, upcoming,
+            intArrayOf(R.id.stats_task_circle_1, R.id.stats_task_circle_2),
+            intArrayOf(R.id.stats_task_name_1, R.id.stats_task_name_2),
+            intArrayOf(R.id.stats_task_row_1, R.id.stats_task_row_2)
+        )
+        bindTasks(
+            views, context, upcoming,
+            intArrayOf(R.id.stats_task_circle_1_b, R.id.stats_task_circle_2_b),
+            intArrayOf(R.id.stats_task_name_1_b, R.id.stats_task_name_2_b),
+            intArrayOf(R.id.stats_task_row_1_b, R.id.stats_task_row_2_b)
+        )
+
         views.setOnClickPendingIntent(R.id.stats_card_spend, deepLink(context, "meridian://monthly-spend"))
         views.setOnClickPendingIntent(R.id.stats_card_cards, deepLink(context, "meridian://credit-cards"))
         views.setOnClickPendingIntent(R.id.stats_card_bank, deepLink(context, "meridian://bank-accounts"))
         views.setOnClickPendingIntent(R.id.stats_card_lent, deepLink(context, "meridian://lent-borrowed"))
         views.setOnClickPendingIntent(R.id.stats_card_tasks, deepLink(context, "meridian://tasks"))
+        views.setOnClickPendingIntent(R.id.stats_card_tasks_b, deepLink(context, "meridian://tasks"))
         views.setOnClickPendingIntent(R.id.stats_card_wealth, deepLink(context, "meridian://wealth"))
         views.setOnClickPendingIntent(R.id.stats_card_market, deepLink(context, "meridian://wealth"))
 
         return views
+    }
+
+    /**
+     * Fill the two task rows: the circle (tap → mark as done) and the name
+     * (tap → open the task).
+     */
+    private fun bindTasks(
+        views: RemoteViews,
+        context: Context,
+        upcoming: List<Triple<String, String, Boolean>>,
+        circleIds: IntArray,
+        nameIds: IntArray,
+        rowIds: IntArray
+    ) {
+        for (index in 0..1) {
+            val task = upcoming.getOrNull(index)
+            if (task == null) {
+                views.setViewVisibility(rowIds[index], View.GONE)
+                continue
+            }
+            val (id, name, done) = task
+            views.setViewVisibility(rowIds[index], View.VISIBLE)
+            views.setTextViewText(nameIds[index], name)
+            views.setImageViewResource(
+                circleIds[index],
+                if (done) R.drawable.widget_task_circle_done else R.drawable.widget_task_circle
+            )
+            if (done) {
+                // A finished task cannot be ticked again.
+                views.setOnClickPendingIntent(circleIds[index], deepLink(context, "meridian://tasks"))
+            } else {
+                views.setOnClickPendingIntent(
+                    circleIds[index],
+                    deepLink(context, "meridian://task-complete/$id")
+                )
+            }
+            views.setOnClickPendingIntent(nameIds[index], deepLink(context, "meridian://task/$id"))
+        }
     }
 
     /** Paise → "₹845" or "₹1.2k" (no locale-dependent grouping). */

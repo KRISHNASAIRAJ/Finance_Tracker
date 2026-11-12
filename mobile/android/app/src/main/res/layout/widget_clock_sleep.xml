@@ -3,14 +3,13 @@
   ClockSleepWidget — 2x2 home-screen widget (OnePlus OxygenOS: black, white,
   the OnePlus red as the accent).
 
-  A live clock (TextClock keeps itself up to date, seconds included) with the
-  last night of sleep underneath: the red pill holds the sleep duration (in the
-  raised island on the right) and the two REM windows marked on the dotted
-  timeline.
+  A live clock (TextClock keeps itself up to date) with the last night of
+  sleep underneath: the red pill holds the sleep duration (in the raised
+  island on the right) and the two REM windows marked on the dotted timeline.
 
-  The typography is justified: the date and the time are flush left and the
-  seconds sit on the time's baseline. The red pill FILLS the remaining height
-  (layout_weight), so there is never an empty gap below it.
+  The typography is centred: the date and the time sit in the middle and the
+  seconds sit on the time's baseline, right before the AM/PM. The red pill
+  fills the free space, with a small gap underneath it.
 
   Nothing overlaps: the date has its own row, the clock its own row and the
   timeline bars (REM 1, REM 2, dots) are stacked at the bottom of the pill.
@@ -23,25 +22,27 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Date -->
-    <TextClock
+    <!-- Date — the provider writes it so the day digits can be coloured
+         (the first digit red, the second white) -->
+    <TextView
         android:id="@+id/clock_sleep_date"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
-        android:format12Hour="EEE d MMM"
-        android:format24Hour="EEE d MMM"
+        android:gravity="center"
         android:includeFontPadding="false"
         android:maxLines="1"
+        android:text=""
         android:textColor="@color/oxygen_muted"
         android:textSize="10sp" />
 
-    <!-- Clock — "09:34" + seconds "53" (the seconds sit on the time's baseline) -->
+    <!-- Clock — "09:34" + seconds "53" + "PM" -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
+        android:gravity="center"
         android:orientation="horizontal">
 
         <TextClock
@@ -69,6 +70,19 @@
             android:maxLines="1"
             android:textColor="@color/oxygen_faint"
             android:textSize="11sp" />
+
+        <TextClock
+            android:id="@+id/clock_sleep_period"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:fontFamily="sans-serif-medium"
+            android:format12Hour="a"
+            android:format24Hour="a"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="@color/oxygen_muted"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <!-- Sleep -->
@@ -76,6 +90,7 @@
         android:id="@+id/clock_sleep_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
         android:layout_marginTop="4dp"
         android:includeFontPadding="false"
         android:letterSpacing="0.14"
@@ -84,16 +99,16 @@
         android:textSize="8sp"
         android:textStyle="bold" />
 
-    <!-- The red sleep pill: it FILLS the rest of the widget (weight), the
-         duration sits in the raised island on the right and the timeline
-         (REM 1, REM 2, dots) is stacked at the bottom. -->
+    <!-- The red sleep pill: the duration sits in the raised island on the
+         right and the timeline (REM 1, REM 2, dots) is stacked at the
+         bottom. -->
     <RelativeLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="4dp"
-        android:minHeight="32dp"
+        android:minHeight="30dp"
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="7dp"
         android:paddingEnd="7dp">
@@ -112,25 +127,22 @@
             android:textColor="@color/oxygen_ink"
             android:textSize="12sp" />
 
-        <!-- The night ribbon: a bold white bar that spans the whole night
-             (bedtime → wake time). The two REM windows are cut out of it in
-             the OnePlus red, so they read as gaps in the ribbon. -->
         <TextView
-            android:id="@+id/clock_sleep_ribbon"
+            android:id="@+id/clock_sleep_dots"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
-            android:background="@drawable/widget_sleep_ribbon"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/widget_sleep_dots"
             android:text="" />
 
         <ProgressBar
             android:id="@+id/clock_sleep_rem1"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2.5dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="6dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
@@ -140,12 +152,18 @@
             android:id="@+id/clock_sleep_rem2"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2.5dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="9.5dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
             android:progressDrawable="@drawable/widget_sleep_rem_bar" />
     </RelativeLayout>
+
+    <!-- A small gap under the red bar -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:text="" />
 </LinearLayout>

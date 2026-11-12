@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The completed task — a filled OnePlus red circle with a white tick. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/oxygen_red" />
+        </shape>
+    </item>
+    <item
+        android:gravity="center"
+        android:width="10dp"
+        android:height="10dp">
+        <rotate android:fromDegrees="-45" android:toDegrees="-45">
+            <shape android:shape="rectangle">
+                <solid android:color="@android:color/transparent" />
+                <stroke
+                    android:width="1.6dp"
+                    android:color="@color/oxygen_white" />
+            </shape>
+        </rotate>
+    </item>
+</layer-list>

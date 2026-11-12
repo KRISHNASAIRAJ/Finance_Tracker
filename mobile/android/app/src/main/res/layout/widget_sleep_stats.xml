@@ -50,25 +50,22 @@
         android:paddingStart="7dp"
         android:paddingEnd="7dp">
 
-        <!-- The night ribbon: a bold white bar that spans the whole night
-             (bedtime → wake time). The two REM windows are cut out of it in
-             the OnePlus red, so they read as gaps in the ribbon. -->
         <TextView
-            android:id="@+id/sleep_stats_ribbon"
+            android:id="@+id/sleep_stats_dots"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
-            android:background="@drawable/widget_sleep_ribbon"
+            android:layout_marginBottom="4dp"
+            android:background="@drawable/widget_sleep_dots"
             android:text="" />
 
         <ProgressBar
             android:id="@+id/sleep_stats_rem1"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2.5dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="6dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
@@ -78,9 +75,9 @@
             android:id="@+id/sleep_stats_rem2"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="10dp"
+            android:layout_height="2.5dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="9.5dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"

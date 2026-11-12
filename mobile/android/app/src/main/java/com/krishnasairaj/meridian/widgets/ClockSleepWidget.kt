@@ -6,7 +6,11 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -36,6 +40,12 @@ class ClockSleepWidget : AppWidgetProvider() {
         private const val TRACK_INSET_DP = 30
 
         private const val NO_VALUE = "—"
+
+        private val WEEKDAYS = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        private val MONTHS = arrayOf(
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        )
 
         /** Persist the latest sleep payload (from the JS bridge) and redraw. */
         fun setSleep(ctx: Context, json: String) {
@@ -127,6 +137,7 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
 
         views.setTextViewText(R.id.clock_sleep_duration, duration)
+        views.setTextViewText(R.id.clock_sleep_date, dateText())
 
         // REM windows on the dotted timeline. The bars are drawn by padding a
         // full-width progress bar, so the segment lands exactly where it should.
@@ -179,6 +190,47 @@ class ClockSleepWidget : AppWidgetProvider() {
         val h = minutes / 60
         val m = minutes % 60
         return "${h}H ${m}M"
+    }
+
+    /**
+     * The date — "Thu 12 Nov" — with the FIRST digit of a double-digit day in
+     * the OnePlus red and the second digit in white. A single-digit day is
+     * white as well.
+     */
+    private fun dateText(): CharSequence {
+        val cal = java.util.Calendar.getInstance()
+        val weekday = WEEKDAYS[cal.get(java.util.Calendar.DAY_OF_WEEK) - 1]
+        val month = MONTHS[cal.get(java.util.Calendar.MONTH)]
+        val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        val dayText = day.toString()
+
+        val text = SpannableString("$weekday $dayText $month")
+        val start = weekday.length + 1
+        if (dayText.length > 1) {
+            // The first digit of a double-digit day is red.
+            text.setSpan(
+                ForegroundColorSpan(Color.parseColor("#EB0028")),
+                start,
+                start + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            // The second digit is white.
+            text.setSpan(
+                ForegroundColorSpan(Color.parseColor("#FFFFFF")),
+                start + 1,
+                start + 2,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        } else {
+            // A single-digit day is white.
+            text.setSpan(
+                ForegroundColorSpan(Color.parseColor("#FFFFFF")),
+                start,
+                start + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        return text
     }
 
     private fun deepLink(context: Context, uri: String): PendingIntent {

@@ -19,7 +19,12 @@ object SleepWidgetScheduler {
     const val REFRESH_HOUR = 9
     const val REFRESH_MINUTE = 0
 
+    /** The midnight refresh — the date on the widget rolls over. */
+    const val MIDNIGHT_HOUR = 0
+    const val MIDNIGHT_MINUTE = 5
+
     private const val REQUEST_CODE = 4711
+    private const val REQUEST_CODE_MIDNIGHT = 4712
 
     /** Arm (or re-arm) the daily 9:00 AM refresh. Safe to call repeatedly. */
     fun schedule(context: Context) {
@@ -40,6 +45,33 @@ object SleepWidgetScheduler {
             am.setInexactRepeating(
                 AlarmManager.RTC_WAKEUP,
                 next,
+                AlarmManager.INTERVAL_DAY,
+                pending
+            )
+            scheduleMidnight(context, am)
+        } catch (e: Exception) {
+            /* best-effort */
+        }
+    }
+
+    /**
+     * The midnight refresh — the widget writes the date itself (so the day
+     * digits can be coloured), so it has to be redrawn when the date changes.
+     */
+    private fun scheduleMidnight(context: Context, am: AlarmManager) {
+        try {
+            val intent = Intent(context, SleepWidgetAlarmReceiver::class.java).apply {
+                action = SleepWidgetAlarmReceiver.ACTION_REFRESH
+            }
+            val pending = PendingIntent.getBroadcast(
+                context,
+                REQUEST_CODE_MIDNIGHT,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setInexactRepeating(
+                AlarmManager.RTC_WAKEUP,
+                nextMidnight(),
                 AlarmManager.INTERVAL_DAY,
                 pending
             )
@@ -73,6 +105,18 @@ object SleepWidgetScheduler {
         cal.timeInMillis = now
         cal.set(Calendar.HOUR_OF_DAY, REFRESH_HOUR)
         cal.set(Calendar.MINUTE, REFRESH_MINUTE)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        if (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 1)
+        return cal.timeInMillis
+    }
+
+    /** The next midnight refresh (epoch ms). */
+    fun nextMidnight(now: Long = System.currentTimeMillis()): Long {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = now
+        cal.set(Calendar.HOUR_OF_DAY, MIDNIGHT_HOUR)
+        cal.set(Calendar.MINUTE, MIDNIGHT_MINUTE)
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         if (cal.timeInMillis <= now) cal.add(Calendar.DAY_OF_YEAR, 1)

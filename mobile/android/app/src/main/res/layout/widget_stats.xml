@@ -145,7 +145,9 @@
                 android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- Card 5 — tasks -->
+        <!-- Card 5 — tasks (the header + the nearest 2 tasks, each with a
+             circle to tick it off). The card appears twice in the flipper so
+             it dwells ~6 s while the other cards keep their 3 s. -->
         <LinearLayout
             android:id="@+id/stats_card_tasks"
             android:layout_width="match_parent"
@@ -154,25 +156,180 @@
             android:gravity="center"
             android:padding="10dp">
 
-            <TextView
-                android:id="@+id/stats_tasks_label"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.12"
-                android:text="TASKS LEFT"
-                android:textColor="@color/oxygen_white"
-                android:textSize="8sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/stats_tasks"
+                <TextView
+                    android:id="@+id/stats_tasks_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="TASKS LEFT"
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/stats_tasks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="—"
+                    android:textColor="@color/oxygen_red"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_1"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_2"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- The tasks card again — it dwells longer so the circles can be
+             tapped (the flipper's interval is the same for every card). -->
+        <LinearLayout
+            android:id="@+id/stats_card_tasks_b"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="-0.02"
-                android:text="—"
-                android:textColor="@color/oxygen_red"
-                android:textSize="20sp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/stats_tasks_label_b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="TASKS LEFT"
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/stats_tasks_b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="—"
+                    android:textColor="@color/oxygen_red"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_1_b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_1_b"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_1_b"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_2_b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_2_b"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_2_b"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Card 6 — net worth -->
