@@ -528,13 +528,28 @@ async function runSyncQueue(force = false): Promise<SyncRunResult> {
             updated_at: new Date().toISOString(),
           };
           delete fields.id;
-          const { error } = await supabase
+          const { data: updatedRows, error } = await supabase
             .from(item.entity)
             .update(fields)
-            .eq("id", item.data.id as string);
+            .eq("id", item.data.id as string)
+            .select("id");
           if (error) {
             errorMessages.push(`update ${item.entity}/${item.data.id}: ${error.message}`);
             throw error;
+          }
+          // The row was not in the cloud (a brand-new offline row, or an id
+          // the cloud never saw). Updating 0 rows reports no error, so the
+          // write would be silently lost — create the row instead.
+          if (!updatedRows || updatedRows.length === 0) {
+            const { error: upsertError } = await supabase
+              .from(item.entity)
+              .upsert(resolvedData, { onConflict: ON_CONFLICT_TARGET[item.entity] ?? "id" });
+            if (upsertError) {
+              errorMessages.push(
+                `upsert ${item.entity}/${item.data.id} (update matched no row): ${upsertError.message}`
+              );
+              throw upsertError;
+            }
           }
         } else {
           const conflictTarget = ON_CONFLICT_TARGET[item.entity] ?? "id";

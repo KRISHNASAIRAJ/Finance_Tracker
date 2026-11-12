@@ -3,7 +3,7 @@
  * (transactions, credit cards, bank accounts, receivables, fixed expenses).
  */
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, type PersistStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Transaction {
@@ -189,6 +189,33 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
   } catch (e) { console.warn('[FinanceStore] enqFlush failed:', e); }
 }
 
+/**
+ * A card as a database row. The FULL row is always queued (not just the
+ * changed fields) so the sync queue can fall back to an upsert when the cloud
+ * has no such row yet — an upsert needs every NOT NULL column.
+ */
+function cardToRow(card: CreditCard, userId?: string): Record<string, unknown> {
+  return {
+    id: card.id,
+    user_id: userId || null,
+    name: card.name,
+    network: card.network,
+    ending_with: card.endingWith,
+    billing_day: card.billingDay,
+    balance: card.balance,
+    due_date: card.dueDate,
+    bank: card.bank ?? null,
+    card_limit: card.cardLimit ?? null,
+    current_outstanding: card.currentOutstanding ?? null,
+    bill_amount: card.billAmount ?? 0,
+    paid_amount: card.paidAmount ?? 0,
+    annual_charge: card.annualCharge ?? 0,
+    annual_charge_date: card.annualChargeDate ?? null,
+    is_ltf: card.isLtf ?? false,
+    points: card.points ?? 0,
+  };
+}
+
 export const getMinBalanceForAccount = (title: string): number => {
   const norm = title.toLowerCase();
   if (norm.includes('hdfc')) return 260000; // ₹2,600
@@ -198,6 +225,32 @@ export const getMinBalanceForAccount = (title: string): number => {
   if (norm.includes('slice')) return 0;
   if (norm.includes('bob')) return 250000; // ₹2,500
   return 0;
+};
+
+/**
+ * The persist storage of the finance store.
+ *
+ * The persist key is bumped with every schema change (see the repo rules), but
+ * a bump must never throw away local data: when the new key is empty the
+ * previous one is read and the migration carries it forward. Without this a
+ * fresh install after an app update would lose every local edit that had not
+ * been pushed to the cloud yet.
+ */
+const jsonStorage = createJSONStorage(() => AsyncStorage);
+if (!jsonStorage) throw new Error('[FinanceStore] AsyncStorage is unavailable');
+const PREVIOUS_STORAGE_KEY = 'meridian-finance-storage-v14';
+const financeStorage: PersistStorage<any> = {
+  getItem: async (name: string) => {
+    const current = await jsonStorage.getItem(name);
+    if (current) return current;
+    try {
+      return await jsonStorage.getItem(PREVIOUS_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: any) => jsonStorage.setItem(name, value),
+  removeItem: (name: string) => jsonStorage.removeItem(name),
 };
 
 export const useFinanceStore = create<FinanceState>()(
@@ -527,21 +580,11 @@ export const useFinanceStore = create<FinanceState>()(
           cards: state.cards.map((c) => (c.id === id ? { ...c, ...updated } : c)),
         }));
         try {
-          const payload: Record<string, unknown> = { id, user_id: userId || null };
-          if (updated.balance !== undefined) payload.balance = updated.balance;
-          if (updated.dueDate !== undefined) payload.due_date = updated.dueDate;
-          if (updated.name !== undefined) payload.name = updated.name;
-          if (updated.endingWith !== undefined) payload.ending_with = updated.endingWith;
-          if (updated.billingDay !== undefined) payload.billing_day = updated.billingDay;
-          if (updated.billAmount !== undefined) payload.bill_amount = updated.billAmount;
-          if (updated.paidAmount !== undefined) payload.paid_amount = updated.paidAmount;
-          if (updated.cardLimit !== undefined) payload.card_limit = updated.cardLimit;
-          if (updated.currentOutstanding !== undefined) payload.current_outstanding = updated.currentOutstanding;
-          if (updated.annualCharge !== undefined) payload.annual_charge = updated.annualCharge;
-          if (updated.annualChargeDate !== undefined) payload.annual_charge_date = updated.annualChargeDate;
-          if (updated.isLtf !== undefined) payload.is_ltf = updated.isLtf;
-          if (updated.points !== undefined) payload.points = updated.points;
-          enqFlush("credit_cards", "update", payload);
+          // The FULL row is queued, not just the changed fields: the sync queue
+          // falls back to an upsert when the cloud has no such row yet, and an
+          // upsert needs every NOT NULL column.
+          const merged = { ...get().cards.find((c) => c.id === id), ...updated } as CreditCard;
+          enqFlush("credit_cards", "update", cardToRow(merged, userId));
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
       addCard: (cardData, userId) => {
@@ -551,25 +594,7 @@ export const useFinanceStore = create<FinanceState>()(
         };
         set((state) => ({ cards: [...state.cards, newCard] }));
         try {
-          enqFlush("credit_cards", "create", {
-            id: newCard.id,
-            user_id: userId || null,
-            name: newCard.name,
-            network: newCard.network,
-            ending_with: newCard.endingWith,
-            billing_day: newCard.billingDay,
-            balance: newCard.balance,
-            due_date: newCard.dueDate,
-            bank: newCard.bank ?? null,
-            card_limit: newCard.cardLimit ?? null,
-            current_outstanding: newCard.currentOutstanding ?? null,
-            bill_amount: newCard.billAmount ?? 0,
-            paid_amount: newCard.paidAmount ?? 0,
-            annual_charge: newCard.annualCharge ?? 0,
-            annual_charge_date: newCard.annualChargeDate ?? null,
-            is_ltf: newCard.isLtf ?? false,
-            points: newCard.points ?? 0,
-          });
+          enqFlush("credit_cards", "create", cardToRow(newCard, userId));
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
       },
       deleteCard: (id, userId) => {
@@ -639,10 +664,10 @@ export const useFinanceStore = create<FinanceState>()(
               source: 'manual', user_id: userId || null, linked_card_id: card.id,
             });
           }
-          enqFlush('credit_cards', 'update', {
-            id, user_id: userId || null, due_date: nextDueDate.toISOString(),
-            bill_amount: 0, paid_amount: 0, balance: 0, current_outstanding: 0,
-          });
+          // The full row again — the queue can fall back to an upsert when the
+          // cloud does not know this card yet.
+          const paidCard = get().cards.find((c) => c.id === id) as CreditCard;
+          enqFlush('credit_cards', 'update', cardToRow(paidCard, userId));
         } else {
           set((state) => ({
             cards: state.cards.map((c) =>
@@ -650,9 +675,8 @@ export const useFinanceStore = create<FinanceState>()(
             ),
           }));
 
-          enqFlush('credit_cards', 'update', {
-            id, user_id: userId || null, paid_amount: paidAmt,
-          });
+          const partialCard = get().cards.find((c) => c.id === id) as CreditCard;
+          enqFlush('credit_cards', 'update', cardToRow(partialCard, userId));
         }
       },
       getTotalBalance: () => {
@@ -830,9 +854,16 @@ export const useFinanceStore = create<FinanceState>()(
     }),
     {
       // v15 — the store schema gained the `wallets` rows (they are cash and
-      // count towards the balance and the net worth).
+      // count towards the balance and the net worth). The bump must never
+      // lose local data, so the storage falls back to the previous key and
+      // the migration adds the new field.
       name: 'meridian-finance-storage-v15',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: financeStorage,
+      version: 15,
+      migrate: (persisted: any) => ({
+        ...(persisted ?? {}),
+        wallets: Array.isArray(persisted?.wallets) ? persisted.wallets : [],
+      }),
     }
   )
 );
