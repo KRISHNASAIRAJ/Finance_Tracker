@@ -106,6 +106,39 @@
       direction is carried by the `+`/`-` sign and by "NET LENT" / "NET
       DEBIT"). The carousel animation is untouched.
 
+### Batch 7 — the pickers and the night ribbon (2026-11-12)
+
+- [x] **The time picker is a round clock** — a 256 dp OnePlus dial with the 12
+      numbers, a white hour hand and a red minute hand. **Drag or tap** to set
+      the value: the **hour** first, then the **minutes**. The centre shows the
+      whole time (the unit being edited is red) with a tappable AM/PM pill.
+      **Every minute** — the old 5-minute steps are gone.
+- [x] **The pickers use the OnePlus OxygenOS palette** — black card, white
+      type, the OnePlus red `#EB0028` as the single accent. New
+      `shared/theme/oneplus.ts`.
+- [x] **The calendar opens as a centred popup in that palette** — the selected
+      day in red, today ringed in red, the month/year/month drill-down and the
+      `YYYY-MM-DD` input kept.
+- [x] **The date + time picker is one popup with two tabs** — `DATE` (the
+      calendar) and `TIME` (the round clock), one **Apply** button.
+- [x] **All three pickers are shared** → the change lands on **19 screens**
+      at once (no screen changes, the props are unchanged).
+- [x] **The red sleep bar gets a bold night ribbon** — a white bar spanning
+      the whole night (bedtime → wake time) with the two REM windows **cut
+      out of it in the OnePlus red**, so they read as gaps. The thin dotted
+      line is gone.
+- [x] **Tests:** `shared/components/__tests__/clockMath.test.ts` (14) — the
+      angle ⇄ hour/minute maths.
+
+### 📝 Noted for later (not implemented)
+
+- [ ] **The whole app UI in the OnePlus OxygenOS theme** (red / white / black)
+      and the **Roboto** font everywhere. The theme is already black/white
+      ("Glass Noir") in `shared/theme/tracend.ts` — this is a token-level
+      pass over the shared components, not a rewrite.
+- [ ] **The logo in the OnePlus OxygenOS style** (a geometric white "M" on the
+      OnePlus red over black, replacing the current crystal "M").
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #89) — `expo-location` is a
