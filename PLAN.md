@@ -139,6 +139,31 @@
 - [ ] **The logo in the OnePlus OxygenOS style** (a geometric white "M" on the
       OnePlus red over black, replacing the current crystal "M").
 
+### Batch 8 — the widget polish + the tasks card (2026-11-12)
+
+- [x] **The ribbon is gone — the dotted timeline is back** (and smaller: the
+      dots 2 dp, the REM bars 2.5 dp in the dark ink, stacked at 6 / 9.5 dp).
+- [x] **The date and the time are centred**, and the day digits are coloured:
+      the **first digit of a double-digit day is OnePlus red**, the second
+      **white**, a single-digit day **white**. The date is written by the
+      provider (a `SpannableString`) with a **midnight refresh** so it rolls
+      over on its own.
+- [x] **AM/PM on the clock** — its own `TextClock` (`format="a"`), so it
+      follows the 12/24-hour system setting.
+- [x] **The red bar is smaller** with a small (10 dp) gap underneath it.
+- [x] **The Stats widget's tasks card** — the card that showed "TASKS LEFT 2"
+      now shows the count plus the **nearest 2 open tasks** (ascending by date,
+      the overdue ones first), each with a **circle to tick it off**. Tapping
+      the circle deep-links to `meridian://task-complete/<id>` → the app marks
+      the task done, toasts and goes back; tapping the name opens the task.
+- [x] **The tasks card dwells ~6 s** (it sits in the flipper twice) while
+      every other card keeps its 3 s.
+- [x] **The weather card is gone from the home screen** — along with the
+      `expo-location` plugin and the location permissions in `app.json`.
+      *Root cause of "the weather never worked": the CI builds the committed
+      `AndroidManifest.xml` (it does **not** run `expo prebuild`), and that
+      manifest never had `ACCESS_FINE_LOCATION` — so the GPS was refused.*
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #89) — `expo-location` is a
