@@ -67,6 +67,31 @@
       white values, muted labels and the OnePlus red for the negative numbers.
       **The carousel animation is exactly as it was.**
 
+### Batch 5 — the second round of device feedback (2026-11-12)
+
+- [x] **The weather refreshes** — the reading is reused for **3 hours** and is
+      refreshed **every time the app is opened** (and every time it comes back
+      to the foreground) → the widget shows the newest reading.
+      → `services/weather.ts` (`FRESH_MS` = 3 h), `App.tsx` (`refreshWeather()`),
+      the home card refreshes on focus.
+- [x] **No duplicate sleep records** — one **night** = one record. A shared
+      `isSameNight()` helper (the ranges overlap, or they start less than 60
+      minutes apart) is used in `addEntry`, in the local cleanup when the
+      store hydrates, in the cloud pull and on the web.
+      → `modules/sleep/sleepNights.ts` (+ `web/src/lib/sleepNights.ts`),
+      migration `0051_sleep_dedup.sql` (clears the rows already stored).
+- [x] **Deleting a sleep record asks first** — the dashboard's edit modal now
+      shows a confirmation (the history screen and the web already did).
+- [x] **The Clock + Sleep widget is neat and justified** — the date and the
+      time are flush left, the weather and the **battery** flush right, the
+      seconds sit on the time's baseline, one font family for every number.
+      The **battery icon** is the Android 12+ pill shape (a grey outline with
+      the OnePlus red fill showing the real level) next to the percentage.
+- [x] **The wake-ups stand vertically above the REM bars** in the Clock + Sleep
+      widget — a small rotated label (`2 WAKES`), hidden when there are none.
+- [x] **The Stats widget labels are OnePlus red** (the values stay white, the
+      animation is untouched).
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #87) — `expo-location` is a
@@ -1132,3 +1157,72 @@ a slow GPS can never hold the widget (or the app) up.
 
 `mobile/src/modules/sleep/__tests__/sleepMotion.test.ts` (8) — the night
 window maths. Total: 242 unit tests (27 suites) + 9 e2e.
+
+
+## 33. The weather refresh, the sleep de-dup and the widget polish (v4)
+
+The second round of device feedback.
+
+### The weather refreshes
+
+The weather was frozen: `pushSleepWidget()` only ran when a sleep entry
+changed and the cached reading was reused for an hour.
+
+- `services/weather.ts` — the reading is now reused for **3 hours**
+  (`FRESH_MS`).
+- `App.tsx` — a new `refreshWeather()` runs **every time the app is opened**
+  and **every time it comes back to the foreground**: it fetches the reading
+  (only when it is stale) and repaints the widget.
+- The home-screen weather card refreshes on **focus**, not only on mount.
+- The GPS itself was already made instant in §32 (last known position first,
+  a 10 s timeout, the position cached for 30 minutes).
+
+### One night = one sleep record
+
+The same night ended up in the log two or three times (the motion tracker
+detects it, the user logs it by hand, the quick log adds it).
+
+- **`modules/sleep/sleepNights.ts`** — `isSameNight(a, b)`: the two sessions
+  are the same night when their ranges **overlap** or when they start less
+  than **60 minutes** apart. A nap in the afternoon and the night that follows
+  stay separate, and a night that was genuinely split by a long wake-up also
+  stays two records.
+- **`sleep/store.ts`** — `addEntry` uses it (the second record for a night is
+  **skipped**), and the store drops the duplicates that are already on the
+  device when it hydrates.
+- **`personal/hooks/usePersonalSync.ts`** — the cloud pull skips a row that
+  belongs to a night we already have (it used to compare the row id only).
+- **`web/src/lib/sleepNights.ts`** — the same helper for the web; saving a
+  night that is already logged updates it instead of adding a copy.
+- **Migration `0051_sleep_dedup.sql`** — deletes the rows in the cloud that
+  overlap by at least 30 minutes or that start less than 60 minutes apart.
+
+### The delete confirmation
+
+The dashboard's edit modal deleted a night straight away. It now asks
+("Delete this sleep record?"). The history screen and the web already asked.
+
+### The widgets
+
+- **Clock + Sleep** — the typography is justified: the date and the time are
+  flush **left**, the weather and the battery flush **right**, and the seconds
+  sit on the **time's baseline**. One font family (`sans-serif-medium`) for
+  every number, the small labels in the muted grey.
+- **The battery** — the Android 12+ pill shape (`widget_battery.xml`): a grey
+  outline with the terminal nub and the **OnePlus red fill showing the real
+  level**. It is a `ProgressBar` drawable (the same trick the REM timeline
+  uses) and the percentage sits next to it. The level is read with
+  `BatteryManager.getIntProperty(BATTERY_PROPERTY_CAPACITY)` — no permission.
+- **The wake-ups** — a small **rotated (−90°)** label (`2 WAKES`) stands in
+  the top left of the red bar, directly above the REM timeline. It is hidden
+  when there were no wake-ups. The rotation is set in the layout *and* from
+  the code, so it works on every launcher.
+- The red bar still **fills all the free space** (the clock shrank to 22 sp
+  and the weather condition moved out of the widget to make room).
+- **Stats** — the seven card labels are now the OnePlus **red `#EB0028`**, the
+  values stay **white**, and the carousel animation is untouched.
+
+### Tests
+
+`mobile/src/modules/sleep/__tests__/sleepNights.test.ts` (9). Total: 252 unit
+tests (28 suites) + 9 e2e.
