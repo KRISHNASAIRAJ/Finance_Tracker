@@ -35,23 +35,6 @@ import { useFinanceStore } from '../../finance/store';
 import { useAuth } from '../../../services/AuthProvider';
 import { supabase } from '../../../services/supabaseClient';
 import { RootStackParamList } from '../../../navigation/RootNavigator';
-import type { WeatherIcon, WeatherNow } from '../../../services/weather';
-
-/** The icon that matches the weather condition. */
-function weatherIconName(icon?: WeatherIcon): 'sunny-outline' | 'cloud-outline' | 'rainy-outline' | 'snow-outline' | 'thunderstorm-outline' {
-  switch (icon) {
-    case 'sun':
-      return 'sunny-outline';
-    case 'rain':
-      return 'rainy-outline';
-    case 'snow':
-      return 'snow-outline';
-    case 'storm':
-      return 'thunderstorm-outline';
-    default:
-      return 'cloud-outline';
-  }
-}
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -228,29 +211,6 @@ export default function MainHomeScreen() {
     }, [transactions])
   );
 
-  // ---- Weather (live, from the GPS via Open-Meteo) ----
-  const [weather, setWeather] = useState<WeatherNow | null>(null);
-
-  // The reading is refreshed every time the home screen comes into focus
-  // (the service reuses the cached one for three hours).
-  useFocusEffect(
-    React.useCallback(() => {
-      let cancelled = false;
-      // The weather is fetched on the side — a slow or missing GPS must never
-      // hold up the home screen.
-      (async () => {
-        try {
-          const { getWeather } = require('../../../services/weather');
-          const reading = await getWeather();
-          if (!cancelled) setWeather(reading);
-        } catch {
-          /* the card stays empty */
-        }
-      })();
-      return () => { cancelled = true; };
-    }, [])
-  );
-
   // ---- Principles carousel state ----
   const [principleIndex, setPrincipleIndex] = useState(0);
   const carouselAnim = useRef(new Animated.Value(0)).current;
@@ -306,30 +266,6 @@ export default function MainHomeScreen() {
         <View style={styles.appBarSide} />
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Weather — the live reading for your location (Open-Meteo) */}
-        <Entrance index={0}>
-          <GlassCard glow="indigo" radius={24}>
-            <View style={styles.habitHeadRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.habitLabel}>WEATHER</Text>
-                <Text style={styles.habitBig}>
-                  {weather ? `${Math.round(weather.tempC)}°` : '—'}
-                </Text>
-                <Text style={styles.habitSub}>
-                  {weather
-                    ? `${weather.condition} · ${Math.round(weather.minC)}°/${Math.round(weather.maxC)}°${weather.placeName ? ` · ${weather.placeName}` : ''}`
-                    : 'Waiting for your location…'}
-                </Text>
-              </View>
-              <Ionicons
-                name={weatherIconName(weather?.icon)}
-                size={30}
-                color={tc.textMuted}
-              />
-            </View>
-          </GlassCard>
-        </Entrance>
-
         {/* Daily quote */}
         <Entrance index={0}>
           <GlassCard glow="indigo" radius={24} pad={false}>

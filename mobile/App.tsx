@@ -2,7 +2,7 @@
  * App — Root component: providers, background task registration, notification setup, and navigation.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox, Linking } from 'react-native';
+import { AppState, AppStateStatus, LogBox, Linking, ToastAndroid } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -66,14 +66,6 @@ LogBox.ignoreLogs([
  * costs a request when the weather is actually stale — and the home-screen
  * weather card then has a fresh reading waiting for it.
  */
-async function refreshWeather(): Promise<void> {
-  try {
-    const { getWeather } = require('./src/services/weather');
-    const reading = await getWeather();
-    if (!reading) return;
-    await pushSleepWidget();
-  } catch (_e) { /* the weather is optional — never break the app */ }
-}
 
 // Shared container ref (re-exported for backwards compatibility with any
 // code importing it from App).
@@ -115,11 +107,6 @@ export default function App() {
         }
       }
     } catch (_e) { /* the tracker is unavailable (iOS / Expo Go) */ }
-
-    // The weather is refreshed every time the app is opened (and every time
-    // it comes back to the foreground) — the reading itself is reused for
-    // three hours, so this only costs a request when the weather is stale.
-    refreshWeather();
 
     // Background handler for the pill-reminder action buttons.
     try {
@@ -188,12 +175,31 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           return;
         }
         const nav = navigationRef as any;
-        if (url.includes('add-expense')) {
+        if (url.includes('task-complete')) {
+          // The Stats widget's task circle: mark the task as done and go back
+          // to the home screen.
+          const id = url.split('task-complete/')[1]?.split('?')[0]?.trim();
+          if (id) {
+            try {
+              const { useTasksStore } = require('./src/modules/tasks/store');
+              useTasksStore.getState().toggleTaskCompleted(id);
+              ToastAndroid.show('Task completed', ToastAndroid.SHORT);
+            } catch (_e) { /* best-effort */ }
+          }
+          if (nav.canGoBack()) nav.goBack();
+        } else if (url.includes('add-expense')) {
           nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'AddExpense' } });
         } else if (url.includes('add-fuel')) {
           nav.navigate('MainTabs', { screen: 'GarageTab', params: { screen: 'AddFuelFill' } });
         } else if (url.includes('add-task')) {
           nav.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'AddEditTask' } });
+        } else if (url.includes('task/')) {
+          // The Stats widget's task name: open that task.
+          const id = url.split('task/')[1]?.split('?')[0]?.trim();
+          nav.navigate('MainTabs', {
+            screen: 'TasksTab',
+            params: { screen: 'TaskDetail', params: { taskId: id } },
+          });
         } else if (url.includes('combined-report')) {
           nav.navigate('MoreStack', { screen: 'CombinedReport' });
         } else if (url.includes('monthly-spend')) {
@@ -253,8 +259,6 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           .then(() => pushStatsWidget())
           .catch((e) => console.warn('[App] foreground sync failed:', e));
         runMarketSyncWatchdog().catch(() => {});
-        // The weather is refreshed every time the app comes back.
-        refreshWeather().catch(() => {});
       }
       if (nextState === 'background') {
         processSyncQueue()

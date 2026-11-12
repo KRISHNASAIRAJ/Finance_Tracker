@@ -6,20 +6,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Meridian uses your location to show the local weather."
-        }
-      ]
-    ],
-    "android": {
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
-      ]
-    },
     "extra": {
       "eas": {
         "projectId": "cf70f456-c860-412c-8692-d26ee19926c3"
