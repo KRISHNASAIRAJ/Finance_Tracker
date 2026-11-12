@@ -92,6 +92,20 @@
 - [x] **The Stats widget labels are OnePlus red** (the values stay white, the
       animation is untouched).
 
+### Batch 6 — the widget cleanup (2026-11-12)
+
+- [x] **The vertical "2 WAKES" label is gone** from the Clock + Sleep widget.
+- [x] **The battery is gone** — no icon, no percentage (the `widget_battery`
+      drawable and the `BatteryManager` read were removed with it).
+- [x] **The weather is gone from the widget** — it "wasn't working", so the
+      Clock + Sleep widget is now purely the clock + the last night. The
+      weather payload fields are gone from the widget bridge too. **The
+      home-screen weather card stays** (it is a separate surface).
+- [x] **The Stats widget colours are reversed** — the small labels are now
+      **white** and the big numbers are the OnePlus **red `#EB0028`** (the
+      direction is carried by the `+`/`-` sign and by "NET LENT" / "NET
+      DEBIT"). The carousel animation is untouched.
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #89) — `expo-location` is a
