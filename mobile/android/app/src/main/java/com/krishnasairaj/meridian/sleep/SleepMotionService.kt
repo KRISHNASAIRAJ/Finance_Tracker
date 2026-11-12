@@ -473,6 +473,7 @@ class SleepMotionService : Service(), SensorEventListener {
 
     // --- notifications ------------------------------------------------------
 
+    @SuppressLint("InlinedApi")
     private fun createChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         try {
@@ -547,6 +548,17 @@ class SleepMotionService : Service(), SensorEventListener {
     }
 
     /**
+     * Make a notification silent. `setSilent` only exists from API 26 — on
+     * older versions the channel is already soundless (see createChannels).
+     */
+    private fun Notification.Builder.silenced(): Notification.Builder {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            setSilent(true)
+        }
+        return this
+    }
+
+    /**
      * The foreground-service notification.
      *
      * Android requires a foreground service to show a notification, but it
@@ -567,7 +579,7 @@ class SleepMotionService : Service(), SensorEventListener {
             .setContentTitle("Sleep tracking")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setOngoing(false)
-            .setSilent(true)
+            .silenced()
             .setShowWhen(false)
             .setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -592,7 +604,7 @@ class SleepMotionService : Service(), SensorEventListener {
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setAutoCancel(true)
                 .setOngoing(false)
-                .setSilent(true)
+                .silenced()
                 .setShowWhen(false)
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_STATUS)
