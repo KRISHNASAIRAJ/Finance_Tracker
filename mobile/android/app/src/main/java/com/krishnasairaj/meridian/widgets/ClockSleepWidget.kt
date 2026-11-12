@@ -11,9 +11,6 @@ import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
 import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -36,7 +33,7 @@ class ClockSleepWidget : AppWidgetProvider() {
         const val KEY_JSON = "clock_sleep_json"
 
         /** Root padding + pill padding on each side (dp) — the timeline inset. */
-        private const val TRACK_INSET_DP = 40
+        private const val TRACK_INSET_DP = 32
 
         /** Placeholder until a weather API is connected. */
         private const val DEFAULT_WEATHER = "19 °C"
@@ -97,10 +94,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
         views.setTextViewText(R.id.clock_sleep_duration, NO_VALUE)
         views.setTextViewText(R.id.clock_sleep_weather, DEFAULT_WEATHER)
-        views.setTextViewText(R.id.clock_sleep_rem1_time, NO_VALUE)
-        views.setTextViewText(R.id.clock_sleep_rem2_time, NO_VALUE)
-        views.setTextViewText(R.id.clock_sleep_rem1_label, "")
-        views.setTextViewText(R.id.clock_sleep_rem2_label, "")
         return views
     }
 
@@ -113,8 +106,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
 
         var duration = NO_VALUE
-        var rem1Time = NO_VALUE
-        var rem2Time = NO_VALUE
         var weather = DEFAULT_WEATHER
         var bedTime = 0L
         var wakeTime = 0L
@@ -134,9 +125,6 @@ class ClockSleepWidget : AppWidgetProvider() {
                     rem1End = o.optLong("rem1End", 0L)
                     rem2Start = o.optLong("rem2Start", 0L)
                     rem2End = o.optLong("rem2End", 0L)
-                    val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-                    if (rem1Start > 0L) rem1Time = fmt.format(Date(rem1Start))
-                    if (rem2End > 0L) rem2Time = fmt.format(Date(rem2End))
                 }
                 if (o.has("weatherText")) {
                     val text = o.optString("weatherText", "")
@@ -148,10 +136,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
 
         views.setTextViewText(R.id.clock_sleep_duration, duration)
-        views.setTextViewText(R.id.clock_sleep_rem1_time, rem1Time)
-        views.setTextViewText(R.id.clock_sleep_rem1_label, if (rem1Time == NO_VALUE) "" else "REM")
-        views.setTextViewText(R.id.clock_sleep_rem2_time, rem2Time)
-        views.setTextViewText(R.id.clock_sleep_rem2_label, if (rem2Time == NO_VALUE) "" else "REM")
         views.setTextViewText(R.id.clock_sleep_weather, weather)
 
         // REM windows on the dotted timeline. The bars are drawn by padding a
@@ -164,16 +148,12 @@ class ClockSleepWidget : AppWidgetProvider() {
                 val x2 = positionOf(rem1End, bedTime, span, track)
                 views.setViewPadding(R.id.clock_sleep_rem1, x1, 0, track - x2, 0)
                 views.setProgressBar(R.id.clock_sleep_rem1, 100, 100, false)
-                views.setViewPadding(R.id.clock_sleep_rem1_time, x1, 0, 0, 0)
-                views.setViewPadding(R.id.clock_sleep_rem1_label, x1, 0, 0, 0)
             }
             if (rem2End > rem2Start) {
                 val x1 = positionOf(rem2Start, bedTime, span, track)
                 val x2 = positionOf(rem2End, bedTime, span, track)
                 views.setViewPadding(R.id.clock_sleep_rem2, x1, 0, track - x2, 0)
                 views.setProgressBar(R.id.clock_sleep_rem2, 100, 100, false)
-                views.setViewPadding(R.id.clock_sleep_rem2_time, 0, 0, track - x2, 0)
-                views.setViewPadding(R.id.clock_sleep_rem2_label, 0, 0, track - x2, 0)
             }
         }
 

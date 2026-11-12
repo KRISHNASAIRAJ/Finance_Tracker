@@ -3,12 +3,12 @@
   ClockSleepWidget — 2x2 home-screen widget.
 
   A live clock (TextClock keeps itself up to date, seconds included) with the
-  last night of sleep underneath: a green pill that holds the sleep duration,
-  a dotted timeline with the two REM windows marked on it, and a weather
-  readout.
+  last night of sleep underneath: a compact green pill that holds the sleep
+  duration and the two REM windows marked on the dotted timeline, and a
+  weather readout.
 
-  The clock parts are TextClock views, so no periodic updates are needed; the
-  sleep data is pushed from JS through ClockSleepWidgetBridge.
+  Everything is sized for a 2x2 cell (about 110x110dp): the pill is only 26dp
+  tall and its "island" 54dp wide, so the bar never overflows the widget.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clock_sleep_container"
@@ -16,7 +16,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_clock_sleep_bg"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="8dp">
 
     <!-- Date — "Saturday 17" -->
     <TextClock
@@ -25,8 +25,8 @@
         android:layout_height="wrap_content"
         android:format12Hour="EEEE d"
         android:format24Hour="EEEE d"
-        android:textColor="#EDEDF2"
-        android:textSize="12sp" />
+        android:textColor="#8E8EA0"
+        android:textSize="10sp" />
 
     <!-- Clock — "09:34" + seconds "53" -->
     <LinearLayout
@@ -43,45 +43,42 @@
             android:format12Hour="hh:mm"
             android:format24Hour="HH:mm"
             android:textColor="#F4F4F7"
-            android:textSize="30sp" />
+            android:textSize="25sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_seconds"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="2dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginBottom="3dp"
             android:format12Hour="ss"
             android:format24Hour="ss"
             android:textColor="#9C9CA6"
-            android:textSize="13sp" />
+            android:textSize="11sp" />
     </LinearLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="" />
 
     <!-- Sleep -->
     <TextView
         android:id="@+id/clock_sleep_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
         android:letterSpacing="0.14"
         android:text="SLEEP"
         android:textColor="#8E8EA0"
-        android:textSize="9sp"
+        android:textSize="8sp"
         android:textStyle="bold" />
 
+    <!-- The green sleep pill: the duration sits in the raised island on the
+         right, the dotted timeline with the two REM windows below it. -->
     <RelativeLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:layout_marginTop="5dp"
+        android:layout_height="26dp"
+        android:layout_marginTop="3dp"
         android:background="@drawable/widget_sleep_pill"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp">
+        android:paddingStart="7dp"
+        android:paddingEnd="7dp">
 
         <TextView
             android:id="@+id/clock_sleep_duration"
@@ -89,10 +86,10 @@
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_alignParentTop="true"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="2dp"
             android:text="—"
             android:textColor="#0B0B0B"
-            android:textSize="12sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
 
         <TextView
@@ -100,7 +97,7 @@
             android:layout_width="match_parent"
             android:layout_height="2dp"
             android:layout_below="@id/clock_sleep_duration"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="2dp"
             android:background="@drawable/widget_sleep_dots"
             android:text="" />
 
@@ -125,67 +122,20 @@
             android:max="100"
             android:progress="0"
             android:progressDrawable="@drawable/widget_sleep_rem_bar" />
-
-        <TextView
-            android:id="@+id/clock_sleep_rem1_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_dots"
-            android:layout_marginTop="4dp"
-            android:text="—"
-            android:textColor="#0B0B0B"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/clock_sleep_rem1_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_rem1_time"
-            android:text="REM"
-            android:textColor="#0B0B0B"
-            android:textSize="8sp" />
-
-        <TextView
-            android:id="@+id/clock_sleep_rem2_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_dots"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="4dp"
-            android:text="—"
-            android:textColor="#0B0B0B"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/clock_sleep_rem2_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_rem2_time"
-            android:layout_alignParentEnd="true"
-            android:text="REM"
-            android:textColor="#0B0B0B"
-            android:textSize="8sp" />
     </RelativeLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="0.5"
-        android:text="" />
 
     <!-- Weather -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <ImageView
             android:id="@+id/clock_sleep_weather_icon"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
+            android:layout_width="13dp"
+            android:layout_height="13dp"
             android:contentDescription="Weather"
             android:src="@drawable/widget_cloud" />
 
@@ -196,6 +146,6 @@
             android:layout_marginStart="4dp"
             android:text="19 °C"
             android:textColor="#C6C6D0"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
     </LinearLayout>
 </LinearLayout>

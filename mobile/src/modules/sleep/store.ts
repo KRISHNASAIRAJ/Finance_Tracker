@@ -98,7 +98,6 @@ export const useSleepStore = create<SleepState>()(
       reminderTime: null,
       autoConfig: { ...DEFAULT_SLEEP_MOTION_CONFIG },
       autoSession: null,
-
       addEntry: (entry, userId) => {
         // Idempotency guard: a start time (same minute) identifies one sleep
         // session. The widget deep link and the dashboard's SharedPreferences
@@ -190,6 +189,26 @@ export const useSleepStore = create<SleepState>()(
     {
       name: 'meridian-sleep-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      // The night window moved from 21:00–12:00 to 21:30–09:30. An install
+      // that still carries the OLD default gets the new one — a window the
+      // user never touched themselves.
+      migrate: (persisted: any) => {
+        const state = { ...(persisted ?? {}) };
+        const cfg = state.autoConfig;
+        if (
+          cfg &&
+          cfg.sleepStartMin === 21 * 60 &&
+          cfg.sleepEndMin === 12 * 60
+        ) {
+          state.autoConfig = {
+            ...cfg,
+            sleepStartMin: DEFAULT_SLEEP_MOTION_CONFIG.sleepStartMin,
+            sleepEndMin: DEFAULT_SLEEP_MOTION_CONFIG.sleepEndMin,
+          };
+        }
+        return state;
+      },
     }
   )
 );

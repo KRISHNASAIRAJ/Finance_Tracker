@@ -51,15 +51,20 @@ class SleepMotionService : Service(), SensorEventListener {
         const val CHANNEL_TRACKING = "sleep-tracking"
         const val CHANNEL_ALARM = "sleep-alarm"
         const val CHANNEL_DETECT = "sleep-detected"
+        const val CHANNEL_START = "sleep-tracking-start"
         const val NOTIF_TRACKING = 1001
         const val NOTIF_ALARM = 1002
         const val NOTIF_DETECT = 1003
+        const val NOTIF_START = 1004
 
         /** A sleep session shorter than this is not worth reporting. */
         private const val MIN_SLEEP_MS = 2 * 60 * 60 * 1000L
 
         /** The heads-up banner hides itself again after this long. */
         private const val DETECT_TIMEOUT_MS = 15000L
+
+        /** The "tracking is on" banner hides itself again after this long. */
+        private const val START_BANNER_TIMEOUT_MS = 10000L
 
         const val ACTION_STOP_ALARM = "com.krishnasairaj.meridian.sleep.action.STOP_ALARM"
         const val ACTION_SNOOZE_ALARM = "com.krishnasairaj.meridian.sleep.action.SNOOZE_ALARM"
@@ -122,6 +127,9 @@ class SleepMotionService : Service(), SensorEventListener {
             return START_NOT_STICKY
         }
         registerSensor()
+        // The user-facing feedback is a brief heads-up banner (the notch area)
+        // instead of a permanent shade notification.
+        postTrackingStarted()
         if (SleepMotionStore.startedAt(this) <= 0L) {
             SleepMotionStore.setStartedAt(this, System.currentTimeMillis())
         }
@@ -472,10 +480,12 @@ class SleepMotionService : Service(), SensorEventListener {
             val tracking = NotificationChannel(
                 CHANNEL_TRACKING,
                 "Sleep tracking",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_MIN
             ).apply {
                 description = "Shown while Meridian tracks your sleep automatically"
                 setShowBadge(false)
+                enableVibration(false)
+                setSound(null, null)
             }
             val alarm = NotificationChannel(
                 CHANNEL_ALARM,
@@ -499,9 +509,21 @@ class SleepMotionService : Service(), SensorEventListener {
                 setSound(null, null)
                 setShowBadge(false)
             }
+            // The "tracking is on" banner — the same heads-up treatment.
+            val start = NotificationChannel(
+                CHANNEL_START,
+                "Sleep tracking started",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "A brief banner when the automatic tracking starts"
+                enableVibration(false)
+                setSound(null, null)
+                setShowBadge(false)
+            }
             nm.createNotificationChannel(tracking)
             nm.createNotificationChannel(alarm)
             nm.createNotificationChannel(detect)
+            nm.createNotificationChannel(start)
         } catch (e: Exception) {
             /* ignore */
         }
@@ -524,6 +546,16 @@ class SleepMotionService : Service(), SensorEventListener {
         }
     }
 
+    /**
+     * The foreground-service notification.
+     *
+     * Android requires a foreground service to show a notification, but it
+     * should be as quiet as possible: the channel is at the lowest importance
+     * (silent, no badge) and the notification is NOT ongoing, so it can be
+     * swiped away and does not come back until the service restarts. The
+     * user-facing "tracking is on" feedback is the brief heads-up banner
+     * instead (see postTrackingStarted).
+     */
     private fun buildTrackingNotification(): Notification {
         val stopIntent = PendingIntent.getBroadcast(
             this,
@@ -532,13 +564,47 @@ class SleepMotionService : Service(), SensorEventListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return builder(CHANNEL_TRACKING)
-            .setContentTitle("Tracking your sleep")
-            .setContentText("Using the motion sensor — no watch needed")
+            .setContentTitle("Sleep tracking")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setOngoing(true)
+            .setOngoing(false)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(true)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setPriority(Notification.PRIORITY_MIN)
             .setContentIntent(openAppIntent())
             .addAction(Notification.Action.Builder(null as Icon?, "Stop", stopIntent).build())
             .build()
+    }
+
+    /**
+     * A brief heads-up banner (it shows over the status bar / the notch and
+     * hides itself again) — the "tracking is on" feedback that used to be a
+     * permanent shade notification.
+     */
+    private fun postTrackingStarted() {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val builder = builder(CHANNEL_START)
+                .setContentTitle("😴 Sleep tracking on")
+                .setContentText("The motion sensor is watching until you stop it")
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setSilent(true)
+                .setShowWhen(false)
+                .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setContentIntent(openAppIntent())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder.setTimeoutAfter(START_BANNER_TIMEOUT_MS)
+            }
+            nm.notify(NOTIF_START, builder.build())
+        } catch (e: Exception) {
+            /* best-effort */
+        }
     }
 
     private fun showAlarmNotification() {

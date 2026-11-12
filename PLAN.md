@@ -784,6 +784,25 @@ program.
   chronological and tapping a row still highlights the right chart point
   (the list rows carry the original chart index).
 
+## 29. Quiet sleep tracking + compact widgets (v4)
+
+- **The "Tracking your sleep" notification is no longer a shade notification.**
+  Android requires a foreground service to show one, so it stays — but the
+  channel is at the lowest importance (silent, no badge), the notification is
+  not ongoing (it can be swiped away and does not come back until the service
+  restarts) and it has no timestamp. The user-facing feedback is now a
+  **brief heads-up banner in the notch area** ("Sleep tracking on") that
+  removes itself after 10 s — the same treatment as the detected-night banner.
+- **The green sleep bar fits the 2x2 cell now.** The pill was 46dp tall with a
+  78dp "island" — wider than the widget. It is now 26dp tall with a 54dp
+  island, the clock is 25sp, the paddings are 8dp and the REM time labels
+  (which did not fit) are gone — the REM windows stay on the timeline. The
+  sleep-only widget got the same treatment.
+- **The night window is 21:30 → 09:30** (it was 21:00 → 12:00) in both the TS
+  and the native config. Installs that still carry the old default are
+  migrated by the sleep store (`meridian-sleep-storage` v2) — a window the user
+  never changed themselves.
+
 ## 28. Card bill payments + cloud sync hardening (v4)
 
 - **The web "Pay bill" left the bill standing.** It only wrote `paid_amount`

@@ -4,7 +4,7 @@
 
   The compact view of the last night: the duration, the bedtime → wake time,
   the wake-ups and the sleep rating, with the two REM windows marked on the
-  dotted timeline inside the green pill.
+  dotted timeline inside the green pill. Sized for a 2x2 cell (~110x110dp).
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/sleep_stats_container"
@@ -12,7 +12,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_clock_sleep_bg"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="8dp">
 
     <!-- Label -->
     <TextView
@@ -30,27 +30,27 @@
         android:id="@+id/sleep_stats_duration"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
         android:text="—"
         android:textColor="#F4F4F7"
-        android:textSize="26sp"
+        android:textSize="20sp"
         android:textStyle="bold" />
 
     <!-- Sleep pill with the REM timeline -->
     <RelativeLayout
         android:id="@+id/sleep_stats_pill"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="6dp"
+        android:layout_height="26dp"
+        android:layout_marginTop="3dp"
         android:background="@drawable/widget_sleep_pill"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp">
+        android:paddingStart="7dp"
+        android:paddingEnd="7dp">
 
         <TextView
             android:id="@+id/sleep_stats_dots"
             android:layout_width="match_parent"
             android:layout_height="2dp"
-            android:layout_centerVertical="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="3dp"
             android:background="@drawable/widget_sleep_dots"
             android:text="" />
 
@@ -77,11 +77,11 @@
             android:progressDrawable="@drawable/widget_sleep_rem_bar" />
     </RelativeLayout>
 
-    <!-- Bed → wake -->
+    <!-- Bed → wake + rating -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -97,8 +97,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
+            android:layout_marginStart="3dp"
+            android:layout_marginEnd="3dp"
             android:text="→"
             android:textColor="#8E8EA0"
             android:textSize="11sp" />
@@ -132,7 +132,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

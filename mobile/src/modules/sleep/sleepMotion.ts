@@ -72,8 +72,8 @@ export interface MotionBucket {
 export const DEFAULT_SLEEP_MOTION_CONFIG: SleepMotionConfig = {
   enabled: false,
   sensitivity: 'medium',
-  sleepStartMin: 21 * 60, // 21:00
-  sleepEndMin: 12 * 60, // 12:00 (next day)
+  sleepStartMin: 21 * 60 + 30, // 21:30
+  sleepEndMin: 9 * 60 + 30, // 09:30 (next day)
   alarmEnabled: false,
   alarmMode: 'smart',
   wakeStartMin: 6 * 60 + 30, // 06:30

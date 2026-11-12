@@ -17,9 +17,9 @@ data class SleepMotionConfig(
     /** low | medium | high — how small a movement counts as "awake". */
     val sensitivity: String = SENS_MEDIUM,
     /** Start of the night window, minutes from local midnight. */
-    val sleepStartMin: Int = 21 * 60,
+    val sleepStartMin: Int = 21 * 60 + 30,
     /** End of the night window, minutes from local midnight (may wrap midnight). */
-    val sleepEndMin: Int = 12 * 60,
+    val sleepEndMin: Int = 9 * 60 + 30,
     /** Smart alarm on/off. */
     val alarmEnabled: Boolean = false,
     /** smart = ring on the first movement inside the window, fixed = ring at wakeStart. */
@@ -82,8 +82,8 @@ data class SleepMotionConfig(
                 SleepMotionConfig(
                     enabled = o.optBoolean("enabled", false),
                     sensitivity = o.optString("sensitivity", SENS_MEDIUM),
-                    sleepStartMin = o.optInt("sleepStartMin", 21 * 60),
-                    sleepEndMin = o.optInt("sleepEndMin", 12 * 60),
+                    sleepStartMin = o.optInt("sleepStartMin", 21 * 60 + 30),
+                    sleepEndMin = o.optInt("sleepEndMin", 9 * 60 + 30),
                     alarmEnabled = o.optBoolean("alarmEnabled", false),
                     alarmMode = o.optString("alarmMode", ALARM_SMART),
                     wakeStartMin = o.optInt("wakeStartMin", 6 * 60 + 30),
