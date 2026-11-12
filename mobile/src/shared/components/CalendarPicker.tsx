@@ -1,9 +1,23 @@
 /**
- * CalendarPicker — Full-screen calendar date picker modal with month/year navigation.
+ * CalendarPicker — the date picker (OnePlus OxygenOS).
+ *
+ * A centred popup card: the selected date on top, the month grid below and
+ * the month / year drill-down. It opens inside the app window — never the
+ * system dialog — and it uses the same palette as the widgets.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Pressable, ScrollView } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { op, OP_CARD_RADIUS, OP_CHIP_RADIUS } from '../theme/oneplus';
 
 interface CalendarPickerProps {
   visible: boolean;
@@ -11,23 +25,6 @@ interface CalendarPickerProps {
   onSelect: (d: Date) => void;
   onClose: () => void;
 }
-
-// Meridian design tokens (from Stitch "Date Picker" screen)
-const C = {
-  surface: '#15121b',
-  surfaceLow: '#1d1a24',
-  surfaceContainer: '#221e28',
-  onSurface: '#e8dfee',
-  onSurfaceVariant: '#ccc3d8',
-  primary: '#d2bbff',
-  primaryContainer: '#7c3aed',
-  onPrimary: '#ffffff',
-  outlineVariant: '#4a4455',
-  outline: '#958da1',
-  dim: 'rgba(204,195,216,0.4)',
-  border: 'rgba(255,255,255,0.05)',
-  overlay: 'rgba(0,0,0,0.7)',
-};
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -81,7 +78,9 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
     const totalDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
     const cells: (Date | null)[] = [];
     for (let i = 0; i < firstDay; i++) cells.push(null);
-    for (let i = 1; i <= totalDays; i++) cells.push(new Date(month.getFullYear(), month.getMonth(), i));
+    for (let i = 1; i <= totalDays; i++) {
+      cells.push(new Date(month.getFullYear(), month.getMonth(), i));
+    }
     return cells;
   };
 
@@ -110,82 +109,83 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
   const isPastDate = (d: Date) => d.getTime() < today.getTime();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.iconBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={C.onSurfaceVariant} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Select Date</Text>
-            <View style={styles.iconBtn} />
-          </View>
+        {/* The backdrop */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 
-          {/* Selected Date Display */}
-          <Pressable style={styles.dateDisplay} onPress={() => setInputMode(true)}>
+        <View style={styles.card}>
+          {/* Header — the selected date */}
+          <View style={styles.header}>
             {inputMode ? (
               <View style={styles.inputRow}>
                 <TextInput
-                  style={styles.headerInput}
+                  style={styles.input}
                   value={inputValue}
                   onChangeText={setInputValue}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor={C.dim}
+                  placeholderTextColor={op.faint}
                   keyboardType="numbers-and-punctuation"
                   maxLength={10}
                   autoFocus
                   onSubmitEditing={commitInput}
                   onBlur={commitInput}
                 />
-                <TouchableOpacity style={styles.headerEditBtn} onPress={commitInput}>
-                  <Ionicons name="checkmark" size={20} color={C.primary} />
-                </TouchableOpacity>
+                <Pressable style={styles.checkBtn} onPress={commitInput}>
+                  <Ionicons name="checkmark" size={18} color={op.white} />
+                </Pressable>
               </View>
             ) : (
-              <View style={styles.dateDisplayInner}>
-                <Text style={styles.dateMonthLabel}>
+              <Pressable style={{ flex: 1 }} onPress={() => setInputMode(true)}>
+                <Text style={styles.headerLabel}>
                   {MONTHS_SHORT[selected.getMonth()]} {selected.getFullYear()}
                 </Text>
-                <Text style={styles.dateBig}>
-                  {selected.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                <Text style={styles.headerValue}>
+                  {selected.toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                  })}
                 </Text>
-              </View>
+              </Pressable>
             )}
-          </Pressable>
+            <Pressable
+              style={styles.closeBtn}
+              onPress={onClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={20} color={op.muted} />
+            </Pressable>
+          </View>
 
-          {view === 'day' ? (
-            <>
-              {/* Month Navigation */}
-              <View style={styles.monthNav}>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => changeMonth(-1)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-back" size={22} color={C.onSurfaceVariant} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.monthLabelBtn} onPress={() => setView('year')} hitSlop={{ top: 8, bottom: 8 }}>
-                  <Text style={styles.monthLabel}>{MONTHS[month.getMonth()]} {month.getFullYear()}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => changeMonth(1)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="chevron-forward" size={22} color={C.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {view === 'day' ? (
+              <>
+                {/* Month navigation */}
+                <View style={styles.monthNav}>
+                  <Pressable style={styles.navBtn} onPress={() => changeMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="chevron-back" size={20} color={op.whiteDim} />
+                  </Pressable>
+                  <Pressable style={styles.monthLabelBtn} onPress={() => setView('year')}>
+                    <Text style={styles.monthLabel}>
+                      {MONTHS[month.getMonth()]} {month.getFullYear()}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={styles.navBtn} onPress={() => changeMonth(1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="chevron-forward" size={20} color={op.whiteDim} />
+                  </Pressable>
+                </View>
 
-              {/* Weekday header */}
-              <View style={styles.weekRow}>
-                {WEEKDAYS.map((d, i) => (
-                  <Text key={i} style={styles.weekLabel}>{d}</Text>
-                ))}
-              </View>
+                {/* The weekday header */}
+                <View style={styles.weekRow}>
+                  {WEEKDAYS.map((d, i) => (
+                    <Text key={i} style={styles.weekLabel}>
+                      {d}
+                    </Text>
+                  ))}
+                </View>
 
-              {/* Days grid */}
-              <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+                {/* The days */}
                 <View style={styles.daysGrid}>
                   {getDays().map((day, i) => {
                     if (!day) return <View key={i} style={styles.dayCell} />;
@@ -193,7 +193,7 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
                     const isTodayDate = day.getTime() === today.getTime();
                     const past = isPastDate(day);
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={i}
                         style={[
                           styles.dayCell,
@@ -201,7 +201,6 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
                           isTodayDate && !sel && styles.dayCellToday,
                         ]}
                         onPress={() => handleCommit(day)}
-                        activeOpacity={0.6}
                       >
                         <Text
                           style={[
@@ -213,56 +212,63 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
                         >
                           {day.getDate()}
                         </Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     );
                   })}
                 </View>
-
-                {/* Available dates indicator */}
-                <View style={styles.availableRow}>
-                  <View style={styles.availableDot} />
-                  <Text style={styles.availableText}>Available Dates</Text>
-                </View>
-              </ScrollView>
-            </>
-          ) : (
-            <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
+              </>
+            ) : (
               <View style={styles.gridList}>
                 {view === 'year'
                   ? years.map((y) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={y}
                         style={[styles.gridCell, y === month.getFullYear() && styles.gridCellActive]}
-                        onPress={() => { setMonth(new Date(y, month.getMonth(), 1)); setView('month'); }}
+                        onPress={() => {
+                          setMonth(new Date(y, month.getMonth(), 1));
+                          setView('month');
+                        }}
                       >
-                        <Text style={[styles.gridCellText, y === month.getFullYear() && styles.gridCellTextActive]}>{y}</Text>
-                      </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.gridCellText,
+                            y === month.getFullYear() && styles.gridCellTextActive,
+                          ]}
+                        >
+                          {y}
+                        </Text>
+                      </Pressable>
                     ))
                   : MONTHS_SHORT.map((m, i) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={m}
                         style={[styles.gridCell, i === month.getMonth() && styles.gridCellActive]}
-                        onPress={() => { setMonth(new Date(month.getFullYear(), i, 1)); setView('day'); }}
+                        onPress={() => {
+                          setMonth(new Date(month.getFullYear(), i, 1));
+                          setView('day');
+                        }}
                       >
-                        <Text style={[styles.gridCellText, i === month.getMonth() && styles.gridCellTextActive]}>{m}</Text>
-                      </TouchableOpacity>
+                        <Text
+                          style={[
+                            styles.gridCellText,
+                            i === month.getMonth() && styles.gridCellTextActive,
+                          ]}
+                        >
+                          {m}
+                        </Text>
+                      </Pressable>
                     ))}
               </View>
-            </ScrollView>
-          )}
+            )}
+          </ScrollView>
 
-          {/* Bottom action bar */}
-          <View style={styles.actionBar}>
-            <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={onClose} activeOpacity={0.85}>
+          <View style={styles.actions}>
+            <Pressable style={[styles.actionBtn, styles.cancelBtn]} onPress={onClose}>
               <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.selectBtn]}
-              onPress={() => handleCommit(selected)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.selectText}>Select</Text>
-            </TouchableOpacity>
+            </Pressable>
+            <Pressable style={[styles.actionBtn, styles.doneBtn]} onPress={() => handleCommit(selected)}>
+              <Text style={styles.doneText}>Select</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -273,124 +279,118 @@ export default function CalendarPicker({ visible, selected, onSelect, onClose }:
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+    backgroundColor: op.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
   },
-  sheet: {
-    backgroundColor: C.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  card: {
+    width: '100%',
+    maxWidth: 380,
+    maxHeight: '88%',
+    backgroundColor: op.card,
+    borderRadius: OP_CARD_RADIUS,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: op.hairline,
     overflow: 'hidden',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
-    maxHeight: '92%',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-    backgroundColor: 'rgba(29,26,36,0.5)',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
-  iconBtn: { width: 32, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: {
-    fontSize: 20,
+  headerLabel: {
+    fontSize: 10,
     fontWeight: '700',
-    color: C.onSurface,
-    letterSpacing: -0.3,
+    letterSpacing: 1.8,
+    color: op.red,
   },
-  dateDisplay: {
-    paddingVertical: 26,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-    backgroundColor: 'rgba(34,30,40,0.25)',
-  },
-  dateDisplayInner: { alignItems: 'center', gap: 6 },
-  dateMonthLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 3,
-  },
-  dateBig: {
-    fontSize: 36,
+  headerValue: {
+    marginTop: 3,
+    fontSize: 24,
     fontWeight: '700',
-    color: C.onSurface,
+    color: op.white,
     letterSpacing: -0.5,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    width: '100%',
-  },
-  headerInput: {
-    flex: 1,
-    height: 52,
-    fontSize: 20,
-    fontWeight: '700',
-    color: C.onSurface,
-    backgroundColor: C.surfaceLow,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    textAlign: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-  headerEditBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(124,58,237,0.15)',
+    backgroundColor: op.surface,
+    marginLeft: 10,
+  },
+  inputRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    height: 46,
+    fontSize: 18,
+    fontWeight: '700',
+    color: op.white,
+    backgroundColor: op.surface,
+    borderRadius: OP_CHIP_RADIUS,
+    paddingHorizontal: 14,
+    textAlign: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: op.hairline,
+  },
+  checkBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: op.red,
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
   },
   monthNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: op.surface,
   },
   monthLabelBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   monthLabel: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: C.onSurface,
+    fontSize: 15,
+    fontWeight: '700',
+    color: op.white,
   },
   weekRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingBottom: 6,
+    paddingBottom: 4,
   },
   weekLabel: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(204,195,216,0.5)',
-    textTransform: 'uppercase',
+    fontSize: 10,
+    fontWeight: '700',
+    color: op.faint,
+    letterSpacing: 0.8,
   },
-  scrollBody: { flexShrink: 1 },
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    rowGap: 4,
+    paddingBottom: 6,
   },
   dayCell: {
     width: '14.285%',
@@ -400,111 +400,83 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   dayCellSelected: {
-    backgroundColor: C.primaryContainer,
-    shadowColor: C.primaryContainer,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 6,
+    backgroundColor: op.red,
   },
   dayCellToday: {
     borderWidth: 1,
-    borderColor: C.primary,
+    borderColor: op.red,
   },
   dayText: {
     fontSize: 15,
     fontWeight: '500',
-    color: C.onSurface,
+    color: op.white,
   },
-  dayTextPast: { color: C.dim },
+  dayTextPast: { color: op.faint },
   dayTextSelected: {
-    color: C.onPrimary,
-    fontWeight: '600',
+    color: op.white,
+    fontWeight: '700',
   },
   dayTextToday: {
-    color: C.primary,
-    fontWeight: '600',
-  },
-  availableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 18,
-  },
-  availableDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: C.primaryContainer,
-  },
-  availableText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: C.onSurfaceVariant,
+    color: op.red,
+    fontWeight: '700',
   },
   gridList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   gridCell: {
     width: '25%',
-    aspectRatio: 1.6,
+    aspectRatio: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: OP_CHIP_RADIUS,
   },
   gridCellActive: {
-    backgroundColor: 'rgba(124,58,237,0.15)',
+    backgroundColor: op.redDim,
   },
   gridCellText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: C.onSurface,
+    color: op.white,
   },
   gridCellTextActive: {
-    color: C.primary,
+    color: op.red,
     fontWeight: '700',
   },
-  actionBar: {
+  actions: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingBottom: 28,
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
-    backgroundColor: 'rgba(29,26,36,0.9)',
+    borderTopColor: op.hairline,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: OP_CHIP_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtn: {
     borderWidth: 1,
-    borderColor: C.primaryContainer,
+    borderColor: op.hairline,
+    backgroundColor: op.surface,
   },
   cancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: C.primary,
+    color: op.whiteDim,
   },
-  selectBtn: {
-    backgroundColor: C.primaryContainer,
-    shadowColor: C.primaryContainer,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 6,
+  doneBtn: {
+    backgroundColor: op.red,
   },
-  selectText: {
+  doneText: {
     fontSize: 14,
     fontWeight: '700',
-    color: C.onPrimary,
+    color: op.white,
   },
 });
