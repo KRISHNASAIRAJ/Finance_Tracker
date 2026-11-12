@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ClockSleepWidget — 2x2 home-screen widget.
+  ClockSleepWidget — 2x2 home-screen widget (OnePlus OxygenOS: black, white,
+  the OnePlus red as the accent).
 
   A live clock (TextClock keeps itself up to date, seconds included) with the
-  last night of sleep underneath: a compact green pill that holds the sleep
-  duration and the two REM windows marked on the dotted timeline, and a
-  weather readout.
+  last night of sleep underneath: a compact red pill that holds the sleep
+  duration and the two REM windows marked on the dotted timeline. The live
+  weather sits in the TOP RIGHT, next to the date.
 
   Everything is sized for a 2x2 cell (about 110x110dp): the pill is only 26dp
   tall and its "island" 54dp wide, so the bar never overflows the widget.
@@ -18,15 +19,40 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Date — "Saturday 17" -->
-    <TextClock
-        android:id="@+id/clock_sleep_date"
-        android:layout_width="wrap_content"
+    <!-- Date (left) + weather (right) -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:format12Hour="EEEE d"
-        android:format24Hour="EEEE d"
-        android:textColor="#8E8EA0"
-        android:textSize="10sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextClock
+            android:id="@+id/clock_sleep_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:format12Hour="EEEE d"
+            android:format24Hour="EEEE d"
+            android:textColor="@color/oxygen_muted"
+            android:textSize="10sp" />
+
+        <ImageView
+            android:id="@+id/clock_sleep_weather_icon"
+            android:layout_width="13dp"
+            android:layout_height="13dp"
+            android:layout_marginEnd="4dp"
+            android:contentDescription="Weather"
+            android:src="@drawable/widget_cloud" />
+
+        <TextView
+            android:id="@+id/clock_sleep_weather"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="—"
+            android:textColor="@color/oxygen_white"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <!-- Clock — "09:34" + seconds "53" -->
     <LinearLayout
@@ -42,7 +68,7 @@
             android:layout_height="wrap_content"
             android:format12Hour="hh:mm"
             android:format24Hour="HH:mm"
-            android:textColor="#F4F4F7"
+            android:textColor="@color/oxygen_white"
             android:textSize="25sp" />
 
         <TextClock
@@ -53,7 +79,7 @@
             android:layout_marginBottom="3dp"
             android:format12Hour="ss"
             android:format24Hour="ss"
-            android:textColor="#9C9CA6"
+            android:textColor="@color/oxygen_faint"
             android:textSize="11sp" />
     </LinearLayout>
 
@@ -65,11 +91,11 @@
         android:layout_marginTop="3dp"
         android:letterSpacing="0.14"
         android:text="SLEEP"
-        android:textColor="#8E8EA0"
+        android:textColor="@color/oxygen_muted"
         android:textSize="8sp"
         android:textStyle="bold" />
 
-    <!-- The green sleep pill: the duration sits in the raised island on the
+    <!-- The red sleep pill: the duration sits in the raised island on the
          right, the dotted timeline with the two REM windows below it. -->
     <RelativeLayout
         android:id="@+id/clock_sleep_pill"
@@ -88,7 +114,7 @@
             android:layout_alignParentTop="true"
             android:layout_marginTop="2dp"
             android:text="—"
-            android:textColor="#0B0B0B"
+            android:textColor="@color/oxygen_ink"
             android:textSize="10sp"
             android:textStyle="bold" />
 
@@ -124,28 +150,13 @@
             android:progressDrawable="@drawable/widget_sleep_rem_bar" />
     </RelativeLayout>
 
-    <!-- Weather -->
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- Weather detail (the condition under the clock) -->
+    <TextView
+        android:id="@+id/clock_sleep_condition"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:id="@+id/clock_sleep_weather_icon"
-            android:layout_width="13dp"
-            android:layout_height="13dp"
-            android:contentDescription="Weather"
-            android:src="@drawable/widget_cloud" />
-
-        <TextView
-            android:id="@+id/clock_sleep_weather"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:text="19 °C"
-            android:textColor="#C6C6D0"
-            android:textSize="10sp" />
-    </LinearLayout>
+        android:layout_marginTop="6dp"
+        android:text=""
+        android:textColor="@color/oxygen_muted"
+        android:textSize="9sp" />
 </LinearLayout>

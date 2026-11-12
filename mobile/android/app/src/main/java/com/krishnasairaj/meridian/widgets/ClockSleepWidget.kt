@@ -36,7 +36,7 @@ class ClockSleepWidget : AppWidgetProvider() {
         private const val TRACK_INSET_DP = 32
 
         /** Placeholder until a weather API is connected. */
-        private const val DEFAULT_WEATHER = "19 °C"
+        private const val DEFAULT_WEATHER = "—"
 
         private const val NO_VALUE = "—"
 
@@ -106,7 +106,10 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
 
         var duration = NO_VALUE
-        var weather = DEFAULT_WEATHER
+        var weather = NO_VALUE
+        var weatherIcon = "cloud"
+        var weatherCondition = ""
+        var weatherRange = ""
         var bedTime = 0L
         var wakeTime = 0L
         var rem1Start = 0L
@@ -126,9 +129,15 @@ class ClockSleepWidget : AppWidgetProvider() {
                     rem2Start = o.optLong("rem2Start", 0L)
                     rem2End = o.optLong("rem2End", 0L)
                 }
-                if (o.has("weatherText")) {
-                    val text = o.optString("weatherText", "")
-                    if (text.isNotEmpty()) weather = text
+                // The live weather (Open-Meteo) — the top right of the widget.
+                val text = o.optString("weatherText", "")
+                if (text.isNotEmpty()) weather = text
+                weatherIcon = o.optString("weatherIcon", "cloud")
+                weatherCondition = o.optString("weatherCondition", "")
+                val minC = o.optDouble("weatherMinC", 0.0)
+                val maxC = o.optDouble("weatherMaxC", 0.0)
+                if (maxC > minC) {
+                    weatherRange = " · " + formatTemp(minC) + "/" + formatTemp(maxC)
                 }
             } catch (_: Exception) {
                 // Malformed payload → keep the placeholders
@@ -137,6 +146,9 @@ class ClockSleepWidget : AppWidgetProvider() {
 
         views.setTextViewText(R.id.clock_sleep_duration, duration)
         views.setTextViewText(R.id.clock_sleep_weather, weather)
+        views.setImageViewResource(R.id.clock_sleep_weather_icon, weatherIconRes(weatherIcon))
+        val condition = if (weatherCondition.isEmpty()) "" else weatherCondition + weatherRange
+        views.setTextViewText(R.id.clock_sleep_condition, condition)
 
         // REM windows on the dotted timeline. The bars are drawn by padding a
         // full-width progress bar, so the segment lands exactly where it should.
@@ -189,6 +201,19 @@ class ClockSleepWidget : AppWidgetProvider() {
         val h = minutes / 60
         val m = minutes % 60
         return "${h}H ${m}M"
+    }
+
+    /** 28.4 → "28°". */
+    private fun formatTemp(celsius: Double): String {
+        if (celsius <= -50.0 || celsius >= 60.0) return "—"
+        return "${Math.round(celsius)}°"
+    }
+
+    /** The weather icon that matches the condition. */
+    private fun weatherIconRes(icon: String): Int = when (icon) {
+        "sun" -> R.drawable.widget_sun
+        "rain" -> R.drawable.widget_rain
+        else -> R.drawable.widget_cloud
     }
 
     private fun deepLink(context: Context, uri: String): PendingIntent {
