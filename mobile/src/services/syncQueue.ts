@@ -184,6 +184,7 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     linkedVehicleId: 'linked_vehicle_id',
     linkedHoldingId: 'linked_holding_id',
     linkedAccountId: 'linked_account_id',
+    linkedFuelFillId: 'linked_fuel_fill_id',
   },
   credit_cards: {
     endingWith: 'ending_with',
@@ -207,6 +208,12 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     billingDay: 'billing_day',
     lastPaidMonth: 'last_paid_month',
     dueDate: 'due_date',
+  },
+  people: {
+    intervalDays: 'interval_days',
+    lastContactedAt: 'last_contacted_at',
+    nextDueAt: 'next_due_at',
+    sortOrder: 'sort_order',
   },
   payzapp_loads: {},
   expected_incomes: {},
@@ -247,6 +254,7 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   diet_plans: {},
   fuel_fills: {
     pricePerLiter: 'price_per_liter',
+    paymentMode: 'payment_mode',
   },
   maintenance_logs: {},
   vehicles: {},

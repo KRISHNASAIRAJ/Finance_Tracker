@@ -123,6 +123,7 @@ async function setupChannels() {
       { id: 'morning-brief', name: 'Morning Brief', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
       { id: 'offers', name: 'Offers & Coupons', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
       { id: 'medication-reminders', name: 'Pill Reminders', importance: Notifications.AndroidImportance.HIGH, sound: 'default', vibrationPattern: [0, 250, 250, 250] },
+      { id: 'people_digest', name: 'Keep in Touch', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default' },
     ];
     for (const ch of channels) {
       await Notifications.setNotificationChannelAsync(ch.id, ch);
@@ -349,6 +350,54 @@ export async function refreshOfferReminders(): Promise<void> {
       }
     }
   } catch (e) { console.warn('[notificationService] offer reminders failed:', e); }
+}
+
+/**
+ * The daily "keep in touch" digest.
+ *
+ * ONE notification at 10:00 AM listing everyone who is due that day — the
+ * people you want to stay in touch with (weekly / monthly / every 45 days /
+ * every N days). It is re-armed whenever the list changes and by
+ * scheduleAllReminders() on every app open.
+ */
+export async function schedulePeopleDigest(): Promise<void> {
+  if (!ensureInit() || !Notifications) return;
+  try {
+    const { usePeopleStore } = require('../modules/people/store');
+    const due = (usePeopleStore.getState().getDue?.(new Date()) || []) as Array<{ name: string }>;
+
+    // Cancel the previous digest (today's or tomorrow's).
+    try {
+      const existing = await Notifications.getAllScheduledNotificationsAsync();
+      for (const n of existing) {
+        const key = n?.content?.data?.dedupKey;
+        if (typeof key === 'string' && key.startsWith('people_digest_')) {
+          await Notifications.cancelScheduledNotificationAsync(n.id);
+        }
+      }
+    } catch (e) { console.warn('[notificationService] people digest cancel failed:', e); }
+
+    if (due.length === 0) return;
+
+    const now = istNow();
+    const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0, 0);
+    if (at <= now) at.setDate(at.getDate() + 1);
+    const dateKey = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+    const names = due.slice(0, 5).map((p) => p.name).join(', ');
+    const more = due.length > 5 ? ` +${due.length - 5} more` : '';
+    const title = due.length === 1 ? 'Time to catch up' : `${due.length} people to catch up with`;
+    const body = `${names}${more}`;
+
+    await scheduleLocal(
+      title,
+      body,
+      at,
+      'people_digest',
+      { dedupKey: `people_digest_${dateKey}`, url: 'meridian://people' },
+    );
+  } catch (e) {
+    console.warn('[notificationService] people digest failed:', e);
+  }
 }
 
 export async function scheduleAllReminders(force = false) {
@@ -689,6 +738,10 @@ export async function scheduleAllReminders(force = false) {
 
     // Offers expiring soon — 3 & 2 days before expiry at 6:00 PM IST.
     await refreshOfferReminders();
+
+    // The daily "keep in touch" digest — ONE notification at 10:00 AM listing
+    // everyone who is due that day.
+    await schedulePeopleDigest();
 
     // Vehicle service reminders — next service at lastGeneralServiceKm + interval km
     // OR lastGeneralServiceDate + interval months (whichever first). Only

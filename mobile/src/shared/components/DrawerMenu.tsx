@@ -279,6 +279,7 @@ export default function DrawerMenu() {
     { id: 'buylist', label: 'Buy List', icon: 'cart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'BuyList' })) },
     { id: 'offers', label: 'Offers', icon: 'pricetags-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'Offers' })) },
     { id: 'notes', label: 'Notes', icon: 'document-text-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })) },
+    { id: 'people', label: 'Keep in Touch', icon: 'people-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'People' })) },
   ];
 
   const systemItems: Item[] = [

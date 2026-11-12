@@ -213,6 +213,12 @@ export default function MoreMenuScreen() {
           icon: 'medkit-outline',
           onPress: () => navigation.navigate('PillReminder'),
         },
+        {
+          id: 'people',
+          label: 'Keep in Touch',
+          icon: 'people-outline',
+          onPress: () => navigation.navigate('People'),
+        },
       ],
     },
     {

@@ -174,6 +174,9 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         } else if (url.includes('sleep')) {
           // Clock + Sleep / Sleep home-screen widgets
           nav.navigate('MoreStack', { screen: 'SleepTracker' });
+        } else if (url.includes('people')) {
+          // The daily "keep in touch" digest
+          nav.navigate('MoreStack', { screen: 'People' });
         }
       };
       tryRoute();
