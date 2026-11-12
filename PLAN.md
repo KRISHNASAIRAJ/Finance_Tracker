@@ -106,7 +106,7 @@
       direction is carried by the `+`/`-` sign and by "NET LENT" / "NET
       DEBIT"). The carousel animation is untouched.
 
-### Batch 7 — the pickers and the night ribbon (2026-11-12)
+### Batch 7 — shipped (CI run #92 green, 2026-11-12)
 
 - [x] **The time picker is a round clock** — a 256 dp OnePlus dial with the 12
       numbers, a white hour hand and a red minute hand. **Drag or tap** to set
