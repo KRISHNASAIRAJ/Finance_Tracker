@@ -58,6 +58,7 @@ import {
   resolvePendingGap,
   type InferredSleep,
 } from '../sleepInference';
+import { isSameNight } from '../sleepNights';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
@@ -205,8 +206,11 @@ export default function SleepDashboardScreen() {
       return;
     }
 
-    const already = (entries || []).some(
-      (e) => Math.abs(new Date(e.startTime).getTime() - inferred.bedTime) < 30 * 60000
+    const already = (entries || []).some((e) =>
+      isSameNight(e, {
+        startTime: new Date(inferred.bedTime).toISOString(),
+        endTime: new Date(inferred.wakeTime).toISOString(),
+      })
     );
     setAutoSaved(already);
 
@@ -1028,7 +1032,24 @@ export default function SleepDashboardScreen() {
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity
                   style={[styles.saveBtn, { flex: 1, backgroundColor: colors.errorContainer }]}
-                  onPress={() => { deleteEntry(editing.id, user?.id); setShowLog(false); }}
+                  onPress={() => {
+                    // Never delete a night without asking.
+                    Alert.alert(
+                      'Delete this sleep record?',
+                      'This night will be permanently removed.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => {
+                            deleteEntry(editing.id, user?.id);
+                            setShowLog(false);
+                          },
+                        },
+                      ]
+                    );
+                  }}
                 >
                   <Text style={styles.saveBtnText}>Delete</Text>
                 </TouchableOpacity>

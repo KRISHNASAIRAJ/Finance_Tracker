@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_SLEEP_MOTION_CONFIG, type SleepMotionConfig } from './sleepMotion';
+import { dedupeEntries, findSameNight } from './sleepNights';
 
 export interface SleepEntry {
   id: string;
@@ -99,14 +100,10 @@ export const useSleepStore = create<SleepState>()(
       autoConfig: { ...DEFAULT_SLEEP_MOTION_CONFIG },
       autoSession: null,
       addEntry: (entry, userId) => {
-        // Idempotency guard: a start time (same minute) identifies one sleep
-        // session. The widget deep link and the dashboard's SharedPreferences
-        // fallback can race to log the same session — keep the first, skip
-        // the rest.
-        const startMs = new Date(entry.startTime).getTime();
-        const dup = get().entries.find(
-          (e) => Math.abs(new Date(e.startTime).getTime() - startMs) < 60000
-        );
+        // Idempotency guard: one NIGHT = one record. The widget deep link, the
+        // dashboard's SharedPreferences fallback and the motion tracker can all
+        // log the same night — keep the first, skip the rest.
+        const dup = findSameNight(get().entries, entry);
         if (dup) return dup.id;
 
         const id = Math.random().toString(36).substring(2, 9);
@@ -208,6 +205,23 @@ export const useSleepStore = create<SleepState>()(
           };
         }
         return state;
+      },
+      // Older installs can carry several records for the same night (the
+      // tracker and a manual log). One night = one record → drop the extras
+      // when the store hydrates.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const entries = state.entries ?? [];
+        if (entries.length < 2) return;
+        const sorted = [...entries].sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+        const deduped = dedupeEntries(sorted);
+        if (deduped.length === entries.length) return;
+        // Deferred: the store is still being created while this runs.
+        setTimeout(() => {
+          useSleepStore.setState({ entries: deduped });
+        }, 0);
       },
     }
   )

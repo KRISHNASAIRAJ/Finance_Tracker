@@ -347,21 +347,34 @@ async function doPull(userId: string) {
   if (!sleepErr && sleepData) {
     try {
       const { useSleepStore } = require("../../sleep/store");
+      const { isSameNight } = require("../../sleep/sleepNights");
       const sleepStore = useSleepStore;
       const existingIds = new Set(sleepStore.getState().entries.map((e: any) => e.id));
-      const newEntries: any[] = (sleepData as Array<Record<string, unknown>>)
-        .filter((r) => !existingIds.has(r.id as string))
-        .filter((r) => !pendingIds.has(`sleep_logs|${r.id}`))
-        .map((r) => ({
-          id: r.id as string,
+      const localEntries = sleepStore.getState().entries as any[];
+      const newEntries: any[] = [];
+      for (const r of sleepData as Array<Record<string, unknown>>) {
+        const id = r.id as string;
+        if (existingIds.has(id)) continue;
+        if (pendingIds.has(`sleep_logs|${id}`)) continue;
+        // One NIGHT = one record: a cloud row for a night we already have is
+        // a duplicate, not a new night.
+        const range = {
           startTime: r.start_time as string,
           endTime: r.end_time as string,
+        };
+        if (localEntries.some((e: any) => isSameNight(e, range))) continue;
+        if (newEntries.some((e: any) => isSameNight(e, range))) continue;
+        newEntries.push({
+          id,
+          startTime: range.startTime,
+          endTime: range.endTime,
           quality: (r.quality as number) ?? null,
           mood: (r.mood as string) ?? null,
           interruptions: (r.interruptions as number) ?? 0,
           notes: (r.notes as string) ?? '',
           source: (r.source as string) ?? 'manual',
-        }));
+        });
+      }
       if (newEntries.length > 0) {
         const merged = [...newEntries, ...sleepStore.getState().entries];
         merged.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());

@@ -10,6 +10,7 @@ import { ConfirmDialog, Modal } from '../../components/ui/Modal'
 import { Field } from '../../components/ui/Field'
 import { TrendLine } from '../../components/charts/Charts'
 import { toast } from '../../components/ui/Toast'
+import { findSameNight } from '../../lib/sleepNights'
 import type { SleepEntry } from '../../types'
 
 function durationHours(e: Pick<SleepEntry, 'start_time' | 'end_time'>): number {
@@ -110,7 +111,22 @@ export function SleepTrackerPage() {
         notes: notes.trim() || null,
         source: 'manual' as const,
       }
-      await upsert.mutateAsync({ row, id: editing ?? undefined })
+      await upsert.mutateAsync({
+        row,
+        // One night = one record: if this night is already logged, update it
+        // instead of adding a second copy.
+        id:
+          editing ??
+          findSameNight(
+            sorted.map((e) => ({
+              id: e.id,
+              startTime: e.start_time,
+              endTime: e.end_time,
+            })),
+            { startTime: startIso, endTime: endIso }
+          )?.id ??
+          undefined,
+      })
       toast.success(editing ? 'Sleep updated' : 'Sleep logged')
       setModalOpen(false)
     } catch { toast.error('Failed to save sleep log') } finally { setSaving(false) }
