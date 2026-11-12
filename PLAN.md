@@ -44,10 +44,20 @@
       period) and the readout uses the native `stillSince` timestamp, so it
       follows the phone in real time.
 
-**Left open**
+**Verified on device (2026-11-12, build #82)**
 
-- [ ] The exact error text of the widget the user saw (never received) — the
-      Clock & Sleep widget was hardened blind (try/catch + a fallback view).
+- [x] The **Clock & Sleep** and the **sleep-only** widget load again — the
+      launcher refused them because a plain `<View>` is not allowed inside a
+      RemoteViews layout (only the classes annotated with
+      `@RemoteViews.RemoteView` are).
+- [x] The **green sleep bar** fits the 2x2 cell (26dp pill, 54dp island) and
+      the REM timeline sits at the bottom of the pill.
+- [x] The **"Tracking your sleep"** notification is quiet and dismissible; the
+      tracking feedback is a brief, soundless heads-up banner in the notch
+      area.
+- [x] The **card bill** stays paid after an app update (the web pay-bill now
+      rolls the due date, and a cloud write that hits no row falls back to an
+      upsert instead of being dropped).
 
 ---
 
