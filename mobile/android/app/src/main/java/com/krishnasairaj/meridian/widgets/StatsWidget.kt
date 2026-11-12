@@ -30,10 +30,12 @@ class StatsWidget : AppWidgetProvider() {
         const val PREFS = "meridian_stats_widget"
         const val KEY_JSON = "stats_json"
 
-        private val MUTED = Color.parseColor("#8E8EA0")
-        private val GREEN = Color.parseColor("#7EE787")
-        private val RED = Color.parseColor("#FF6B81")
-        private val PURPLE = Color.parseColor("#C9A6FF")
+        private val MUTED = Color.parseColor("#8E8E93")
+        // OnePlus OxygenOS palette: white for the values, the OnePlus red for
+        // the negative ones.
+        private val GREEN = Color.parseColor("#FFFFFF")
+        private val RED = Color.parseColor("#EB0028")
+        private val PURPLE = Color.parseColor("#FFFFFF")
 
         /** Persist the latest stats JSON (from the JS bridge) and redraw. */
         fun setStats(ctx: Context, json: String) {
@@ -145,6 +147,7 @@ class StatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.stats_market_change, marketChange)
         views.setTextColor(R.id.stats_market_change, marketColor)
         views.setTextViewText(R.id.stats_market_value, marketValue)
+        views.setTextColor(R.id.stats_market_value, MUTED)
 
         views.setOnClickPendingIntent(R.id.stats_card_spend, deepLink(context, "meridian://monthly-spend"))
         views.setOnClickPendingIntent(R.id.stats_card_cards, deepLink(context, "meridian://credit-cards"))

@@ -5,7 +5,8 @@
 
   The compact view of the last night: the duration, the bedtime → wake time,
   the wake-ups and the sleep rating, with the two REM windows marked on the
-  dotted timeline inside the red pill. Sized for a 2x2 cell (~110x110dp).
+  dotted timeline inside the red pill. The red pill fills the space between
+  the duration and the details, so there is no empty gap.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/sleep_stats_container"
@@ -31,17 +32,20 @@
         android:id="@+id/sleep_stats_duration"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="-0.02"
         android:text="—"
         android:textColor="@color/oxygen_white"
-        android:textSize="20sp"
-        android:textStyle="bold" />
+        android:textSize="22sp" />
 
-    <!-- Sleep pill with the REM timeline -->
+    <!-- Sleep pill with the REM timeline — it fills the free space -->
     <RelativeLayout
         android:id="@+id/sleep_stats_pill"
         android:layout_width="match_parent"
-        android:layout_height="26dp"
-        android:layout_marginTop="3dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="4dp"
+        android:minHeight="28dp"
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="7dp"
         android:paddingEnd="7dp">
@@ -51,7 +55,7 @@
             android:layout_width="match_parent"
             android:layout_height="2dp"
             android:layout_alignParentBottom="true"
-            android:layout_marginBottom="3dp"
+            android:layout_marginBottom="4dp"
             android:background="@drawable/widget_sleep_dots"
             android:text="" />
 
@@ -60,7 +64,8 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="3dp"
-            android:layout_alignTop="@id/sleep_stats_dots"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="7dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
@@ -71,7 +76,8 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="3dp"
-            android:layout_alignTop="@id/sleep_stats_dots"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="11dp"
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
@@ -90,10 +96,10 @@
             android:id="@+id/sleep_stats_bed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
             android:text="—"
             android:textColor="@color/oxygen_white_dim"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="11sp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -108,10 +114,10 @@
             android:id="@+id/sleep_stats_wake"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
             android:text="—"
             android:textColor="@color/oxygen_white_dim"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="11sp" />
 
         <TextView
             android:layout_width="0dp"
@@ -123,10 +129,10 @@
             android:id="@+id/sleep_stats_rating"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
             android:text="—"
             android:textColor="@color/oxygen_red"
-            android:textSize="10sp"
-            android:textStyle="bold" />
+            android:textSize="10sp" />
     </LinearLayout>
 
     <!-- Wake-ups -->
@@ -156,9 +162,9 @@
             android:id="@+id/sleep_stats_wakeups"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
             android:text="—"
             android:textColor="@color/oxygen_white"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>

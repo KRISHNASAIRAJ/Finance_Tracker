@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  StatsWidget — 2x2 home-screen carousel (OnePlus OxygenOS: black, white, the
+  OnePlus red as the accent).
+
+  Seven stat cards (monthly spend, CC bills, bank balance, net lent/debit,
+  tasks left, net worth and today's market performance) live in a ViewFlipper
+  that auto-advances every 3 seconds with a fade; tapping a card deep-links to
+  that screen. The ANIMATION is exactly as it was — only the styling follows
+  the OxygenOS palette.
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/stats_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_background">
+    android:background="@drawable/widget_clock_sleep_bg">
 
     <ViewFlipper
         android:id="@+id/stats_flipper"
@@ -28,20 +38,21 @@
                 android:id="@+id/stats_spend_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="MONTHLY SPEND"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_spend"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#FF6B81"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 2 — credit card bills -->
@@ -57,20 +68,21 @@
                 android:id="@+id/stats_cards_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="CC BILLS"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_cards"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#FFC46B"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 3 — bank balance -->
@@ -86,20 +98,21 @@
                 android:id="@+id/stats_bank_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="BANK BALANCE"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_bank"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#64D2FF"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 4 — net lent / net debit -->
@@ -115,20 +128,21 @@
                 android:id="@+id/stats_lent_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="NET LENT"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_lent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#7EE787"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 5 — tasks -->
@@ -144,20 +158,21 @@
                 android:id="@+id/stats_tasks_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="TASKS LEFT"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_tasks"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#C9A6FF"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 6 — net worth -->
@@ -173,20 +188,21 @@
                 android:id="@+id/stats_wealth_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="NET WEALTH"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_wealth"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#4ECDC4"
-                android:textSize="19sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="20sp" />
         </LinearLayout>
 
         <!-- Card 7 — today's market performance (day change + net value) -->
@@ -202,20 +218,21 @@
                 android:id="@+id/stats_market_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
                 android:text="MARKET TODAY"
-                android:textColor="#8E8EA0"
-                android:textSize="8sp"
-                android:letterSpacing="0.12" />
+                android:textColor="@color/oxygen_muted"
+                android:textSize="8sp" />
 
             <TextView
                 android:id="@+id/stats_market_change"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="#7EE787"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="18sp" />
 
             <TextView
                 android:id="@+id/stats_market_value"
@@ -223,7 +240,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="1dp"
                 android:text="—"
-                android:textColor="#8E8EA0"
+                android:textColor="@color/oxygen_muted"
                 android:textSize="10sp" />
         </LinearLayout>
     </ViewFlipper>

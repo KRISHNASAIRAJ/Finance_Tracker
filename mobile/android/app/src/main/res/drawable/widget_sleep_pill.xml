@@ -1,30 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The neon-red sleep pill: a rounded body with a raised "island" on the
      right that carries the sleep duration (OnePlus OxygenOS accent).
-     Sized for the 2x2 widget — the island is 54dp wide so the bar never
-     overflows the cell. -->
+     The body fills the whole pill, so the bar grows with the widget —
+     the island is a fixed-size block on the top right. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:bottom="0dp"
         android:left="0dp"
         android:right="0dp"
-        android:top="9dp">
+        android:top="11dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
-            <corners android:radius="13dp" />
+            <corners android:radius="14dp" />
         </shape>
     </item>
     <item
         android:gravity="top|right"
-        android:width="54dp"
-        android:height="17dp">
+        android:width="68dp"
+        android:height="23dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
             <corners
                 android:bottomLeftRadius="0dp"
                 android:bottomRightRadius="0dp"
-                android:topLeftRadius="13dp"
-                android:topRightRadius="13dp" />
+                android:topLeftRadius="14dp"
+                android:topRightRadius="14dp" />
         </shape>
     </item>
 </layer-list>

@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -23,8 +24,8 @@ import kotlin.math.roundToInt
  * ClockSleepWidgetBridge and cached in SharedPreferences, so it survives
  * widget redraws and process death.
  *
- * The weather line is a static placeholder for now — an API can be wired into
- * the same payload later.
+ * The live weather (Open-Meteo) rides in the same payload: the icon and the
+ * temperature in the top right, the condition under the clock.
  */
 class ClockSleepWidget : AppWidgetProvider() {
 
@@ -149,6 +150,11 @@ class ClockSleepWidget : AppWidgetProvider() {
         views.setImageViewResource(R.id.clock_sleep_weather_icon, weatherIconRes(weatherIcon))
         val condition = if (weatherCondition.isEmpty()) "" else weatherCondition + weatherRange
         views.setTextViewText(R.id.clock_sleep_condition, condition)
+        // No condition → no line at all (the red bar takes the space).
+        views.setViewVisibility(
+            R.id.clock_sleep_condition,
+            if (condition.isEmpty()) View.GONE else View.VISIBLE
+        )
 
         // REM windows on the dotted timeline. The bars are drawn by padding a
         // full-width progress bar, so the segment lands exactly where it should.
