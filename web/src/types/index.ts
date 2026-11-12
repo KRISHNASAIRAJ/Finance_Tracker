@@ -169,6 +169,8 @@ export interface FuelFill {
   odometer: number
   station?: string | null
   note?: string | null
+  /** How it was paid: 'cash' | 'upi' | 'card' | 'hp_pay'. */
+  payment_mode?: string | null
   created_at?: string
   updated_at?: string
 }

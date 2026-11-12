@@ -21,6 +21,7 @@ import {
   rupeesToPaise,
 } from '../../lib/format'
 import { fromInputDate, toInputDate } from '../../lib/istDate'
+import { useAdjustHpPayWallet } from '../../hooks/data/useWallets'
 import { toast } from '../../components/ui/Toast'
 import type { FuelFill, Vehicle } from '../../types'
 
@@ -232,6 +233,16 @@ function FuelFillFields({
   upsert: ReturnType<typeof useUpsertFuelFill>
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const adjustHpPay = useAdjustHpPayWallet(userId)
+  const adjustHpPayWallet = async (delta: number) => {
+    try {
+      await adjustHpPay.mutateAsync(delta)
+    } catch {
+      toast.error('Could not update the HP Pay wallet')
+    }
+  }
   const lastPriceFor = (v: string): string => {
     const latest = fills
       .filter((f) => f.vehicle === v && f.price_per_liter > 0)
@@ -251,6 +262,7 @@ function FuelFillFields({
   const [odometer, setOdometer] = useState(existing ? String(existing.odometer) : '')
   const [station, setStation] = useState(existing?.station ?? '')
   const [note, setNote] = useState(existing?.note ?? '')
+  const [paymentMode, setPaymentMode] = useState(existing?.payment_mode ?? 'cash')
 
   const onVehicleChange = (v: string) => {
     setPricePerLiter((prev) => (prev.trim() === '' || prev === lastPriceFor(vehicle) ? lastPriceFor(v) : prev))
@@ -293,12 +305,22 @@ function FuelFillFields({
         odometer: odoNum,
         station: station.trim() || null,
         note: note.trim() || null,
+        payment_mode: paymentMode,
       }
       if (existing) {
         await upsert.mutateAsync({ id: existing.id, row })
+        // The HP Pay wallet follows the fuel log.
+        if (paymentMode === 'hp_pay' && existing.payment_mode !== 'hp_pay') {
+          await adjustHpPayWallet(-paise)
+        } else if (paymentMode !== 'hp_pay' && existing.payment_mode === 'hp_pay') {
+          await adjustHpPayWallet(existing.amount)
+        } else if (paymentMode === 'hp_pay') {
+          await adjustHpPayWallet(existing.amount - paise)
+        }
         toast.success('Fuel fill updated')
       } else {
         await upsert.mutateAsync({ row })
+        if (paymentMode === 'hp_pay') await adjustHpPayWallet(-paise)
         toast.success('Fuel fill added')
       }
       navigate('/garage/fuel')
@@ -374,6 +396,20 @@ function FuelFillFields({
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
+      <Field.Select
+        label="Paid via"
+        value={paymentMode}
+        onChange={(e) => setPaymentMode(e.target.value)}
+        options={[
+          { value: 'cash', label: 'Cash' },
+          { value: 'upi', label: 'UPI' },
+          { value: 'card', label: 'Card' },
+          { value: 'hp_pay', label: 'HP Pay' },
+        ]}
+      />
+      {paymentMode === 'hp_pay' && (
+        <p className="text-xs text-white/40">The HP Pay wallet balance goes down by this amount.</p>
+      )}
       <div className="flex gap-3">
         <Button type="submit" className="flex-1" loading={upsert.isPending}>
           {existing ? 'Save changes' : 'Add fuel fill'}

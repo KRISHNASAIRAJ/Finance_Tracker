@@ -16,6 +16,7 @@ export const WALLET_PROVIDERS = [
   { id: 'zepto', name: 'Zepto' },
   { id: 'blinkit', name: 'Blinkit' },
   { id: 'bigbasket', name: 'BigBasket' },
+  { id: 'hp_pay', name: 'HP Pay' },
 ]
 
 /** Providers that left the catalog — their rows are hidden and pruned. */
@@ -55,6 +56,37 @@ export function useDeleteWallet(userId: string) {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('wallets').delete().eq('id', id)
       if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: walletKeys.all(userId) }),
+  })
+}
+
+/** The wallet the fuel log is paid from. */
+export const HP_PAY_WALLET_ID = 'hp_pay'
+
+/**
+ * Move the HP Pay wallet balance by `deltaPaise` (negative = the wallet was
+ * spent). The balance never goes below zero.
+ */
+export function useAdjustHpPayWallet(userId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (deltaPaise: number) => {
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('amount')
+        .eq('id', HP_PAY_WALLET_ID)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return
+      const next = Math.max(0, (data.amount ?? 0) + deltaPaise)
+      const { error: updErr } = await supabase
+        .from('wallets')
+        .update({ amount: next })
+        .eq('id', HP_PAY_WALLET_ID)
+        .eq('user_id', userId)
+      if (updErr) throw updErr
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: walletKeys.all(userId) }),
   })

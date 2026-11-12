@@ -15,8 +15,12 @@ export interface Transaction {
   category: string;
   notes?: string;
   source: 'manual' | 'kite_sync';
-  paymentMode?: string; // 'upi' | 'card' | 'cash' | 'bank'
+  paymentMode?: string; // 'upi' | 'card' | 'cash' | 'bank' | 'hp_pay'
   linkedCardId?: string;
+  /** The vehicle a fuel/service transaction belongs to. */
+  linkedVehicleId?: string;
+  /** The fuel fill a fuel_purchase transaction belongs to (stable link). */
+  linkedFuelFillId?: string;
 }
 
 export interface CreditCard {
@@ -73,6 +77,7 @@ export const WALLET_PROVIDERS: { id: string; name: string }[] = [
   { id: 'zepto', name: 'Zepto' },
   { id: 'blinkit', name: 'Blinkit' },
   { id: 'bigbasket', name: 'BigBasket' },
+  { id: 'hp_pay', name: 'HP Pay' },
 ];
 
 /** Providers that were dropped from the catalog — their rows are pruned. */
@@ -187,6 +192,46 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
       processSyncQueue().catch((e: Error) => console.warn('[FinanceStore] flush failed:', e));
     }).catch((e: Error) => console.warn('[FinanceStore] enqueue failed:', e));
   } catch (e) { console.warn('[FinanceStore] enqFlush failed:', e); }
+}
+
+/**
+ * The reverse of the garage sync: a fuel_purchase transaction and its fuel
+ * fill are two views of the same purchase. Editing the transaction (amount,
+ * date) moves the fill — and the price per liter is recomputed from the
+ * liters, so the fill never disagrees with itself.
+ *
+ * `next` = null means the transaction was deleted.
+ */
+function syncFuelFillFromTransaction(
+  prev: Transaction,
+  next: Partial<Transaction> | null,
+  userId?: string
+) {
+  if (prev.type !== 'fuel_purchase') return;
+  const fillId = prev.linkedFuelFillId;
+  if (!fillId) return;
+  try {
+    // Lazy require: the garage store imports the finance store, so a static
+    // import here would be circular.
+    const { useGarageStore } = require('../garage/store');
+    const garage = useGarageStore.getState();
+    const fill = garage.fills.find((f: any) => f.id === fillId);
+    if (!fill) return;
+    if (!next) {
+      garage.deleteFuelFill(fillId, userId);
+      return;
+    }
+    const amount = next.amount ?? fill.amount;
+    const date = next.date ?? fill.date;
+    // Keep the fill internally consistent: the price follows the amount.
+    const liters = Number(fill.liters) || 0;
+    const pricePerLiter =
+      liters > 0 ? Math.round(amount / liters) : Number(fill.pricePerLiter) || 0;
+    if (amount === fill.amount && date === fill.date) return;
+    garage.editFuelFill(fillId, { amount, date, pricePerLiter }, userId);
+  } catch (e) {
+    console.warn('[FinanceStore] fuel fill reverse sync failed:', e);
+  }
 }
 
 /**
@@ -315,18 +360,26 @@ export const useFinanceStore = create<FinanceState>()(
         return generatedId;
       },
       editTransaction: (id, updated, userId) => {
+        const prev = get().transactions.find((t) => t.id === id);
         set((state) => ({
           transactions: state.transactions.map((tx) =>
             tx.id === id ? { ...tx, ...updated } : tx
           ),
         }));
         enqFlush("transactions", "update", { id, ...updated, user_id: userId || null });
+        // A fuel transaction and its fuel fill are two views of the same
+        // purchase — editing one has to move the other, otherwise the
+        // mileage and the spend no longer agree.
+        if (prev) syncFuelFillFromTransaction(prev, updated, userId);
       },
       deleteTransaction: (id, userId) => {
+        const prev = get().transactions.find((t) => t.id === id);
         set((state) => ({
           transactions: state.transactions.filter((tx) => tx.id !== id),
         }));
         enqFlush("transactions", "delete", { id, user_id: userId || null });
+        // The fuel fill goes with its transaction.
+        if (prev) syncFuelFillFromTransaction(prev, null, userId);
       },
       editAccountBalance: (id, amount, userId) => {
         set((state) => ({

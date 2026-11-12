@@ -37,6 +37,8 @@ export interface FuelFill {
   odometer: number;
   station?: string;
   note?: string;
+  /** How it was paid: 'cash' | 'upi' | 'card' | 'hp_pay'. */
+  paymentMode?: string;
 }
 
 export interface MaintenanceLog {
@@ -100,32 +102,73 @@ function addFuelTransaction(userId: string | undefined, fill: FuelFill) {
       notes: `${Number(fill.liters).toFixed(2)}L Fuel`,
       source: 'manual',
       date: fill.date,
+      paymentMode: fill.paymentMode || 'cash',
+      // The stable link to the fill — the date+amount match breaks as soon as
+      // one of them is edited.
+      linkedVehicleId: fill.vehicle,
+      linkedFuelFillId: fill.id,
     },
     userId
   );
 }
 
 /**
+ * The HP Pay wallet id — the fuel payment mode that is paid from a wallet
+ * instead of cash. The wallet balance follows the fuel log.
+ */
+export const HP_PAY_WALLET_ID = 'hp_pay';
+
+/**
+ * Move the HP Pay wallet balance by `deltaPaise` (negative = the wallet was
+ * spent). The balance never goes below zero.
+ */
+function adjustHpPayWallet(deltaPaise: number, userId?: string) {
+  if (!deltaPaise) return;
+  try {
+    const finance = useFinanceStore.getState();
+    const wallet = finance.wallets.find((w) => w.id === HP_PAY_WALLET_ID);
+    if (!wallet) return;
+    const next = Math.max(0, wallet.amount + deltaPaise);
+    finance.setWalletAmount(HP_PAY_WALLET_ID, next, userId);
+  } catch (e) {
+    console.warn('[GarageStore] HP Pay wallet adjust failed:', e);
+  }
+}
+
+/**
  * Keep the linked fuel_purchase finance transaction in sync when a fuel fill
  * is edited or deleted (unified transactions spine).
- * Matching key: type 'fuel_purchase' + original date + original amount.
+ *
+ * Matching key: the stable `linkedFuelFillId`. Older rows (logged before the
+ * link existed) fall back to type + date + amount.
  */
 function syncFuelTransaction(prevFill: FuelFill, newFill: FuelFill | undefined, userId?: string) {
   try {
     const financeState = useFinanceStore.getState();
-    const tx = financeState.transactions.find(
-      (t) => t.type === 'fuel_purchase' && t.date === prevFill.date && t.amount === prevFill.amount
-    );
+    const tx = financeState.transactions.find((t) => {
+      if (t.type !== 'fuel_purchase') return false;
+      if (t.linkedFuelFillId) return t.linkedFuelFillId === prevFill.id;
+      return t.date === prevFill.date && t.amount === prevFill.amount;
+    });
     if (!tx) return;
     if (!newFill) {
       financeState.deleteTransaction(tx.id, userId);
     } else {
+      const notes = `${Number(newFill.liters).toFixed(2)}L Fuel`;
+      const amount = newFill.amount;
+      const date = newFill.date;
+      // Nothing changed → nothing to write (this also stops the two-way sync
+      // from ping-ponging between the store and the fill).
+      if (tx.amount === amount && tx.date === date && tx.notes === notes) return;
       financeState.editTransaction(
         tx.id,
         {
-          amount: newFill.amount,
-          notes: `${Number(newFill.liters).toFixed(2)}L Fuel`,
-          date: newFill.date,
+          amount,
+          notes,
+          date,
+          paymentMode: newFill.paymentMode || tx.paymentMode,
+          linkedVehicleId: newFill.vehicle,
+          linkedFuelFillId: newFill.id,
         },
         userId
       );
@@ -192,11 +235,16 @@ export const useGarageStore = create<GarageState>()(
           ...fill,
           id: Math.random().toString(36).substring(2, 9),
           date: fill.date || new Date().toISOString(),
+          paymentMode: fill.paymentMode || 'cash',
         };
         set((state) => ({
           fills: [newFill, ...state.fills],
         }));
         addFuelTransaction(userId, newFill);
+        // Paid from the HP Pay wallet → the wallet balance follows the log.
+        if (newFill.paymentMode === HP_PAY_WALLET_ID) {
+          adjustHpPayWallet(-newFill.amount, userId);
+        }
         queueGarageSync('fuel_fills', 'upsert', {
           id: newFill.id,
           user_id: userId || null,
@@ -208,6 +256,7 @@ export const useGarageStore = create<GarageState>()(
           odometer: newFill.odometer,
           station: newFill.station ?? null,
           note: newFill.note ?? null,
+          payment_mode: newFill.paymentMode ?? 'cash',
         });
         return newFill.id;
       },
@@ -229,8 +278,17 @@ export const useGarageStore = create<GarageState>()(
             odometer: fill.odometer,
             station: fill.station ?? null,
             note: fill.note ?? null,
+            payment_mode: fill.paymentMode ?? 'cash',
           });
           if (prevFill) syncFuelTransaction(prevFill, fill, userId);
+          // Keep the HP Pay wallet in step with the edited fill.
+          if (prevFill) {
+            const wasHp = prevFill.paymentMode === HP_PAY_WALLET_ID;
+            const isHp = fill.paymentMode === HP_PAY_WALLET_ID;
+            if (wasHp && !isHp) adjustHpPayWallet(prevFill.amount, userId);
+            else if (!wasHp && isHp) adjustHpPayWallet(-fill.amount, userId);
+            else if (wasHp && isHp) adjustHpPayWallet(prevFill.amount - fill.amount, userId);
+          }
         }
       },
       deleteFuelFill: (id, userId) => {
@@ -238,7 +296,13 @@ export const useGarageStore = create<GarageState>()(
         set((state) => ({
           fills: state.fills.filter((f) => f.id !== id),
         }));
-        if (prevFill) syncFuelTransaction(prevFill, undefined, userId);
+        if (prevFill) {
+          syncFuelTransaction(prevFill, undefined, userId);
+          // The fill is gone → the wallet gets the money back.
+          if (prevFill.paymentMode === HP_PAY_WALLET_ID) {
+            adjustHpPayWallet(prevFill.amount, userId);
+          }
+        }
         queueGarageSync('fuel_fills', 'delete', { id, user_id: userId || null });
         const { supabase } = require('../../services/supabaseClient');
         supabase.from('fuel_fills').delete().eq('id', id).then(({ error }: any) => {

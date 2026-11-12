@@ -32,6 +32,14 @@ type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'EditFuelF
 
 const STATION_OPTIONS = ['HPCL Kondapur', 'HPCL Moinabad', 'Other'];
 
+/** How the fill was paid — "HP Pay" spends the HP Pay wallet. */
+const PAYMENT_MODES = [
+  { id: 'cash', label: 'Cash' },
+  { id: 'upi', label: 'UPI' },
+  { id: 'card', label: 'Card' },
+  { id: 'hp_pay', label: 'HP Pay' },
+];
+
 export default function EditFuelFillScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<EditFuelFillRouteProp>();
@@ -66,6 +74,7 @@ export default function EditFuelFillScreen() {
   const [note, setNote] = useState(fill.note || '');
   const [fillDate, setFillDate] = useState(new Date(fill.date));
   const [calendarVisible, setCalendarVisible] = useState(false);
+  const [paymentMode, setPaymentMode] = useState(fill.paymentMode || 'cash');
 
   const handleSubmit = () => {
     const rawLiters = parseFloat(liters);
@@ -99,6 +108,7 @@ export default function EditFuelFillScreen() {
       station: finalStation || undefined,
       note: note.trim() || undefined,
       date: fillDate.toISOString(),
+      paymentMode,
     }, user?.id);
 
     navigation.goBack();
@@ -253,6 +263,31 @@ export default function EditFuelFillScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Payment mode — "HP Pay" is paid from the HP Pay wallet. */}
+          <View style={styles.formSection}>
+            <Text style={styles.inputLabel}>PAID VIA</Text>
+            <View style={styles.tabRow}>
+              {PAYMENT_MODES.map((m) => {
+                const isSelected = paymentMode === m.id;
+                return (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.tabButton, isSelected && styles.tabButtonActive]}
+                    onPress={() => setPaymentMode(m.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {paymentMode === 'hp_pay' && (
+              <Text style={styles.hintText}>
+                The HP Pay wallet balance follows this fill.
+              </Text>
+            )}
+          </View>
+
           {/* Dynamic Summary Card */}
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Total Amount</Text>
@@ -392,6 +427,11 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: colors.onSurface,
+  },
+  hintText: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginTop: 4,
   },
   gridInputs: {
     flexDirection: 'row',
