@@ -190,6 +190,33 @@ function enqFlush(entity: string, action: string, data: Record<string, unknown>)
 }
 
 /**
+ * The next due date of a card: the next occurrence of the billing day that is
+ * strictly after today. A billing day of 31 is clamped to the last day of a
+ * short month (31 Jan → 28 Feb, never 3 March).
+ */
+export function nextCardDueDate(billingDay: number, now: Date = new Date()): Date {
+  const day = Math.min(Math.max(Math.round(billingDay) || 1, 1), 31);
+  const candidate = (year: number, month: number): Date => {
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const due = new Date(year, month, Math.min(day, lastDayOfMonth));
+    due.setHours(0, 0, 0, 0);
+    return due;
+  };
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  let due = candidate(year, month);
+  if (due.getTime() <= now.getTime()) {
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+    due = candidate(year, month);
+  }
+  return due;
+}
+
+/**
  * A card as a database row. The FULL row is always queued (not just the
  * changed fields) so the sync queue can fall back to an upsert when the cloud
  * has no such row yet — an upsert needs every NOT NULL column.
@@ -616,21 +643,9 @@ export const useFinanceStore = create<FinanceState>()(
           // after today. (Old logic did currentDue + 1 month, which could
           // land on the month-after-next when the bill was paid right after
           // the due date passed — e.g. paid on the 1st for a 25th due.)
+          // A billing day of 31 is clamped to the last day of a short month.
           const today = new Date();
-          const nextDueDate = new Date(today.getFullYear(), today.getMonth(), billingDay);
-          nextDueDate.setHours(0, 0, 0, 0);
-          if (nextDueDate <= today) {
-            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-          }
-          // Clamp to the actual last day for 29/30/31 billing days
-          const lastDayOfMonth = new Date(
-            nextDueDate.getFullYear(),
-            nextDueDate.getMonth() + 1,
-            0
-          ).getDate();
-          if (billingDay > lastDayOfMonth) {
-            nextDueDate.setDate(lastDayOfMonth);
-          }
+          const nextDueDate = nextCardDueDate(billingDay, today);
 
           const generatedTxId = Math.random().toString(36).substring(2, 9);
           // Only log a credit_card_bill transaction when there was an actual

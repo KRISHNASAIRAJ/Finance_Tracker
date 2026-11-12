@@ -784,6 +784,33 @@ program.
   chronological and tapping a row still highlights the right chart point
   (the list rows carry the original chart index).
 
+## 28. Card bill payments + cloud sync hardening (v4)
+
+- **The web "Pay bill" left the bill standing.** It only wrote `paid_amount`
+  and `current_outstanding`, so the card kept its old (past) `due_date` and its
+  old `bill_amount` — the mobile app pulled that state and kept showing the
+  bill as due. It now clears the card the same way the mobile app does: the
+  due date rolls to the next billing day and the bill amount, the paid amount
+  and the balance go back to zero. The bill payment transaction is written
+  with the same shape as on mobile (`linked_card_id`, "Credit Card Bill").
+- **A billing day of 31 skipped a month** — `new Date(year, month, 31)` rolls
+  over to the 3rd of March. The roll is now clamped to the last day of the
+  month (31 Jan → 28 Feb) in both apps (`nextCardDueDate`).
+- **An UPDATE that matches no row is now an error.** PostgREST reports no
+  error when an update hits 0 rows, so a payment for a card the cloud did not
+  know yet was silently dropped and the next pull restored the old state. The
+  sync queue now falls back to an upsert when the update hit 0 rows (the card
+  writes carry the full row, so the upsert has every NOT NULL column).
+- **The persist-key bump no longer wipes local data.** The finance store moved
+  to `meridian-finance-storage-v15` for the `wallets` rows, but the storage
+  falls back to the previous key and the migration carries the state forward —
+  an app update must never throw away a local edit that has not been pushed
+  yet.
+- **Tests:** `services/__tests__/syncQueueCloud.test.ts` (3) — the upsert
+  fallback, the normal update path and a failing write staying queued;
+  `modules/finance/__tests__/cardBill.test.ts` (6) and
+  `web/src/lib/__tests__/cardBill.test.ts` (5) — the due-date roll.
+
 ## 23. Sleep-only 2x2 widget + the 9:00 AM refresh (v4)
 
 - **One sleep widget, 2x2:** the four quick-action widgets (Add Expense, Add
@@ -802,6 +829,12 @@ program.
 - **Clock & Sleep hardened:** the provider never crashes the launcher any more
   (a failed render falls back to a plain clock), and the risky
   `previewLayout` / `updatePeriodMillis` attributes are gone.
+- **The real cause of "An error occurred when loading widget":** Android only
+  allows the view classes annotated with `@RemoteViews.RemoteView` inside a
+  widget layout — a plain `<View>` is **not** one of them, so the launcher
+  refused to inflate both sleep widgets. The spacers and the timeline are
+  `TextView`s now (the Stats widget never used a plain `<View>` and always
+  worked).
 
 ## 24. Pillow-friendly sleep detection + the interruption rules (v4)
 

@@ -3,6 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import { nextCardDueDate } from '../../lib/cardBill'
 import type { Transaction } from '../../types'
 
 export const txnKeys = {
@@ -73,7 +74,14 @@ export function useDeleteTransaction(userId: string) {
   return useTxnMutations(userId).remove
 }
 
-/** Mark credit card bill paid — updates card + writes a bill payment txn. */
+/**
+ * Mark credit card bill paid — updates the card and writes a bill payment txn.
+ *
+ * The card is fully cleared: the bill rolls to the next cycle (due date +
+ * billing day), the bill amount, the paid amount and the outstanding balance
+ * go back to zero. Without the roll the card kept its old (past) due date and
+ * the mobile app still showed the bill as due.
+ */
 export function usePayCardBill(userId: string) {
   const qc = useQueryClient()
   const { upsert } = useTxnMutations(userId)
@@ -83,32 +91,42 @@ export function usePayCardBill(userId: string) {
       cardId,
       cardName,
       billAmount,
-      paidAmount,
+      billingDay,
     }: {
       cardId: string
       cardName: string
       billAmount: number
-      paidAmount: number
+      billingDay: number
     }) => {
-      // Update card
+      // Update card — the bill rolls to the next cycle.
+      const nextDueDate = nextCardDueDate(billingDay)
       const { error: cardErr } = await supabase
         .from('credit_cards')
-        .update({ paid_amount: paidAmount, current_outstanding: Math.max(0, billAmount - paidAmount) })
+        .update({
+          due_date: nextDueDate.toISOString(),
+          bill_amount: 0,
+          paid_amount: 0,
+          balance: 0,
+          current_outstanding: 0,
+        })
         .eq('id', cardId)
       if (cardErr) throw cardErr
 
       // Record the payment as a transaction
-      await upsert.mutateAsync({
-        row: {
-          type: 'credit_card_bill',
-          amount: paidAmount,
-          currency: 'INR',
-          date: new Date().toISOString(),
-          category: 'Bills & Recharge',
-          notes: `Credit card bill payment — ${cardName}`,
-          source: 'manual',
-        },
-      })
+      if (billAmount > 0) {
+        await upsert.mutateAsync({
+          row: {
+            type: 'credit_card_bill',
+            amount: billAmount,
+            currency: 'INR',
+            date: new Date().toISOString(),
+            category: 'Credit Card Bill',
+            notes: `${cardName} — Bill Paid`,
+            source: 'manual',
+            linked_card_id: cardId,
+          },
+        })
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['credit_cards', userId] })

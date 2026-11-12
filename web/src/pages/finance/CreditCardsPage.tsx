@@ -262,7 +262,12 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
 
   const handlePayBill = async () => {
     try {
-      await payBill.mutateAsync({ cardId: card.id, cardName: card.name, billAmount, paidAmount: billAmount })
+      await payBill.mutateAsync({
+        cardId: card.id,
+        cardName: card.name,
+        billAmount,
+        billingDay: card.billing_day ?? 1,
+      })
       toast.success('Bill marked as paid')
     } catch {
       toast.error('Failed to mark bill paid')
