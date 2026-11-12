@@ -231,21 +231,25 @@ export default function MainHomeScreen() {
   // ---- Weather (live, from the GPS via Open-Meteo) ----
   const [weather, setWeather] = useState<WeatherNow | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    // The weather is fetched on the side — a slow or missing GPS must never
-    // hold up the home screen.
-    (async () => {
-      try {
-        const { getWeather } = require('../../../services/weather');
-        const reading = await getWeather();
-        if (!cancelled) setWeather(reading);
-      } catch {
-        /* the card stays empty */
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // The reading is refreshed every time the home screen comes into focus
+  // (the service reuses the cached one for three hours).
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+      // The weather is fetched on the side — a slow or missing GPS must never
+      // hold up the home screen.
+      (async () => {
+        try {
+          const { getWeather } = require('../../../services/weather');
+          const reading = await getWeather();
+          if (!cancelled) setWeather(reading);
+        } catch {
+          /* the card stays empty */
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [])
+  );
 
   // ---- Principles carousel state ----
   const [principleIndex, setPrincipleIndex] = useState(0);

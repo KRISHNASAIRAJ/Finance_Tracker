@@ -47,8 +47,8 @@ export interface WeatherNow {
 const CACHE_KEY = 'meridian_weather_cache';
 const CITY_KEY = 'meridian_weather_city';
 const POSITION_KEY = 'meridian_weather_position';
-/** A fresh reading is reused for an hour. */
-const FRESH_MS = 60 * 60 * 1000;
+/** A fresh reading is reused for three hours. */
+const FRESH_MS = 3 * 60 * 60 * 1000;
 /** The cached reading is still shown as a fallback for a day. */
 const STALE_MAX_MS = 24 * 60 * 60 * 1000;
 /** A GPS fix is never awaited for longer than this. */
