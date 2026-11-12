@@ -57,10 +57,11 @@
             android:textSize="13sp" />
     </LinearLayout>
 
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:text="" />
 
     <!-- Sleep -->
     <TextView
@@ -94,13 +95,14 @@
             android:textSize="12sp"
             android:textStyle="bold" />
 
-        <View
+        <TextView
             android:id="@+id/clock_sleep_dots"
             android:layout_width="match_parent"
             android:layout_height="2dp"
             android:layout_below="@id/clock_sleep_duration"
             android:layout_marginTop="3dp"
-            android:background="@drawable/widget_sleep_dots" />
+            android:background="@drawable/widget_sleep_dots"
+            android:text="" />
 
         <ProgressBar
             android:id="@+id/clock_sleep_rem1"
@@ -167,10 +169,11 @@
             android:textSize="8sp" />
     </RelativeLayout>
 
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.5" />
+        android:layout_weight="0.5"
+        android:text="" />
 
     <!-- Weather -->
     <LinearLayout
