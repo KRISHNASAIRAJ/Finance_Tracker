@@ -186,6 +186,19 @@
       - plus a self-heal in the app: inside the night window the sleep screen
         restarts the tracker if the service died (at most once a minute).
 
+### Batch 10 — the widget opens the device's clock app (2026-11-13)
+
+- [x] **Tapping the Clock & Sleep widget opens the phone's OWN clock app**
+      instead of Meridian — the chain is the standard `clock://` view intent
+      (the AOSP clock and the OEM clocks answer it), then the alarm intent,
+      then the AOSP desk clock by name. When the phone has no clock app the
+      tap falls back to Meridian's sleep screen, so it is never dead.
+- [x] **Tapping the red sleep bar still opens Meridian's sleep screen** — the
+      widget splits the two targets: the clock half goes to the device, the
+      sleep half stays with us.
+- [x] The manifest gained the `<queries>` entries for the clock scheme and
+      the alarm intent (Android 11+ package visibility).
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #89) — `expo-location` is a
