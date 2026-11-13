@@ -164,7 +164,7 @@
       `AndroidManifest.xml` (it does **not** run `expo prebuild`), and that
       manifest never had `ACCESS_FINE_LOCATION` — so the GPS was refused.*
 
-### Batch 9 — the clock polish + the sleep-tracking fix (2026-11-13)
+### Batch 9 — shipped (CI run #95 green, 2026-11-13)
 
 - [x] **The hours are red** — the Clock + Sleep clock is now two live
       `TextClock`s: the **hours (`hh`) in the OnePlus red**, the **minutes
