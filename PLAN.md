@@ -199,6 +199,11 @@
       anywhere on it opens the device's clock.
 - [x] The manifest gained the `<queries>` entries (the launcher activities
       and the known clock packages) that Android 11+ package visibility needs.
+- [x] **Fixed after the first attempt** (the tap did nothing): the implicit
+      `clock://` resolution was replaced by an **explicit** lookup — the known
+      clock packages via their launcher intent → any launcher activity whose
+      package looks like a clock → the `clock://` scheme. The result is cached.
+      (The red bar had also been swallowing the tap — it opened Meridian.)
 
 ### Batch 3 — on the device
 
