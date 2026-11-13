@@ -35,9 +35,10 @@
         android:maxLines="1"
         android:text=""
         android:textColor="@color/oxygen_muted"
-        android:textSize="10sp" />
+        android:textSize="11sp" />
 
-    <!-- Clock — "09:34" + seconds "53" + "PM" -->
+    <!-- Clock — the hours in the OnePlus red, the minutes in white, then the
+         seconds and the AM/PM (the seconds sit on the time's baseline) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -46,17 +47,39 @@
         android:orientation="horizontal">
 
         <TextClock
-            android:id="@+id/clock_sleep_time"
+            android:id="@+id/clock_sleep_hours"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-medium"
-            android:format12Hour="hh:mm"
-            android:format24Hour="HH:mm"
+            android:format12Hour="hh"
+            android:format24Hour="HH"
+            android:includeFontPadding="false"
+            android:letterSpacing="-0.03"
+            android:maxLines="1"
+            android:textColor="@color/oxygen_red"
+            android:textSize="23sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:text=":"
+            android:textColor="@color/oxygen_white"
+            android:textSize="23sp" />
+
+        <TextClock
+            android:id="@+id/clock_sleep_minutes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:format12Hour="mm"
+            android:format24Hour="mm"
             android:includeFontPadding="false"
             android:letterSpacing="-0.03"
             android:maxLines="1"
             android:textColor="@color/oxygen_white"
-            android:textSize="26sp" />
+            android:textSize="23sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_seconds"
@@ -85,23 +108,9 @@
             android:textSize="11sp" />
     </LinearLayout>
 
-    <!-- Sleep -->
-    <TextView
-        android:id="@+id/clock_sleep_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="4dp"
-        android:includeFontPadding="false"
-        android:letterSpacing="0.14"
-        android:text="SLEEP"
-        android:textColor="@color/oxygen_muted"
-        android:textSize="8sp"
-        android:textStyle="bold" />
-
     <!-- The red sleep pill: the duration sits in the raised island on the
-         right and the timeline (REM 1, REM 2, dots) is stacked at the
-         bottom. -->
+         right, the SLEEP caption stands in the cut-out at the top left and
+         the timeline (REM 1, REM 2, dots) is stacked at the bottom. -->
     <RelativeLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
@@ -112,6 +121,22 @@
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="7dp"
         android:paddingEnd="7dp">
+
+        <!-- The SLEEP caption — in the cut-out of the pill (the top left
+             corner the shape leaves free). -->
+        <TextView
+            android:id="@+id/clock_sleep_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="1dp"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.1"
+            android:text="SLEEP"
+            android:textColor="@color/oxygen_muted"
+            android:textSize="7sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/clock_sleep_duration"
@@ -164,6 +189,6 @@
     <!-- A small gap under the red bar -->
     <TextView
         android:layout_width="match_parent"
-        android:layout_height="10dp"
+        android:layout_height="24dp"
         android:text="" />
 </LinearLayout>
