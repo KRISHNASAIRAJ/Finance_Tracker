@@ -184,12 +184,8 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
-        // The duration and the score are combined into one line so the island
-        // stays compact (no separate white point floating below the duration).
-        val scoreNum = score.removePrefix("Score ").trim()
-        val combinedDuration = if (scoreNum.isNotEmpty()) "$duration   $scoreNum" else duration
-        views.setTextViewText(R.id.clock_sleep_duration, combinedDuration)
-        views.setViewVisibility(R.id.clock_sleep_score, View.GONE)
+        views.setTextViewText(R.id.clock_sleep_duration, duration)
+        views.setTextViewText(R.id.clock_sleep_score, score)
         views.setTextViewText(R.id.clock_sleep_date, dateText())
         views.setTextViewText(R.id.clock_sleep_bed, bedLabel)
         views.setTextViewText(R.id.clock_sleep_wake, wakeLabel)

@@ -36,7 +36,7 @@
         android:maxLines="1"
         android:text=""
         android:textColor="@color/oxygen_muted"
-        android:textSize="12sp" />
+        android:textSize="11sp" />
 
     <!-- Clock — the hours in the OnePlus red, the minutes in white, then the
          seconds and the AM/PM on the time's baseline -->
@@ -133,7 +133,7 @@
             android:maxLines="1"
             android:text="—"
             android:textColor="@color/oxygen_ink"
-            android:textSize="9sp" />
+            android:textSize="8sp" />
 
         <TextView
             android:id="@+id/clock_sleep_score"
@@ -168,7 +168,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/clock_sleep_score"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:orientation="vertical">
 
             <!-- DEEP -->
@@ -246,7 +246,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="0.5dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -318,7 +318,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="0.5dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
