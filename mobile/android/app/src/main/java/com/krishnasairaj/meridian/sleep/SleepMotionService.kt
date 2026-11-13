@@ -131,7 +131,14 @@ class SleepMotionService : Service(), SensorEventListener {
         // It is armed to start when the window opens.
         if (!SleepMotionScheduler.isTrackingTime(config)) {
             stopTracking()
-            SleepMotionScheduler.scheduleStart(this, config)
+            // If the window opens shortly, come back then instead of skipping
+            // tonight.
+            val untilWindow = SleepMotionScheduler.minutesUntilWindow(config)
+            if (untilWindow in 1..30) {
+                SleepMotionScheduler.scheduleRetry(this, untilWindow)
+            } else {
+                SleepMotionScheduler.scheduleStart(this, config)
+            }
             return START_NOT_STICKY
         }
         registerSensor()

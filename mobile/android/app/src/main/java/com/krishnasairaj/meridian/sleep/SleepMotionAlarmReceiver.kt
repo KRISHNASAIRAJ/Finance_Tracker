@@ -46,12 +46,14 @@ class SleepMotionAlarmReceiver : BroadcastReceiver() {
 
     /** The night window opened — start the foreground tracker. */
     private fun startTracker(context: Context) {
+        var config: SleepMotionConfig? = null
         try {
-            val config = SleepMotionStore.loadConfig(context)
+            config = SleepMotionStore.loadConfig(context)
             if (!config.enabled) return
-            // The window may have moved since the alarm was armed.
+            // The window may have moved since the alarm was armed — if it has
+            // not opened yet, try again shortly instead of skipping the night.
             if (!SleepMotionScheduler.isTrackingTime(config)) {
-                SleepMotionScheduler.scheduleStart(context, config)
+                SleepMotionScheduler.scheduleRetry(context, 10)
                 return
             }
             val intent = Intent(context, SleepMotionService::class.java)
@@ -61,13 +63,15 @@ class SleepMotionAlarmReceiver : BroadcastReceiver() {
                 context.startService(intent)
             }
         } catch (e: Exception) {
-            // The system may refuse a background foreground-service start —
-            // try again a bit later instead of losing the night.
+            // The system may refuse a background foreground-service start.
+            // Try again in a few minutes — the night must not be lost.
             try {
-                SleepMotionScheduler.scheduleStart(
-                    context,
-                    SleepMotionStore.loadConfig(context)
-                )
+                val cfg = config ?: SleepMotionStore.loadConfig(context)
+                if (cfg.enabled && SleepMotionScheduler.isStillNight(cfg)) {
+                    SleepMotionScheduler.scheduleRetry(context, 10)
+                } else {
+                    SleepMotionScheduler.scheduleStart(context, cfg)
+                }
             } catch (e2: Exception) {
                 /* ignore */
             }

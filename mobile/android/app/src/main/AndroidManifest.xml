@@ -4,6 +4,12 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <!-- The sleep tracker starts itself when the night window opens. On
+       Android 13+ SCHEDULE_EXACT_ALARM is not granted by default (the user
+       has to enable "Alarms & reminders" by hand), so USE_EXACT_ALARM is
+       declared as well — it is granted automatically and the alarm then
+       really fires at 21:30. -->
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>

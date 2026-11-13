@@ -45,6 +45,20 @@ object SleepMotionScheduler {
     fun isTrackingTime(config: SleepMotionConfig, ts: Long = System.currentTimeMillis()): Boolean =
         isInNightWindow(config, minutesOfDay(ts))
 
+    /**
+     * The minutes until the night window opens — 0 when it is already open.
+     * Used to retry shortly instead of skipping the night.
+     */
+    fun minutesUntilWindow(
+        config: SleepMotionConfig,
+        ts: Long = System.currentTimeMillis()
+    ): Int {
+        if (isTrackingTime(config, ts)) return 0
+        val now = minutesOfDay(ts)
+        val start = ((config.sleepStartMin % 1440) + 1440) % 1440
+        return (start - now + 1440) % 1440
+    }
+
     /** The next time the night window opens (epoch ms). */
     fun nextWindowStart(config: SleepMotionConfig, from: Long = System.currentTimeMillis()): Long {
         val cal = Calendar.getInstance()
@@ -59,21 +73,44 @@ object SleepMotionScheduler {
 
     /** Arm the alarm that starts the tracker when the window opens. */
     fun scheduleStart(context: Context, config: SleepMotionConfig) {
+        scheduleStartAt(context, nextWindowStart(config))
+    }
+
+    /**
+     * Arm the start alarm for a given moment.
+     *
+     * This is also the retry path: when the system refuses to start the
+     * tracker (a background foreground-service start), the tracker is armed
+     * again in a few minutes instead of waiting for the next night.
+     */
+    fun scheduleStartAt(context: Context, atMillis: Long) {
         try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-            val at = nextWindowStart(config)
             val pending = pendingIntent(context)
             try {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending)
             } catch (e: SecurityException) {
                 // Android 12+ can revoke the exact-alarm permission — fall back
                 // to an inexact alarm (a few minutes late is still fine).
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending)
             }
         } catch (e: Exception) {
             /* best-effort */
         }
     }
+
+    /**
+     * Try again in a few minutes — the night must not be lost because one
+     * start was refused.
+     */
+    fun scheduleRetry(context: Context, minutes: Int = 10) {
+        val at = System.currentTimeMillis() + minutes.coerceAtLeast(1) * 60_000L
+        scheduleStartAt(context, at)
+    }
+
+    /** Is the retry still inside the night window? */
+    fun isStillNight(config: SleepMotionConfig): Boolean =
+        isTrackingTime(config)
 
     /** Cancel the pending start alarm. */
     fun cancelStart(context: Context) {
