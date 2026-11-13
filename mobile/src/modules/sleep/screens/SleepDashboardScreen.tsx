@@ -7,7 +7,7 @@
  * - Compact history + the full log on its own page
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -247,12 +247,23 @@ export default function SleepDashboardScreen() {
    * The live status of the tracker — polled every 5 s (the sensor period), so
    * the "still for" readout keeps up with the phone instead of lagging a whole
    * minute behind.
+   *
+   * It also heals the tracker: inside the night window it has to be running,
+   * so if the service died (the system killed it, a start was refused) it is
+   * started again — at most once a minute.
    */
+  const lastRestartRef = useRef(0);
   const refreshStatus = useCallback(async () => {
     if (!isSleepMotionAvailable()) return;
     const status = await getMotionStatus();
     if (status) setAutoStatus(status);
-  }, []);
+    if (!autoConfig.enabled || !isTrackingTime(autoConfig)) return;
+    if (!status || status.running) return;
+    const now = Date.now();
+    if (now - lastRestartRef.current < 60000) return;
+    lastRestartRef.current = now;
+    await startMotionTracking({ ...autoConfig, enabled: true });
+  }, [autoConfig]);
 
   useEffect(() => {
     if (!autoAvailable) return;

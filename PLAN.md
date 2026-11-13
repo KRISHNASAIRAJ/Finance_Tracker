@@ -139,7 +139,7 @@
 - [ ] **The logo in the OnePlus OxygenOS style** (a geometric white "M" on the
       OnePlus red over black, replacing the current crystal "M").
 
-### Batch 8 — the widget polish + the tasks card (2026-11-12)
+### Batch 8 — shipped (CI run #94 green, 2026-11-12)
 
 - [x] **The ribbon is gone — the dotted timeline is back** (and smaller: the
       dots 2 dp, the REM bars 2.5 dp in the dark ink, stacked at 6 / 9.5 dp).
@@ -163,6 +163,28 @@
       *Root cause of "the weather never worked": the CI builds the committed
       `AndroidManifest.xml` (it does **not** run `expo prebuild`), and that
       manifest never had `ACCESS_FINE_LOCATION` — so the GPS was refused.*
+
+### Batch 9 — the clock polish + the sleep-tracking fix (2026-11-13)
+
+- [x] **The hours are red** — the Clock + Sleep clock is now two live
+      `TextClock`s: the **hours (`hh`) in the OnePlus red**, the **minutes
+      (`mm`) in white**, a static `:` between them, then the seconds and the
+      AM/PM. The time shrank **26 sp → 23 sp**, the date grew **10 sp → 11 sp**.
+- [x] **The SLEEP caption moved into the red bar's cut-out** (the top-left
+      notch the pill's shape leaves) — it sits on the black shell next to the
+      duration island; the island narrowed 68 → 62 dp to make room and the
+      freed row became the gap below the bar (10 → 24 dp).
+- [x] **The sleep tracker starts again at night** — two real bugs:
+      - the committed manifest only had `SCHEDULE_EXACT_ALARM`, which **Android
+        13+ does not grant by default** → the exact alarm threw and the
+        inexact fallback could be delayed for hours. **`USE_EXACT_ALARM`** is
+        now declared (granted automatically).
+      - when the background foreground-service start was refused, the retry
+        armed the alarm for **tomorrow** → the whole night was lost. It now
+        **retries every 10 minutes** until the window closes, and a start that
+        fires before the window opens retries instead of skipping the night.
+      - plus a self-heal in the app: inside the night window the sleep screen
+        restarts the tracker if the service died (at most once a minute).
 
 ### Batch 3 — on the device
 
