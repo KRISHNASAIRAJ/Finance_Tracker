@@ -426,7 +426,11 @@
         android:layout_marginTop="2dp"
         android:orientation="horizontal">
 
-        <!-- ALARM -->
+        <!-- ALARM: next alarm time in bold red. The provider sets the text
+             (for example 6:30 am) from AlarmManager.getNextAlarmClock(). When no
+             alarm is set it writes two dashes and switches the colour to the grey
+             label colour. It is refreshed by ACTION_NEXT_ALARM_CLOCK_CHANGED, so
+             it needs no per-minute polling. -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -438,12 +442,13 @@
                 android:id="@+id/clock_sleep_alarm_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="sans-serif"
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="--"
                 android:textColor="@color/oxygen_red"
-                android:textSize="9sp" />
+                android:textSize="9sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/clock_sleep_alarm_label"
