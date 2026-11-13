@@ -134,7 +134,7 @@
             android:includeFontPadding="false"
             android:maxLines="2"
             android:text="—"
-            android:textColor="@color/oxygen_ink"
+            android:textColor="@color/oxygen_white"
             android:textSize="8sp" />
 
         <!-- The SLEEP caption — in the cut-out of the block (top left) -->
@@ -148,7 +148,7 @@
             android:includeFontPadding="false"
             android:letterSpacing="0.1"
             android:text="SLEEP"
-            android:textColor="@color/oxygen_muted"
+            android:textColor="@color/oxygen_white"
             android:textSize="6sp"
             android:textStyle="bold" />
 
@@ -174,7 +174,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="DEEP"
-                    android:textColor="@color/oxygen_ink"
+                    android:textColor="@color/oxygen_white"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -247,7 +247,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="LIGHT"
-                    android:textColor="@color/oxygen_ink"
+                    android:textColor="@color/oxygen_white"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -320,7 +320,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="AWAKE"
-                    android:textColor="@color/oxygen_ink"
+                    android:textColor="@color/oxygen_white"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -370,7 +370,7 @@
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
                         android:layout_marginTop="0dp"
-            android:indeterminate="false"
+                        android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
                         android:progressDrawable="@drawable/widget_sleep_awake_bar" />
@@ -400,7 +400,7 @@
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="@color/oxygen_ink"
+            android:textColor="@color/oxygen_white"
             android:textSize="5.5sp" />
 
         <TextView
@@ -413,7 +413,7 @@
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="@color/oxygen_ink"
+            android:textColor="@color/oxygen_white"
             android:textSize="5.5sp" />
     </RelativeLayout>
 
