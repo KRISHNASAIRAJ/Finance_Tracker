@@ -14,6 +14,12 @@
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!-- The weather (the temperature in the widget) — the GPS + Open-Meteo.
+       These have to be in the committed manifest: the CI builds it as it is
+       (it does not run expo prebuild), so the permission in app.json alone
+       would never make it into the APK. -->
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <!-- Android 13+ notifications (merged in from expo-notifications as well) -->
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <!-- Automatic sleep tracking: foreground service that samples the accelerometer -->

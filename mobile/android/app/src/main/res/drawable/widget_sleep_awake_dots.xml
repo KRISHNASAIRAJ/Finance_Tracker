@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dotted awake timeline — black at 40 % over the red block, so it reads
+     as the dark red the design calls for. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <stroke
+        android:width="1dp"
+        android:color="#66000000"
+        android:dashWidth="2dp"
+        android:dashGap="2dp" />
+    <corners android:radius="1dp" />
+    <solid android:color="@android:color/transparent" />
+</shape>

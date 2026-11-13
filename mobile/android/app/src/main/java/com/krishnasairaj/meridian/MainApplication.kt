@@ -17,6 +17,7 @@ import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
 import com.krishnasairaj.meridian.sleep.SleepMotionPackage
 import com.krishnasairaj.meridian.widgets.ClockSleepWidgetPackage
+import com.krishnasairaj.meridian.widgets.KwgtBridgePackage
 import com.krishnasairaj.meridian.widgets.SleepStatsWidgetPackage
 import com.krishnasairaj.meridian.widgets.StatsWidgetPackage
 
@@ -33,6 +34,7 @@ class MainApplication : Application(), ReactApplication {
               add(ClockSleepWidgetPackage())
               add(SleepStatsWidgetPackage())
               add(StatsWidgetPackage())
+              add(KwgtBridgePackage())
             }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"

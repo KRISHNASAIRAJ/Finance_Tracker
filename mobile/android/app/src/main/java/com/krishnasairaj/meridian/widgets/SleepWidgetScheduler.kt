@@ -23,8 +23,12 @@ object SleepWidgetScheduler {
     const val MIDNIGHT_HOUR = 0
     const val MIDNIGHT_MINUTE = 5
 
+    /** How often the widget is redrawn (the battery %, the temperature). */
+    const val REFRESH_INTERVAL_MIN = 10
+
     private const val REQUEST_CODE = 4711
     private const val REQUEST_CODE_MIDNIGHT = 4712
+    private const val REQUEST_CODE_INTERVAL = 4713
 
     /** Arm (or re-arm) the daily 9:00 AM refresh. Safe to call repeatedly. */
     fun schedule(context: Context) {
@@ -49,6 +53,33 @@ object SleepWidgetScheduler {
                 pending
             )
             scheduleMidnight(context, am)
+            scheduleInterval(context, am)
+        } catch (e: Exception) {
+            /* best-effort */
+        }
+    }
+
+    /**
+     * Redraw the widget every 10 minutes — the clock ticks on its own, but
+     * the battery level and the temperature are read when the widget is drawn.
+     */
+    private fun scheduleInterval(context: Context, am: AlarmManager) {
+        try {
+            val intent = Intent(context, SleepWidgetAlarmReceiver::class.java).apply {
+                action = SleepWidgetAlarmReceiver.ACTION_REFRESH
+            }
+            val pending = PendingIntent.getBroadcast(
+                context,
+                REQUEST_CODE_INTERVAL,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setInexactRepeating(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + REFRESH_INTERVAL_MIN * 60_000L,
+                REFRESH_INTERVAL_MIN * 60_000L,
+                pending
+            )
         } catch (e: Exception) {
             /* best-effort */
         }

@@ -47,8 +47,8 @@ export interface WeatherNow {
 const CACHE_KEY = 'meridian_weather_cache';
 const CITY_KEY = 'meridian_weather_city';
 const POSITION_KEY = 'meridian_weather_position';
-/** A fresh reading is reused for three hours. */
-const FRESH_MS = 3 * 60 * 60 * 1000;
+/** A fresh reading is reused for four hours. */
+const FRESH_MS = 4 * 60 * 60 * 1000;
 /** The cached reading is still shown as a fallback for a day. */
 const STALE_MAX_MS = 24 * 60 * 60 * 1000;
 /** A GPS fix is never awaited for longer than this. */
@@ -110,6 +110,14 @@ async function writeCache(weather: WeatherNow): Promise<void> {
   } catch {
     /* best-effort */
   }
+}
+
+/**
+ * The last reading — no GPS, no network. The widget paints with it right
+ * away and the home card shows it while the fresh reading is fetched.
+ */
+export async function getCachedWeather(): Promise<WeatherNow | null> {
+  return await readCache();
 }
 
 /** The manually picked city (the fallback when there is no GPS). */

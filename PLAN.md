@@ -205,6 +205,65 @@
       package looks like a clock → the `clock://` scheme. The result is cached.
       (The red bar had also been swallowing the tap — it opened Meridian.)
 
+### Batch 11 — the widget redesign: the stage chart + the stats row (2026-11-13)
+
+The Clock + Sleep widget rebuilt to the new mockup (the date and the clock
+exactly as they were). Everything is scaled to the **2×2** cell.
+
+- [x] **The SLEEP block** — the red `#E8002A` shape with the cut-out at the
+      top left (the SLEEP caption sits in it) and the island on the right
+      holding the **duration** and the **sleep score**.
+- [x] **The stage chart** — 3 lanes: **DEEP** (a thick rounded bar in
+      `#9E0020`), **LIGHT** (a thick rounded bar in `#FF3355`) and **AWAKE** (a
+      dotted line at 40 % — black over the red — with the awake segments in
+      `#9E0020`). The lane labels are on the left, the bed/wake times
+      (`11:40p` / `5:30a`) under the chart.
+- [x] **The stages come from the real motion timeline** — a new
+      `sleepStages.ts`: a minute with sustained movement is **AWAKE**, a still
+      run of ≥ 20 min is **DEEP**, the rest is **LIGHT** (+ tests).
+- [x] **The sleep score (0–100)** — a new `sleepScore.ts`: the duration vs.
+      the target (50 points), the deep-sleep share (30) and the wake-ups (20).
+- [x] **The stats row — 3 slots**: **ALARM** (the next alarm, red; a grey
+      `--` when there is none), **BATT** (the battery %, white) and **TEMP**
+      (the temperature, white), split by 1 dp `#2A2A2A` dividers.
+- [x] **The temperature** — Open-Meteo + the GPS. The location permission is
+      now in the **committed** `AndroidManifest.xml` (the CI builds that file
+      as it is — it does not run `expo prebuild` — which is why the weather
+      never worked before). The reading is cached for **4 hours**.
+- [x] **The widget redraws every 10 minutes** (so the battery % and the
+      temperature stay fresh); the clock itself ticks on its own.
+- [x] **Meridian pushes the sleep data to KWGT** — a new native bridge sends
+      the payload as the broadcast `com.meridian.sleep.WIDGET_DATA` (the extra
+      `data`), so a KWGT preset can show the same night.
+
+#### The KWGT formulas (every value, bar and label)
+
+| Element | Formula |
+|---|---|
+| **Date** | `[size=30][color=#8A8A8A]$df(EEE)$[/color][size=30][color=#E8002A] $df(d)$[/color][size=30][color=#FFFFFF] $df(MMM)$[/color]` |
+| **Clock** | `[size=56][color=#E8002A]$df(hh)$[/color][size=56][color=#FFFFFF]:$df(mm)$[/color][size=28][color=#8A8A8A]$df(ss) $df(a)$[/color]` |
+| **Duration** | `[size=26][color=#0B0B0B]$var(sleep_dur)$[/color]` |
+| **Score** | `[size=15][color=#0B0B0B]Score $var(sleep_score)$[/color]` |
+| **Lane labels** | `[size=13][color=#0B0B0B]DEEP[/color]` · `LIGHT` · `AWAKE` |
+| **Deep bar** (shape) | `x="$var(track_x)$ + $var(deep1_start)$ * $var(track_w)$"` · `w="$var(deep1_len)$ * $var(track_w)$"` · `h="12"` · `r="6"` · `bg="#9E0020"` |
+| **Light bar** (shape) | the same maths, `bg="#FF3355"` |
+| **Awake track** (shape) | `h="2"` · `bg="#66000000"` (black at 40 % over the red) |
+| **Awake segment** (shape) | `bg="#9E0020"`, the same x/w maths |
+| **Bed / wake** | `[size=16][color=#0B0B0B]$var(bed_time)$[/color]` (left) · `[size=16][color=#0B0B0B]$var(wake_time)$[/color]` (right) |
+| **ALARM** (the system alarm) | `[size=16][b]$if(si(alarmon) = 1, [color=#E8002A]$df("h:mm a", si(alarmd))$[color], [color=#8A8A8A]--[color])$[/size]` |
+| **ALARM** (the app's own smart alarm) | `[size=16][b]$if($var(alarm_time)$ != '', [color=#E8002A]$var(alarm_time)$[color], [color=#8A8A8A]--[color])$[/size]` |
+| **BATT** | `[size=32][color=#FFFFFF]$bi(level)$%[/color]` |
+| **TEMP** | `[size=32][color=#FFFFFF]$wi(temp)$[/color]` |
+| **Stat labels** | `[size=18][color=#8A8A8A][ls=1]ALARM[/ls][/color]` · `BATT` · `TEMP` |
+| **Dividers** | shape `w="1"` `h="56"` `bg="#2A2A2A"` |
+| **The data from Meridian** | `$br(com.meridian.sleep.WIDGET_DATA)$` → the JSON extra `data` (the duration, the score, the bed/wake, the stage bars) |
+
+**The variable contract:** `sleep_dur`, `sleep_score`, `bed_time`, `wake_time`,
+`alarm_time`, `track_x`, `track_w` and per segment `deep1_start/deep1_len`,
+`deep2_start/deep2_len`, `light1_start/light1_len`, `light2_start/light2_len`,
+`awake1_start/awake1_len` — each `_start`/`_len` as a **0…1 fraction of the
+night** ✓.
+
 ### Batch 3 — on the device
 
 - [ ] Install the new APK (`apk-release` from run #89) — `expo-location` is a

@@ -54,6 +54,22 @@ TaskManager.defineTask(MEDICATION_ACTION_TASK, async ({ data, actionIdentifier }
   return BackgroundFetch.BackgroundFetchResult.NoData;
 });
 
+/**
+ * Refresh the weather (every four hours) and repaint the home-screen widget.
+ *
+ * Called when the app is opened and every time it comes back to the
+ * foreground. The reading itself is reused for four hours, so this only
+ * costs a request when the weather is actually stale.
+ */
+async function refreshWeather(): Promise<void> {
+  try {
+    const { getWeather } = require('./src/services/weather');
+    const reading = await getWeather();
+    if (!reading) return;
+    await pushSleepWidget();
+  } catch (_e) { /* the weather is optional — never break the app */ }
+}
+
 LogBox.ignoreLogs([
   /expo-notifications.*removed from Expo Go/,
 ]);
@@ -107,6 +123,11 @@ export default function App() {
         }
       }
     } catch (_e) { /* the tracker is unavailable (iOS / Expo Go) */ }
+
+    // The weather (the temperature in the widget) is refreshed when the app
+    // is opened and every time it comes back to the foreground — the reading
+    // itself is reused for four hours.
+    refreshWeather();
 
     // Background handler for the pill-reminder action buttons.
     try {
@@ -259,6 +280,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
           .then(() => pushStatsWidget())
           .catch((e) => console.warn('[App] foreground sync failed:', e));
         runMarketSyncWatchdog().catch(() => {});
+        // The weather is refreshed every time the app comes back.
+        refreshWeather().catch(() => {});
       }
       if (nextState === 'background') {
         processSyncQueue()

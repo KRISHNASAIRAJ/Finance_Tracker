@@ -8,8 +8,12 @@
     <color name="oxygen_black">#000000</color>
     <color name="oxygen_surface">#101010</color>
     <color name="oxygen_hairline">#262626</color>
-    <color name="oxygen_red">#EB0028</color>
+    <color name="oxygen_red">#E8002A</color>
     <color name="oxygen_red_soft">#FF3B4F</color>
+    <!-- The label grey of the stats row. -->
+    <color name="oxygen_label">#8A8A8A</color>
+    <!-- The 1dp divider between the stats. -->
+    <color name="oxygen_divider">#2A2A2A</color>
     <color name="oxygen_white">#FFFFFF</color>
     <color name="oxygen_white_dim">#E6E6E6</color>
     <color name="oxygen_muted">#8E8E93</color>
