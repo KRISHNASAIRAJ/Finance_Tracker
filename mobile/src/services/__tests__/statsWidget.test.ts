@@ -4,7 +4,7 @@
  * IST-scoped, card bills fall back to outstanding, net lent flips sign
  * for borrowings, and malformed rows never poison the numbers.
  */
-import { computeWidgetStats, formatRowMoney, formatStatMoney } from '../statsWidget';
+import { computeWidgetStats } from '../statsWidget';
 
 const dayKey = '2026-11-11';
 const monthKey = '2026-11';
@@ -207,7 +207,7 @@ describe('computeWidgetStats — tasks and net worth', () => {
     expect(stats.netWorthPaise).toBe(0);
   });
 
-  it('lists the tasks with the pending ones first and the done ones struck', () => {
+  it('lists the nearest two open tasks by date', () => {
     const stats = computeWidgetStats({
       ...base,
       tasks: [
@@ -217,38 +217,18 @@ describe('computeWidgetStats — tasks and net worth', () => {
         { ...task('2026-11-11T10:00:00.000Z', true), id: 'done', name: 'Done' },
       ],
     });
-    // The pending ones first (the overdue, then today's), the finished last.
-    expect(stats.taskRows.map((t) => t.name)).toEqual(['Overdue', 'Today', 'Later']);
-    expect(stats.taskRows[0].done).toBe(false);
+    // The overdue one first, then today's — the two nearest.
+    expect(stats.upcomingTasks?.map((t) => t.id)).toEqual(['overdue', 'today']);
+    expect(stats.upcomingTasks?.[0].name).toBe('Overdue');
+    expect(stats.upcomingTasks?.[0].done).toBe(false);
   });
 
-  it('marks the finished tasks as done', () => {
+  it('has no upcoming tasks when every task is done', () => {
     const stats = computeWidgetStats({
       ...base,
-      tasks: [
-        { ...task('2026-11-11T10:00:00.000Z', true), id: 'done', name: 'Done' },
-      ],
+      tasks: [task('2026-11-11T10:00:00.000Z', true)],
     });
-    expect(stats.taskRows[0].done).toBe(true);
-  });
-
-  it('marks the late lent money in red', () => {
-    const stats = computeWidgetStats({
-      ...base,
-      receivableDetails: [
-        {
-          id: 'r1',
-          personName: 'Amit',
-          amount: 2000000,
-          paidAmount: 0,
-          dueDate: '2026-11-01T00:00:00.000Z',
-          type: 'lent',
-          status: 'pending',
-        },
-      ],
-    });
-    expect(stats.lentRows[0].late).toBe(true);
-    expect(stats.lentRows[0].value).toContain('late');
+    expect(stats.upcomingTasks).toEqual([]);
   });
 
   it('returns zeros when everything is empty', () => {
@@ -258,60 +238,5 @@ describe('computeWidgetStats — tasks and net worth', () => {
     expect(stats.bankBalancePaise).toBe(0);
     expect(stats.netLentPaise).toBe(0);
     expect(stats.tasksLeft).toBe(0);
-  });
-});
-
-describe('computeWidgetStats — the rows that fit a 2x2 cell', () => {
-  it('puts the card due date with the name and keeps the amount compact', () => {
-    const stats = computeWidgetStats({
-      ...base,
-      cards: [{ balance: 1240000 } as any],
-      cardDetails: [
-        {
-          id: 'c1',
-          name: 'SBI',
-          balance: 1240000,
-          currentOutstanding: 0,
-          dueDate: '2026-11-18T00:00:00.000Z',
-        } as any,
-      ],
-    });
-    expect(stats.cardRows[0].name).toBe('SBI 18 Nov');
-    expect(stats.cardRows[0].value).toBe('₹12.4k');
-  });
-
-  it('uses the compact k / L form for the bank and lent rows', () => {
-    const stats = computeWidgetStats({
-      ...base,
-      accounts: [{ amount: 21000000 } as any, { amount: 5000000 } as any],
-      bankDetails: [
-        { id: 'a1', title: 'HDFC', amount: 21000000 } as any,
-        { id: 'a2', title: 'SBI', amount: 5000000 } as any,
-      ],
-      receivableDetails: [
-        {
-          id: 'r1',
-          personName: 'Amit',
-          amount: 2000000,
-          paidAmount: 0,
-          dueDate: '2026-11-20T00:00:00.000Z',
-          type: 'lent',
-          status: 'pending',
-        } as any,
-      ],
-    });
-    expect(stats.bankRows[0].value).toBe('₹2.1L');
-    expect(stats.bankRows[1].value).toBe('₹50k');
-    expect(stats.lentRows[0].value).toBe('₹20k');
-  });
-
-  it('formats the heroes with the compact L form from a lakh up', () => {
-    expect(formatStatMoney(4230000)).toBe('₹42,300');
-    expect(formatStatMoney(38425000)).toBe('₹3.8L');
-    expect(formatStatMoney(184000000)).toBe('₹18.4L');
-    expect(formatRowMoney(1240000)).toBe('₹12.4k');
-    expect(formatRowMoney(2000000)).toBe('₹20k');
-    expect(formatRowMoney(21000000)).toBe('₹2.1L');
-    expect(formatRowMoney(99900)).toBe('₹999');
   });
 });

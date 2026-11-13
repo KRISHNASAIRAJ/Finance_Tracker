@@ -1,11 +1,11 @@
 /**
- * statsWidget — computes the stats shown on the Android home-screen widget and
- * pushes them to the native StatsWidgetBridge (SharedPreferences-backed, the
+ * statsWidget — computes the stats shown on the Android home-screen widget
+ * and pushes them to the native StatsWidgetBridge (SharedPreferences-backed,
  * same pattern as the sleep widget bridge).
  *
- * The widget is a 2x2 carousel: five screens (card bills, bank balance, lent,
- * my wealth, tasks) fade through every 3 seconds; tapping it goes to the next
- * screen. Each screen has a grey label, one hero value and three rows.
+ * The widget is a 2x2 carousel: six stat cards (monthly spend, CC bills,
+ * bank balance, net lent/debit, tasks left, net worth) auto-advance every
+ * 3 seconds with a fade; tapping a card deep-links to that screen.
  *
  * Degrades gracefully (no-ops) on iOS / Expo Go where the module is absent.
  */
@@ -19,22 +19,12 @@ import {
   type Receivable,
 } from '../modules/finance/store';
 import { useTasksStore, type Task } from '../modules/tasks/store';
-import { useInvestmentsStore, type Holding } from '../modules/equity/store';
+import { useInvestmentsStore } from '../modules/equity/store';
 import { useGarageStore, type FuelFill } from '../modules/garage/store';
 
 const StatsWidgetModule = NativeModules.StatsWidgetBridge as
   | { setStats: (json: string) => Promise<void> }
   | undefined;
-
-/** One row of a stats screen: a name on the left, a value on the right. */
-export interface WidgetRow {
-  name: string;
-  value: string;
-  /** Drawn in red (a late / overdue item). */
-  late?: boolean;
-  /** Struck through and grey (a finished task). */
-  done?: boolean;
-}
 
 export interface WidgetStats {
   /** IST day key the stats are for, YYYY-MM-DD */
@@ -53,54 +43,25 @@ export interface WidgetStats {
   tasksLeft: number;
   /** Holdings + FDs − loans, in paise */
   netWorthPaise: number;
-  /** Today's market change (holdings Δ (price − prev close)), in paise */
+  /** Today's market change (holdings × (price − prev close)), in paise */
   dayChangePaise: number;
-  /** Today's market change in percent (vs. the previous close value) */
+  /** Today's market change in percent (vs the previous close value) */
   dayChangePct: number;
   /** Current portfolio value of the holdings, in paise */
   portfolioValuePaise: number;
-
-  // --- the rows of the five screens ---
-  /** The card bills: the card, the amount and the due date. */
-  cardRows: WidgetRow[];
-  /** The bank balances: the bank and the balance. */
-  bankRows: WidgetRow[];
-  /** The lent money: the person and the amount (the late ones in red). */
-  lentRows: WidgetRow[];
-  /** The tasks: the name (the finished ones struck through). */
-  taskRows: WidgetRow[];
-  /** The wealth split: the equity / MF / other share, in percent. */
-  wealthSplit: number[];
+  /**
+   * The nearest tasks for the widget's task rows — ascending by date, the
+   * overdue ones first. Each one gets a circle to tick it off.
+   */
+  upcomingTasks?: WidgetTask[];
 }
 
-/**
- * Paise → "₹42,300" (or "₹3.8L" from a lakh up) — the screen heroes.
- */
-export function formatStatMoney(paise: number): string {
-  const rupees = Math.abs(paise || 0) / 100;
-  if (rupees >= 100000) return `₹${(rupees / 100000).toFixed(1)}L`;
-  return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
-}
-
-/**
- * Paise → "₹12.4k" / "₹20k" / "₹2.1L" — the compact form the rows use, so a
- * name and a value fit on one line of the 2x2 widget.
- */
-export function formatRowMoney(paise: number): string {
-  const rupees = Math.abs(paise || 0) / 100;
-  if (rupees >= 100000) return `₹${(rupees / 100000).toFixed(1)}L`;
-  if (rupees >= 1000) {
-    const k = (rupees / 1000).toFixed(1).replace(/\.0$/, '');
-    return `₹${k}k`;
-  }
-  return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
-}
-
-/** "18 Nov" — the short date. */
-export function formatShortDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+/** One task in the widget's task rows. */
+export interface WidgetTask {
+  id: string;
+  name: string;
+  /** The task is already done (the circle is filled). */
+  done: boolean;
 }
 
 /**
@@ -131,18 +92,14 @@ export function computeWidgetStats(input: {
   receivables: Pick<Receivable, 'type' | 'amount' | 'paidAmount'>[];
   tasks: Task[];
   netWorthPaise: number;
+  /** Today's market change in paise */
   dayChangePaise?: number;
+  /** Current holdings value in paise */
   portfolioValuePaise?: number;
+  /** Garage fuel fills — fuel is counted from here, not from transactions */
   garageFills?: Pick<FuelFill, 'date' | 'amount'>[];
+  /** Fixed expense names are excluded from "spend" (they are shown separately) */
   fixedExpenseNames?: string[];
-  /** The card rows: the name, the amount and the due date. */
-  cardDetails?: Pick<CreditCard, 'name' | 'balance' | 'billAmount' | 'currentOutstanding' | 'dueDate'>[];
-  /** The bank rows: the title and the balance. */
-  bankDetails?: Pick<BankAccount, 'title' | 'amount'>[];
-  /** The receivables: the person, the amount and the due date. */
-  receivableDetails?: Pick<Receivable, 'personName' | 'amount' | 'paidAmount' | 'dueDate' | 'type' | 'status'>[];
-  /** The holdings: the type and the current value. */
-  holdingDetails?: Pick<Holding, 'type' | 'quantity' | 'currentPrice'>[];
   /** "Now" — injectable so the month window can be tested */
   now?: Date;
 }): WidgetStats {
@@ -159,10 +116,6 @@ export function computeWidgetStats(input: {
     portfolioValuePaise: portfolioValueIn = 0,
     garageFills = [],
     fixedExpenseNames = [],
-    cardDetails = [],
-    bankDetails = [],
-    receivableDetails = [],
-    holdingDetails = [],
     now = new Date(),
   } = input;
 
@@ -190,15 +143,20 @@ export function computeWidgetStats(input: {
       })
       .reduce((sum, f) => sum + (Number.isFinite(f.amount) ? f.amount : 0), 0);
 
-  // Credit card bills — the same rule the app uses everywhere:
-  //   I (balance ?? current_outstanding)
-  const ccBillsPaise = cards.reduce(
-    (sum, c) => sum + (Number(c.balance ?? c.currentOutstanding ?? 0) || 0),
-    0
-  );
+  // Credit card bills — the same rule the app uses everywhere (Credit Cards
+  // screen per-card due, Balance Summary's card outstanding total, the
+  // net-worth formula, and the web Credit Cards page):
+  //   Σ (balance ?? current_outstanding)
+  // `balance` is the field the app keeps in sync; the gross statement
+  // (`billAmount`) is deliberately not used here because it ignores
+  // payments already made against the bill.
+  const ccBillsPaise = cards.reduce((sum, c) => {
+    const outstanding = Number(c.balance ?? c.currentOutstanding ?? 0);
+    return sum + (Number.isFinite(outstanding) ? outstanding : 0);
+  }, 0);
 
   const bankBalancePaise = accounts.reduce(
-    (sum, a) => sum + (Number(a.amount) || 0),
+    (sum, a) => sum + (Number.isFinite(a.amount) ? a.amount : 0),
     0
   );
 
@@ -219,77 +177,21 @@ export function computeWidgetStats(input: {
     return istDateKey(d) <= dayKey;
   }).length;
 
-  // Market today — the same formula as the Wealth dashboard's day-change card.
+  // The nearest tasks for the widget's rows — ascending by date, so the
+  // overdue ones come first.
+  const upcomingTasks: WidgetTask[] = tasks
+    .filter((t) => !t.completed && !!t.dueDate)
+    .filter((t) => !Number.isNaN(new Date(t.dueDate).getTime()))
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 2)
+    .map((t) => ({ id: t.id, name: t.name, done: false }));
+
+  // Market today — same formula as the Wealth dashboard's day-change card:
+  // change % is relative to the value before today's move.
   const dayChangePaise = Number.isFinite(dayChangeIn) ? dayChangeIn : 0;
   const portfolioValuePaise = Number.isFinite(portfolioValueIn) ? portfolioValueIn : 0;
   const dayChangePct =
-    portfolioValuePaise > 0
-      ? (dayChangePaise / Math.max(1, portfolioValuePaise - dayChangePaise)) * 100
-      : 0;
-
-  // --- the rows of the screens -----------------------------------------------
-
-  // The cards: the biggest three. The due date rides with the card name (the
-  // amount stays on the right) so the whole row fits the 2x2 cell.
-  const cardRows: WidgetRow[] = [...cardDetails]
-    .sort((a, b) => (b.balance ?? b.currentOutstanding ?? 0) - (a.balance ?? a.currentOutstanding ?? 0))
-    .slice(0, 3)
-    .map((c) => {
-      const amount = c.balance ?? c.currentOutstanding ?? 0;
-      const due = formatShortDate(c.dueDate);
-      return {
-        name: `${c.name || 'Card'}${due ? ` ${due}` : ''}`,
-        value: formatRowMoney(amount),
-      };
-    });
-
-  // The banks: the biggest three.
-  const bankRows: WidgetRow[] = [...bankDetails]
-    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-    .slice(0, 3)
-    .map((a) => ({ name: a.title || 'Bank', value: formatRowMoney(a.amount || 0) }));
-
-  // The lent money: the unpaid ones, the late ones in red.
-  const lentRows: WidgetRow[] = receivableDetails
-    .filter((r) => r.type === 'lent' && r.status !== 'paid')
-    .map((r) => {
-      const outstanding = (r.amount || 0) - (r.paidAmount || 0);
-      const dueDate = r.dueDate ? new Date(r.dueDate) : null;
-      const late = !!dueDate && !Number.isNaN(dueDate.getTime()) && istDateKey(dueDate) < dayKey;
-      return {
-        name: r.personName || 'Lent',
-        value: `${formatRowMoney(outstanding)}${late ? ' · late' : ''}`,
-        late,
-      };
-    })
-    .sort((a, b) => Number(b.late) - Number(a.late))
-    .slice(0, 3);
-
-  // The tasks: the pending ones first (by their due date), then the finished
-  // ones (they are drawn struck through).
-  const taskRows: WidgetRow[] = [...tasks]
-    .sort((a, b) => {
-      if (!!a.completed !== !!b.completed) return Number(a.completed) - Number(b.completed);
-      return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
-    })
-    .slice(0, 3)
-    .map((t) => ({ name: t.name || 'Task', value: '', done: !!t.completed }));
-
-  // The wealth split: the equity / MF / other share of the holdings.
-  let equityValue = 0;
-  let mfValue = 0;
-  let otherValue = 0;
-  for (const h of holdingDetails) {
-    const value = (h.quantity || 0) * (h.currentPrice || 0) * 100; // paise
-    if (h.type === 'equity' || h.type === 'etf') equityValue += value;
-    else if (h.type === 'mf') mfValue += value;
-    else otherValue += value;
-  }
-  const totalHoldings = equityValue + mfValue + otherValue;
-  const pct = (v: number) => (totalHoldings > 0 ? Math.round((v / totalHoldings) * 100) : 0);
-  const equityPct = pct(equityValue);
-  const mfPct = pct(mfValue);
-  const otherPct = Math.max(0, 100 - equityPct - mfPct);
+    portfolioValuePaise > 0 ? (dayChangePaise / Math.max(1, portfolioValuePaise - dayChangePaise)) * 100 : 0;
 
   return {
     dayKey,
@@ -303,11 +205,7 @@ export function computeWidgetStats(input: {
     dayChangePaise,
     dayChangePct,
     portfolioValuePaise,
-    cardRows,
-    bankRows,
-    lentRows,
-    taskRows,
-    wealthSplit: [equityPct, mfPct, otherPct],
+    upcomingTasks,
   };
 }
 
@@ -330,10 +228,6 @@ export function readWidgetStats(): WidgetStats {
     portfolioValuePaise: inv.getPortfolioValue(),
     garageFills: g.fills,
     fixedExpenseNames: f.fixedExpenses.map((fx) => fx.name),
-    cardDetails: f.cards,
-    bankDetails: f.accounts,
-    receivableDetails: f.receivables,
-    holdingDetails: inv.holdings,
   });
 }
 

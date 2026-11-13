@@ -3,18 +3,17 @@
   StatsWidget — 2x2 home-screen carousel (OnePlus OxygenOS: black, white, the
   OnePlus red as the accent).
 
-  Five screens fade through every 3 seconds: CARD BILLS, BANK BALANCE, LENT,
-  MY WEALTH and TASKS. Every screen has a grey uppercase label, one hero value
-  and three rows (a name on the left, a value on the right).
-
-  The page dots at the bottom mark the active screen (the active one is a red
-  pill). Tapping the widget goes to the next screen.
+  Seven stat cards (monthly spend, CC bills, bank balance, net lent/debit,
+  tasks left, net worth and today's market performance) live in a ViewFlipper
+  that auto-advances every 3 seconds with a fade; tapping a card deep-links to
+  that screen. The ANIMATION is exactly as it was — only the styling follows
+  the OxygenOS palette.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/stats_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_stats_bg">
+    android:background="@drawable/widget_clock_sleep_bg">
 
     <ViewFlipper
         android:id="@+id/stats_flipper"
@@ -25,699 +24,381 @@
         android:inAnimation="@anim/widget_fade_in"
         android:outAnimation="@anim/widget_fade_out"
         android:animateFirstView="false">
-        <!-- CARD BILLS -->
+
+        <!-- Card 1 — monthly spend -->
         <LinearLayout
-            android:id="@+id/stats_screen_bills"
+            android:id="@+id/stats_card_spend"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="14dp">
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
-                android:id="@+id/stats_bills_label"
+                android:id="@+id/stats_spend_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.06"
-                android:text="CARD BILLS"
-                android:textColor="@color/oxygen_label"
-                android:textSize="11sp" />
+                android:letterSpacing="0.12"
+                android:text="MONTHLY SPEND"
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
 
             <TextView
-                android:id="@+id/stats_bills_hero"
+                android:id="@+id/stats_spend"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:maxLines="1"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
-                android:textSize="24sp" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bills_name_1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bills_value_1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bills_name_2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bills_value_2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bills_name_3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bills_value_3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
+                android:textColor="@color/oxygen_red"
+                android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- BANK BALANCE -->
+        <!-- Card 2 — credit card bills -->
         <LinearLayout
-            android:id="@+id/stats_screen_bank"
+            android:id="@+id/stats_card_cards"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="14dp">
+            android:gravity="center"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/stats_cards_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:text="CC BILLS"
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
+
+            <TextView
+                android:id="@+id/stats_cards"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
+                android:text="—"
+                android:textColor="@color/oxygen_red"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <!-- Card 3 — bank balance -->
+        <LinearLayout
+            android:id="@+id/stats_card_bank"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
                 android:id="@+id/stats_bank_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.06"
+                android:letterSpacing="0.12"
                 android:text="BANK BALANCE"
-                android:textColor="@color/oxygen_label"
-                android:textSize="11sp" />
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
 
             <TextView
-                android:id="@+id/stats_bank_hero"
+                android:id="@+id/stats_bank"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:maxLines="1"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
-                android:textSize="24sp" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bank_name_1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bank_value_1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bank_name_2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bank_value_2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_bank_name_3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_bank_value_3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
+                android:textColor="@color/oxygen_red"
+                android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- LENT -->
+        <!-- Card 4 — net lent / net debit -->
         <LinearLayout
-            android:id="@+id/stats_screen_lent"
+            android:id="@+id/stats_card_lent"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="14dp">
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
                 android:id="@+id/stats_lent_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.06"
-                android:text="LENT"
-                android:textColor="@color/oxygen_label"
-                android:textSize="11sp" />
+                android:letterSpacing="0.12"
+                android:text="NET LENT"
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
 
             <TextView
-                android:id="@+id/stats_lent_hero"
+                android:id="@+id/stats_lent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:maxLines="1"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
-                android:textSize="24sp" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_lent_name_1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_lent_value_1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_lent_name_2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_lent_value_2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/stats_lent_name_3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_lent_value_3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
+                android:textColor="@color/oxygen_red"
+                android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- MY WEALTH -->
+        <!-- Card 5 — tasks (the header + the nearest 2 tasks, each with a
+             circle to tick it off). The card appears twice in the flipper so
+             it dwells ~6 s while the other cards keep their 3 s. -->
         <LinearLayout
-            android:id="@+id/stats_screen_wealth"
+            android:id="@+id/stats_card_tasks"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="14dp">
+            android:gravity="center"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/stats_tasks_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="TASKS LEFT"
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/stats_tasks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="—"
+                    android:textColor="@color/oxygen_red"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_1"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_2"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- The tasks card again — it dwells longer so the circles can be
+             tapped (the flipper's interval is the same for every card). -->
+        <LinearLayout
+            android:id="@+id/stats_card_tasks_b"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/stats_tasks_label_b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="TASKS LEFT"
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/stats_tasks_b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="—"
+                    android:textColor="@color/oxygen_red"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_1_b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_1_b"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_1_b"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/stats_task_row_2_b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/stats_task_circle_2_b"
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="Mark done"
+                    android:src="@drawable/widget_task_circle" />
+
+                <TextView
+                    android:id="@+id/stats_task_name_2_b"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textColor="@color/oxygen_white"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Card 6 — net worth -->
+        <LinearLayout
+            android:id="@+id/stats_card_wealth"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
                 android:id="@+id/stats_wealth_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.06"
-                android:text="MY WEALTH"
-                android:textColor="@color/oxygen_label"
-                android:textSize="11sp" />
+                android:letterSpacing="0.12"
+                android:text="NET WEALTH"
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
 
             <TextView
-                android:id="@+id/stats_wealth_hero"
+                android:id="@+id/stats_wealth"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:maxLines="1"
+                android:letterSpacing="-0.02"
                 android:text="—"
-                android:textColor="@color/oxygen_white"
-                android:textSize="24sp" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/stats_wealth_today"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:includeFontPadding="false"
-                    android:text="Today"
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/stats_wealth_change"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:includeFontPadding="false"
-                    android:text=""
-                    android:textColor="@color/oxygen_gain"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
-            <!-- The split bar: equity / MF / other -->
-            <FrameLayout
-                android:id="@+id/stats_wealth_bar"
-                android:layout_width="match_parent"
-                android:layout_height="6dp"
-                android:layout_marginTop="4dp">
-
-                <ProgressBar
-                    android:id="@+id/stats_wealth_equity"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_stat_equity" />
-
-                <ProgressBar
-                    android:id="@+id/stats_wealth_mf"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_stat_mf" />
-
-                <ProgressBar
-                    android:id="@+id/stats_wealth_other"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_stat_other" />
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/stats_wealth_label_1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:includeFontPadding="false"
-                    android:text=""
-                    android:textColor="@color/oxygen_red"
-                    android:textSize="10sp" />
-
-                <TextView
-                    android:id="@+id/stats_wealth_label_2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:includeFontPadding="false"
-                    android:text=""
-                    android:textColor="#FF8FA3"
-                    android:textSize="10sp" />
-
-                <TextView
-                    android:id="@+id/stats_wealth_label_3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:includeFontPadding="false"
-                    android:text=""
-                    android:textColor="#8A8A8A"
-                    android:textSize="10sp" />
-            </LinearLayout>
-
+                android:textColor="@color/oxygen_red"
+                android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- TASKS -->
+        <!-- Card 7 — today's market performance (day change + net value) -->
         <LinearLayout
-            android:id="@+id/stats_screen_tasks"
+            android:id="@+id/stats_card_market"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="14dp">
+            android:gravity="center"
+            android:padding="10dp">
 
             <TextView
-                android:id="@+id/stats_tasks_label"
+                android:id="@+id/stats_market_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.06"
-                android:text="TASKS"
-                android:textColor="@color/oxygen_label"
-                android:textSize="11sp" />
+                android:letterSpacing="0.12"
+                android:text="MARKET TODAY"
+                android:textColor="@color/oxygen_white"
+                android:textSize="8sp" />
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/stats_market_change"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.02"
+                android:text="—"
+                android:textColor="@color/oxygen_red"
+                android:textSize="18sp" />
 
-                <TextView
-                    android:id="@+id/stats_tasks_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="false"
-                    android:text="0"
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="24sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:includeFontPadding="false"
-                    android:text="pending"
-                    android:textColor="@color/oxygen_muted"
-                    android:textSize="13sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/stats_market_value"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <ImageView
-                    android:id="@+id/stats_tasks_check_1"
-                    android:layout_width="11dp"
-                    android:layout_height="11dp"
-                    android:layout_marginEnd="6dp"
-                    android:contentDescription="Done"
-                    android:src="@drawable/widget_stat_check" />
-
-                <TextView
-                    android:id="@+id/stats_tasks_name_1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <ImageView
-                    android:id="@+id/stats_tasks_check_2"
-                    android:layout_width="11dp"
-                    android:layout_height="11dp"
-                    android:layout_marginEnd="6dp"
-                    android:contentDescription="Done"
-                    android:src="@drawable/widget_stat_check" />
-
-                <TextView
-                    android:id="@+id/stats_tasks_name_2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <ImageView
-                    android:id="@+id/stats_tasks_check_3"
-                    android:layout_width="11dp"
-                    android:layout_height="11dp"
-                    android:layout_marginEnd="6dp"
-                    android:contentDescription="Done"
-                    android:src="@drawable/widget_stat_check" />
-
-                <TextView
-                    android:id="@+id/stats_tasks_name_3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text=""
-                    android:textColor="@color/oxygen_white"
-                    android:textSize="11sp" />
-
-            </LinearLayout>
-
+                android:layout_marginTop="1dp"
+                android:text="—"
+                android:textColor="@color/oxygen_muted"
+                android:textSize="10sp" />
         </LinearLayout>
-
     </ViewFlipper>
-
-    <!-- The page dots -->
-    <LinearLayout
-        android:id="@+id/stats_dots"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="6dp"
-        android:orientation="horizontal">
-
-        <ImageView
-            android:id="@+id/stats_dot_1"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:contentDescription="Page 1"
-            android:src="@drawable/widget_stat_dot" />
-
-        <ImageView
-            android:id="@+id/stats_dot_2"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:contentDescription="Page 2"
-            android:src="@drawable/widget_stat_dot" />
-
-        <ImageView
-            android:id="@+id/stats_dot_3"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:contentDescription="Page 3"
-            android:src="@drawable/widget_stat_dot" />
-
-        <ImageView
-            android:id="@+id/stats_dot_4"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:contentDescription="Page 4"
-            android:src="@drawable/widget_stat_dot" />
-
-        <ImageView
-            android:id="@+id/stats_dot_5"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:contentDescription="Page 5"
-            android:src="@drawable/widget_stat_dot" />
-    </LinearLayout>
 </FrameLayout>
