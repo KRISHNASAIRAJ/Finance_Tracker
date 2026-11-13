@@ -186,7 +186,7 @@
       - plus a self-heal in the app: inside the night window the sleep screen
         restarts the tracker if the service died (at most once a minute).
 
-### Batch 10 — the widget opens the device's clock app (2026-11-13)
+### Batch 10 — shipped (CI run #97 green, 2026-11-13)
 
 - [x] **Tapping the Clock & Sleep widget opens the phone's OWN clock app**
       instead of Meridian — the chain is the standard `clock://` view intent
