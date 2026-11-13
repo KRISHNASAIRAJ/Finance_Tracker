@@ -7,11 +7,15 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.BatteryManager
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.SpannableStringBuilder
+import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
@@ -42,6 +46,8 @@ class ClockSleepWidget : AppWidgetProvider() {
         private const val TRACK_INSET_DP = 44
 
         private const val NO_VALUE = "—"
+        /** Shown until the realtime weather lands. */
+        private const val DEFAULT_TEMP_C = 24.0
 
         /** The muted grey of the stats (the "--" of a missing alarm). */
         private val MUTED = Color.parseColor("#8A8A8A")
@@ -152,11 +158,11 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
 
         var duration = NO_VALUE
-        var score = ""
+        var scoreValue = 0
         var bedLabel = ""
         var wakeLabel = ""
         var alarmLabel = ""
-        var tempC = 0.0
+        var tempC = DEFAULT_TEMP_C
         val deep = mutableListOf<FloatArray>()
         val light = mutableListOf<FloatArray>()
         val awake = mutableListOf<FloatArray>()
@@ -167,12 +173,14 @@ class ClockSleepWidget : AppWidgetProvider() {
                 if (o.optBoolean("hasSleep", false)) {
                     duration = formatDuration(o.optLong("durationMin", 0L))
                 }
-                val scoreValue = o.optInt("score", 0)
-                if (scoreValue > 0) score = "Score $scoreValue"
+                scoreValue = o.optInt("score", 0)
                 bedLabel = o.optString("bedLabel", "")
                 wakeLabel = o.optString("wakeLabel", "")
                 alarmLabel = o.optString("alarmLabel", "")
-                tempC = o.optDouble("tempC", 0.0)
+                // Weather is not realtime yet — the payload default
+                // applies when nothing usable comes through.
+                val tc = o.optDouble("tempC", Double.NaN)
+                if (!tc.isNaN() && tc > -50.0 && tc < 60.0) tempC = tc
                 val stages = o.optJSONObject("stages")
                 if (stages != null) {
                     readSegments(stages.optJSONArray("deep"), deep)
@@ -184,8 +192,7 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
-        views.setTextViewText(R.id.clock_sleep_duration, duration)
-        views.setTextViewText(R.id.clock_sleep_score, score)
+        views.setTextViewText(R.id.clock_sleep_duration, combinedDurationAndScore(duration, scoreValue))
         views.setTextViewText(R.id.clock_sleep_date, dateText())
         views.setTextViewText(R.id.clock_sleep_bed, bedLabel)
         views.setTextViewText(R.id.clock_sleep_wake, wakeLabel)
@@ -207,12 +214,9 @@ class ClockSleepWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.clock_sleep_batt_value, NO_VALUE)
         }
 
-        // The temperature.
-        if (tempC > -50.0 && tempC < 60.0) {
-            views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
-        } else {
-            views.setTextViewText(R.id.clock_sleep_temp_value, NO_VALUE)
-        }
+        // The temperature (the realtime weather is not implemented yet,
+        // so the payload defaults to 24°).
+        views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
 
         // The stage chart — the bars are drawn by padding a full-width progress
         // bar, so the segment lands exactly where it should.
@@ -303,6 +307,21 @@ class ClockSleepWidget : AppWidgetProvider() {
         val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
         val density = context.resources.displayMetrics.density
         return ((widthDp - TRACK_INSET_DP).coerceAtLeast(40) * density).toInt()
+    }
+
+    /**
+     * The duration (bold) over the sleep score, left-aligned inside the
+     * raised island — the reference look.
+     */
+    private fun combinedDurationAndScore(duration: String, scoreValue: Int): CharSequence {
+        if (duration == NO_VALUE || scoreValue <= 0) return duration
+        val line1 = duration
+        val line2 = "Score $scoreValue"
+        val sb = SpannableStringBuilder("$line1\n$line2")
+        sb.setSpan(StyleSpan(Typeface.BOLD), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(AbsoluteSizeSpan(10, true), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(AbsoluteSizeSpan(6, true), line1.length + 1, sb.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        return sb
     }
 
     /** 522 minutes → "8H 42M". */

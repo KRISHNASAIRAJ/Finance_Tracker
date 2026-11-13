@@ -79,14 +79,26 @@ export interface SleepWidgetPayload {
  */
 const REM_OFFSET_RATIO = 0.22;
 const REM_LENGTH_MIN = 25;
+/** Weather is not realtime yet — shown until it is. */
+const DEFAULT_TEMP_C = 24;
 
 /** "11:40 PM" — the bed / wake time, the way the widget shows it. */
+/** "11:40p" / "5:30a" — the compact style used inside the red block. */
+export function formatShortClockLabel(epochMs: number): string {
+  const d = new Date(epochMs);
+  const h = d.getHours();
+  const suffix = h >= 12 ? 'p' : 'a';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${h12}:${mm}${suffix}`;
+}
+
 export function formatClockLabel(epochMs: number): string {
   if (!Number.isFinite(epochMs) || epochMs <= 0) return '';
   const d = new Date(epochMs);
   let h = d.getHours();
   const m = d.getMinutes();
-  const suffix = h >= 12 ? 'PM' : 'AM';
+  const suffix = h >= 12 ? 'pm' : 'am';
   h = h % 12;
   if (h === 0) h = 12;
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
@@ -97,7 +109,7 @@ export function formatAlarmLabel(minutesFromMidnight: number): string {
   if (!Number.isFinite(minutesFromMidnight)) return '';
   const h24 = Math.floor(minutesFromMidnight / 60) % 24;
   const m = Math.round(minutesFromMidnight % 60);
-  const suffix = h24 >= 12 ? 'PM' : 'AM';
+  const suffix = h24 >= 12 ? 'pm' : 'am';
   let h = h24 % 12;
   if (h === 0) h = 12;
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
@@ -203,7 +215,7 @@ export function computeSleepWidgetPayload(
       wakeLabel: '',
       interruptions: 0,
       stages: { deep: [], light: [], awake: [] },
-      tempC: extra?.tempC ?? 0,
+      tempC: extra?.tempC ?? DEFAULT_TEMP_C,
       alarmLabel:
         extra?.alarmMin === null || extra?.alarmMin === undefined
           ? ''
@@ -233,11 +245,11 @@ export function computeSleepWidgetPayload(
     }),
     bedTime,
     wakeTime,
-    bedLabel: formatClockLabel(bedTime),
-    wakeLabel: formatClockLabel(wakeTime),
+    bedLabel: formatShortClockLabel(bedTime),
+    wakeLabel: formatShortClockLabel(wakeTime),
     interruptions,
     stages: computeStageSegments(buckets, sensitivity),
-    tempC: extra?.tempC ?? 0,
+    tempC: extra?.tempC ?? DEFAULT_TEMP_C,
     alarmLabel:
       extra?.alarmMin === null || extra?.alarmMin === undefined
         ? ''
@@ -259,14 +271,14 @@ export function isSleepStatsWidgetAvailable(): boolean {
   return Platform.OS === 'android' && !!SleepStatsWidgetModule;
 }
 
-/** The cached temperature (0 when there is no reading yet). */
+/** The cached temperature (24 when there is no reading yet — realtime weather is not implemented yet). */
 async function cachedTempC(): Promise<number> {
   try {
     const { getCachedWeather } = require('./weather');
     const reading = await getCachedWeather();
-    return reading ? Math.round(reading.tempC) : 0;
+    return reading ? Math.round(reading.tempC) : DEFAULT_TEMP_C;
   } catch {
-    return 0;
+    return DEFAULT_TEMP_C;
   }
 }
 

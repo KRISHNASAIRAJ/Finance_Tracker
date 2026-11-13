@@ -9,7 +9,7 @@
     <item android:id="@android:id/progress">
         <clip>
             <shape android:shape="rectangle">
-                <solid android:color="#FF3355" />
+                <solid android:color="#FF8B96" />
                 <corners android:radius="1.5dp" />
             </shape>
         </clip>
