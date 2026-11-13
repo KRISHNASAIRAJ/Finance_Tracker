@@ -123,7 +123,7 @@
              left-aligned inside the raised bump (the bump is 92dp, this view is 82dp) -->
         <TextView
             android:id="@+id/clock_sleep_duration"
-            android:layout_width="82dp"
+            android:layout_width="60dp"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_alignParentTop="true"
