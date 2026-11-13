@@ -1403,3 +1403,18 @@ The dashboard's edit modal deleted a night straight away. It now asks
 
 `mobile/src/modules/sleep/__tests__/sleepNights.test.ts` (9). Total: 252 unit
 tests (28 suites) + 9 e2e.
+
+### The stats carousel + AM/PM caps (2026-11-13)
+
+- **Stats widget** — the 5-screen carousel (CARD BILLS, BANK BALANCE, LENT,
+  MY WEALTH, TASKS) with compact-money rows, colour-coded split-bar
+  percentages and today's change in green; the page dots mark the active
+  screen.
+- **AM/PM in caps** in the clock and the sleep widget's alarm / bed / wake
+  labels.
+- **No overlap** — 11 sp rows at 8 dp padding, the stats columns rebalanced
+  (alarm 1.4, battery and temperature 0.8).
+- **Track width fixed** — `TRACK_INSET_DP` 30 → 44 in ClockSleepWidget and
+  the split bar now measures its real pixel width.
+- Total: 285 unit tests (31 suites) + 9 e2e. Pushed as `42ba114` (CI run
+  #101 in progress).
