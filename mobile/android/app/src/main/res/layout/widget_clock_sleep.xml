@@ -120,8 +120,7 @@
         android:paddingEnd="6dp">
 
         <!-- The island (top right): the duration (bold) over the score,
-             left-aligned inside the raised bump — 82dp wide so it matches
-             the 88dp bump minus the pill padding -->
+             left-aligned inside the raised bump (the bump is 92dp, this view is 82dp) -->
         <TextView
             android:id="@+id/clock_sleep_duration"
             android:layout_width="82dp"

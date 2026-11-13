@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The red sleep block: one continuous silhouette — a rounded body whose top
-     edge sweeps up into the raised island in a single smooth concave scoop
-     (like the reference mock). The cut-out on the top left is where the SLEEP
-     caption sits. -->
+<!-- The red sleep block: a rounded body whose top edge sweeps up into the
+     raised island in one continuous concave scoop. The cut-out on the top left
+     is where the SLEEP caption sits. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Body -->
     <item
@@ -15,18 +14,10 @@
             <corners android:radius="12dp" />
         </shape>
     </item>
-    <!-- The raised island merged into the body with one concave scoop -->
+    <!-- The raised island, with the anti-alias-free scoop -->
     <item
         android:gravity="top|right"
         android:width="92dp"
-        android:height="48dp">
-        <vector
-            xmlns:android="http://schemas.android.com/apk/res/android"
-            android:viewportWidth="92"
-            android:viewportHeight="48">
-            <path
-                android:fillColor="@color/oxygen_red"
-                android:pathData="M8 48 L92 48 L92 10 A10 10 0 0 0 82 0 L56 0 A10 10 0 0 0 46 10 L46 16 C44 27 26 32 8 44 Z" />
-        </vector>
-    </item>
+        android:height="48dp"
+        android:drawable="@drawable/widget_sleep_bump" />
 </layer-list>
