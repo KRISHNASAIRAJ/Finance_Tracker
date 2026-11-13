@@ -241,6 +241,9 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         } else if (url.includes('people')) {
           // The daily "keep in touch" digest
           nav.navigate('MoreStack', { screen: 'People' });
+        } else if (url.includes('home')) {
+          // The stats widget's long press
+          nav.navigate('MainTabs', { screen: 'HomeTab' });
         }
       };
       tryRoute();

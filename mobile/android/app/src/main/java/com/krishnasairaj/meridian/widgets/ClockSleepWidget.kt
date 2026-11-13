@@ -38,8 +38,8 @@ class ClockSleepWidget : AppWidgetProvider() {
         const val PREFS = "meridian_clock_sleep_widget"
         const val KEY_JSON = "clock_sleep_json"
 
-        /** Root padding + the lane label + the pill padding (dp). */
-        private const val TRACK_INSET_DP = 30
+        /** Root padding + pill padding + the lane label, both sides (dp). */
+        private const val TRACK_INSET_DP = 44
 
         private const val NO_VALUE = "—"
 

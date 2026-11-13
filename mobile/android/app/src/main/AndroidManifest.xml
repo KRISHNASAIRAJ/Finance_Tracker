@@ -77,6 +77,12 @@
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stats"/>
     </receiver>
+    <!-- The stats widget's own actions (tapping it goes to the next screen) -->
+    <receiver android:name=".widgets.StatsWidgetActionReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="com.meridian.stats.NEXT"/>
+      </intent-filter>
+    </receiver>
     <receiver android:name=".widgets.ClockSleepWidget" android:label="Clock &amp; Sleep" android:exported="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>

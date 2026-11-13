@@ -80,24 +80,24 @@ export interface SleepWidgetPayload {
 const REM_OFFSET_RATIO = 0.22;
 const REM_LENGTH_MIN = 25;
 
-/** "11:40p" — the bed / wake time, the way the widget shows it. */
+/** "11:40 PM" — the bed / wake time, the way the widget shows it. */
 export function formatClockLabel(epochMs: number): string {
   if (!Number.isFinite(epochMs) || epochMs <= 0) return '';
   const d = new Date(epochMs);
   let h = d.getHours();
   const m = d.getMinutes();
-  const suffix = h >= 12 ? 'p' : 'a';
+  const suffix = h >= 12 ? 'PM' : 'AM';
   h = h % 12;
   if (h === 0) h = 12;
-  return `${h}:${String(m).padStart(2, '0')}${suffix}`;
+  return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
-/** "6:30 am" — the wake window start, the way the widget shows it. */
+/** "6:30 AM" — the wake window start, the way the widget shows it. */
 export function formatAlarmLabel(minutesFromMidnight: number): string {
   if (!Number.isFinite(minutesFromMidnight)) return '';
   const h24 = Math.floor(minutesFromMidnight / 60) % 24;
   const m = Math.round(minutesFromMidnight % 60);
-  const suffix = h24 >= 12 ? 'pm' : 'am';
+  const suffix = h24 >= 12 ? 'PM' : 'AM';
   let h = h24 % 12;
   if (h === 0) h = 12;
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;

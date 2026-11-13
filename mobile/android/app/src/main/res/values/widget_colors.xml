@@ -14,6 +14,8 @@
     <color name="oxygen_label">#8A8A8A</color>
     <!-- The 1dp divider between the stats. -->
     <color name="oxygen_divider">#2A2A2A</color>
+    <!-- The green — only for a gain. -->
+    <color name="oxygen_gain">#3DDC84</color>
     <color name="oxygen_white">#FFFFFF</color>
     <color name="oxygen_white_dim">#E6E6E6</color>
     <color name="oxygen_muted">#8E8E93</color>
