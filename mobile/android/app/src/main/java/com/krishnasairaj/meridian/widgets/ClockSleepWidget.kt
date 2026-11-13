@@ -158,8 +158,23 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
+        // Tapping the widget opens the device's own clock app; tapping the red
+        // sleep bar opens Meridian's sleep screen.
         views.setOnClickPendingIntent(
             R.id.clock_sleep_container,
+            if (hasClockApp(context)) {
+                PendingIntent.getActivity(
+                    context,
+                    4242,
+                    clockAppIntent(context),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            } else {
+                deepLink(context, "meridian://sleep")
+            }
+        )
+        views.setOnClickPendingIntent(
+            R.id.clock_sleep_pill,
             deepLink(context, "meridian://sleep")
         )
 
@@ -190,6 +205,43 @@ class ClockSleepWidget : AppWidgetProvider() {
         val h = minutes / 60
         val m = minutes % 60
         return "${h}H ${m}M"
+    }
+
+    /**
+     * The device's OWN clock app — tapping the widget opens the system clock
+     * instead of Meridian.
+     *
+     * The chain: the standard `clock://` view intent (the AOSP clock and
+     * most OEM clocks answer it), then the alarm intent, then the AOSP desk
+     * clock by name. When the phone has no clock app at all, the widget falls
+     * back to Meridian's sleep screen so the tap is never dead.
+     */
+    private fun clockAppIntent(context: Context): Intent {
+        val pm = context.packageManager
+        val candidates = listOf(
+            Intent(Intent.ACTION_VIEW, Uri.parse("clock://")),
+            Intent("android.intent.action.SET_ALARM"),
+        )
+        for (candidate in candidates) {
+            candidate.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (pm.resolveActivity(candidate, 0) != null) return candidate
+        }
+        // The AOSP desk clock, even when nothing advertises it.
+        return Intent()
+            .setClassName("com.android.deskclock", "com.android.deskclock.ClockActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    /** True when the phone has a clock app we can open. */
+    private fun hasClockApp(context: Context): Boolean {
+        return try {
+            val pm = context.packageManager
+            val view = Intent(Intent.ACTION_VIEW, Uri.parse("clock://"))
+            val alarm = Intent("android.intent.action.SET_ALARM")
+            pm.resolveActivity(view, 0) != null || pm.resolveActivity(alarm, 0) != null
+        } catch (e: Exception) {
+            false
+        }
     }
 
     /**
