@@ -189,15 +189,16 @@
 ### Batch 10 — shipped (CI run #97 green, 2026-11-13)
 
 - [x] **Tapping the Clock & Sleep widget opens the phone's OWN clock app**
-      instead of Meridian — the chain is the standard `clock://` view intent
-      (the AOSP clock and the OEM clocks answer it), then the alarm intent,
-      then the AOSP desk clock by name. When the phone has no clock app the
+      instead of Meridian. The lookup is explicit and reliable: the known
+      clock packages (`com.android.deskclock` — the one OnePlus ships —
+      `com.oneplus.deskclock`, `com.google.android.deskclock`, …) via their
+      launcher intent, then any launcher activity whose package looks like a
+      clock, then the `clock://` scheme. When the phone has no clock app the
       tap falls back to Meridian's sleep screen, so it is never dead.
-- [x] **Tapping the red sleep bar still opens Meridian's sleep screen** — the
-      widget splits the two targets: the clock half goes to the device, the
-      sleep half stays with us.
-- [x] The manifest gained the `<queries>` entries for the clock scheme and
-      the alarm intent (Android 11+ package visibility).
+- [x] **The whole widget is one target** (the red bar included) — tapping
+      anywhere on it opens the device's clock.
+- [x] The manifest gained the `<queries>` entries (the launcher activities
+      and the known clock packages) that Android 11+ package visibility needs.
 
 ### Batch 3 — on the device
 

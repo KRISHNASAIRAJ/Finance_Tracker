@@ -47,6 +47,18 @@ class ClockSleepWidget : AppWidgetProvider() {
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
         )
 
+        /** The known clock apps — the AOSP one is what OnePlus ships. */
+        private val CLOCK_PACKAGES = arrayOf(
+            "com.android.deskclock",
+            "com.oneplus.deskclock",
+            "com.google.android.deskclock",
+            "com.sec.android.app.clock",
+            "com.miui.clock"
+        )
+
+        /** The resolved clock app (cached — it is looked up on every redraw). */
+        private var clockIntent: Intent? = null
+
         /** Persist the latest sleep payload (from the JS bridge) and redraw. */
         fun setSleep(ctx: Context, json: String) {
             val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -158,25 +170,22 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
-        // Tapping the widget opens the device's own clock app; tapping the red
-        // sleep bar opens Meridian's sleep screen.
-        views.setOnClickPendingIntent(
-            R.id.clock_sleep_container,
-            if (hasClockApp(context)) {
-                PendingIntent.getActivity(
-                    context,
-                    4242,
-                    clockAppIntent(context),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-            } else {
-                deepLink(context, "meridian://sleep")
-            }
-        )
-        views.setOnClickPendingIntent(
-            R.id.clock_sleep_pill,
+        // Tapping the widget opens the device's own clock app (the red sleep
+        // bar included — the whole widget is one target). When the phone has no
+        // clock app the tap falls back to Meridian's sleep screen.
+        val clockIntent = clockAppIntent(context)
+        val clockPending = if (clockIntent != null) {
+            PendingIntent.getActivity(
+                context,
+                4242,
+                clockIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
             deepLink(context, "meridian://sleep")
-        )
+        }
+        views.setOnClickPendingIntent(R.id.clock_sleep_container, clockPending)
+        views.setOnClickPendingIntent(R.id.clock_sleep_pill, clockPending)
 
         return views
     }
@@ -211,37 +220,56 @@ class ClockSleepWidget : AppWidgetProvider() {
      * The device's OWN clock app — tapping the widget opens the system clock
      * instead of Meridian.
      *
-     * The chain: the standard `clock://` view intent (the AOSP clock and
-     * most OEM clocks answer it), then the alarm intent, then the AOSP desk
-     * clock by name. When the phone has no clock app at all, the widget falls
-     * back to Meridian's sleep screen so the tap is never dead.
+     * The chain, most reliable first:
+     *   1. the known clock packages (an explicit launcher intent — it always
+     *      works, whatever filters the clock app declares),
+     *   2. any launcher activity whose package looks like a clock,
+     *   3. the standard `clock://` view intent.
+     *
+     * When the phone has no clock app at all the widget falls back to
+     * Meridian's sleep screen, so the tap is never dead.
      */
-    private fun clockAppIntent(context: Context): Intent {
+    private fun clockAppIntent(context: Context): Intent? {
+        clockIntent?.let { return it }
         val pm = context.packageManager
-        val candidates = listOf(
-            Intent(Intent.ACTION_VIEW, Uri.parse("clock://")),
-            Intent("android.intent.action.SET_ALARM"),
-        )
-        for (candidate in candidates) {
-            candidate.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (pm.resolveActivity(candidate, 0) != null) return candidate
-        }
-        // The AOSP desk clock, even when nothing advertises it.
-        return Intent()
-            .setClassName("com.android.deskclock", "com.android.deskclock.ClockActivity")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    /** True when the phone has a clock app we can open. */
-    private fun hasClockApp(context: Context): Boolean {
-        return try {
-            val pm = context.packageManager
-            val view = Intent(Intent.ACTION_VIEW, Uri.parse("clock://"))
-            val alarm = Intent("android.intent.action.SET_ALARM")
-            pm.resolveActivity(view, 0) != null || pm.resolveActivity(alarm, 0) != null
+        var found: Intent? = null
+        try {
+            // 1. The known clock packages.
+            for (pkg in CLOCK_PACKAGES) {
+                val launch = try {
+                    pm.getLaunchIntentForPackage(pkg)
+                } catch (e: Exception) {
+                    null
+                }
+                if (launch != null) {
+                    found = launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    break
+                }
+            }
+            // 2. Any launcher activity that looks like a clock.
+            if (found == null) {
+                val main = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                val activities = pm.queryIntentActivities(main, 0)
+                val clock = activities.firstOrNull {
+                    it.activityInfo.packageName.contains("clock", ignoreCase = true)
+                }
+                if (clock != null) {
+                    found = Intent()
+                        .setClassName(clock.activityInfo.packageName, clock.activityInfo.name)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            }
+            // 3. The standard clock:// scheme.
+            if (found == null) {
+                val view = Intent(Intent.ACTION_VIEW, Uri.parse("clock://"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (pm.resolveActivity(view, 0) != null) found = view
+            }
         } catch (e: Exception) {
-            false
+            /* fall through — the caller falls back to Meridian */
         }
+        clockIntent = found
+        return found
     }
 
     /**

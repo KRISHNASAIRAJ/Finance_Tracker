@@ -20,14 +20,22 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:targetApi="34"/>
   <queries>
-    <!-- The device's own clock app — the Clock & Sleep widget opens it. -->
+    <!-- The device's own clock app — the Clock & Sleep widget opens it. The
+         launcher activities have to be visible for the lookup to work
+         (Android 11+ package visibility). -->
+    <intent>
+      <action android:name="android.intent.action.MAIN"/>
+      <category android:name="android.intent.category.LAUNCHER"/>
+    </intent>
+    <package android:name="com.android.deskclock"/>
+    <package android:name="com.oneplus.deskclock"/>
+    <package android:name="com.google.android.deskclock"/>
+    <package android:name="com.sec.android.app.clock"/>
+    <package android:name="com.miui.clock"/>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
       <category android:name="android.intent.category.DEFAULT"/>
       <data android:scheme="clock"/>
-    </intent>
-    <intent>
-      <action android:name="android.intent.action.SET_ALARM"/>
     </intent>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
