@@ -46,6 +46,19 @@ describe('computeSleepWidgetPayload', () => {
     expect(payload.quality).toBe(0);
   });
 
+  it('passes the realtime-weather extras through to the widget', () => {
+    const payload = computeSleepWidgetPayload([], new Date('2026-11-11T12:00:00.000Z'), {
+      tempC: 31,
+      weatherLat: 12.97,
+      weatherLon: 77.59,
+      weatherFetchedAt: 1730000000000,
+    });
+    expect(payload.tempC).toBe(31);
+    expect(payload.weatherLat).toBe(12.97);
+    expect(payload.weatherLon).toBe(77.59);
+    expect(payload.weatherFetchedAt).toBe(1730000000000);
+  });
+
   it('builds the duration and the two REM windows', () => {
     const now = new Date('2026-11-11T12:00:00.000Z');
     const entries = [entry('2026-11-10T16:00:00.000Z', '2026-11-11T00:20:00.000Z')];

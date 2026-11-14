@@ -179,7 +179,14 @@ class SleepMotionService : Service(), SensorEventListener {
                 accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             }
             if (accelerometerWakeup == null) {
-                accelerometerWakeup = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER_WAKEUP)
+                // A wake-up variant is the same TYPE_ACCELEROMETER sensor with
+                // wake-up behaviour — asked for by the second argument (API 21+).
+                // Returns null when the device has none.
+                accelerometerWakeup = try {
+                    sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER, true)
+                } catch (e: Exception) {
+                    null
+                }
             }
             // A normal accelerometer STOPS delivering events when the screen is
             // off — deep sleep means zero samples all night. The wake-up

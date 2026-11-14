@@ -59,6 +59,12 @@ export interface SleepWidgetPayload {
   stages: SleepStageSegments;
   /** The temperature in °C (0 when unknown). */
   tempC: number;
+  /** The GPS coordinates the temperature was read for (rounded ~1 km). */
+  weatherLat?: number;
+  /** The GPS longitude (rounded ~1 km). */
+  weatherLon?: number;
+  /** When the cached reading was fetched (epoch ms) — the widget prefers the fresher of its two weather sources. */
+  weatherFetchedAt?: number;
   /** The next alarm time, as "6:30 am" (empty when no alarm is set). */
   alarmLabel: string;
   /** The first REM window (epoch ms) — the sleep-only widget draws it. */
@@ -79,7 +85,12 @@ export interface SleepWidgetPayload {
  */
 const REM_OFFSET_RATIO = 0.22;
 const REM_LENGTH_MIN = 25;
-/** Weather is not realtime yet — shown until it is. */
+/**
+ * Shown until the first realtime reading lands. The weather is realtime in
+ * normal use — the cached Open-Meteo reading (fresh from GPS) is pushed on
+ * every app open, and the widget re-reads Open-Meteo itself every ~10 minutes
+ * while the app is closed — see ClockSleepWidget / SleepWidgetAlarmReceiver.
+ */
 const DEFAULT_TEMP_C = 24;
 
 /** "11:40 PM" — the bed / wake time, the way the widget shows it. */
@@ -188,7 +199,9 @@ export function deepMinutes(
  * Build the widget payload from the sleep log.
  *
  * The stages come from the motion timeline (the tracker), the score from the
- * night itself and the temperature from the cached weather reading.
+ * night itself and the temperature from the latest Open-Meteo reading
+ * (GPS-based, refreshed on every app open — and by the widget itself every
+ * ~10 minutes while the app is closed).
  */
 export function computeSleepWidgetPayload(
   entries: SleepEntry[] | undefined,
@@ -197,6 +210,9 @@ export function computeSleepWidgetPayload(
     buckets?: MotionBucket[];
     sensitivity?: SleepSensitivity;
     tempC?: number;
+    weatherLat?: number;
+    weatherLon?: number;
+    weatherFetchedAt?: number;
     /** The smart alarm: the wake window start, or null when there is no alarm. */
     alarmMin?: number | null;
   }
@@ -216,6 +232,9 @@ export function computeSleepWidgetPayload(
       interruptions: 0,
       stages: { deep: [], light: [], awake: [] },
       tempC: extra?.tempC ?? DEFAULT_TEMP_C,
+      weatherLat: extra?.weatherLat,
+      weatherLon: extra?.weatherLon,
+      weatherFetchedAt: extra?.weatherFetchedAt,
       alarmLabel:
         extra?.alarmMin === null || extra?.alarmMin === undefined
           ? ''
@@ -250,6 +269,9 @@ export function computeSleepWidgetPayload(
     interruptions,
     stages: computeStageSegments(buckets, sensitivity),
     tempC: extra?.tempC ?? DEFAULT_TEMP_C,
+    weatherLat: extra?.weatherLat,
+    weatherLon: extra?.weatherLon,
+    weatherFetchedAt: extra?.weatherFetchedAt,
     alarmLabel:
       extra?.alarmMin === null || extra?.alarmMin === undefined
         ? ''
@@ -271,14 +293,28 @@ export function isSleepStatsWidgetAvailable(): boolean {
   return Platform.OS === 'android' && !!SleepStatsWidgetModule;
 }
 
-/** The cached temperature (24 when there is no reading yet — realtime weather is not implemented yet). */
-async function cachedTempC(): Promise<number> {
+/** The cached reading (fresh from GPS on every app open / foreground). */
+async function cachedWeather(): Promise<{
+  tempC: number;
+  /** GPS latitude (rounded ~1 km) — present when a reading was fetched. */
+  lat?: number;
+  /** GPS longitude (rounded ~1 km). */
+  lon?: number;
+  /** When the reading was fetched (epoch ms). */
+  fetchedAt?: number;
+}> {
   try {
     const { getCachedWeather } = require('./weather');
     const reading = await getCachedWeather();
-    return reading ? Math.round(reading.tempC) : DEFAULT_TEMP_C;
+    if (!reading) return { tempC: DEFAULT_TEMP_C };
+    return {
+      tempC: Math.round(reading.tempC),
+      lat: reading.lat,
+      lon: reading.lon,
+      fetchedAt: reading.fetchedAt,
+    };
   } catch {
-    return DEFAULT_TEMP_C;
+    return { tempC: DEFAULT_TEMP_C };
   }
 }
 
@@ -290,11 +326,14 @@ export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<voi
   if (!data) {
     const sleep = useSleepStore.getState();
     const buckets = await getMotionBuckets().catch(() => [] as MotionBucket[]);
-    const tempC = await cachedTempC();
+    const weather = await cachedWeather();
     data = computeSleepWidgetPayload(sleep.entries, new Date(), {
       buckets,
       sensitivity: sleep.autoConfig.sensitivity,
-      tempC,
+      tempC: weather.tempC,
+      weatherLat: weather.lat,
+      weatherLon: weather.lon,
+      weatherFetchedAt: weather.fetchedAt,
       alarmMin: sleep.autoConfig.alarmEnabled ? sleep.autoConfig.wakeStartMin : null,
     });
   }

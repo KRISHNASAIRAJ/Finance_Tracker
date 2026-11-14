@@ -42,6 +42,19 @@ class ClockSleepWidget : AppWidgetProvider() {
         const val PREFS = "meridian_clock_sleep_widget"
         const val KEY_JSON = "clock_sleep_json"
 
+        /** GPS fix + weather keys — the native Open-Meteo fetch. */
+        private const val KEY_WEATHER_LAT = "weather_lat_native"
+        private const val KEY_WEATHER_LON = "weather_lon_native"
+        private const val KEY_WEATHER_TEMP_C = "weather_temp_c_native"
+        private const val KEY_WEATHER_AT = "weather_fetched_at_native"
+        private const val KEY_WEATHER_PAYLOAD_TEMP_C = "weather_temp_c_payload"
+        private const val KEY_WEATHER_PAYLOAD_AT = "weather_fetched_at_payload"
+
+        /** The native re-fetch is throttled to this floor (one call per ~20 min). */
+        private const val WEATHER_MIN_FETCH_MS = 20L * 60_000L
+        /** A native reading older than this is never shown. */
+        private const val WEATHER_NATIVE_MAX_AGE_MS = 12L * 60 * 60_000L
+
         /** Root padding + pill padding + the lane label, both sides (dp). */
         private const val TRACK_INSET_DP = 44
 
@@ -97,11 +110,82 @@ class ClockSleepWidget : AppWidgetProvider() {
         fun setSleep(ctx: Context, json: String) {
             val sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (json.isEmpty()) {
-                sp.edit().remove(KEY_JSON).apply()
+                sp.edit().remove(KEY_JSON)
+                    .remove(KEY_WEATHER_PAYLOAD_TEMP_C)
+                    .remove(KEY_WEATHER_PAYLOAD_AT)
+                    .apply()
             } else {
-                sp.edit().putString(KEY_JSON, json).apply()
+                val edit = sp.edit().putString(KEY_JSON, json)
+                try {
+                    val o = JSONObject(json)
+                    // The GPS fix the in-app weather used (rounded ~1 km).
+                    val lat = o.optDouble("weatherLat", Double.NaN)
+                    val lon = o.optDouble("weatherLon", Double.NaN)
+                    if (!lat.isNaN() && !lon.isNaN() &&
+                        lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0
+                    ) {
+                        edit.putFloat(KEY_WEATHER_LAT, lat.toFloat())
+                        edit.putFloat(KEY_WEATHER_LON, lon.toFloat())
+                    }
+                    // The reading is only worth storing when it was a real
+                    // fetch — the placeholder default never reaches the disk.
+                    val payloadAt = o.optLong("weatherFetchedAt", 0L)
+                    val payloadTemp = o.optDouble("tempC", Double.NaN)
+                    if (payloadAt > 0L && !payloadTemp.isNaN() &&
+                        payloadTemp > -60.0 && payloadTemp < 70.0
+                    ) {
+                        edit.putFloat(KEY_WEATHER_PAYLOAD_TEMP_C, payloadTemp.toFloat())
+                        edit.putLong(KEY_WEATHER_PAYLOAD_AT, payloadAt)
+                    }
+                } catch (_: Exception) {
+                    // Keep the sleep payload, drop only the weather extras.
+                }
+                edit.apply()
             }
             pushUpdate(ctx)
+        }
+
+        /**
+         * The realtime weather — Open-Meteo, for the GPS fix cached by the
+         * last app push (the same ~1 km fix the in-app weather uses).
+         *
+         * Called from the 10-minute widget alarm on a background thread, so
+         * the temperature stays live even when the app has not been opened
+         * for days. Throttled to one fetch per 20 minutes; any failure keeps
+         * the last reading (the alarm must never crash).
+         */
+        fun refreshWeatherBlocking(context: Context) {
+            try {
+                val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                val lat = sp.getFloat(KEY_WEATHER_LAT, Float.NaN)
+                val lon = sp.getFloat(KEY_WEATHER_LON, Float.NaN)
+                if (lat.isNaN() || lon.isNaN()) return
+                if (System.currentTimeMillis() - sp.getLong(KEY_WEATHER_AT, 0L) < WEATHER_MIN_FETCH_MS) return
+                val url = java.net.URL(
+                    "https://api.open-meteo.com/v1/forecast?" +
+                        "latitude=$lat&longitude=$lon" +
+                        "&current=temperature_2m,weather_code&timezone=auto"
+                )
+                val conn = (url.openConnection() as? java.net.HttpURLConnection) ?: return
+                try {
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 5000
+                    conn.requestMethod = "GET"
+                    if (conn.responseCode != 200) return
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val temp = JSONObject(body).optJSONObject("current")
+                        ?.optDouble("temperature_2m", Double.NaN) ?: Double.NaN
+                    if (temp.isNaN() || temp < -60.0 || temp > 70.0) return
+                    sp.edit()
+                        .putFloat(KEY_WEATHER_TEMP_C, temp.toFloat())
+                        .putLong(KEY_WEATHER_AT, System.currentTimeMillis())
+                        .apply()
+                } finally {
+                    conn.disconnect()
+                }
+            } catch (_: Exception) {
+                /* best-effort — the alarm must survive a dead network */
+            }
         }
 
         /** Redraw every instance of this widget with the current state. */
@@ -177,10 +261,26 @@ class ClockSleepWidget : AppWidgetProvider() {
                 bedLabel = o.optString("bedLabel", "")
                 wakeLabel = o.optString("wakeLabel", "")
                 alarmLabel = o.optString("alarmLabel", "")
-                // Weather is not realtime yet — the payload default
-                // applies when nothing usable comes through.
-                val tc = o.optDouble("tempC", Double.NaN)
-                if (!tc.isNaN() && tc > -50.0 && tc < 60.0) tempC = tc
+                // Realtime weather: the fresher of the JS reading (GPS on
+                // every app open) and the widget's own Open-Meteo fetch.
+                val spWeather = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                val payloadTemp = spWeather.getFloat(KEY_WEATHER_PAYLOAD_TEMP_C, Float.NaN)
+                val payloadAt = spWeather.getLong(KEY_WEATHER_PAYLOAD_AT, 0L)
+                val nativeTemp = spWeather.getFloat(KEY_WEATHER_TEMP_C, Float.NaN)
+                val nativeAt = spWeather.getLong(KEY_WEATHER_AT, 0L)
+                val payloadOk = payloadAt > 0L && !payloadTemp.isNaN()
+                val nativeOk = nativeAt > 0L && !nativeTemp.isNaN() &&
+                    System.currentTimeMillis() - nativeAt < WEATHER_NATIVE_MAX_AGE_MS
+                tempC = when {
+                    payloadOk && (!nativeOk || payloadAt >= nativeAt) -> payloadTemp.toDouble()
+                    nativeOk -> nativeTemp.toDouble()
+                    payloadOk -> payloadTemp.toDouble()
+                    else -> {
+                        // Legacy payloads pushed before the weather extras.
+                        val tc = o.optDouble("tempC", Double.NaN)
+                        if (!tc.isNaN() && tc > -50.0 && tc < 60.0) tc else DEFAULT_TEMP_C
+                    }
+                }
                 val stages = o.optJSONObject("stages")
                 if (stages != null) {
                     readSegments(stages.optJSONArray("deep"), deep)
@@ -214,8 +314,9 @@ class ClockSleepWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.clock_sleep_batt_value, NO_VALUE)
         }
 
-        // The temperature (the realtime weather is not implemented yet,
-        // so the payload defaults to 24°).
+        // The temperature — realtime: whichever of the JS payload (GPS-fresh
+        // on every app open) and the widget's own fetch (every ~10 minutes)
+        // is the fresher one.
         views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
 
         // The stage chart — the bars are drawn by padding a full-width progress

@@ -39,9 +39,10 @@
       touch). Explicit **AM / PM** pills sit under the time.
 - [x] **The sleep tracker now actually records with the screen off** — the
       accelerometer used before delivered zero samples in deep sleep. The
-      service now uses the **wake-up accelerometer** (`TYPE_ACCELEROMETER_WAKEUP`,
-      one CPU wake per sample) and only holds a partial wake lock when the
-      device has no wake-up sensor. *Root cause of "it's not tracking".*
+      service now asks for the **wake-up accelerometer** (`getDefaultSensor(TYPE_ACCELEROMETER, true)` —
+      the same accelerometer in wake-up mode, API 21+) and only holds a partial wake
+      lock when the device has no wake-up variant.
+      *Root cause of "it's not tracking".*
 - [x] **Last night's sleep is logged without opening the sleep screen** —
       the inferred session is auto-saved on every app boot and every
       foreground (`modules/sleep/autoSave.ts`), not only when the Sleep
@@ -81,6 +82,42 @@
 - [ ] **Finance screen**: exactly BANK / LENT / FIXED in one row; nothing
       about wallet loads; wallet loads appear inside **Bank accounts**.
 - [ ] **Add transaction** screen: categories show the flat solid glyphs.
+
+### Batch 13 — pipeline annotations + realtime weather in the widget (2026-11-15, not yet on device)
+
+> Everything below is uncommitted — say the word and it goes out. Nothing has
+> been pushed and the pipeline has NOT been triggered.
+
+- [x] **The CI "1 error" annotation is gone** — the failing
+      `expo-doctor` check ("app config fields that may not be synced in a
+      non-CNG project") was caused by the `plugins` array in `app.json`
+      (expo-location). The committed `android/` folder never prebuilds, and
+      the manifest already carries the location permissions, so the config
+      was dead — it is removed. `expo-doctor@1.21.8` is now a pinned
+      devDependency (CI no longer downloads an unpinned one on the fly —
+      the `npm warn` is gone too). **18/18 checks pass locally.**
+      The `continue-on-error: true` on the Expo Doctor step is removed — it
+      is a real gate now, like tsc and ESLint.
+- [x] **The web deployment is out of the pipeline** — the
+      `deploy-web` (Netlify, `meridian365.netlify.app`) job is deleted from
+      `build-apk.yml` (the site stays live as-is, just not auto-updated).
+      The workflow is renamed `Build & Deploy (APK + Web)` → `Build APK`.
+      The web app code is untouched.
+- [x] **The widget weather is realtime now** (Clock & Sleep 2×2):
+      - the JS pushes the GPS fix (~1 km rounded) with every app open /
+        foreground together with the fresh Open-Meteo reading —
+        the widget now prefers the **fresher of** the JS reading and its own
+        fetch, whichever is newer;
+      - the widget itself re-reads Open-Meteo from the stored GPS fix on the
+        existing 10-minute refresh alarm (throttled to one call per 20 min,
+        5 s timeout, off the main thread, failure keeps the last reading) —
+        so the temperature is live even when the app is closed for days;
+      - the `24°` placeholder default can no longer reach SharedPreferences
+        (only real fetches are stored).
+- [ ] **On the device**: open the app once (lets the widget learn the GPS
+      fix), then check the TEMP cell shows the current temperature — and
+      keeps updating while the app stays closed.
+- [ ] Confirm the GitHub run for this batch has **no red annotations**.
 
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
