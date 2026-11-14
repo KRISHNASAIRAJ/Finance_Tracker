@@ -82,7 +82,6 @@ export default function BarChart({
         })
       )
     ).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.length, reduced, duration]);
 
   if (data.length === 0) return null;

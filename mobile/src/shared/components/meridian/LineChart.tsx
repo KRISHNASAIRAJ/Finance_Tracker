@@ -72,7 +72,6 @@ export default function LineChart({
   useEffect(() => {
     const measured = pathRef.current?.getTotalLength?.();
     setLen(typeof measured === 'number' && measured > 0 ? measured : estimateLength(points));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, points.length]);
 
   useEffect(() => {

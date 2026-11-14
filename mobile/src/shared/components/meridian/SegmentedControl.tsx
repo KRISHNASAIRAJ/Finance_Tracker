@@ -70,7 +70,7 @@ export default function SegmentedControl({
           ]}
         />
       ) : null}
-      {options.map((o, i) => {
+      {options.map((o) => {
         const active = o.key === value;
         return (
           <View key={o.key} style={styles.seg}>

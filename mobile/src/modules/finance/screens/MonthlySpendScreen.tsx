@@ -161,6 +161,7 @@ export default function MonthlySpendScreen() {
   });
 
   const peakSpend = dailySums.length ? Math.max(...dailySums) : 0;
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   return (
     <Screen bottomInset={110}>
@@ -273,15 +274,22 @@ export default function MonthlySpendScreen() {
               data={dailySums.map((v, i) => ({
                 label: String(i + 1),
                 value: v / 100,
-                color: i === todayDate - 1 ? mc.red : mc.barDim,
+                color: i === (selectedDay ?? todayDate - 1) ? mc.red : mc.barDim,
               }))}
               width={300}
               height={104}
+              onSelect={(i) => setSelectedDay(i)}
+              selectedIndex={selectedDay ?? todayDate - 1}
               style={styles.chart}
             />
             <View style={styles.chartFoot}>
               <Text style={styles.chartFootText}>
                 1 {currentMonthName}
+              </Text>
+              <Text style={styles.chartFootText}>
+                {selectedDay !== null
+                  ? `${currentMonthName} ${selectedDay + 1}: ${formatCurrency(dailySums[selectedDay])}`
+                  : `Tap a bar to see its spend`}
               </Text>
               <Text style={[styles.chartFootText, { color: mc.redSoft }]}>
                 {todayDate} {currentMonthName}

@@ -4,7 +4,7 @@
  * The reference uses it inside holding rows.
  */
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { mm } from '../../theme/meridian';
@@ -70,7 +70,3 @@ export default function Sparkline({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: { backgroundColor: 'transparent' },
-});

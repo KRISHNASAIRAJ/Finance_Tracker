@@ -4,7 +4,7 @@
  * Used for "add" actions on the detail screens.
  */
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { mc } from '../../theme/meridian';

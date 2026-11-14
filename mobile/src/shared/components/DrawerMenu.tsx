@@ -400,7 +400,6 @@ export default function DrawerMenu() {
       { title: 'SHOP', items: shop },
       { title: null, items: system },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, user]);
 
   // Flatten for the stagger index.

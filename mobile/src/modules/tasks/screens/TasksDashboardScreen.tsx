@@ -12,9 +12,6 @@ import {
   Text,
   View,
   FlatList,
-  TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -267,9 +264,12 @@ export default function TasksDashboardScreen() {
 
   return (
     <Screen bottomInset={120}>
-      {/* Header: month, title and the completion ring */}
+      {/* Header: drawer trigger, month, completion ring */}
       <Rise index={0}>
         <View style={styles.header}>
+          <View style={styles.headerSide}>
+            <DrawerTrigger />
+          </View>
           <View style={styles.headerText}>
             <Label small>{monthLabel.toUpperCase()}</Label>
             <Text style={styles.headerTitle}>Tasks</Text>
@@ -380,6 +380,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerSide: {
+    width: 38,
+    height: 38,
   },
   headerText: {
     flex: 1,

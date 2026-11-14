@@ -6,7 +6,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { clamp01, mc } from '../../theme/meridian';
+import { clamp01 } from '../../theme/meridian';
 import useReducedMotion from './useReducedMotion';
 
 export interface ShareSegment {
@@ -55,7 +55,6 @@ export default function StackedShareBar({
         })
       )
     ).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segments.length, reduced]);
 
   return (
