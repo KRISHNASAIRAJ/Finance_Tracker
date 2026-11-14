@@ -441,8 +441,36 @@ export default function FinanceHomeScreen() {
         </Card>
       </Rise>
 
+      {/* Insights — the two foresight screens (s35 / s36) */}
+      <View style={styles.twoUp}>
+        <Rise index={7} style={styles.flexCell}>
+          <PressScale onPress={() => navigation.navigate('CashFlowForecast')} scale={0.98}>
+            <Card style={styles.insightCard}>
+              <View style={styles.insightHead}>
+                <Ionicons name="trending-up-outline" size={17} color={mc.red} />
+                <Label small>CASH FLOW</Label>
+              </View>
+              <Text style={styles.insightTitle}>Cash flow</Text>
+              <Text style={styles.insightSub}>Next 30 days, bills &amp; arrivals</Text>
+            </Card>
+          </PressScale>
+        </Rise>
+        <Rise index={8} style={styles.flexCell}>
+          <PressScale onPress={() => navigation.navigate('WeeklyReview')} scale={0.98}>
+            <Card style={styles.insightCard}>
+              <View style={styles.insightHead}>
+                <Ionicons name="calendar-outline" size={17} color={mc.mint} />
+                <Label small>WEEKLY REVIEW</Label>
+              </View>
+              <Text style={styles.insightTitle}>Weekly review</Text>
+              <Text style={styles.insightSub}>Score, wins &amp; next week&apos;s focus</Text>
+            </Card>
+          </PressScale>
+        </Rise>
+      </View>
+
       {/* Top categories + the expense donut */}
-      <Rise index={8}>
+      <Rise index={9}>
         <PressScale onPress={() => navigation.navigate('FinanceReports')} scale={0.99}>
           <Card>
             <Label>TOP CATEGORIES</Label>
@@ -744,6 +772,26 @@ const styles = StyleSheet.create({
   gaugeCard: {
     minHeight: 148,
     justifyContent: 'flex-start',
+  },
+  insightCard: {
+    minHeight: 108,
+    gap: 4,
+    justifyContent: 'center',
+  },
+  insightHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  insightTitle: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  insightSub: {
+    fontSize: 11,
+    color: mc.textDim,
   },
   gaugeWrap: {
     marginTop: 6,

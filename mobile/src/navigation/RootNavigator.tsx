@@ -41,6 +41,8 @@ import BalanceSummaryScreen from '../modules/finance/screens/BalanceSummaryScree
 import CreditCardDetailScreen from '../modules/finance/screens/CreditCardDetailScreen';
 import CardAssistantScreen from '../modules/finance/screens/CardAssistantScreen';
 import PayzappWalletScreen from '../modules/finance/screens/PayzappWalletScreen';
+import CashFlowForecastScreen from '../modules/finance/screens/CashFlowForecastScreen';
+import WeeklyReviewScreen from '../modules/finance/screens/WeeklyReviewScreen';
 import CardChatScreen from '../modules/finance/screens/CardChatScreen';
 
 import GarageDashboardScreen from '../modules/garage/screens/GarageDashboardScreen';
@@ -115,6 +117,8 @@ export type FinanceStackParamList = {
   CardAssistant: undefined;
   PayzappWallet: undefined;
   CardChat: { documentId?: string; documentName?: string } | undefined;
+  CashFlowForecast: undefined;
+  WeeklyReview: undefined;
 };
 
 export type GarageStackParamList = {
@@ -258,6 +262,8 @@ function FinanceStackNavigator() {
       <FinanceStack.Screen name="CreditCardDetail" component={CreditCardDetailScreen} />
       <FinanceStack.Screen name="CardAssistant" component={CardAssistantScreen} />
       <FinanceStack.Screen name="PayzappWallet" component={PayzappWalletScreen} />
+      <FinanceStack.Screen name="CashFlowForecast" component={CashFlowForecastScreen} />
+      <FinanceStack.Screen name="WeeklyReview" component={WeeklyReviewScreen} />
       <FinanceStack.Screen name="CardChat" component={CardChatScreen} />
     </FinanceStack.Navigator>
   );

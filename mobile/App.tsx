@@ -197,6 +197,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             nav.navigate('MainTabs', { screen: 'InvestmentsTab', params: { screen: 'InvestmentsDashboard' } });
           } else if (data.screen === 'FixedExpenses') {
             nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'FixedExpenses' } });
+          } else if (data.screen === 'WeeklyReview') {
+            nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'WeeklyReview' } });
+          } else if (data.screen === 'CashFlowForecast') {
+            nav.navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CashFlowForecast' } });
           } else if (data.screen === 'PillReminder') {
             nav.navigate('MoreStack', { screen: 'PillReminder' });
           } else if (data.type === 'PORTFOLIO_REPORT') {

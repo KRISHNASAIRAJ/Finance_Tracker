@@ -101,6 +101,8 @@ export default function ClockFace({
   // --- the drag ------------------------------------------------------------
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  /** Where the finger landed — a tap (no move) advances the hours stage. */
+  const grantPos = useRef<{ x: number; y: number } | null>(null);
 
   const valueAt = useCallback(
     (x: number, y: number): { kind: 'hours'; hour12: number } | { kind: 'minutes'; minute: number } => {
@@ -136,13 +138,30 @@ export default function ClockFace({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (e) => {
+          // Remember where the finger landed — only a gesture that never
+          // moved (a tap, not a drag) may advance to the minutes.
+          grantPos.current = {
+            x: e.nativeEvent.locationX,
+            y: e.nativeEvent.locationY,
+          };
           applyAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
         },
         onPanResponderMove: (e) => {
           applyAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
         },
+        onPanResponderRelease: (e) => {
+          const g = grantPos.current;
+          const dx = e.nativeEvent.locationX - (g?.x ?? e.nativeEvent.locationX);
+          const dy = e.nativeEvent.locationY - (g?.y ?? e.nativeEvent.locationY);
+          // A tap (within a finger's slop) on the hours dial advances to
+          // the minutes — a drag keeps editing the hour the whole way.
+          if (Math.hypot(dx, dy) <= 12 && modeRef.current === 'hours') {
+            onSelectMode('minutes');
+          }
+          grantPos.current = null;
+        },
       }),
-    [applyAt]
+    [applyAt, onSelectMode]
   );
 
   // --- the dial ------------------------------------------------------------

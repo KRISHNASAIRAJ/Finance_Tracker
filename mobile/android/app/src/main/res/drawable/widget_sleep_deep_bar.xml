@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The DEEP sleep bar — a thick rounded bar in the dark OnePlus red. -->
+<!-- The DEEP lane bar — 6dp high, rounded ends, #5A0012. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@android:id/background">
         <shape android:shape="rectangle">
@@ -9,8 +9,8 @@
     <item android:id="@android:id/progress">
         <clip>
             <shape android:shape="rectangle">
-                <solid android:color="#9E0020" />
-                <corners android:radius="1.5dp" />
+                <solid android:color="#5A0012" />
+                <corners android:radius="3dp" />
             </shape>
         </clip>
     </item>

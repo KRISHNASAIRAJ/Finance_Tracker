@@ -293,16 +293,26 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
 
         views.setTextViewText(R.id.clock_sleep_duration, combinedDurationAndScore(duration, scoreValue))
+        // The score line only makes sense next to a real night.
+        views.setViewVisibility(R.id.clock_sleep_score, if (duration == NO_VALUE || scoreValue <= 0) View.GONE else View.VISIBLE)
+        views.setProgressBar(R.id.clock_sleep_score, 100, scoreValue.coerceIn(0, 100), false)
         views.setTextViewText(R.id.clock_sleep_date, dateText())
         views.setTextViewText(R.id.clock_sleep_bed, bedLabel)
         views.setTextViewText(R.id.clock_sleep_wake, wakeLabel)
 
-        // The alarm — a grey "--" when there is none.
-        if (alarmLabel.isEmpty()) {
+        // The alarm — the real system next alarm (fresh on every redraw),
+        // falling back to the JS-pushed Meridian wake window, else "--".
+        val systemAlarm = nextAlarmLabel(context)
+        val alarmText = when {
+            systemAlarm != null -> systemAlarm
+            alarmLabel.isNotEmpty() -> alarmLabel
+            else -> "--"
+        }
+        if (alarmText == "--") {
             views.setTextViewText(R.id.clock_sleep_alarm_value, "--")
             views.setTextColor(R.id.clock_sleep_alarm_value, MUTED)
         } else {
-            views.setTextViewText(R.id.clock_sleep_alarm_value, alarmLabel)
+            views.setTextViewText(R.id.clock_sleep_alarm_value, alarmText)
             views.setTextColor(R.id.clock_sleep_alarm_value, RED)
         }
 
@@ -322,9 +332,10 @@ class ClockSleepWidget : AppWidgetProvider() {
         // The stage chart — the bars are drawn by padding a full-width progress
         // bar, so the segment lands exactly where it should.
         val track = trackWidthPx(context, mgr, widgetId)
-        bindSegments(views, deep, DEEP_IDS, track)
-        bindSegments(views, light, LIGHT_IDS, track)
-        bindSegments(views, awake, AWAKE_IDS, track)
+        val minBarPx = (2 * context.resources.displayMetrics.density).toInt()
+        bindSegments(views, deep, DEEP_IDS, track, minBarPx)
+        bindSegments(views, light, LIGHT_IDS, track, minBarPx)
+        bindSegments(views, awake, AWAKE_IDS, track, minBarPx)
 
         // Tapping the widget opens the device's own clock app (the red sleep
         // bar included — the whole widget is one target). When the phone has no
@@ -366,7 +377,8 @@ class ClockSleepWidget : AppWidgetProvider() {
         views: RemoteViews,
         segments: List<FloatArray>,
         ids: IntArray,
-        track: Int
+        track: Int,
+        minBarPx: Int,
     ) {
         for (index in ids.indices) {
             val id = ids[index]
@@ -378,9 +390,33 @@ class ClockSleepWidget : AppWidgetProvider() {
             views.setViewVisibility(id, View.VISIBLE)
             val from = (segment[0].coerceIn(0f, 1f) * track).toInt()
             val to = ((segment[0] + segment[1]).coerceIn(0f, 1f) * track).toInt()
-            val width = (to - from).coerceAtLeast(1)
-            views.setViewPadding(id, from, 0, (track - width).coerceAtLeast(0), 0)
+            // Every bar is at least minBarPx — a 30-second wake-up still draws.
+            val width = (to - from).coerceAtLeast(minBarPx)
+            val rightPad = (track - width - from).coerceAtLeast(0)
+            views.setViewPadding(id, from, 0, rightPad, 0)
             views.setProgressBar(id, 100, 100, false)
+        }
+    }
+
+    /** The next system alarm, formatted for the ALARM cell; null when none. */
+    private fun nextAlarmLabel(context: Context): String? {
+        return try {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return null
+            // API 21+. No permission required. Always the real next alarm,
+            // whichever app owns it.
+            val next = am.nextAlarmClock ?: return null
+            val trigger = next.triggerTime
+            val today = java.util.Calendar.getInstance()
+            val triggerCal = java.util.Calendar.getInstance().apply { timeInMillis = trigger }
+            val timeFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
+            val time = timeFmt.format(java.util.Date(trigger)).lowercase(java.util.Locale.US)
+            val sameDay = triggerCal.get(java.util.Calendar.DAY_OF_YEAR) == today.get(java.util.Calendar.DAY_OF_YEAR) &&
+                triggerCal.get(java.util.Calendar.YEAR) == today.get(java.util.Calendar.YEAR)
+            if (sameDay) return time
+            val weekdayFmt = java.text.SimpleDateFormat("EEE", java.util.Locale.US)
+            "${weekdayFmt.format(java.util.Date(trigger))} $time"
+        } catch (_: Exception) {
+            null
         }
     }
 

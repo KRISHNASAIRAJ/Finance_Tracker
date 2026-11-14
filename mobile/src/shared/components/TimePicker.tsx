@@ -24,12 +24,16 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
   const [minute, setMinute] = useState(selected.getMinutes());
   const [mode, setMode] = useState<ClockMode>('hours');
 
+  // Primitives as deps — `selected` is rebuilt on every render upstream, so
+  // depending on it resets the picked time on each keystroke.
+  const selHour = selected.getHours();
+  const selMinute = selected.getMinutes();
   useEffect(() => {
     if (!visible) return;
-    setHours24(selected.getHours());
-    setMinute(selected.getMinutes());
+    setHours24(selHour);
+    setMinute(selMinute);
     setMode('hours');
-  }, [visible, selected]);
+  }, [visible, selHour, selMinute]);
 
   const handleChange = (next: {
     hours24?: number;
@@ -42,8 +46,7 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
       const h = next.period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12;
       setHours24(h);
     }
-    // Picking the hour moves on to the minutes.
-    if (next.hours24 !== undefined && mode === 'hours') setMode('minutes');
+    // The mode advance happens in the dial itself (a tap, not a drag).
   };
 
   const applyPeriod = (period: ClockPeriod) => {

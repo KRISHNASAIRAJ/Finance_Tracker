@@ -83,10 +83,13 @@
       about wallet loads; wallet loads appear inside **Bank accounts**.
 - [ ] **Add transaction** screen: categories show the flat solid glyphs.
 
-### Batch 13 — pipeline annotations + realtime weather in the widget (2026-11-15, not yet on device)
+### Batch 13 — pipeline annotations + realtime weather in the widget (2026-11-15, pushed as b817260)
 
-> Everything below is uncommitted — say the word and it goes out. Nothing has
-> been pushed and the pipeline has NOT been triggered.
+> b817260 went out on `v4` after the local `:app:compileDebugKotlin` came back
+> `BUILD SUCCESSFUL`. The cfe4b17 run had failed at `:app:compileReleaseKotlin`
+> (`Sensor.TYPE_ACCELEROMETER_WAKEUP` does not exist) — that fix shipped in
+> b817260 along with everything below. CI result for b817260 still to be
+> confirmed on the Actions tab.
 
 - [x] **The CI "1 error" annotation is gone** — the failing
       `expo-doctor` check ("app config fields that may not be synced in a
@@ -118,6 +121,71 @@
       fix), then check the TEMP cell shows the current temperature — and
       keeps updating while the app stays closed.
 - [ ] Confirm the GitHub run for this batch has **no red annotations**.
+
+### Batch 14 — Cash flow forecast + Weekly review (s35/s36), widget redesign, time-picker fixes (2026-11-15)
+
+- [x] **Time picker bugs (the clock)** —
+      - the dial flipped from hours to minutes **mid-drag** (the pickers
+        auto-advanced the mode on any hour change, including while the finger
+      was still down — the drag then set minutes). The auto-advance now
+        happens in the dial itself, only on a **tap** (no move): `ClockFace`
+        tracks the touch-down point and advances to minutes on release when
+        the finger barely moved; a drag keeps editing the hour the whole way.
+      - **AM/PM flipped back to AM** (and every dial drag felt stuck) — the
+        pickers took a fresh `Date` prop into the reset effect's deps, so each
+        state change reset `hours24` to the original prop value. Deps are
+        primitives now (both `TimePicker` and `DateTimePicker`).
+- [x] **Widget ALARM cell shows the real upcoming alarm** —
+      `AlarmManager.getNextAlarmClock()` read natively at every redraw
+      (no permission, any clock app), falling back to the JS-pushed Meridian
+      wake window, else `--`. Same-day alarms read `5:50 am`; other days get
+      a weekday prefix (`Mon 5:50 am`). It refreshes with the 10-minute
+      widget alarm instead of the last app push.
+- [x] **Cash flow forecast (s35)** — new
+      `modules/finance/screens/CashFlowForecastScreen.tsx` (+ pure math in
+      `modules/finance/forecast.ts` + `financeFormat.ts`): 14/30/60-day range
+      selector; projected end balance with **Safe / Tight / Short** pill
+      (tight under ₹2,500 or 10 % of minimums); step chart of the running
+      balance with the dashed minimum-balance line and red/mint markers for
+      bills / incoming money; amber warning card when a lent receivable
+      sliding late would break the minimum ("Ask for it by …"); timeline of
+      card statements, unpaid fixed expenses & SIPs, lent receivables;
+      assumptions card with an **editable everyday-spend** figure (persisted
+      in AsyncStorage, resettable to the computed average).
+      Avg daily spend excludes SIPs, rent and wallet loads; start = banks +
+      wallets; minimum = account minimums (`getMinBalanceForAccount`).
+- [x] **Weekly review (s36)** — new
+      `modules/finance/screens/WeeklyReviewScreen.tsx` (+ pure math in
+      `modules/finance/weeklyReview.ts`): Sunday→Saturday week, week
+      selector (back only — the current week is the latest you can review),
+      score ring (0–100) with change vs last week (symmetric scoring of both
+      weeks), four scorecards (spend vs last week, sleep vs the 7h30 target,
+      habit completion %/best streak, tasks done vs planned + urgent open),
+      week-at-a-glance heat grid, auto-generated WINS and WATCH cards, and
+      NEXT WEEK FOCUS items (top category cap, lent collection, bedtime,
+      urgent tasks). **"Set as goals"** creates one high-priority task per
+      focus item, due the Saturday closing next week (with the usual
+      due-time reminder). Share button copies a text summary.
+- [x] **Both linked from Finance** (two-up CASH FLOW / WEEKLY REVIEW cards
+      under "This week") and the weekly review fires **Sunday 9 AM** as a
+      local notification deep-linking to the screen; deep links registered
+      in `App.tsx` and `RootNavigator.tsx`.
+- [x] **Clock & Sleep widget redesign (spec applied)** — lane tracks are now
+      6 dp, fully rounded, black at 16 %; bars 6 dp, rounded ends, **min
+      2 dp** (a 30-second wake-up still draws); DEEP `#5A0012`, LIGHT
+      `#FFC2CC`, AWAKE `#FFFFFF`; lane labels `#FFE3E8` at **9sp**; lane gap
+      3 dp; **6 dp between block and stats row**; concave **8 dp tab
+      fillet** carved as a black notch on the island tab; new **2 dp score
+      line** under "Score …" (track black 18 %, fill `#1A0006`); bed/wake
+      times, battery, alarm, temp all keep their slots.
+- [x] Tests: +41 unit tests (forecast 16, weeklyReview 16, plus walk/label
+      edges) — **327 unit green**, e2e **9/9**, tsc clean, ESLint 0 errors,
+      Kotlin + layout resources compile green locally.
+- [ ] On device: both new screens end-to-end (finance → insights row);
+      the widget redesign (lanes, tab fillet, score line, alarm cell);
+      the time picker (tap vs drag on the dial, AM/PM pill); Sunday
+      notification (or schedule it via relaunch) deep-linking into Weekly
+      review; Set as goals → tasks created.
 
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 

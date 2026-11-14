@@ -716,6 +716,25 @@ export async function scheduleAllReminders(force = false) {
       }
     } catch (e) { console.warn('[notificationService] sleep reminder failed:', e); }
 
+    // Weekly review — next Sunday at 9:00 AM: the week at a glance, deep
+    // link into the Weekly review screen.
+    try {
+      const t0 = istNow();
+      for (let d = 0; d <= 7; d++) {
+        const sunday = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + d, 9, 0, 0, 0);
+        if (sunday <= t0) continue;
+        if (sunday.getDay() !== 0) continue;
+        await scheduleLocal(
+          '\u{1F9ED} Weekly review',
+          'Your week at a glance — score, wins and next week\u2019s focus.',
+          sunday,
+          'morning-brief',
+          { screen: 'WeeklyReview', dedupKey: `weekly_review_${sunday.toISOString().slice(0, 10)}` }
+        );
+        break;
+      }
+    } catch (e) { console.warn('[notificationService] weekly review failed:', e); }
+
     // Morning brief — 7:30 AM IST daily for the next 7 days: today's quote +
     // a nudge to open Home (habit progress). Deep-links to the Home tab.
     // (Retimed from 9:00 so it no longer lands with the 9:00 breakfast ping.)

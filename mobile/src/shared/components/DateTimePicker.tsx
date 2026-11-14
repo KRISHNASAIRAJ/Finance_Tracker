@@ -33,16 +33,21 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
   const [minute, setMinute] = useState(selected.getMinutes());
   const [mode, setMode] = useState<ClockMode>('hours');
 
+  // Primitives as deps — `selected` is rebuilt on every render upstream.
+  const selYear = selected.getFullYear();
+  const selMonth = selected.getMonth();
+  const selDay = selected.getDate();
+  const selHour = selected.getHours();
+  const selMinute = selected.getMinutes();
   useEffect(() => {
     if (!visible) return;
-    const s = selected;
     setTab('date');
-    setViewMonth(new Date(s));
-    setTempDate(new Date(s));
-    setHours24(s.getHours());
-    setMinute(s.getMinutes());
+    setViewMonth(new Date(selYear, selMonth, selDay));
+    setTempDate(new Date(selYear, selMonth, selDay));
+    setHours24(selHour);
+    setMinute(selMinute);
     setMode('hours');
-  }, [visible, selected]);
+  }, [visible, selYear, selMonth, selDay, selHour, selMinute]);
 
   const isSelected = (d: Date) =>
     d.getDate() === tempDate.getDate() &&
@@ -82,7 +87,7 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     if (next.period !== undefined) {
       setHours24(next.period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12);
     }
-    if (next.hours24 !== undefined && mode === 'hours') setMode('minutes');
+    // The mode advance happens in the dial itself (a tap, not a drag).
   };
 
   const applyPeriod = (period: ClockPeriod) => {
