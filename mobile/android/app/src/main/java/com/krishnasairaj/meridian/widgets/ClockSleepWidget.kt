@@ -400,12 +400,14 @@ class ClockSleepWidget : AppWidgetProvider() {
         val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
         val dayText = day.toString()
 
-        // The whole date is red.
+        // The day number is entirely red - both digits of a double-digit day.
+        // The weekday and the month keep the layout colour (grey).
         val text = SpannableString("$weekday $dayText $month")
+        val start = weekday.length + 1
         text.setSpan(
             ForegroundColorSpan(RED),
-            0,
-            text.length,
+            start,
+            start + dayText.length,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         return text
