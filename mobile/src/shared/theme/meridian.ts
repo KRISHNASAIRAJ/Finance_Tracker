@@ -41,6 +41,12 @@ export const mc = {
   lineSoft: '#26262C',
   /** The drawer's dimmed page behind it. */
   overlay: 'rgba(0, 0, 0, 0.72)',
+  /** Border of an unchecked checkbox. */
+  checkbox: '#3A3A42',
+  /** Label on a filled red chip (day-of-week strip). */
+  redLav: '#FFD0D6',
+  /** Body copy on a mint-tinted card. */
+  mintText: '#CFEFE4',
 
   // Accents — meaning first
   /** Attention, overdue, destructive. */

@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     color: mc.textDim,
   },
   dayLabelToday: {
-    color: '#FFD0D6',
+    color: mc.redLav,
   },
   dayNumber: {
     fontSize: 17,
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#3A3A42',
+    borderColor: mc.checkbox,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
   },
   noteText: {
     fontSize: 13,
-    color: '#CFEFE4',
+    color: mc.mintText,
     lineHeight: 20,
     marginTop: 6,
   },
