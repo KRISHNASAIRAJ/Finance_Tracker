@@ -1,56 +1,57 @@
 /**
  * categoryMap — Expense category definitions with icons, colors, and labels for the finance module.
+ *
+ * The glyphs are the flat, solid MaterialCommunityIcons set — the same
+ * minimal filled style OxygenOS uses — so every glyph is one colour.
  */
-import { Ionicons } from "@expo/vector-icons";
-
 export interface Category {
   name: string;
-  icon: keyof typeof Ionicons.glyphMap | 'gas-station';
+  icon: string;
   color: string;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
-  { name: "Food & Dining",       icon: "restaurant",                  color: "#ffb2b9" },
+  { name: "Food & Dining",       icon: "silverware-fork-knife",       color: "#ffb2b9" },
   { name: "Grocery",             icon: "basket",                      color: "#5ee6ff" },
   { name: "Fuel",                icon: "gas-station",                 color: "#ea6479" },
-  { name: "Vehicle Maintenance", icon: "build",                       color: "#59d6c7" },
+  { name: "Vehicle Maintenance", icon: "car-wrench",                  color: "#59d6c7" },
   { name: "Travel",              icon: "airplane",                    color: "#d0bcff" },
-  { name: "Shopping",            icon: "bag",                         color: "#ffdadc" },
-  { name: "Bills & Recharge",    icon: "flash",                       color: "#00cbe6" },
+  { name: "Shopping",            icon: "shopping",                    color: "#ffdadc" },
+  { name: "Bills & Recharge",    icon: "lightning-bolt",              color: "#00cbe6" },
   { name: "Rent",                icon: "home",                        color: "#38bdf8" },
   { name: "EMI",                 icon: "repeat",                      color: "#a78bfa" },
-  { name: "Entertainment",       icon: "film",                        color: "#f472b6" },
-  { name: "OTT",                 icon: "tv",                          color: "#e879f9" },
-  { name: "Youtube Premium",     icon: "play",                        color: "#ef4444" },
+  { name: "Entertainment",       icon: "movie",                       color: "#f472b6" },
+  { name: "OTT",                 icon: "television",                  color: "#e879f9" },
+  { name: "Youtube Premium",     icon: "youtube",                     color: "#ef4444" },
   { name: "Education",           icon: "school",                      color: "#22d3ee" },
-  { name: "Medical",             icon: "medkit",                      color: "#ffb2b9" },
-  { name: "Health & Wellness",   icon: "fitness",                     color: "#5ee6ff" },
-  { name: "Insurance",           icon: "shield-checkmark",            color: "#d0bcff" },
+  { name: "Medical",             icon: "medical-bag",                 color: "#ffb2b9" },
+  { name: "Health & Wellness",   icon: "dumbbell",                    color: "#5ee6ff" },
+  { name: "Insurance",           icon: "shield-check",                color: "#d0bcff" },
   { name: "SIP",                 icon: "trending-up",                 color: "#00cbe6" },
-  { name: "Equity Investment",   icon: "bar-chart",                   color: "#ea6479" },
-  { name: "Card Annual Charges", icon: "card",                        color: "#ffdadc" },
+  { name: "Equity Investment",   icon: "chart-bar",                   color: "#ea6479" },
+  { name: "Card Annual Charges", icon: "credit-card",                 color: "#ffdadc" },
   { name: "Interest",            icon: "calculator",                  color: "#ffb2b9" },
   { name: "Family",              icon: "heart",                       color: "#ea6479" },
-  { name: "Friends",             icon: "people",                      color: "#5ee6ff" },
-  { name: "Cash Withdrawal",     icon: "cash",                        color: "#d0bcff" },
+  { name: "Friends",             icon: "account-group",               color: "#5ee6ff" },
+  { name: "Cash Withdrawal",     icon: "cash-multiple",               color: "#d0bcff" },
   { name: "Wallet Loads",        icon: "wallet",                      color: "#00cbe6" },
   { name: "Professional Service",icon: "briefcase",                   color: "#ffdadc" },
-  { name: "Others",              icon: "ellipsis-horizontal",         color: "#a78bfa" },
+  { name: "Others",              icon: "dots-horizontal",             color: "#a78bfa" },
 ];
 
 export const INCOME_CATEGORIES: Category[] = [
-  { name: "Salary", icon: "arrow-down-circle", color: "#5ee6ff" },
+  { name: "Salary", icon: "account-cash", color: "#5ee6ff" },
   { name: "Freelance", icon: "briefcase", color: "#ffb2b9" },
   { name: "Investment", icon: "trending-up", color: "#00cbe6" },
-  { name: "Others", icon: "ellipsis-horizontal", color: "#d0bcff" },
+  { name: "Others", icon: "dots-horizontal", color: "#d0bcff" },
 ];
 
-export function getCategoryIcon(category: string): keyof typeof Ionicons.glyphMap | 'gas-station' {
+export function getCategoryIcon(category: string): string {
   const name = category.toLowerCase().trim();
   const found =
     EXPENSE_CATEGORIES.find((c) => c.name.toLowerCase() === name) ??
     INCOME_CATEGORIES.find((c) => c.name.toLowerCase() === name);
-  return found ? found.icon : "receipt";
+  return found ? found.icon : "dots-horizontal";
 }
 
 const PALETTE = [

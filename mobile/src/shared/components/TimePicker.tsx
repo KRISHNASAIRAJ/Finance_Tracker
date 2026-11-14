@@ -46,10 +46,9 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
     if (next.hours24 !== undefined && mode === 'hours') setMode('minutes');
   };
 
-  const togglePeriod = () => {
-    const next: ClockPeriod = periodFrom24(hours24) === 'AM' ? 'PM' : 'AM';
-    const h = next === 'PM' ? (hours24 % 12) + 12 : hours24 % 12;
-    setHours24(h);
+  const applyPeriod = (period: ClockPeriod) => {
+    if (periodFrom24(hours24) === period) return;
+    setHours24(period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12);
   };
 
   const handleDone = () => {
@@ -87,15 +86,15 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
               minute={minute}
               mode={mode}
               onChange={handleChange}
-              onToggleMode={() => setMode((m) => (m === 'hours' ? 'minutes' : 'hours'))}
-              onTogglePeriod={togglePeriod}
+              onSelectMode={setMode}
+              onSetPeriod={applyPeriod}
             />
           </View>
 
           <Text style={styles.hint}>
             {mode === 'hours'
-              ? 'Drag the dial to pick the hour, then the minutes.'
-              : 'Drag the dial to pick the minute — every minute counts.'}
+              ? 'Tap the hour, then drag the dial to set it.'
+              : 'Tap the minute, then drag the dial — every minute counts.'}
           </Text>
 
           <View style={styles.actions}>

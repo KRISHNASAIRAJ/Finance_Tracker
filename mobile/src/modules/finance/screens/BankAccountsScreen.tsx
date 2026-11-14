@@ -39,6 +39,7 @@ export default function BankAccountsScreen() {
   const {
     accounts,
     wallets,
+    transactions,
     getTotalBalance,
     getWalletTotal,
     editAccountBalance,
@@ -59,6 +60,21 @@ export default function BankAccountsScreen() {
   const totalBalance = getTotalBalance();
   const walletTotal = getWalletTotal();
   const accountsTotal = totalBalance - walletTotal;
+
+  // This month's Payzapp wallet loads — the same filter the Payzapp screen
+  // uses, so the card always matches the history there.
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthLoads = (transactions || []).filter(
+    (tx: any) =>
+      tx.type === 'expense' &&
+      (tx.category === 'Wallet Loads' ||
+        tx.category === 'Wallet Load' ||
+        tx.notes?.toLowerCase().includes('wallet load') ||
+        tx.notes?.toLowerCase().includes('payzapp')) &&
+      new Date(tx.date) >= monthStart
+  );
+  const monthLoadTotal = monthLoads.reduce((s: number, t: any) => s + t.amount, 0);
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -270,6 +286,36 @@ export default function BankAccountsScreen() {
               </PressScale>
             ))
           )}
+        </Card>
+      </Rise>
+
+      {/* Payzapp wallet loads — moved here from the Finance screen */}
+      <Rise index={4}>
+        <Label style={styles.sectionTitle}>PAYZAPP WALLET LOADS</Label>
+        <Card pad={false}>
+          <PressScale
+            onPress={() => navigation.navigate('PayzappWallet' as never)}
+            scale={0.99}
+            style={styles.accountRow}
+            accessibilityRole="button"
+            accessibilityLabel="Open Payzapp wallet loads"
+          >
+            <IconTile
+              icon="wallet-outline"
+              color={mc.violet}
+              background={mc.violetDim}
+              size={40}
+              radius={13}
+            />
+            <View style={styles.accountMain}>
+              <Text style={styles.accountTitle}>PayZapp wallet loads</Text>
+              <Text style={styles.minLabel}>
+                {monthLoads.length} load{monthLoads.length === 1 ? '' : 's'} this month
+              </Text>
+            </View>
+            <Text style={styles.accountAmount}>{formatCurrency(monthLoadTotal)}</Text>
+            <Ionicons name="chevron-forward" size={16} color={mc.textFaint} />
+          </PressScale>
         </Card>
       </Rise>
 

@@ -27,6 +27,7 @@ import { pushStatsWidget } from './src/services/statsWidget';
 import { runMarketSyncWatchdog } from './src/services/marketSyncWatchdog';
 import { scheduleMedicationReminders, handleMedicationAction } from './src/services/medicationReminders';
 import { startMotionTracking } from './src/modules/sleep/sleepMotion';
+import { autoSaveLastNight } from './src/modules/sleep/autoSave';
 import { useSleepStore } from './src/modules/sleep/store';
 import { pushSleepWidget } from './src/services/sleepWidget';
 import { navigationRef } from './src/navigation/navigationRef';
@@ -293,6 +294,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         const cfg = useSleepStore.getState().autoConfig;
         if (cfg?.enabled) startMotionTracking(cfg);
       } catch (_e) { /* best-effort */ }
+      // Did last night's sleep get logged? The tracker records all night, but
+      // only this check writes the entry into the log — so it runs on every
+      // open, whatever screen the user lands on.
+      autoSaveLastNight().catch(() => {});
     }, 2500);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -303,6 +308,9 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         runMarketSyncWatchdog().catch(() => {});
         // The weather is refreshed every time the app comes back.
         refreshWeather().catch(() => {});
+        // The morning check: a night that ended while the app was away is
+        // auto-saved now (no-op when it was already).
+        autoSaveLastNight().catch(() => {});
       }
       if (nextState === 'background') {
         processSyncQueue()

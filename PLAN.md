@@ -11,6 +11,77 @@
 > then the section of the feature you were working on. A ✅ means it is done and
 > verified; a ⬜ means it is still to do.
 
+### Batch 12 — the sleep tracker fix + device feedback (2026-11-14 / 2026-11-15, not yet on device)
+
+> Everything below is committed to `v4` but NOT device-verified yet — install
+> the new CI APK and confirm the list under **Batch 12 — on the device**.
+
+- [x] **The `?` marks are gone (`CreditCardsScreen.tsx`)** — the file had
+      corrupted (`U+FFFD`) bytes baked in: the `TOTAL DUE` rupee sign, the
+      "Largest:" line separator and every card number slot showed `?`.
+      All are proper `₹` / `·` / `••••` again. A repo-wide scan (mobile src,
+      web src, android src) finds no `U+FFFD` anywhere else.
+- [x] **Category icons are OxygenOS-style** — every expense/income category
+      glyph is now from the flat solid MaterialCommunityIcons set (fuel:
+      `gas-station`, dining: `silverware-fork-knife`, bills:
+      `lightning-bolt`, …). The icon/color contract of `categoryMap.ts` is
+      unchanged, so all call sites (Add transaction chips, transaction rows,
+      category budgets) render the new set.
+- [x] **The wallet-load card moved into Bank accounts** — the Finance screen
+      no longer shows anything about wallet loads; the Bank accounts screen
+      has a `PAYZAPP WALLET LOADS` row (loads this month + month-to-date
+      total, opens the Payzapp loads screen). BANK / LENT / FIXED are now a
+      single equal-width row on the Finance screen.
+- [x] **The clock clock popup** — the time readout no longer swallows the
+      dial: tapping the hour or the minute picks which unit moves (it turns
+      red), and dragging the dial sets it. A plain tap on the dial sets the
+      value under the finger (it never did before — the overlay ate the
+      touch). Explicit **AM / PM** pills sit under the time.
+- [x] **The sleep tracker now actually records with the screen off** — the
+      accelerometer used before delivered zero samples in deep sleep. The
+      service now uses the **wake-up accelerometer** (`TYPE_ACCELEROMETER_WAKEUP`,
+      one CPU wake per sample) and only holds a partial wake lock when the
+      device has no wake-up sensor. *Root cause of "it's not tracking".*
+- [x] **Last night's sleep is logged without opening the sleep screen** —
+      the inferred session is auto-saved on every app boot and every
+      foreground (`modules/sleep/autoSave.ts`), not only when the Sleep
+      screen is open. Short nights and pending-gap nights are skipped;
+      one night = one record (same `isSameNight` dedup as everywhere).
+- [x] **Sleep-only 2x2 widget shows DEEP / LIGHT / AWAKE** — the REM pill is
+      gone; three violet lanes (DEEP `#7E6CF0`, LIGHT `#B4A8FF`,
+      AWAKE `#FF5B6A`) are drawn from the same motion timeline as the
+      Clock + Sleep widget. Payload unchanged (stages were already pushed).
+- [x] **"STILL FOR" counts up from seconds** — a 1 s tick shows `42s`, then
+      `5m`, then `2h 15m` (was: minute resolution only, `—` for the first
+      minute).
+- [x] **The "Medium is best with the phone under a pillow…" hint under
+      SENSITIVITY is gone.**
+- [x] **ExpenseConfirmationScreen redesigned** — thermal-receipt printer
+      choreography from the reference: paper emerges in 26 stepped frames
+      over 2.6 s (jitter + haptic per step), LOGGED stamp slams at −3° at
+      t≈3.0 s, mint LED + `RECEIPT READY`, red "Back to spends" button and
+      "Add another" slide up at t≈3.3 s, tap the printer to reprint,
+      reduced-motion safe. Amount / category / method come from the saved
+      transaction.
+- [x] Tests: `autoSave.test.ts` (4) — settled night logs once, in-progress
+      night skipped, ambiguous gap waits, disabled tracker does nothing.
+      Full suite green (tsc / ESLint / 285 unit / 9 e2e).
+
+### Batch 12 — on the device
+
+- [ ] Install the new APK, then sleep with the phone on the mattress
+      tonight — check in the morning that the **sleep entry exists** without
+      opening the sleep screen (check the widget too: duration + stage bars).
+- [ ] **Sleep-only widget** shows the three stage lanes.
+- [ ] **"STILL FOR"** counts up from seconds while tracking.
+- [ ] **Clock**: tap the hour or the minute, drag the hand, tap the
+      `AM` / `PM` pills.
+- [ ] **Credit cards**: the `TOTAL DUE` amount, the `Largest:` line and the
+      stack cards show `₹` / `••••` — no `?` anywhere.
+- [ ] **Finance screen**: exactly BANK / LENT / FIXED in one row; nothing
+      about wallet loads; wallet loads appear inside **Bank accounts**.
+- [ ] **Add transaction** screen: categories show the flat solid glyphs.
+
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /

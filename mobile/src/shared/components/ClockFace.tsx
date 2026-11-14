@@ -8,8 +8,8 @@
  *   hours stage   → the 12 numbers, 30° apart
  *   minutes stage → the 60 ticks, 6° apart (1-minute precision)
  *
- * The centre shows the whole time — the unit being edited is red — with an
- * AM/PM pill under it. Tapping the time switches between the two stages.
+ * The centre shows the whole time — tap the hour or the minute to edit
+ * that unit (it turns red), with an AM / PM pair underneath.
  */
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -45,12 +45,12 @@ interface ClockFaceProps {
   minute: number;
   /** Which unit is being edited. */
   mode: ClockMode;
-  /** Called with the new hour (24h) / minute / period while dragging. */
-  onChange: (next: { hours24?: number; minute?: number; period?: ClockPeriod }) => void;
-  /** Called when the user wants to switch between the hours and the minutes. */
-  onToggleMode: () => void;
-  /** Called when the user flips the AM / PM pill. */
-  onTogglePeriod: () => void;
+  /** Called with the new hour (24h) / minute while dragging. */
+  onChange: (next: { hours24?: number; minute?: number }) => void;
+  /** Called when the user wants to edit the hours or the minutes. */
+  onSelectMode: (mode: ClockMode) => void;
+  /** Called when the user picks AM or PM. */
+  onSetPeriod: (period: ClockPeriod) => void;
   /** The dial size in dp. */
   size?: number;
 }
@@ -62,8 +62,8 @@ export default function ClockFace({
   minute,
   mode,
   onChange,
-  onToggleMode,
-  onTogglePeriod,
+  onSelectMode,
+  onSetPeriod,
   size = DEFAULT_SIZE,
 }: ClockFaceProps) {
   const radius = size / 2 - 10;
@@ -101,7 +101,6 @@ export default function ClockFace({
   // --- the drag ------------------------------------------------------------
   const modeRef = useRef(mode);
   modeRef.current = mode;
-  const dragged = useRef(false);
 
   const valueAt = useCallback(
     (x: number, y: number): { kind: 'hours'; hour12: number } | { kind: 'minutes'; minute: number } => {
@@ -131,23 +130,16 @@ export default function ClockFace({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // Only claim the touch once it turns into a drag — a tap on the
-        // centre (the AM/PM pill) still works.
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_e, g) => Math.hypot(g.dx, g.dy) > 4,
+        // Tapping the dial claims the touch (so a tap sets the value under
+        // the finger). The centre readout and the AM / PM pills are
+        // Pressables rendered above the dial — they win their own touches.
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (e) => {
-          dragged.current = false;
           applyAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
         },
         onPanResponderMove: (e) => {
-          dragged.current = true;
           applyAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
-        },
-        onPanResponderRelease: (e) => {
-          if (!dragged.current) {
-            // A plain tap on the dial sets the value under the finger.
-            applyAt(e.nativeEvent.locationX, e.nativeEvent.locationY);
-          }
         },
       }),
     [applyAt]
@@ -286,17 +278,49 @@ export default function ClockFace({
         }}
       />
 
-      {/* The centre readout */}
-      <Pressable style={styles.center} onPress={onToggleMode}>
-        <Text style={styles.time}>
-          <Text style={mode === 'hours' ? styles.unitActive : styles.unitIdle}>{hourLabel}</Text>
-          <Text style={styles.colon}>:</Text>
-          <Text style={mode === 'minutes' ? styles.unitActive : styles.unitIdle}>{minuteLabel}</Text>
-        </Text>
-        <Pressable onPress={onTogglePeriod} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={styles.period}>{period}</Text>
-        </Pressable>
-      </Pressable>
+      {/* The centre readout — content-sized so the dial stays draggable.
+          Tapping the hour or the minute picks that unit to edit. */}
+      <View style={styles.center} pointerEvents="box-none">
+        <View style={styles.readoutRow}>
+          <Pressable
+            onPress={() => onSelectMode('hours')}
+            hitSlop={{ top: 10, bottom: 10, left: 12, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Edit hour"
+            accessibilityState={{ selected: mode === 'hours' }}
+          >
+            <Text style={[styles.time, mode === 'hours' ? styles.unitActive : styles.unitIdle]}>
+              {hourLabel}
+            </Text>
+          </Pressable>
+          <Text style={[styles.time, styles.colon]}>:</Text>
+          <Pressable
+            onPress={() => onSelectMode('minutes')}
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Edit minute"
+            accessibilityState={{ selected: mode === 'minutes' }}
+          >
+            <Text style={[styles.time, mode === 'minutes' ? styles.unitActive : styles.unitIdle]}>
+              {minuteLabel}
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.periodRow}>
+          {(['AM', 'PM'] as const).map((p) => (
+            <Pressable
+              key={p}
+              onPress={() => onSetPeriod(p)}
+              style={[styles.periodPill, period === p && styles.periodPillOn]}
+              accessibilityRole="button"
+              accessibilityLabel={`${p}m`}
+              accessibilityState={{ selected: period === p }}
+            >
+              <Text style={[styles.periodText, period === p && styles.periodTextOn]}>{p}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
@@ -310,6 +334,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  readoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   time: {
     fontSize: 30,
@@ -325,11 +353,32 @@ const styles = StyleSheet.create({
   colon: {
     color: op.white,
   },
-  period: {
-    marginTop: 2,
-    fontSize: 12,
+  periodRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  periodPill: {
+    minWidth: 38,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: op.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodPillOn: {
+    backgroundColor: op.red,
+    borderColor: op.red,
+  },
+  periodText: {
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.5,
-    color: op.whiteDim,
+    letterSpacing: 1.4,
+    color: op.muted,
+  },
+  periodTextOn: {
+    color: op.white,
   },
 });

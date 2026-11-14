@@ -85,9 +85,10 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
     if (next.hours24 !== undefined && mode === 'hours') setMode('minutes');
   };
 
-  const togglePeriod = () => {
-    const next: ClockPeriod = periodFrom24(hours24) === 'AM' ? 'PM' : 'AM';
-    setHours24(next === 'PM' ? (hours24 % 12) + 12 : hours24 % 12);
+  const applyPeriod = (period: ClockPeriod) => {
+    // Idempotent: only flip when the pill differs from the current period.
+    if (periodFrom24(hours24) === period) return;
+    setHours24(period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12);
   };
 
   const handleConfirm = () => {
@@ -205,8 +206,8 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                 minute={minute}
                 mode={mode}
                 onChange={handleClockChange}
-                onToggleMode={() => setMode((m) => (m === 'hours' ? 'minutes' : 'hours'))}
-                onTogglePeriod={togglePeriod}
+                onSelectMode={setMode}
+                onSetPeriod={applyPeriod}
               />
             </View>
           )}

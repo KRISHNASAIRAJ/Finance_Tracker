@@ -7,9 +7,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
+import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -19,10 +21,11 @@ import kotlin.math.roundToInt
 /**
  * SleepStatsWidget — a 2x2 home-screen widget that shows **only** sleep.
  *
- * The compact version of the last night: the duration in a green pill, the
- * bedtime → wake time, the wake-ups and the sleep rating. The data is pushed
- * from JS (SleepStatsWidgetBridge) and cached in SharedPreferences, so the
- * widget survives a redraw and a process death.
+ * The black-shell view of the last night: the duration, the DEEP / LIGHT /
+ * AWAKE stage chart (drawn from the same motion timeline the Clock & Sleep
+ * widget draws from), the bedtime → wake time, the wake-ups and the sleep
+ * rating. The data is pushed from JS (SleepStatsWidgetBridge) and cached in
+ * SharedPreferences, so the widget survives a redraw and a process death.
  *
  * The widget refreshes itself every day at 9:00 AM (SleepWidgetScheduler) and
  * whenever the sleep log changes.
@@ -33,10 +36,29 @@ class SleepStatsWidget : AppWidgetProvider() {
         const val PREFS = "meridian_sleep_stats_widget"
         const val KEY_JSON = "sleep_stats_json"
 
-        /** Root padding + pill padding on each side (dp) — the ribbon inset. */
-        private const val TRACK_INSET_DP = 30
+        /** Root padding + lane label + track margin (dp) — the bar inset. */
+        private const val TRACK_INSET_DP = 38
 
         private const val NO_VALUE = "—"
+
+        private val DEEP_IDS = intArrayOf(
+            R.id.sleep_stats_deep_1,
+            R.id.sleep_stats_deep_2,
+            R.id.sleep_stats_deep_3,
+            R.id.sleep_stats_deep_4
+        )
+        private val LIGHT_IDS = intArrayOf(
+            R.id.sleep_stats_light_1,
+            R.id.sleep_stats_light_2,
+            R.id.sleep_stats_light_3,
+            R.id.sleep_stats_light_4
+        )
+        private val AWAKE_IDS = intArrayOf(
+            R.id.sleep_stats_awake_1,
+            R.id.sleep_stats_awake_2,
+            R.id.sleep_stats_awake_3,
+            R.id.sleep_stats_awake_4
+        )
 
         /** Persist the latest sleep payload (from the JS bridge) and redraw. */
         fun setSleep(ctx: Context, json: String) {
@@ -85,28 +107,21 @@ class SleepStatsWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_sleep_stats)
 
         var duration = NO_VALUE
-        var bedTime = 0L
-        var wakeTime = 0L
-        var rem1Start = 0L
-        var rem1End = 0L
-        var rem2Start = 0L
-        var rem2End = 0L
-        var wakeUps = NO_VALUE
-        var rating = NO_VALUE
         var bedText = NO_VALUE
         var wakeText = NO_VALUE
+        var wakeUps = NO_VALUE
+        var rating = NO_VALUE
+        val deep = mutableListOf<FloatArray>()
+        val light = mutableListOf<FloatArray>()
+        val awake = mutableListOf<FloatArray>()
 
         if (!json.isNullOrEmpty()) {
             try {
                 val o = JSONObject(json)
                 if (o.optBoolean("hasSleep", false)) {
                     duration = formatDuration(o.optLong("durationMin", 0L))
-                    bedTime = o.optLong("bedTime", 0L)
-                    wakeTime = o.optLong("wakeTime", 0L)
-                    rem1Start = o.optLong("rem1Start", 0L)
-                    rem1End = o.optLong("rem1End", 0L)
-                    rem2Start = o.optLong("rem2Start", 0L)
-                    rem2End = o.optLong("rem2End", 0L)
+                    val bedTime = o.optLong("bedTime", 0L)
+                    val wakeTime = o.optLong("wakeTime", 0L)
                     val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
                     if (bedTime > 0L) bedText = fmt.format(Date(bedTime))
                     if (wakeTime > 0L) wakeText = fmt.format(Date(wakeTime))
@@ -114,6 +129,12 @@ class SleepStatsWidget : AppWidgetProvider() {
                     wakeUps = if (interruptions > 0) interruptions.toString() else "0"
                     val q = o.optInt("quality", 0)
                     rating = if (q > 0) "★".repeat(q.coerceAtMost(5)) else NO_VALUE
+                }
+                val stages = o.optJSONObject("stages")
+                if (stages != null) {
+                    readSegments(stages.optJSONArray("deep"), deep)
+                    readSegments(stages.optJSONArray("light"), light)
+                    readSegments(stages.optJSONArray("awake"), awake)
                 }
             } catch (_: Exception) {
                 // Malformed payload → keep the placeholders
@@ -126,25 +147,13 @@ class SleepStatsWidget : AppWidgetProvider() {
         views.setTextViewText(R.id.sleep_stats_bed, bedText)
         views.setTextViewText(R.id.sleep_stats_wake, wakeText)
 
-        // The REM windows on the dotted timeline. The bars are drawn by padding
+        // The DEEP / LIGHT / AWAKE stage chart — the bars are drawn by padding
         // a full-width progress bar, so the segment lands exactly where it
         // should.
         val track = trackWidthPx(context, mgr, widgetId)
-        val span = wakeTime - bedTime
-        if (span > 0L) {
-            if (rem1End > rem1Start) {
-                val x1 = positionOf(rem1Start, bedTime, span, track)
-                val x2 = positionOf(rem1End, bedTime, span, track)
-                views.setViewPadding(R.id.sleep_stats_rem1, x1, 0, track - x2, 0)
-                views.setProgressBar(R.id.sleep_stats_rem1, 100, 100, false)
-            }
-            if (rem2End > rem2Start) {
-                val x1 = positionOf(rem2Start, bedTime, span, track)
-                val x2 = positionOf(rem2End, bedTime, span, track)
-                views.setViewPadding(R.id.sleep_stats_rem2, x1, 0, track - x2, 0)
-                views.setProgressBar(R.id.sleep_stats_rem2, 100, 100, false)
-            }
-        }
+        bindSegments(views, deep, DEEP_IDS, track)
+        bindSegments(views, light, LIGHT_IDS, track)
+        bindSegments(views, awake, AWAKE_IDS, track)
 
         views.setOnClickPendingIntent(
             R.id.sleep_stats_container,
@@ -154,7 +163,45 @@ class SleepStatsWidget : AppWidgetProvider() {
         return views
     }
 
-    /** Width of the dotted timeline in pixels. */
+    /** Read the stage segments of a lane: [start, length] of the night. */
+    private fun readSegments(array: JSONArray?, out: MutableList<FloatArray>) {
+        if (array == null) return
+        for (i in 0 until array.length()) {
+            val pair = array.optJSONArray(i) ?: continue
+            val start = pair.optDouble(0, 0.0).toFloat()
+            val len = pair.optDouble(1, 0.0).toFloat()
+            if (len <= 0f) continue
+            out.add(floatArrayOf(start, len))
+        }
+    }
+
+    /**
+     * Draw the bars of one lane — a segment is positioned by padding a
+     * full-width progress bar (the same trick the REM timeline used).
+     */
+    private fun bindSegments(
+        views: RemoteViews,
+        segments: List<FloatArray>,
+        ids: IntArray,
+        track: Int
+    ) {
+        for (index in ids.indices) {
+            val id = ids[index]
+            val segment = segments.getOrNull(index)
+            if (segment == null) {
+                views.setViewVisibility(id, View.GONE)
+                continue
+            }
+            views.setViewVisibility(id, View.VISIBLE)
+            val from = (segment[0].coerceIn(0f, 1f) * track).toInt()
+            val to = ((segment[0] + segment[1]).coerceIn(0f, 1f) * track).toInt()
+            val width = (to - from).coerceAtLeast(1)
+            views.setViewPadding(id, from, 0, (track - width).coerceAtLeast(0), 0)
+            views.setProgressBar(id, 100, 100, false)
+        }
+    }
+
+    /** Width of the stage track in pixels. */
     private fun trackWidthPx(
         context: Context,
         mgr: AppWidgetManager,
@@ -164,12 +211,6 @@ class SleepStatsWidget : AppWidgetProvider() {
         val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
         val density = context.resources.displayMetrics.density
         return ((widthDp - TRACK_INSET_DP).coerceAtLeast(40) * density).toInt()
-    }
-
-    /** Position of a timestamp on the timeline, in pixels. */
-    private fun positionOf(time: Long, bed: Long, span: Long, track: Int): Int {
-        val ratio = (time - bed).toDouble() / span.toDouble()
-        return (ratio * track).roundToInt().coerceIn(0, track)
     }
 
     /** 522 minutes → "8H 42M". */

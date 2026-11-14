@@ -118,17 +118,6 @@ export default function FinanceHomeScreen() {
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
 
-  const payzappMonthlyLoad = transactions
-    .filter(
-      (tx: any) =>
-        tx.type === 'expense' &&
-        (tx.category?.toLowerCase() === 'wallet loads' ||
-          tx.category?.toLowerCase() === 'wallet load' ||
-          tx.notes?.toLowerCase().includes('payzapp wallet'))
-    )
-    .filter((tx: any) => new Date(tx.date) >= new Date(now.getFullYear(), now.getMonth(), 1))
-    .reduce((sum: number, tx: any) => sum + tx.amount, 0);
-
   // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
   const totalNetWorth =
     effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
@@ -337,9 +326,9 @@ export default function FinanceHomeScreen() {
         </PressScale>
       </Rise>
 
-      {/* Money tiles */}
+      {/* Money tiles — one row: Bank, Lent, Fixed */}
       <View style={styles.tileGrid}>
-        <Rise index={2}>
+        <Rise index={2} style={styles.tileCell}>
           <StatTile
             icon="business-outline"
             color={mc.sky}
@@ -348,16 +337,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('BankAccounts')}
           />
         </Rise>
-        <Rise index={3}>
-          <StatTile
-            icon="wallet-outline"
-            color={mc.violet}
-            value={formatCompact(payzappMonthlyLoad)}
-            label="WALLET LOAD"
-            onPress={() => navigation.navigate('PayzappWallet')}
-          />
-        </Rise>
-        <Rise index={4}>
+        <Rise index={3} style={styles.tileCell}>
           <StatTile
             icon="people-outline"
             color={mc.amber}
@@ -366,7 +346,7 @@ export default function FinanceHomeScreen() {
             onPress={() => navigation.navigate('LentBorrowed')}
           />
         </Rise>
-        <Rise index={5}>
+        <Rise index={4} style={styles.tileCell}>
           <StatTile
             icon="receipt-outline"
             color={mc.mint}
@@ -379,7 +359,7 @@ export default function FinanceHomeScreen() {
 
       {/* Budget + credit card bills */}
       <View style={styles.twoUp}>
-        <Rise index={6} style={styles.flexCell}>
+        <Rise index={5} style={styles.flexCell}>
           <PressScale onPress={() => navigation.navigate('MonthlySpend')} scale={0.98}>
             <Card style={styles.gaugeCard}>
               <Label>BUDGET</Label>
@@ -404,7 +384,7 @@ export default function FinanceHomeScreen() {
           </PressScale>
         </Rise>
 
-        <Rise index={7} style={styles.flexCell}>
+        <Rise index={6} style={styles.flexCell}>
           <PressScale onPress={() => navigation.navigate('CreditCards')} scale={0.98}>
             <Card style={styles.gaugeCard}>
               <Label>CC BILLS</Label>
@@ -435,7 +415,7 @@ export default function FinanceHomeScreen() {
       </View>
 
       {/* This week */}
-      <Rise index={8}>
+      <Rise index={7}>
         <Card>
           <View style={styles.rowBetween}>
             <Label>THIS WEEK</Label>
@@ -462,7 +442,7 @@ export default function FinanceHomeScreen() {
       </Rise>
 
       {/* Top categories + the expense donut */}
-      <Rise index={9}>
+      <Rise index={8}>
         <PressScale onPress={() => navigation.navigate('FinanceReports')} scale={0.99}>
           <Card>
             <Label>TOP CATEGORIES</Label>
@@ -540,7 +520,7 @@ export default function FinanceHomeScreen() {
       </Rise>
 
       {/* Recent transactions */}
-      <Rise index={10}>
+      <Rise index={9}>
         <Card pad={false}>
           <View style={styles.listPanel}>
             <View style={styles.panelHeader}>
@@ -748,8 +728,10 @@ const styles = StyleSheet.create({
 
   tileGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
+  },
+  tileCell: {
+    flex: 1,
   },
   twoUp: {
     flexDirection: 'row',

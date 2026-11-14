@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   SleepStatsWidget — 2x2 sleep-only widget (OnePlus OxygenOS: black, white,
-  the OnePlus red as the accent).
+  the violet sleep accent).
 
-  The compact view of the last night: the duration, the bedtime → wake time,
-  the wake-ups and the sleep rating, with the two REM windows marked on the
-  dotted timeline inside the red pill. The red pill fills the space between
-  the duration and the details, so there is no empty gap.
+  The last night on the black shell: the duration, the DEEP / LIGHT / AWAKE
+  stage chart (drawn from the shared motion timeline), the bed → wake times,
+  the wake-ups and the sleep rating.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/sleep_stats_container"
@@ -38,57 +37,231 @@
         android:textColor="@color/oxygen_white"
         android:textSize="22sp" />
 
-    <!-- Sleep pill with the REM timeline — it fills the free space -->
-    <RelativeLayout
-        android:id="@+id/sleep_stats_pill"
+    <!-- The stage chart — DEEP / LIGHT / AWAKE lanes, fills the free space -->
+    <LinearLayout
+        android:id="@+id/sleep_stats_chart"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="4dp"
-        android:minHeight="28dp"
-        android:background="@drawable/widget_sleep_pill"
-        android:paddingStart="7dp"
-        android:paddingEnd="7dp">
+        android:layout_marginTop="6dp"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/sleep_stats_dots"
+        <!-- DEEP -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="4dp"
-            android:background="@drawable/widget_sleep_dots"
-            android:text="" />
+            android:layout_height="9dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <ProgressBar
-            android:id="@+id/sleep_stats_rem1"
-            style="@android:style/Widget.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="2.5dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="6dp"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_sleep_rem_bar" />
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:text="DEEP"
+                android:textColor="#B4A8FF"
+                android:textSize="5sp" />
 
-        <ProgressBar
-            android:id="@+id/sleep_stats_rem2"
-            style="@android:style/Widget.ProgressBar.Horizontal"
+            <RelativeLayout
+                android:id="@+id/sleep_stats_deep_track"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_deep_1"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_deep_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_deep_2"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_deep_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_deep_3"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_deep_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_deep_4"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_deep_bar" />
+            </RelativeLayout>
+        </LinearLayout>
+
+        <!-- LIGHT -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="2.5dp"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="9.5dp"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_sleep_rem_bar" />
-    </RelativeLayout>
+            android:layout_height="9dp"
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:text="LIGHT"
+                android:textColor="#D9D2FF"
+                android:textSize="5sp" />
+
+            <RelativeLayout
+                android:id="@+id/sleep_stats_light_track"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_light_1"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_light_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_light_2"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_light_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_light_3"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_light_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_light_4"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_light_bar" />
+            </RelativeLayout>
+        </LinearLayout>
+
+        <!-- AWAKE -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="9dp"
+            android:layout_marginTop="2dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="20dp"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:text="AWAKE"
+                android:textColor="#FF8B96"
+                android:textSize="5sp" />
+
+            <RelativeLayout
+                android:id="@+id/sleep_stats_awake_track"
+                android:layout_width="0dp"
+                android:layout_height="5dp"
+                android:layout_marginStart="2dp"
+                android:layout_weight="1">
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_awake_1"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_awake_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_awake_2"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_awake_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_awake_3"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_awake_bar" />
+
+                <ProgressBar
+                    android:id="@+id/sleep_stats_awake_4"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="5dp"
+                    android:layout_alignParentTop="true"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_stats_awake_bar" />
+            </RelativeLayout>
+        </LinearLayout>
+    </LinearLayout>
 
     <!-- Bed → wake + rating -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

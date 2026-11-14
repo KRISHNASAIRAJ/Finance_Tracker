@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The LIGHT sleep bar (sleep-only widget, black shell) — soft lavender. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <solid android:color="#B4A8FF" />
+                <corners android:radius="1.5dp" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

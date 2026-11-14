@@ -84,7 +84,11 @@ class SleepMotionService : Service(), SensorEventListener {
 
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
+    private var accelerometerWakeup: Sensor? = null
     private var registered = false
+
+    /** Held only when the device has NO wake-up accelerometer. */
+    private var trackingWakeLock: PowerManager.WakeLock? = null
 
     private var lastX = 0f
     private var lastY = 0f
@@ -174,8 +178,18 @@ class SleepMotionService : Service(), SensorEventListener {
             if (accelerometer == null) {
                 accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
             }
-            val sensor = accelerometer
+            if (accelerometerWakeup == null) {
+                accelerometerWakeup = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER_WAKEUP)
+            }
+            // A normal accelerometer STOPS delivering events when the screen is
+            // off — deep sleep means zero samples all night. The wake-up
+            // accelerometer wakes the CPU for every sample, so the timeline is
+            // recorded even in deep sleep (with the phone under a pillow).
+            // When the device has no wake-up sensor we hold a partial wake
+            // lock instead (only inside the night window).
+            val sensor = accelerometerWakeup ?: accelerometer
             if (sensor == null) return
+            if (accelerometerWakeup == null) acquireTrackingWakeLock()
             registered = sensorManager?.registerListener(this, sensor, SAMPLE_PERIOD_US) ?: false
         } catch (e: Exception) {
             registered = false
@@ -183,13 +197,42 @@ class SleepMotionService : Service(), SensorEventListener {
     }
 
     private fun unregisterSensor() {
-        if (!registered) return
+        if (!registered) {
+            releaseTrackingWakeLock()
+            return
+        }
         try {
             sensorManager?.unregisterListener(this)
         } catch (e: Exception) {
             /* ignore */
         }
         registered = false
+        releaseTrackingWakeLock()
+    }
+
+    private fun acquireTrackingWakeLock() {
+        try {
+            if (trackingWakeLock != null) return
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            trackingWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "meridian:sleep-tracker").apply {
+                setReferenceCounted(false)
+                // At most a night — the lock is never held during the day.
+                acquire(12 * 60 * 60 * 1000L)
+            }
+        } catch (e: Exception) {
+            trackingWakeLock = null
+        }
+    }
+
+    private fun releaseTrackingWakeLock() {
+        try {
+            trackingWakeLock?.let {
+                if (it.isHeld) it.release()
+            }
+        } catch (e: Exception) {
+            /* ignore */
+        }
+        trackingWakeLock = null
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {

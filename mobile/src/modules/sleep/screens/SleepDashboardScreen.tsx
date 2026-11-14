@@ -435,29 +435,41 @@ export default function SleepDashboardScreen() {
     return autoStatus.running ? 'Tracking' : 'Paused';
   }, [autoConfig.enabled, autoConfig.sleepStartMin, autoStatus]);
 
+  // 1-second tick for the live "still for" readout — the phone's own sensor
+  // polls every 5 s, the seconds just need a clock to count down on.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!autoStatus?.running) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [autoStatus?.running]);
+
   const stillText = useMemo(() => {
-    // Live first: the native tracker knows exactly when the phone last moved,
-    // so the readout follows the phone in real time.
-    if (autoStatus?.running) {
-      if (autoStatus.stillSince <= 0) return '—'; // the phone is moving right now
-      const minutes = Math.max(0, Math.floor((Date.now() - autoStatus.stillSince) / 60000));
-      if (minutes >= 1) {
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return h > 0 ? `${h}h ${m}m` : `${m}m`;
-      }
+    // Live first: the native tracker knows exactly when the phone last moved
+    // — from 0 seconds, then minutes, then hours.
+    if (autoStatus?.running && autoStatus.stillSince > 0) {
+      const ms = Math.max(0, nowTick - autoStatus.stillSince);
+      const totalSec = Math.floor(ms / 1000);
+      if (totalSec < 60) return `${totalSec}s`;
+      const minutes = Math.floor(totalSec / 60);
+      if (minutes < 60) return `${minutes}m`;
+      const h = Math.floor(minutes / 60);
+      return `${h}h ${minutes % 60}m`;
     }
-    // Fallback: the recorded timeline.
+    // Fallback: the recorded timeline (minute resolution).
     const streak = currentStillness(
       autoBuckets,
       motionThreshold(autoConfig.sensitivity),
       movingSecondsThreshold(autoConfig.sensitivity)
     );
-    if (!streak || streak.minutes < 1) return '—';
-    const h = Math.floor(streak.minutes / 60);
-    const m = streak.minutes % 60;
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }, [autoStatus, autoBuckets, autoConfig.sensitivity]);
+    if (!streak) return '—';
+    const totalSec = streak.minutes * 60;
+    if (totalSec < 60) return `${totalSec}s`;
+    const minutes = Math.floor(totalSec / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const h = Math.floor(minutes / 60);
+    return `${h}h ${minutes % 60}m`;
+  }, [autoStatus, autoBuckets, autoConfig.sensitivity, nowTick]);
 
   // Chart: duration trend (last 7 nights, oldest → newest)
   const CHART_W = 340;
@@ -787,9 +799,6 @@ export default function SleepDashboardScreen() {
                   accent={mc.violet}
                   activeText={mc.ink}
                 />
-                <Text style={styles.autoHint}>
-                  Medium is best with the phone under a pillow — it needs sustained movement to count as awake.
-                </Text>
 
                 <Text style={styles.autoFieldLabel}>NIGHT WINDOW</Text>
                 <View style={styles.chipRow}>
@@ -1362,11 +1371,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: 14,
     marginBottom: 6,
-  },
-  autoHint: {
-    fontSize: 11,
-    color: mc.textDim,
-    marginTop: 8,
   },
   chipRow: {
     flexDirection: 'row',
