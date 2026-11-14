@@ -11,7 +11,6 @@ import {
   Text,
   View,
   ScrollView,
-  TouchableOpacity,
   Modal,
   TextInput,
 } from 'react-native';
@@ -19,7 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { mc, mr } from '../../../shared/theme/meridian';
+import { mc } from '../../../shared/theme/meridian';
 import {
   Card,
   Chip,
@@ -30,7 +29,6 @@ import {
   StackedShareBar,
 } from '../../../shared/components/meridian';
 import { useFinanceStore, CreditCard } from '../store';
-import { cardRewardValue } from '../cardRewards';
 import { useAuth } from '../../../services/AuthProvider';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
@@ -225,8 +223,7 @@ export default function CreditCardsScreen() {
         </Rise>
       ) : (
         <Rise index={2}>
-          {sortedCards.map((card, idx) => {
-            const reward = cardRewardValue(card, card.points);
+          {sortedCards.map((card) => {
             const initial = (card.name || 'C').trim().charAt(0).toUpperCase();
             return (
               <PressScale
@@ -323,41 +320,43 @@ export default function CreditCardsScreen() {
               <Text style={styles.modalSub}>•••• {editingCard.endingWith}</Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>NEW OUTSTANDING BALANCE (₹)</Text>
+                <Text style={styles.inputLabel}>NEW OUTSTANDING</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.amountInput]}
                   value={amountInput}
                   onChangeText={setAmountInput}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor={mc.textFaint}
+                  placeholderTextColor={mc.textGhost}
                 />
               </View>
 
               <View style={styles.quickMathGroup}>
-                <Text style={styles.inputLabel}>QUICK AMOUNT (₹)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={quickInput}
-                  onChangeText={setQuickInput}
-                  keyboardType="decimal-pad"
-                  placeholder="Enter amount to add/subtract"
-                  placeholderTextColor={mc.textFaint}
-                />
+                <Text style={styles.inputLabel}>ADJUST</Text>
                 <View style={styles.quickMathRow}>
+                  <TextInput
+                    style={[styles.textInput, { flex: 1 }]}
+                    value={quickInput}
+                    onChangeText={setQuickInput}
+                    keyboardType="decimal-pad"
+                    placeholder="Amount"
+                    placeholderTextColor={mc.textGhost}
+                  />
                   <PressScale
                     onPress={() => applyQuickAmount('plus')}
                     scale={0.92}
-                    style={styles.quickMathBtn}
+                    style={[styles.quickMathBtn, styles.quickMathBtnMint]}
+                    accessibilityLabel="Add amount"
                   >
-                    <Text style={[styles.quickMathBtnText, { color: mc.mint }]}>+</Text>
+                    <Ionicons name="add" size={22} color={mc.mint} />
                   </PressScale>
                   <PressScale
                     onPress={() => applyQuickAmount('minus')}
                     scale={0.92}
-                    style={styles.quickMathBtn}
+                    style={[styles.quickMathBtn, styles.quickMathBtnRed]}
+                    accessibilityLabel="Subtract amount"
                   >
-                    <Text style={[styles.quickMathBtnText, { color: mc.redSoft }]}>−</Text>
+                    <Ionicons name="remove" size={22} color={mc.redSoft} />
                   </PressScale>
                 </View>
               </View>
@@ -369,7 +368,7 @@ export default function CreditCardsScreen() {
                   scale={0.98}
                   style={styles.datePickerTrigger}
                 >
-                  <Ionicons name="calendar-outline" size={17} color={mc.textDim} />
+                  <Ionicons name="calendar-outline" size={17} color={mc.redSoft} />
                   <Text style={styles.datePickerText}>
                     {dueDate.toLocaleDateString('en-IN', {
                       day: 'numeric',
@@ -381,10 +380,10 @@ export default function CreditCardsScreen() {
               </View>
 
               <View style={styles.modalButtons}>
-                <PressScale onPress={() => setEditingCard(null)} scale={0.96}>
+                <PressScale onPress={() => setEditingCard(null)} scale={0.97} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
                   <Text style={styles.modalBtnTextCancel}>Cancel</Text>
                 </PressScale>
-                <PressScale onPress={handleSave} scale={0.96}>
+                <PressScale onPress={handleSave} scale={0.97} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Save">
                   <Text style={styles.modalBtnTextSave}>Save</Text>
                 </PressScale>
               </View>
@@ -401,7 +400,7 @@ export default function CreditCardsScreen() {
         onRequestClose={() => setShowAddModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <ScrollView style={styles.modalSheetScroll} contentContainerStyle={styles.modalContent}>
             <Text style={styles.modalTitle}>Add card</Text>
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>CARD NAME</Text>
@@ -519,10 +518,10 @@ export default function CreditCardsScreen() {
             </View>
 
             <View style={styles.modalButtons}>
-              <PressScale onPress={() => setShowAddModal(false)} scale={0.96}>
+              <PressScale onPress={() => setShowAddModal(false)} scale={0.97} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
                 <Text style={styles.modalBtnTextCancel}>Cancel</Text>
               </PressScale>
-              <PressScale onPress={handleAddCard} scale={0.96}>
+              <PressScale onPress={handleAddCard} scale={0.97} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Add card">
                 <Text style={styles.modalBtnTextSave}>Add card</Text>
               </PressScale>
             </View>
@@ -788,17 +787,28 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: mc.overlay,
-    justifyContent: 'center',
-    padding: 24,
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: mc.card,
-    borderRadius: mr.card,
-    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
     gap: 12,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    elevation: 24,
+  },
+  modalSheetScroll: {
+    maxHeight: '92%',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '500',
     color: mc.text,
   },
@@ -821,39 +831,49 @@ const styles = StyleSheet.create({
   },
   textInput: {
     backgroundColor: mc.raised,
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     color: mc.text,
     fontSize: 15,
   },
+  amountInput: {
+    fontSize: 20,
+    paddingVertical: 15,
+  },
   quickMathGroup: {
-    gap: 8,
+    gap: 6,
   },
   quickMathRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   quickMathBtn: {
-    width: 44,
-    height: 40,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
     backgroundColor: mc.raised,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quickMathBtnMint: {
+    backgroundColor: mc.mintDim,
+  },
+  quickMathBtnRed: {
+    backgroundColor: mc.redDim,
+  },
   quickMathBtnText: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '500',
   },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     backgroundColor: mc.raised,
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   datePickerText: {
     fontSize: 15,
@@ -882,18 +902,31 @@ const styles = StyleSheet.create({
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 18,
+    gap: 10,
     marginTop: 4,
+  },
+  modalBtn: {
+    paddingVertical: 13,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnCancelPill: {
+    flex: 1,
+    backgroundColor: mc.raised,
+  },
+  modalBtnSavePill: {
+    flex: 1.4,
+    backgroundColor: mc.red,
   },
   modalBtnTextCancel: {
     fontSize: 14,
     color: mc.textDim,
   },
   modalBtnTextSave: {
-    fontSize: 14,
-    color: mc.redSoft,
-    fontWeight: '600',
+    fontSize: 16,
+    color: mc.white,
+    fontWeight: '500',
   },
   settingsRow: {
     flexDirection: 'row',

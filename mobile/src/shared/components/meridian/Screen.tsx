@@ -4,7 +4,7 @@
  * One canvas, the Android status-bar inset handled once, and a scroll view
  * with the Meridian gutters.
  */
-import React from 'react';
+import React, { forwardRef } from 'react';
 import {
   Platform,
   ScrollView,
@@ -32,16 +32,19 @@ interface ScreenProps {
   floating?: React.ReactNode;
 }
 
-export default function Screen({
-  children,
-  scroll = true,
-  bottomInset = 110,
-  contentStyle,
-  style,
-  onScroll,
-  scrollEventThrottle = 16,
-  floating,
-}: ScreenProps) {
+const Screen = forwardRef<ScrollView | null, ScreenProps>(function Screen(
+  {
+    children,
+    scroll = true,
+    bottomInset = 110,
+    contentStyle,
+    style,
+    onScroll,
+    scrollEventThrottle = 16,
+    floating,
+  }: ScreenProps,
+  ref
+) {
   const pad = {
     paddingHorizontal: 18,
     paddingBottom: bottomInset,
@@ -60,6 +63,7 @@ export default function Screen({
   return (
     <View style={[styles.root, style]}>
       <ScrollView
+        ref={ref as any}
         style={styles.flex}
         contentContainerStyle={[styles.content, pad, contentStyle]}
         showsVerticalScrollIndicator={false}
@@ -71,7 +75,9 @@ export default function Screen({
       {floating}
     </View>
   );
-}
+});
+
+export default Screen;
 
 const styles = StyleSheet.create({
   root: {

@@ -263,7 +263,22 @@ export default function TasksDashboardScreen() {
   };
 
   return (
-    <Screen bottomInset={120}>
+    <Screen
+      bottomInset={120}
+      floating={
+        /* New task — floating action button, pinned above the tab bar */
+        <Rise index={3}>
+          <PressScale
+            onPress={() => navigation.navigate('AddEditTask', {})}
+            scale={0.95}
+            style={styles.fab}
+            accessibilityLabel="New task"
+          >
+            <Ionicons name="add" size={26} color={mc.white} />
+          </PressScale>
+        </Rise>
+      }
+    >
       {/* Header: drawer trigger, month, completion ring */}
       <Rise index={0}>
         <View style={styles.header}>
@@ -360,17 +375,6 @@ export default function TasksDashboardScreen() {
         )}
       />
 
-      {/* New task button */}
-      <Rise index={3}>
-        <PressScale
-          onPress={() => navigation.navigate('AddEditTask', {})}
-          scale={0.96}
-          style={styles.fab}
-        >
-          <Ionicons name="add" size={20} color={mc.white} />
-          <Text style={styles.fabText}>New task</Text>
-        </PressScale>
-      </Rise>
     </Screen>
   );
 }
@@ -570,20 +574,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   fab: {
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 50,
-    borderRadius: 25,
+    position: 'absolute',
+    bottom: 92,
+    right: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: mc.red,
-    paddingHorizontal: 20,
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  fabText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: mc.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#EB0028',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
 });

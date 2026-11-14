@@ -1,24 +1,25 @@
 /**
  * AddMaintenanceScreen — form to log a vehicle service record with service type,
  * odometer, amount, and notes.
+ *
+ * Restyled to the Meridian v2 reference (s28): a top bar with a Save action,
+ * a vehicle chip, icon service-type chips, flat fields and large type.
+ * All save/edit logic is unchanged.
  */
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Label, PressScale, Screen, TopBar } from '../../../shared/components/meridian';
 import { useGarageStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
@@ -26,15 +27,15 @@ import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type RouteProps = RouteProp<GarageStackParamList, 'AddMaintenance'>;
 
-const SERVICE_TYPES = [
-  'General Service',
-  'Insurance',
-  'Part Change',
-  'Tyre Change',
-  'PUC',
-  'AMC',
-  'Water Wash',
-  'Battery',
+const SERVICE_TYPES: { label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: 'General Service', icon: 'construct-outline' },
+  { label: 'Insurance', icon: 'shield-outline' },
+  { label: 'Part Change', icon: 'settings-outline' },
+  { label: 'Tyre Change', icon: 'ellipse-outline' },
+  { label: 'PUC', icon: 'leaf-outline' },
+  { label: 'AMC', icon: 'document-text-outline' },
+  { label: 'Water Wash', icon: 'water-outline' },
+  { label: 'Battery', icon: 'battery-charging-outline' },
 ];
 
 export default function AddMaintenanceScreen() {
@@ -98,102 +99,123 @@ export default function AddMaintenanceScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>{isEditing ? 'Edit Service' : 'Log Service'}</Text>
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveBtnText}>{isEditing ? 'Update' : 'Save'}</Text>
-        </TouchableOpacity>
-      </View>
+    <Screen scroll={false} bottomInset={0}>
+      <TopBar
+        title="Log service"
+        onBack={() => navigation.goBack()}
+        variant="center"
+        right={
+          <PressScale onPress={handleSave} scale={0.94} style={styles.saveChip} accessibilityLabel="Save">
+            <Text style={styles.saveChipText}>Save</Text>
+          </PressScale>
+        }
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Vehicle Selector */}
-        <View style={styles.field}>
-          <Text style={styles.label}>VEHICLE</Text>
+      <ScrollView
+        style={styles.keyboardView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Vehicle chip */}
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>VEHICLE</Label>
           <View style={styles.chipRow}>
-            {vehicles.map((v: string) => (
-              <TouchableOpacity
-                key={v}
-                style={[styles.chip, vehicle === v && styles.chipActive]}
-                onPress={() => setVehicle(v)}
-              >
-                <Text style={[styles.chipText, vehicle === v && styles.chipTextActive]}>{v}</Text>
-              </TouchableOpacity>
-            ))}
+            {vehicles.map((v: string) => {
+              const isSelected = vehicle === v;
+              return (
+                <PressScale
+                  key={v}
+                  onPress={() => setVehicle(v)}
+                  scale={0.95}
+                  style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}
+                  accessibilityLabel={`Select ${v}`}
+                >
+                  <Ionicons name="bicycle-outline" size={14} color={isSelected ? mc.redSoft : mc.textDim} />
+                  <Text style={[styles.vehicleChipText, isSelected && styles.vehicleChipTextActive]} numberOfLines={1}>
+                    {v}
+                  </Text>
+                </PressScale>
+              );
+            })}
           </View>
         </View>
 
-        {/* Service Type */}
-        <View style={styles.field}>
-          <Text style={styles.label}>SERVICE TYPE</Text>
-          <View style={styles.typeGrid}>
-            {SERVICE_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[styles.typeChip, serviceType === type && styles.typeChipActive]}
-                onPress={() => setServiceType(type)}
-              >
-                <Text style={[styles.typeChipText, serviceType === type && styles.typeChipTextActive]}>
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {/* Service type */}
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>SERVICE TYPE</Label>
+          <View style={styles.chipRow}>
+            {SERVICE_TYPES.map(({ label, icon }) => {
+              const isSelected = serviceType === label;
+              return (
+                <PressScale
+                  key={label}
+                  onPress={() => setServiceType(label)}
+                  scale={0.95}
+                  style={[styles.typeChip, isSelected && styles.typeChipActive]}
+                  accessibilityLabel={`Service type ${label}`}
+                >
+                  <Ionicons name={icon} size={13} color={isSelected ? mc.redSoft : mc.textDim} />
+                  <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
+                    {label}
+                  </Text>
+                </PressScale>
+              );
+            })}
           </View>
         </View>
 
         {/* Amount */}
-        <View style={styles.field}>
-          <Text style={styles.label}>AMOUNT ({'\u20B9'})</Text>
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>AMOUNT (₹)</Label>
           <TextInput
-            style={styles.input}
+            style={[styles.textInput, styles.amountInput]}
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"
-            placeholder="0.00"
-            placeholderTextColor={colors.outline}
+            placeholder="₹ 0.00"
+            placeholderTextColor={mc.textGhost}
           />
         </View>
 
-          {/* Odometer */}
-          <View style={styles.field}>
-            <Text style={styles.label}>ODOMETER (KM) — OPTIONAL</Text>
-            <TextInput
-              style={styles.input}
-              value={odometer}
-              onChangeText={setOdometer}
-              keyboardType="number-pad"
-              placeholder="e.g. 5600"
-              placeholderTextColor={colors.outline}
-            />
-          </View>
+        {/* Odometer (optional) */}
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>ODOMETER (KM), OPTIONAL</Label>
+          <TextInput
+            style={styles.textInput}
+            value={odometer}
+            onChangeText={setOdometer}
+            keyboardType="number-pad"
+            placeholder="e.g. 5600"
+            placeholderTextColor={mc.textGhost}
+          />
+        </View>
 
-        {/* Date */}
-        <View style={styles.field}>
-          <Text style={styles.label}>SERVICE DATE</Text>
+        {/* Service date */}
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>SERVICE DATE</Label>
           <TouchableOpacity
-            style={[styles.input, styles.dateTrigger]}
+            style={styles.dateTrigger}
             onPress={() => setCalendarVisible(true)}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
+            accessibilityLabel="Choose service date"
           >
             <Text style={styles.dateTriggerText}>
               {serviceDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
             </Text>
-            <Ionicons name="calendar-outline" size={18} color={colors.onSurfaceVariant} />
+            <Ionicons name="calendar-outline" size={17} color={mc.amber} />
           </TouchableOpacity>
         </View>
 
-        {/* Notes */}
-        <View style={styles.field}>
-          <Text style={styles.label}>NOTES (OPTIONAL)</Text>
+        {/* Notes (optional) */}
+        <View style={styles.formSection}>
+          <Label style={styles.sectionLabel}>NOTES, OPTIONAL</Label>
           <TextInput
-            style={[styles.input, styles.notesInput]}
+            style={[styles.textInput, styles.notesInput]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Garage name, next due, etc."
-            placeholderTextColor={colors.outline}
+            placeholder="Garage name, next due, and so on"
+            placeholderTextColor={mc.textGhost}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
@@ -210,81 +232,114 @@ export default function AddMaintenanceScreen() {
         }}
         onClose={() => setCalendarVisible(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
-  iconButton: { padding: 8, borderRadius: rounded.full },
-  saveBtn: {
-    backgroundColor: colors.primaryContainer,
+  keyboardView: { flex: 1 },
+  saveChip: {
+    backgroundColor: mc.redDim,
+    borderRadius: mr.chip,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: rounded.DEFAULT,
+    paddingVertical: 9,
   },
-  saveBtnText: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-  scrollContent: { padding: spacing.containerPadding, gap: 24, paddingBottom: 40 },
-  field: { gap: 10 },
-  label: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  chip: {
+  saveChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: mc.redSoft,
+  },
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    paddingBottom: 40,
+    gap: 18,
+  },
+  formSection: {
+    gap: 8,
+  },
+  sectionLabel: {
+    paddingHorizontal: 4,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  vehicleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: mc.raised,
+    borderRadius: mr.chip,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.onSurfaceVariant },
-  chipTextActive: { color: colors.textPrimary },
-  typeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  typeChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+  vehicleChipActive: {
+    backgroundColor: mc.redDim,
+    borderColor: mc.redDim,
   },
-  typeChipActive: { backgroundColor: `${colors.primary}20`, borderColor: colors.primary },
-  typeChipText: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant },
-  typeChipTextActive: { color: colors.primary },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 48,
-    paddingHorizontal: 14,
-    color: colors.onSurface,
-    fontSize: 16,
+  vehicleChipText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  vehicleChipTextActive: {
+    color: mc.redSoft,
     fontWeight: '600',
   },
-  notesInput: { height: 80, paddingTop: 12 },
+  typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.raised,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  typeChipActive: {
+    backgroundColor: mc.redDim,
+    borderColor: mc.redDim,
+  },
+  typeChipText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  typeChipTextActive: {
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+  textInput: {
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: mc.text,
+  },
+  amountInput: {
+    fontSize: 22,
+    paddingVertical: 15,
+  },
   dateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
   dateTriggerText: {
-    color: colors.onSurface,
-    fontSize: 16,
-    fontWeight: '600',
+    flex: 1,
+    fontSize: 15,
+    color: mc.text,
+  },
+  notesInput: {
+    minHeight: 76,
+    paddingTop: 13,
   },
 });

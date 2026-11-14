@@ -1,5 +1,8 @@
 /**
  * NotificationsScreen — In-app notification inbox with relative timestamps and read state.
+ *
+ * Restyled to the Meridian v2 reference (s26): a back bar with "Read all"
+ * and clear actions, TODAY / EARLIER sections, and read rows dimmed out.
  */
 
 import React from 'react';
@@ -7,17 +10,15 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   Alert,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+
+import { mc, mr } from '../../../shared/theme/meridian';
+import { EmptyState, IconTile, Label, PressScale, Screen, TopBar } from '../../../shared/components/meridian';
 import { useFinanceStore } from '../../finance/store';
 
 export default function NotificationsScreen() {
@@ -44,185 +45,175 @@ export default function NotificationsScreen() {
     return `${diffDays}d ago`;
   };
 
-  const renderItem = ({ item }: { item: any }) => {
-    return (
-      <TouchableOpacity
-        style={[styles.card, !item.read && styles.cardUnread]}
-        activeOpacity={0.8}
-        onPress={() => markNotificationRead(item.id)}
+  // Group into TODAY / EARLIER by real timestamps
+  const today = new Date();
+  const todayKey = today.toDateString();
+  const todays = notifications.filter((n) => new Date(n.date).toDateString() === todayKey);
+  const earlier = notifications.filter((n) => new Date(n.date).toDateString() !== todayKey);
+  const sections = [
+    ...(todays.length > 0 ? [{ title: 'TODAY', data: todays }] : []),
+    ...(earlier.length > 0 ? [{ title: 'EARLIER', data: earlier }] : []),
+  ];
+
+  const rightSlot = (
+    <View style={styles.topBarRight}>
+      <PressScale onPress={markAllNotificationsRead} scale={0.94} style={styles.readAllBtn} accessibilityLabel="Read all">
+        <Text style={styles.readAllText}>Read all</Text>
+      </PressScale>
+      <PressScale
+        onPress={handleClearAll}
+        scale={0.94}
+        style={[styles.clearBtn, notifications.length === 0 && styles.clearBtnDisabled]}
+        accessibilityLabel="Clear notifications"
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.titleWrapper}>
-            {!item.read && <View style={styles.unreadDot} />}
-            <Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]}>
-              {item.title}
-            </Text>
-          </View>
-          <Text style={styles.timeText}>{getRelativeTime(item.date)}</Text>
-        </View>
-        <Text style={styles.bodyText}>{item.body}</Text>
-      </TouchableOpacity>
-    );
-  };
+        <Ionicons name="trash-outline" size={15} color={mc.redSoft} />
+      </PressScale>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* App Bar */}
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Notifications</Text>
-        <View style={styles.appBarActions}>
-          <TouchableOpacity style={styles.markReadButton} onPress={markAllNotificationsRead}>
-            <Text style={styles.markReadText}>Read All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.markReadButton, styles.clearButton]}
-            onPress={handleClearAll}
-            disabled={notifications.length === 0}
-          >
-            <Ionicons name="trash-outline" size={13} color={colors.error} />
-            <Text style={[styles.markReadText, { color: colors.error }]}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <Screen scroll={false} bottomInset={0}>
+      <TopBar title="Notifications" onBack={() => navigation.goBack()} variant="center" right={rightSlot} />
 
-      {/* Notifications List */}
-      <FlatList
-        data={notifications}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <Label style={styles.sectionLabel}>{section.title}</Label>
+        )}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[styles.card, !item.read && styles.cardUnread]}
+            activeOpacity={0.8}
+            onPress={() => markNotificationRead(item.id)}
+            accessibilityLabel={item.read ? item.title : `${item.title} (unread)`}
+          >
+            <IconTile
+              icon="notifications-outline"
+              color={item.read ? mc.textFaint : mc.amber}
+              background={item.read ? mc.raised : mc.amberDim}
+              size={38}
+            />
+            <View style={styles.cardMain}>
+              <View style={styles.cardHeader}>
+                <View style={styles.titleWrap}>
+                  {!item.read ? <View style={styles.unreadDot} /> : null}
+                  <Text style={[styles.cardTitle, !item.read && styles.cardTitleUnread]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                </View>
+                <Text style={styles.timeText}>{getRelativeTime(item.date)}</Text>
+              </View>
+              <Text style={styles.bodyText} numberOfLines={3}>{item.body}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={48} color={colors.outline} />
-            <Text style={styles.emptyText}>You're all caught up!</Text>
-            <Text style={styles.emptySubText}>No new notifications to display.</Text>
-          </View>
+          <EmptyState
+            icon="notifications-off-outline"
+            title="You are all caught up"
+            subtitle="No new notifications to display"
+          />
         }
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  appBarActions: {
+  topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  markReadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
+  readAllBtn: {
+    backgroundColor: mc.raised,
+    borderRadius: mr.chip,
     paddingHorizontal: 12,
-    backgroundColor: colors.primaryContainer,
-    borderRadius: 8,
+    paddingVertical: 8,
   },
-  clearButton: {
-    backgroundColor: 'rgba(239,68,68,0.10)',
-    borderColor: 'rgba(239,68,68,0.25)',
-    borderWidth: StyleSheet.hairlineWidth,
+  readAllText: {
+    fontSize: 13,
+    color: mc.text,
   },
-  markReadText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+  clearBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: mc.redDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearBtnDisabled: {
+    opacity: 0.4,
   },
   listContainer: {
-    padding: spacing.containerPadding,
-    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 4,
     paddingBottom: 40,
+    gap: 8,
+  },
+  sectionLabel: {
+    paddingHorizontal: 4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: mc.card,
+    borderRadius: mr.row,
+    padding: 14,
+    opacity: 0.6,
+    marginBottom: 8,
   },
   cardUnread: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.borderStrong,
-    borderWidth: StyleSheet.hairlineWidth,
+    opacity: 1,
+  },
+  cardMain: {
+    flex: 1,
+    minWidth: 0,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  titleWrapper: {
+  titleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 7,
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginRight: 8,
+    backgroundColor: mc.redSoft,
+    flexShrink: 0,
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.outline,
+    fontSize: 15,
+    color: mc.text,
+    flexShrink: 1,
   },
   cardTitleUnread: {
-    color: colors.onSurface,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   timeText: {
     fontSize: 11,
-    color: colors.outline,
+    color: mc.textDim,
+    flexShrink: 0,
   },
   bodyText: {
     fontSize: 13,
-    color: colors.onSurfaceVariant,
-    lineHeight: 18,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 120,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  emptySubText: {
-    fontSize: 13,
-    color: colors.outline,
+    color: mc.textDim,
+    lineHeight: 19,
+    marginTop: 4,
   },
 });

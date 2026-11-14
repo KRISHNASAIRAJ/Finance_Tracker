@@ -1,26 +1,28 @@
 /**
  * AddEditTaskScreen — form to create or edit a task with name, description,
  * priority, due date/time, recurrence, and subtasks.
+ *
+ * Restyled to the Meridian v2 reference (s20): a large title, flat fields,
+ * priority/recurrence chip pickers and the primary red submit action.
+ * All logic (store writes, reminder scheduling) is unchanged.
  */
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr, alpha } from '../../../shared/theme/meridian';
+import { Label, PressScale, Screen } from '../../../shared/components/meridian';
 import { useTasksStore, RecurrenceType } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { TasksStackParamList } from '../../../navigation/RootNavigator';
@@ -32,13 +34,20 @@ type NavigationProp = NativeStackNavigationProp<TasksStackParamList, 'AddEditTas
 type RouteProps = RouteProp<TasksStackParamList, 'AddEditTask'>;
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
-const RECURRENCES: { value: RecurrenceType; label: string; icon: string }[] = [
+const RECURRENCES: { value: RecurrenceType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'none', label: 'None', icon: 'close-circle-outline' },
   { value: 'daily', label: 'Daily', icon: 'sunny-outline' },
-  { value: 'weekdays', label: 'Mon-Fri', icon: 'briefcase-outline' },
+  { value: 'weekdays', label: 'Mon to Fri', icon: 'briefcase-outline' },
   { value: 'weekly', label: 'Weekly', icon: 'calendar-outline' },
   { value: 'monthly', label: 'Monthly', icon: 'calendar-number-outline' },
 ];
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: mc.redSoft,
+  high: mc.amber,
+  medium: mc.sky,
+  low: mc.textFaint,
+};
 
 export default function AddEditTaskScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -115,39 +124,28 @@ export default function AddEditTaskScreen() {
     navigation.goBack();
   };
 
-  const getPriorityColor = (p: string) => {
-    switch (p) {
-      case 'urgent':
-        return colors.error;
-      case 'high':
-        return colors.warning;
-      case 'medium':
-        return colors.primary;
-      default:
-        return colors.outline;
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.formHeader}>
-            <Text style={styles.headerTitle}>{isEditing ? 'Edit Task' : 'Create Task'}</Text>
-            <Text style={styles.headerSubtitle}>Set priorities, milestones, and recurrence</Text>
-          </View>
+    <Screen scroll={false} bottomInset={0}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Large title */}
+        <View style={styles.formHeader}>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit task' : 'Create task'}</Text>
+          <Text style={styles.headerSubtitle}>Set priority, due time and repeat</Text>
+        </View>
 
+        <ScrollView
+          style={styles.keyboardView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Name */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>TASK NAME</Text>
+            <Label style={styles.sectionLabel}>TASK NAME</Label>
             <TextInput
               style={styles.textInput}
               placeholder="e.g. Clean the garage, Fix bug #42"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={mc.textGhost}
               value={name}
               onChangeText={setName}
             />
@@ -155,65 +153,66 @@ export default function AddEditTaskScreen() {
 
           {/* Description */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>DESCRIPTION</Text>
+            <Label style={styles.sectionLabel}>DESCRIPTION</Label>
             <TextInput
               style={[styles.textInput, styles.textArea]}
-              placeholder="Add details, notes, links..."
-              placeholderTextColor={colors.textSecondary}
+              placeholder="Add details, notes, links"
+              placeholderTextColor={mc.textGhost}
               multiline
               numberOfLines={3}
+              textAlignVertical="top"
               value={description}
               onChangeText={setDescription}
             />
           </View>
 
-          {/* Priority Select */}
+          {/* Priority chips */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>PRIORITY LEVEL</Text>
+            <Label style={styles.sectionLabel}>PRIORITY</Label>
             <View style={styles.chipRow}>
               {PRIORITIES.map((p) => {
-                const isSelected = priority === p;
-                const dotColor = getPriorityColor(p);
+                const color = PRIORITY_COLORS[p];
+                const active = priority === p;
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={p}
+                    onPress={() => setPriority(p)}
+                    scale={0.95}
                     style={[
                       styles.chip,
-                      isSelected && { backgroundColor: `${dotColor}25`, borderColor: dotColor },
+                      active && { backgroundColor: alpha(color, 0.16), borderColor: alpha(color, 0.45) },
                     ]}
-                    onPress={() => setPriority(p)}
+                    accessibilityLabel={`Priority ${p}`}
                   >
-                    <View style={[styles.priorityDot, { backgroundColor: dotColor }]} />
-                    <Text style={[styles.chipText, isSelected && { color: colors.onSurface, fontWeight: 'bold' }]}>
+                    <View style={[styles.priorityDot, { backgroundColor: color }]} />
+                    <Text style={[styles.chipText, active && { color, fontWeight: '600' }]}>
                       {p.toUpperCase()}
                     </Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 );
               })}
             </View>
           </View>
 
-          {/* Recurrence Picker */}
+          {/* Repeat chips */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>RECURRENCE</Text>
+            <Label style={styles.sectionLabel}>REPEAT</Label>
             <View style={styles.chipRow}>
               {RECURRENCES.map((r) => {
-                const isSelected = recurrence === r.value;
+                const active = recurrence === r.value;
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={r.value}
-                    style={[styles.chip, isSelected && styles.chipActive]}
                     onPress={() => setRecurrence(r.value)}
+                    scale={0.95}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityLabel={`Repeat ${r.label}`}
                   >
-                    <Ionicons
-                      name={r.icon as any}
-                      size={14}
-                      color={isSelected ? colors.primary : colors.textSecondary}
-                    />
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    <Ionicons name={r.icon} size={13} color={active ? mc.redSoft : mc.textDim} />
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {r.label}
                     </Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 );
               })}
             </View>
@@ -221,39 +220,39 @@ export default function AddEditTaskScreen() {
 
           {/* Due date + time */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>DUE DATE & TIME</Text>
+            <Label style={styles.sectionLabel}>DUE</Label>
             <View style={styles.dateTimeRow}>
-              <TouchableOpacity
-                style={[styles.datePickerTrigger, { flex: 1 }]}
+              <PressScale
+                style={[styles.dateTrigger, { flex: 1.35 }]}
                 onPress={() => setCalendarVisible(true)}
-                activeOpacity={0.8}
+                scale={0.98}
+                accessibilityLabel="Choose date"
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                <Text style={styles.datePickerText}>
+                <Ionicons name="calendar-outline" size={17} color={mc.redSoft} />
+                <Text style={styles.dateTriggerText}>
                   {dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.datePickerTrigger, { width: 130 }]}
+              </PressScale>
+              <PressScale
+                style={[styles.dateTrigger, { flex: 1 }]}
                 onPress={() => setTimeVisible(true)}
-                activeOpacity={0.8}
+                scale={0.98}
+                accessibilityLabel="Choose time"
               >
-                <Ionicons name="time-outline" size={18} color={colors.primary} />
-                <Text style={styles.datePickerText}>
+                <Ionicons name="time-outline" size={17} color={mc.redSoft} />
+                <Text style={styles.dateTriggerText}>
                   {dueDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                 </Text>
-              </TouchableOpacity>
+              </PressScale>
             </View>
           </View>
 
-          {/* Calendar Picker */}
           <CalendarPicker
             visible={calendarVisible}
             selected={dueDate}
             onSelect={setDueDate}
             onClose={() => setCalendarVisible(false)}
           />
-          {/* Time Picker */}
           <TimePicker
             visible={timeVisible}
             selected={dueDate}
@@ -261,33 +260,37 @@ export default function AddEditTaskScreen() {
             onClose={() => setTimeVisible(false)}
           />
 
-          {/* Subtasks Builder */}
+          {/* Subtasks builder */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>SUBTASKS (CHECKLIST)</Text>
+            <Label style={styles.sectionLabel}>SUBTASKS</Label>
             <View style={styles.subtaskBuilderRow}>
               <TextInput
                 style={[styles.textInput, { flex: 1 }]}
-                placeholder="Add subtask details..."
-                placeholderTextColor={colors.textSecondary}
+                placeholder="Add subtask details"
+                placeholderTextColor={mc.textGhost}
                 value={subtaskInput}
                 onChangeText={setSubtaskInput}
                 onSubmitEditing={handleAddSubtask}
+                returnKeyType="done"
               />
-              <TouchableOpacity style={styles.addButton} onPress={handleAddSubtask}>
-                <Ionicons name="add" size={24} color={colors.onSurface} />
-              </TouchableOpacity>
+              <PressScale
+                style={styles.subtaskAddBtn}
+                onPress={handleAddSubtask}
+                scale={0.92}
+                accessibilityLabel="Add subtask"
+              >
+                <Ionicons name="add" size={22} color={mc.text} />
+              </PressScale>
             </View>
 
             {localSubtasks.length > 0 && (
               <View style={styles.subtaskList}>
                 {localSubtasks.map((st, index) => (
-                  <View key={index} style={styles.subtaskRow}>
-                    <View style={styles.subtaskLeft}>
-                      <Ionicons name="ellipse-outline" size={12} color={colors.primary} />
-                      <Text style={styles.subtaskText}>{st}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleRemoveSubtask(index)}>
-                      <Ionicons name="close-circle-outline" size={18} color={colors.error} />
+                  <View key={`${st}-${index}`} style={styles.subtaskRow}>
+                    <Ionicons name="ellipse-outline" size={10} color={mc.redSoft} />
+                    <Text style={styles.subtaskText} numberOfLines={1}>{st}</Text>
+                    <TouchableOpacity onPress={() => handleRemoveSubtask(index)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close-circle" size={18} color={mc.textFaint} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -295,184 +298,158 @@ export default function AddEditTaskScreen() {
             )}
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleSubmit}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.submitButtonText}>{isEditing ? 'Update Task' : 'Create Task'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Actions */}
+          <PressScale style={styles.submitButton} onPress={handleSubmit} scale={0.98} accessibilityLabel={isEditing ? 'Update task' : 'Create task'}>
+            <Text style={styles.submitButtonText}>{isEditing ? 'Update task' : 'Create task'}</Text>
+          </PressScale>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-  },
+  keyboardView: { flex: 1 },
   formHeader: {
-    paddingVertical: 12,
+    paddingHorizontal: 2,
+    marginBottom: 14,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.onSurface,
+    fontSize: 26,
+    fontWeight: '500',
+    color: mc.text,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: mc.textDim,
     marginTop: 4,
   },
-  formSection: {
-    gap: spacing.stackGapSm,
+  scrollContent: {
+    paddingHorizontal: 2,
+    paddingBottom: 40,
+    gap: 16,
   },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.6,
+  formSection: {
+    gap: 8,
+  },
+  sectionLabel: {
+    paddingHorizontal: 4,
   },
   textInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
+    backgroundColor: mc.card,
+    borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: colors.onSurface,
+    paddingVertical: 14,
     fontSize: 15,
+    color: mc.text,
   },
   textArea: {
-    height: 80,
-    textAlignVertical: 'top',
+    minHeight: 72,
+    paddingTop: 14,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    paddingHorizontal: 2,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: rounded.full,
+    backgroundColor: mc.raised,
+    borderColor: 'transparent',
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
   },
   chipActive: {
-    backgroundColor: `${colors.primary}25`,
-    borderColor: colors.primary,
+    backgroundColor: mc.redDim,
+    borderColor: alpha(mc.redSoft, 0.4),
   },
   chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 13,
+    color: mc.textDim,
   },
   chipTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
+    color: mc.redSoft,
+    fontWeight: '600',
   },
   priorityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: rounded.full,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  dateTriggerText: {
+    fontSize: 14,
+    color: mc.text,
   },
   subtaskBuilderRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
   },
-  addButton: {
-    backgroundColor: colors.primaryContainer,
-    width: 48,
-    height: 48,
-    borderRadius: rounded.DEFAULT,
+  subtaskAddBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 18,
+    backgroundColor: mc.raised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   subtaskList: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+    gap: 6,
     marginTop: 4,
   },
   subtaskRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  subtaskLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
+    backgroundColor: mc.card,
+    borderRadius: mr.row,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   subtaskText: {
-    fontSize: 13,
-    color: colors.onSurface,
-  },
-  buttonContainer: {
-    gap: spacing.stackGapSm,
-    marginTop: 16,
+    flex: 1,
+    fontSize: 14,
+    color: mc.text,
   },
   submitButton: {
-    backgroundColor: colors.primaryContainer,
-    borderRadius: rounded.DEFAULT,
-    paddingVertical: 16,
+    backgroundColor: mc.red,
+    borderRadius: 22,
+    paddingVertical: 15,
     alignItems: 'center',
+    marginTop: 4,
   },
   submitButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontWeight: '500',
+    color: mc.white,
   },
   cancelButton: {
-    paddingVertical: 12,
     alignItems: 'center',
+    paddingVertical: 12,
   },
   cancelButtonText: {
     fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
+    color: mc.textDim,
   },
-  datePickerTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 48,
-    paddingHorizontal: 14,
-  },
-  datePickerText: { fontSize: 16, color: colors.onSurface, fontWeight: '600' },
-  dateTimeRow: { flexDirection: 'row', gap: 10 },
 });

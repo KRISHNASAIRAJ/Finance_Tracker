@@ -14,18 +14,14 @@ import {
   Text,
   TextInput,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Label, Screen } from '../../../shared/components/meridian';
 import { useFinanceStore } from '../../finance/store';
 import { triggerBackupNow } from '../../../services/backupScheduler';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
@@ -45,7 +41,14 @@ import SyncStatusCard from '../../../shared/components/SyncStatusCard';
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList, 'MoreMenu'>;
 
-const ICON_COLOR = '#FFFFFF';
+/** Semantic tint per section (sky = utilities, amber = growth, mint = health, violet = tools, red = account). */
+const SECTION_TINTS: Record<string, { icon: string; bg: string }> = {
+  UTILITIES: { icon: mc.sky, bg: mc.skyDim },
+  'GOALS & GROWTH': { icon: mc.amber, bg: mc.amberDim },
+  HEALTH: { icon: mc.mint, bg: mc.mintDim },
+  TOOLS: { icon: mc.violet, bg: mc.violetDim },
+  ACCOUNT: { icon: mc.redSoft, bg: mc.redDim },
+};
 
 export default function MoreMenuScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -53,7 +56,6 @@ export default function MoreMenuScreen() {
   const { pullFromCloud: pullPersonal } = usePersonalSync();
   const { pullFromCloud: pullEquity } = useEquitySync();
   const { pullFromCloud: pullTasks } = useTasksSync();
-  const scrollRef = useRef<ScrollView>(null);
   const modalAnim = useRef(new Animated.Value(0)).current;
   const entrance = useRef(new Animated.Value(0)).current;
 
@@ -387,28 +389,24 @@ export default function MoreMenuScreen() {
       id: 'cardchat',
       label: 'AI Card Chat',
       icon: 'sparkles-outline',
-      iconColor: ICON_COLOR,
       onPress: () => (navigation as any).navigate('MainTabs', { screen: 'FinanceTab', params: { screen: 'CardChat' } }),
     },
     {
       id: 'report',
       label: 'Monthly Report',
       icon: 'document-text-outline',
-      iconColor: ICON_COLOR,
       onPress: handleMonthlyReport,
     },
     {
       id: 'combined-report',
       label: 'Combined Report',
       icon: 'bar-chart-outline',
-      iconColor: ICON_COLOR,
       onPress: () => navigation.navigate('CombinedReport'),
     },
     {
       id: 'daily-report',
       label: 'Daily Report',
       icon: 'newspaper-outline',
-      iconColor: ICON_COLOR,
       onPress: () => navigation.navigate('DailyReport'),
     },
     {
@@ -421,8 +419,8 @@ export default function MoreMenuScreen() {
         backupState === 'done' ? 'checkmark-circle' :
         backupState === 'error' ? 'alert-circle' : 'cloud-upload-outline',
       iconColor:
-        backupState === 'done' ? colors.success :
-        backupState === 'error' ? colors.error : ICON_COLOR,
+        backupState === 'done' ? mc.mint :
+        backupState === 'error' ? mc.redSoft : undefined,
       spinner: backupState === 'backing',
       disabled: backupState === 'backing',
       onPress: handleBackupNow,
@@ -431,7 +429,6 @@ export default function MoreMenuScreen() {
       id: 'budget',
       label: 'Monthly Budget',
       icon: 'wallet-outline',
-      iconColor: ICON_COLOR,
       onPress: () => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); },
     },
   ];
@@ -442,8 +439,7 @@ export default function MoreMenuScreen() {
         id: 'kite-connect',
         label: kiteConnected ? 'Kite Connected' : 'Connect Kite',
         icon: kiteConnected ? 'checkmark-circle-outline' : 'link-outline',
-        iconColor: ICON_COLOR,
-        onPress: handleConnectKite,
+          onPress: handleConnectKite,
       },
       {
         id: 'kite-sync',
@@ -451,7 +447,7 @@ export default function MoreMenuScreen() {
           kiteSyncing ? 'Syncing...' :
           kiteSyncResult && !kiteSyncResult.includes('failed') ? kiteSyncResult : 'Sync Kite',
         icon: 'sync-outline',
-        iconColor: kiteSyncResult && !kiteSyncResult.includes('failed') ? colors.success : ICON_COLOR,
+        iconColor: kiteSyncResult && !kiteSyncResult.includes('failed') ? mc.mint : undefined,
         spinner: kiteSyncing,
         disabled: kiteSyncing,
         onPress: handleKiteSync,
@@ -462,7 +458,7 @@ export default function MoreMenuScreen() {
         id: 'kite-disconnect',
         label: 'Disconnect Kite',
         icon: 'unlink-outline',
-        iconColor: colors.error,
+        iconColor: mc.redSoft,
         onPress: handleDisconnectKite,
       });
     }
@@ -483,42 +479,42 @@ export default function MoreMenuScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <>
+    <Screen scroll bottomInset={40} contentStyle={styles.scrollContent}>
         {/* Grid Sections */}
-        {GRID_SECTIONS.map((section, si) => (
-          <Animated.View key={section.title} style={sectionAnim(si)}>
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>{section.title}</Text>
-              <View style={styles.grid}>
-                {section.items.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.gridItem}
-                    onPress={item.onPress}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.gridCircle}>
-                      <Ionicons name={item.icon as any} size={28} color={ICON_COLOR} />
-                    </View>
-                    <Text style={styles.gridLabel} numberOfLines={2}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+        {GRID_SECTIONS.map((section, si) => {
+          const tint = SECTION_TINTS[section.title] ?? SECTION_TINTS.TOOLS;
+          return (
+            <Animated.View key={section.title} style={sectionAnim(si)}>
+              <View style={styles.section}>
+                <Label style={styles.sectionLabel}>{section.title}</Label>
+                <View style={styles.grid}>
+                  {section.items.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.gridItem}
+                      onPress={item.onPress}
+                      activeOpacity={0.7}
+                      accessibilityLabel={item.label}
+                    >
+                      <View style={[styles.gridCircle, { backgroundColor: tint.bg }]}>
+                        <Ionicons name={item.icon as any} size={24} color={tint.icon} />
+                      </View>
+                      <Text style={styles.gridLabel} numberOfLines={2}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          </Animated.View>
-        ))}
+            </Animated.View>
+          );
+        })}
 
         {/* Tools Section */}
         <Animated.View style={sectionAnim(GRID_SECTIONS.length)}>
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>TOOLS</Text>
+            <Label style={styles.sectionLabel}>TOOLS</Label>
             <View style={styles.grid}>
               {TOOL_ITEMS.map((item) => (
                 <TouchableOpacity
@@ -527,12 +523,13 @@ export default function MoreMenuScreen() {
                   onPress={item.onPress}
                   activeOpacity={0.7}
                   disabled={item.disabled}
+                  accessibilityLabel={item.label}
                 >
-                  <View style={styles.gridCircle}>
+                  <View style={[styles.gridCircle, { backgroundColor: SECTION_TINTS.TOOLS.bg }]}>
                     {item.spinner ? (
-                      <ActivityIndicator color={colors.primary} size="small" />
+                      <ActivityIndicator color={SECTION_TINTS.TOOLS.icon} size="small" />
                     ) : (
-                      <Ionicons name={item.icon as any} size={28} color={item.iconColor} />
+                      <Ionicons name={item.icon as any} size={24} color={item.iconColor ?? SECTION_TINTS.TOOLS.icon} />
                     )}
                   </View>
                   <Text style={styles.gridLabel} numberOfLines={2}>
@@ -547,16 +544,17 @@ export default function MoreMenuScreen() {
         {/* Cloud Sync */}
         <Animated.View style={sectionAnim(GRID_SECTIONS.length + 1)}>
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>ACCOUNT</Text>
+            <Label style={styles.sectionLabel}>ACCOUNT</Label>
             {!user ? (
               <View style={styles.grid}>
                 <TouchableOpacity
                   style={styles.gridItem}
                   onPress={() => setShowAuth(!showAuth)}
                   activeOpacity={0.7}
+                  accessibilityLabel="Sign in"
                 >
-                  <View style={styles.gridCircle}>
-                    <Ionicons name="log-in-outline" size={28} color={ICON_COLOR} />
+                  <View style={[styles.gridCircle, { backgroundColor: mc.skyDim }]}>
+                    <Ionicons name="log-in-outline" size={24} color={mc.sky} />
                   </View>
                   <Text style={styles.gridLabel} numberOfLines={2}>Sign In</Text>
                 </TouchableOpacity>
@@ -576,11 +574,12 @@ export default function MoreMenuScreen() {
                     );
                   }}
                   activeOpacity={0.7}
+                  accessibilityLabel="Logout"
                 >
-                  <View style={[styles.gridCircle, { borderColor: 'rgba(255,136,125,0.35)' }]}>
-                    <Ionicons name="power-outline" size={28} color={colors.error} />
+                  <View style={[styles.gridCircle, { backgroundColor: SECTION_TINTS.ACCOUNT.bg }]}>
+                    <Ionicons name="power-outline" size={24} color={SECTION_TINTS.ACCOUNT.icon} />
                   </View>
-                  <Text style={[styles.gridLabel, { color: colors.error }]}>Logout</Text>
+                  <Text style={[styles.gridLabel, { color: mc.redSoft }]}>Logout</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -602,7 +601,7 @@ export default function MoreMenuScreen() {
                 <TextInput
                   style={styles.authInput}
                   placeholder="Email"
-                  placeholderTextColor={colors.outline}
+                  placeholderTextColor={mc.textGhost}
                   value={emailInput}
                   onChangeText={setEmailInput}
                   keyboardType="email-address"
@@ -611,7 +610,7 @@ export default function MoreMenuScreen() {
                 <TextInput
                   style={styles.authInput}
                   placeholder="Password"
-                  placeholderTextColor={colors.outline}
+                  placeholderTextColor={mc.textGhost}
                   value={passwordInput}
                   onChangeText={setPasswordInput}
                   secureTextEntry
@@ -631,7 +630,7 @@ export default function MoreMenuScreen() {
             )}
           </View>
         </Animated.View>
-      </ScrollView>
+    </Screen>
 
       {/* Budget Modal */}
       <Modal visible={budgetModalVisible} transparent animationType="none" onRequestClose={() => setBudgetModalVisible(false)}>
@@ -640,7 +639,7 @@ export default function MoreMenuScreen() {
             <Text style={styles.modalTitle}>Monthly Budget</Text>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>BUDGET (₹)</Text>
-              <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} autoFocus />
+              <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={mc.textGhost} autoFocus />
             </View>
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setBudgetModalVisible(false)}>
@@ -653,48 +652,21 @@ export default function MoreMenuScreen() {
           </Animated.View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  bellBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  bellBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
   scrollContent: {
-    padding: spacing.containerPadding,
-    paddingBottom: 130,
-    gap: 12,
+    gap: 4,
   },
   section: {
-    marginTop: 16,
-    gap: 16,
+    marginTop: 12,
+    gap: 10,
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+    paddingHorizontal: 4,
+    marginBottom: 2,
   },
   grid: {
     flexDirection: 'row',
@@ -703,105 +675,105 @@ const styles = StyleSheet.create({
   gridItem: {
     width: '25%',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    gap: 7,
   },
   gridCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
   gridLabel: {
-    fontSize: 14,
-    lineHeight: 18,
-    color: colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+    color: mc.text,
     textAlign: 'center',
-    fontWeight: '400',
   },
   authCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    backgroundColor: mc.card,
+    borderRadius: mr.row,
     padding: 16,
     gap: 10,
   },
   authInput: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    backgroundColor: mc.raised,
+    borderRadius: 18,
     height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
+    paddingHorizontal: 14,
+    color: mc.text,
     fontSize: 14,
   },
   authButton: {
-    backgroundColor: colors.primaryContainer,
-    borderRadius: rounded.DEFAULT,
+    backgroundColor: mc.red,
+    borderRadius: 22,
     paddingVertical: 12,
     alignItems: 'center',
   },
   authButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  syncNowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    marginTop: -4,
-    backgroundColor: `${colors.primary}12`,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: `${colors.primary}20`,
-  },
-  syncNowText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  inpGrp: { gap: 6 },
-  inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  inp: { backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
-  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  modalSaveTxt: { fontSize: 14, color: colors.onSurface, fontWeight: '700' },
-  syncError: {
-    fontSize: 11,
-    color: colors.error,
-    marginTop: 6,
+    fontSize: 15,
     fontWeight: '500',
-    textAlign: 'center',
+    color: mc.white,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: mc.card,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
+    gap: 12,
+    elevation: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  inpGrp: { gap: 6 },
+  inpLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: mc.textDim,
+    letterSpacing: 1,
     paddingHorizontal: 4,
   },
-  pendingBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 4,
-    borderRadius: rounded.DEFAULT,
-    backgroundColor: `${colors.warning}12`,
-    alignSelf: 'center',
+  inp: {
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    height: 48,
+    paddingHorizontal: 14,
+    color: mc.text,
+    fontSize: 15,
   },
-  pendingText: {
-    fontSize: 11,
-    color: colors.warning,
-    fontWeight: '600',
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 22,
+    backgroundColor: mc.raised,
+    alignItems: 'center',
+  },
+  modalCancelTxt: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  modalSave: {
+    flex: 1.4,
+    paddingVertical: 13,
+    borderRadius: 22,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+  },
+  modalSaveTxt: {
+    fontSize: 16,
+    color: mc.white,
+    fontWeight: '500',
   },
 });

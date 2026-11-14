@@ -1,24 +1,25 @@
 ﻿/**
  * FinanceReportsScreen — monthly finance reports: category spend chart,
  * fixed expenses and garage fuel totals with a month picker.
+ *
+ * Restyled to the Meridian v2 reference (s24): a "TOTAL LOGGED" hero with a
+ * month pill and a share-of-spend donut, then the tap-to-filter category
+ * rows with thin bars and their transactions below.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   Alert,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr, alpha } from '../../../shared/theme/meridian';
+import { Card, EmptyState, Label, PressScale, Screen, TopBar } from '../../../shared/components/meridian';
 import { useFinanceStore } from '../store';
 import { getCategoryColor } from '../../../shared/categoryMap';
 
@@ -26,6 +27,9 @@ import { useGarageStore } from '../../garage/store';
 import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';
 import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
+
+const DONUT_R = 44;
+const DONUT_C = 2 * Math.PI * DONUT_R;
 
 export default function FinanceReportsScreen() {
   const navigation = useNavigation<any>();
@@ -79,6 +83,22 @@ export default function FinanceReportsScreen() {
     percentage: totalExpense > 0 ? (categoryTotals[cat] / totalExpense) * 100 : 0,
   })).sort((a, b) => b.amount - a.amount);
 
+  // Donut segments — top 6, the rest fold into one "Others" wedge
+  const donutSegments = (() => {
+    const top = categories.slice(0, 6);
+    const topTotal = top.reduce((s, c) => s + c.amount, 0);
+    const rest = totalExpense - topTotal;
+    const segs = top.map((c) => ({
+      key: c.name,
+      fraction: totalExpense > 0 ? c.amount / totalExpense : 0,
+      color: getCategoryColor(c.name),
+    }));
+    if (rest > 0.5 && categories.length > 6) {
+      segs.push({ key: 'Others', fraction: rest / totalExpense, color: mc.textGhost });
+    }
+    return segs;
+  })();
+
   // Filtered transactions for selected category
   const filteredTxs = selectedCategory
     ? transactions
@@ -89,15 +109,15 @@ export default function FinanceReportsScreen() {
     ? garageFills
         .filter((f) => new Date(f.date) >= monthStart)
         .map((f) => ({
-        id: `fill-${f.id}`,
-        type: 'expense',
-        amount: f.amount,
-        currency: 'INR',
-        category: 'Fuel',
-        notes: `${Number(f.liters).toFixed(2)}L Fuel`,
-        date: f.date,
-        source: 'manual',
-      }))
+          id: `fill-${f.id}`,
+          type: 'expense',
+          amount: f.amount,
+          currency: 'INR',
+          category: 'Fuel',
+          notes: `${Number(f.liters).toFixed(2)}L Fuel`,
+          date: f.date,
+          source: 'manual',
+        }))
     : [];
 
   const formatCurrency = (paise: number) => {
@@ -114,113 +134,149 @@ export default function FinanceReportsScreen() {
     })}`;
   };
 
+  const topCategory = categories[0];
+  let donutOffset = 0;
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* AppBar */}
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Expense Distribution</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen bottomInset={36}>
+      <TopBar
+        title="Expense distribution"
+        onBack={() => navigation.goBack()}
+        variant="left"
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Total Spend */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <Text style={styles.summaryLabel}>TOTAL EXPENSES LOGGED</Text>
-            <TouchableOpacity
-              style={styles.monthDropdown}
-              onPress={() => setChartMonthPickerVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.monthDropdownText}>
-                {chartMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+      {/* Total logged + month picker */}
+      <Card>
+        <View style={styles.summaryHeader}>
+          <Label>TOTAL LOGGED</Label>
+          <PressScale
+            style={styles.monthPill}
+            onPress={() => setChartMonthPickerVisible(true)}
+            scale={0.96}
+            accessibilityLabel="Choose month"
+          >
+            <Text style={styles.monthPillText}>
+              {chartMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </Text>
+            <Ionicons name="chevron-down" size={13} color={mc.textDim} />
+          </PressScale>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Svg width={118} height={118} viewBox="0 0 112 112">
+            <Circle cx={56} cy={56} r={DONUT_R} fill="none" stroke={mc.track} strokeWidth={13} />
+            {totalExpense > 0
+              ? donutSegments.map((seg) => {
+                  const len = Math.max(seg.fraction * DONUT_C - 2, 0.5);
+                  const el = (
+                    <Circle
+                      key={seg.key}
+                      cx={56}
+                      cy={56}
+                      r={DONUT_R}
+                      fill="none"
+                      stroke={seg.color}
+                      strokeWidth={13}
+                      strokeDasharray={`${len} ${DONUT_C}`}
+                      strokeDashoffset={-donutOffset}
+                      transform="rotate(-90 56 56)"
+                    />
+                  );
+                  donutOffset += len + 2;
+                  return el;
+                })
+              : null}
+          </Svg>
+          <View style={styles.summaryRight}>
+            <Text style={styles.summaryValue}>{formatCurrency(totalExpense)}</Text>
+            <Text style={styles.summaryCaption}>
+              {categories.length} {categories.length === 1 ? 'category' : 'categories'}
+            </Text>
+            {topCategory ? (
+              <Text style={styles.summaryTop}>
+                Top: {topCategory.name} {Math.round(topCategory.percentage)}%
               </Text>
-              <Ionicons name="chevron-down" size={14} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.summaryValue}>{formatCurrency(totalExpense)}</Text>
-          {selectedCategory && (
-            <TouchableOpacity
-              style={styles.clearFilter}
-              onPress={() => setSelectedCategory(null)}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.primary} />
-              <Text style={styles.clearFilterText}>Clear filter</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Categories breakdown */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SPENDING BY CATEGORY (TAP TO FILTER)</Text>
-          <View style={styles.listContainer}>
-            {categories.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No expenses logged yet</Text>
-              </View>
-            ) : (
-              categories.map((cat) => {
-                const color = getCategoryColor(cat.name);
-                const isActive = selectedCategory === cat.name;
-                return (
-                  <TouchableOpacity
-                    key={cat.name}
-                    style={[styles.categoryRow, isActive && { backgroundColor: `${color}10` }]}
-                    onPress={() =>
-                      setSelectedCategory(isActive ? null : cat.name)
-                    }
-                    activeOpacity={0.75}
-                  >
-                    <View style={styles.rowBetween}>
-                      <View style={styles.row}>
-                        <View style={[styles.dot, { backgroundColor: color }]} />
-                        <Text style={[styles.catName, isActive && { color: color, fontWeight: '700' }]}>
-                          {cat.name}
-                        </Text>
-                        {isActive && (
-                          <Ionicons name="funnel" size={12} color={color} style={{ marginLeft: 4 }} />
-                        )}
-                      </View>
-                      <View style={styles.rowRight}>
-                        <Text style={[styles.catAmount, isActive && { color: color }]}>
-                          {formatCurrency(cat.amount)}
-                        </Text>
-                        <Text style={styles.catPercent}>{cat.percentage.toFixed(0)}%</Text>
-                      </View>
-                    </View>
-                    <View style={styles.barBg}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          {
-                            backgroundColor: color,
-                            width: `${cat.percentage}%`,
-                            opacity: isActive ? 1 : 0.6,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
+            ) : null}
           </View>
         </View>
+      </Card>
 
-        {/* Filtered transactions sub-ledger */}
-        {selectedCategory && (() => {
-          const allFiltered = [...filteredTxs, ...filteredFuelPseudoTxs]
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          if (allFiltered.length === 0) return null;
+      {selectedCategory ? (
+        <PressScale
+          style={styles.clearFilter}
+          onPress={() => setSelectedCategory(null)}
+          scale={0.96}
+          accessibilityLabel="Clear filter"
+        >
+          <Ionicons name="close-circle" size={15} color={mc.redSoft} />
+          <Text style={styles.clearFilterText}>Clear “{selectedCategory}” filter</Text>
+        </PressScale>
+      ) : null}
+
+      {/* Categories breakdown */}
+      <Text style={styles.sectionTitle}>BY CATEGORY (TAP TO FILTER)</Text>
+      <Card pad={false} style={styles.listCard}>
+        {categories.length === 0 ? (
+          <EmptyState icon="pie-chart-outline" title="No expenses logged yet" />
+        ) : (
+          categories.map((cat, index) => {
+            const color = getCategoryColor(cat.name);
+            const isActive = selectedCategory === cat.name;
+            return (
+              <TouchableOpacity
+                key={cat.name}
+                style={[styles.categoryRow, index > 0 && styles.rowDivider, isActive && { backgroundColor: alpha(color, 0.09) }]}
+                onPress={() => setSelectedCategory(isActive ? null : cat.name)}
+                activeOpacity={0.75}
+                accessibilityLabel={`Filter by ${cat.name}`}
+              >
+                <View style={styles.rowBetween}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.dot, { backgroundColor: color }]} />
+                    <Text style={[styles.catName, isActive && { color }]} numberOfLines={1}>
+                      {cat.name}
+                    </Text>
+                    {isActive && <Ionicons name="funnel" size={12} color={color} style={{ marginLeft: 2 }} />}
+                  </View>
+                  <View style={styles.rowRight}>
+                    <Text style={[styles.catAmount, isActive && { color }]}>
+                      {formatCurrency(cat.amount)}
+                    </Text>
+                    <Text style={styles.catPercent}>{Math.round(cat.percentage)}%</Text>
+                  </View>
+                </View>
+                <View style={styles.barBg}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      {
+                        backgroundColor: color,
+                        width: `${Math.max(cat.percentage, cat.amount > 0 ? 2.5 : 0)}%`,
+                      },
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </Card>
+
+      {/* Filtered transactions sub-ledger */}
+      {selectedCategory && (() => {
+        const allFiltered = [...filteredTxs, ...filteredFuelPseudoTxs]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (allFiltered.length === 0) {
           return (
-          <View style={styles.section}>
+            <Text style={styles.sectionEmpty}>No transactions for {selectedCategory} in this month.</Text>
+          );
+        }
+        return (
+          <>
             <Text style={styles.sectionTitle}>
               {selectedCategory.toUpperCase()} TRANSACTIONS ({allFiltered.length})
             </Text>
-            <View style={styles.listContainer}>
+            <Card pad={false} style={styles.listCard}>
               {allFiltered.map((tx: any) => (
                 <ExpandableTransactionCard
                   key={tx.id}
@@ -256,11 +312,10 @@ export default function FinanceReportsScreen() {
                   }}
                 />
               ))}
-            </View>
-          </View>
-          );
-        })()}
-      </ScrollView>
+            </Card>
+          </>
+        );
+      })()}
 
       <MonthPickerModal
         visible={chartMonthPickerVisible}
@@ -269,203 +324,144 @@ export default function FinanceReportsScreen() {
         onSelect={setChartMonth}
         onClose={() => setChartMonthPickerVisible(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 40,
-  },
-  summaryCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    alignItems: 'center',
-    gap: 8,
-  },
   summaryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
+    marginBottom: 12,
   },
-  monthDropdown: {
+  monthPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: rounded.full,
-    backgroundColor: `${colors.primary}15`,
+    gap: 6,
+    backgroundColor: mc.raised,
+    borderRadius: mr.chip,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  monthDropdownText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '600',
+  monthPillText: {
+    fontSize: 13,
+    color: mc.text,
   },
-  summaryLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  summaryRight: {
+    flex: 1,
+    gap: 2,
   },
   summaryValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.onSurface,
+    fontSize: 30,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  summaryCaption: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  summaryTop: {
+    fontSize: 12,
+    color: mc.amber,
+    marginTop: 4,
   },
   clearFilter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: rounded.full,
-    backgroundColor: `${colors.primary}15`,
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: mc.redDim,
+    borderRadius: mr.chip,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 2,
   },
   clearFilterText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  section: {
-    gap: 8,
+    fontSize: 13,
+    color: mc.redSoft,
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    fontWeight: '500',
+    letterSpacing: 1.2,
+    color: mc.textDim,
+    marginLeft: 4,
+    marginTop: 4,
   },
-  listContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    overflow: 'hidden',
+  sectionEmpty: {
+    fontSize: 13,
+    color: mc.textDim,
+    marginLeft: 4,
+    marginTop: 8,
+  },
+  listCard: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
   },
   categoryRow: {
-    padding: spacing.cardPadding,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 11,
+    paddingHorizontal: 2,
+    borderRadius: mr.tag,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
   },
   rowBetween: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  row: {
+  rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
   catName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
+    color: mc.text,
+    flexShrink: 1,
   },
   rowRight: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: 8,
   },
   catAmount: {
     fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
+    color: mc.text,
+    fontWeight: '500',
   },
   catPercent: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
+    color: mc.textDim,
     minWidth: 32,
     textAlign: 'right',
   },
   barBg: {
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: mc.track,
+    marginTop: 8,
+    overflow: 'hidden',
   },
   barFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
-  },
-  // Filtered tx styles
-  txRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  txLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  txIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  txDate: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  txAmount: {
-    fontSize: 13,
-    fontWeight: '700',
+    height: 6,
+    borderRadius: 3,
   },
 });

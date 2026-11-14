@@ -1,26 +1,28 @@
 /**
  * LoansManagerScreen — view/add/edit/delete outstanding loans and fixed deposits.
  * Net worth = investments + FDs − loans, reflected on the Wealth dashboard.
+ *
+ * Restyled to the Meridian v2 reference (s30): LOANS / FIXED DEPOSITS section
+ * headers with totals, avatar-letter loan rows with adjust/edit/delete
+ * actions, and a mint empty-state card for FDs.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  Platform,
-  StatusBar,
   Modal,
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Card, IconTile, Label, PressScale, Screen, TopBar } from '../../../shared/components/meridian';
 import { useInvestmentsStore, Loan, FixedDeposit } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
-import { tc, ts, tr, card } from '../../../shared/theme/tracend';
 
 type EditorTarget =
   | { kind: 'loan'; item: Loan }
@@ -41,20 +43,23 @@ export default function LoansManagerScreen() {
   const [adjustSign, setAdjustSign] = useState<'plus' | 'minus'>('minus');
   const [adjustAmount, setAdjustAmount] = useState('');
 
-  const formatCurrency = (paise: number) =>
-    `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
-
-  const openAdd = (kind: 'loan' | 'fd') => {
-    setEditing(null);
-    setName('');
-    setAmount('');
-    setKind(kind);
-    setShowModal(true);
-  };
-
   // Track which kind the modal is adding (edit derives it from `editing`).
   const [kind, setKind] = useState<'loan' | 'fd'>('loan');
   const effectiveKind: 'loan' | 'fd' = editing ? editing.kind : kind;
+
+  const formatCurrency = (paise: number) =>
+    `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
+
+  const loansTotal = loans.reduce((sum, l) => sum + l.amount, 0);
+  const fdsTotal = fds.reduce((sum, f) => sum + f.amount, 0);
+
+  const openAdd = (k: 'loan' | 'fd') => {
+    setEditing(null);
+    setName('');
+    setAmount('');
+    setKind(k);
+    setShowModal(true);
+  };
 
   const openEdit = (target: EditorTarget) => {
     setEditing(target);
@@ -123,127 +128,156 @@ export default function LoansManagerScreen() {
 
   const renderRows = (
     items: Array<Loan | FixedDeposit>,
-    kind: 'loan' | 'fd'
+    k: 'loan' | 'fd'
   ) =>
     items.map((item) => {
-      const target: EditorTarget = { kind, item };
+      const target: EditorTarget = { kind: k, item };
+      const isLoan = k === 'loan';
+      const initial = (item.name || '?').trim().charAt(0).toUpperCase();
       return (
-        <View key={item.id} style={[card, styles.loanCard]}>
-          <View style={kind === 'loan' ? styles.loanDot : styles.fdDot} />
-          <View style={styles.loanInfo}>
-            <Text style={styles.loanName} numberOfLines={1}>{item.name}</Text>
-            <Text style={[styles.loanAmount, kind === 'fd' && { color: tc.stable }]}>
-              {kind === 'loan' ? '−' : '+'}{formatCurrency(item.amount)}
-            </Text>
-          </View>
-          {kind === 'loan' && (
-            <TouchableOpacity
-              style={styles.loanAction}
-              onPress={() => openAdjust(item as Loan)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        <Card key={item.id} style={styles.itemCard}>
+          <View style={styles.itemRow}>
+            <View style={[styles.avatar, { backgroundColor: isLoan ? mc.redDim : mc.mintDim }]}>
+              <Text style={[styles.avatarText, { color: isLoan ? mc.redSoft : mc.mint }]}>
+                {initial}
+              </Text>
+            </View>
+            <View style={styles.itemMain}>
+              <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+              <Text style={[styles.itemAmount, { color: isLoan ? mc.redSoft : mc.mint }]}>
+                {isLoan ? '−' : '+'}{formatCurrency(item.amount)}
+              </Text>
+            </View>
+            {isLoan && (
+              <PressScale
+                style={styles.iconBtn}
+                onPress={() => openAdjust(item as Loan)}
+                scale={0.9}
+                accessibilityLabel={`Adjust outstanding for ${item.name}`}
+              >
+                <Ionicons name="calculator-outline" size={17} color={mc.text} />
+              </PressScale>
+            )}
+            <PressScale
+              style={styles.iconBtn}
+              onPress={() => openEdit(target)}
+              scale={0.9}
+              accessibilityLabel={`Edit ${item.name}`}
             >
-              <Ionicons name="calculator-outline" size={20} color={tc.action} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.loanAction} onPress={() => openEdit(target)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="create-outline" size={20} color={tc.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.loanAction} onPress={() => handleDelete(target)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="trash-outline" size={20} color={tc.attention} />
-          </TouchableOpacity>
-        </View>
+              <Ionicons name="pencil" size={17} color={mc.text} />
+            </PressScale>
+            <PressScale
+              style={[styles.iconBtn, styles.iconBtnDanger]}
+              onPress={() => handleDelete(target)}
+              scale={0.9}
+              accessibilityLabel={`Delete ${item.name}`}
+            >
+              <Ionicons name="trash-outline" size={17} color={mc.redSoft} />
+            </PressScale>
+          </View>
+          {isLoan ? (
+            <Text style={styles.loanFootnote}>Tap the calculator to adjust the outstanding principal</Text>
+          ) : null}
+        </Card>
       );
     });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={tc.action} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Loans & FDs</Text>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => openAdd('loan')}>
-          <Ionicons name="add" size={24} color={tc.action} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Loans section */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Ionicons name="wallet-outline" size={15} color={tc.attention} />
-            <Text style={styles.sectionTitle}>LOANS</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.sectionAdd}
+    <Screen bottomInset={36}>
+      <TopBar
+        title="Loans and FDs"
+        onBack={() => navigation.goBack()}
+        variant="center"
+        right={
+          <PressScale
             onPress={() => openAdd('loan')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            scale={0.92}
+            style={styles.fabCircle}
+            accessibilityLabel="Add loan or FD"
           >
-            <Ionicons name="add-circle" size={22} color={tc.action} />
-          </TouchableOpacity>
-        </View>
-        {loans.length === 0 ? (
-          <Text style={styles.emptySub}>No loans tracked. Net worth = investments + FDs − loans.</Text>
-        ) : (
-          renderRows(loans, 'loan')
-        )}
+            <Ionicons name="add" size={18} color={mc.white} />
+          </PressScale>
+        }
+      />
 
-        {/* FDs section */}
-        <View style={[styles.sectionHeader, styles.fdSectionGap]}>
-          <View style={styles.sectionTitleRow}>
-            <Ionicons name="lock-closed-outline" size={15} color={tc.stable} />
-            <Text style={styles.sectionTitle}>FIXED DEPOSITS</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.sectionAdd}
-            onPress={() => openAdd('fd')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="add-circle" size={22} color={tc.action} />
-          </TouchableOpacity>
-        </View>
-        {fds.length === 0 ? (
-          <Text style={styles.emptySub}>No FDs tracked. FD amounts add to your net worth.</Text>
-        ) : (
-          renderRows(fds, 'fd')
-        )}
-      </ScrollView>
+      {/* LOANS section */}
+      <View style={styles.sectionHeader}>
+        <Label color={mc.redSoft}>LOANS</Label>
+        <Text style={styles.sectionTotal}>Total {formatCurrency(loansTotal)}</Text>
+      </View>
+      {loans.length === 0 ? (
+        <Card>
+          <Text style={styles.sectionEmpty}>
+            No loans tracked. Net worth = investments + FDs − loans.
+          </Text>
+        </Card>
+      ) : (
+        renderRows(loans, 'loan')
+      )}
 
-      {/* Add / Edit Modal */}
+      {/* FIXED DEPOSITS section */}
+      <View style={[styles.sectionHeader, styles.fdHeaderGap]}>
+        <Label color={mc.mint}>FIXED DEPOSITS</Label>
+        <Text style={styles.sectionTotal}>Total {formatCurrency(fdsTotal)}</Text>
+      </View>
+      {fds.length === 0 ? (
+        <Card style={styles.fdEmptyCard}>
+          <IconTile
+            icon="lock-closed"
+            color={mc.mint}
+            background={mc.mintDim}
+            size={52}
+            radius={26}
+            iconSize={24}
+            style={styles.fdEmptyIcon}
+          />
+          <Text style={styles.fdEmptyTitle}>No FDs tracked</Text>
+          <Text style={styles.fdEmptySub}>FD amounts are added to your net worth</Text>
+          <PressScale style={styles.addFdChip} onPress={() => openAdd('fd')} scale={0.96} accessibilityLabel="Add FD">
+            <Ionicons name="add" size={14} color={mc.mint} />
+            <Text style={styles.addFdChipText}>Add FD</Text>
+          </PressScale>
+        </Card>
+      ) : (
+        renderRows(fds, 'fd')
+      )}
+
+      {/* Add / Edit Modal — bottom sheet */}
       <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>
               {editing
-                ? editing.kind === 'loan' ? 'Edit Loan' : 'Edit FD'
-                : effectiveKind === 'loan' ? 'Add Loan' : 'Add FD'}
+                ? editing.kind === 'loan' ? 'Edit loan' : 'Edit FD'
+                : effectiveKind === 'loan' ? 'Add loan' : 'Add FD'}
             </Text>
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
               value={name}
               onChangeText={setName}
               placeholder={effectiveKind === 'loan' ? 'Loan name (e.g. Home Loan)' : 'FD name (e.g. HDFC FD)'}
-              placeholderTextColor={tc.textMuted}
+              placeholderTextColor={mc.textGhost}
             />
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
               value={amount}
               onChangeText={setAmount}
               placeholder={effectiveKind === 'loan' ? 'Outstanding amount (₹)' : 'Deposit amount (₹)'}
-              placeholderTextColor={tc.textMuted}
+              placeholderTextColor={mc.textGhost}
               keyboardType="decimal-pad"
             />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowModal(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
+            <View style={styles.sheetButtons}>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnCancel]} onPress={() => setShowModal(false)}>
+                <Text style={styles.sheetBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveText}>Save</Text>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnSave]} onPress={handleSave}>
+                <Text style={styles.sheetBtnSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
       {/* Quick adjust modal — pick + or −, enter amount, apply */}
       <Modal
         visible={!!adjustTarget}
@@ -251,169 +285,263 @@ export default function LoansManagerScreen() {
         animationType="fade"
         onRequestClose={() => setAdjustTarget(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Adjust Outstanding</Text>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Adjust outstanding</Text>
             {adjustTarget && (
-              <Text style={styles.adjustSub}>
+              <Text style={styles.sheetSub}>
                 {adjustTarget.name} · {formatCurrency(adjustTarget.amount)}
               </Text>
             )}
             <View style={styles.signRow}>
-              <TouchableOpacity
-                style={[styles.signBtn, adjustSign === 'minus' && styles.signBtnMinus]}
+              <PressScale
+                style={[styles.signBtn, adjustSign === 'minus' && styles.signBtnActiveRed]}
                 onPress={() => setAdjustSign('minus')}
+                scale={0.97}
               >
-                <Text style={[styles.signText, adjustSign === 'minus' && styles.signTextActive]}>− Reduce</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.signBtn, adjustSign === 'plus' && styles.signBtnPlus]}
+                <Text style={[styles.signText, adjustSign === 'minus' && styles.signTextActiveRed]}>
+                  − Reduce
+                </Text>
+              </PressScale>
+              <PressScale
+                style={[styles.signBtn, adjustSign === 'plus' && styles.signBtnActiveMint]}
                 onPress={() => setAdjustSign('plus')}
+                scale={0.97}
               >
-                <Text style={[styles.signText, adjustSign === 'plus' && styles.signTextActive]}>+ Add</Text>
-              </TouchableOpacity>
+                <Text style={[styles.signText, adjustSign === 'plus' && styles.signTextActiveMint]}>
+                  + Add
+                </Text>
+              </PressScale>
             </View>
             <TextInput
-              style={styles.input}
+              style={styles.textInput}
               value={adjustAmount}
               onChangeText={setAdjustAmount}
-              placeholder="Amount (₹)"
-              placeholderTextColor={tc.textMuted}
+              placeholder="Amount in ₹"
+              placeholderTextColor={mc.textGhost}
               keyboardType="decimal-pad"
               autoFocus
             />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setAdjustTarget(null)}>
-                <Text style={styles.cancelText}>Cancel</Text>
+            <View style={styles.sheetButtons}>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnCancel]} onPress={() => setAdjustTarget(null)}>
+                <Text style={styles.sheetBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={applyAdjust}>
-                <Text style={styles.saveText}>
-                  {adjustSign === 'minus' ? '− Reduce' : '+ Add'}
-                </Text>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnSave]} onPress={applyAdjust}>
+                <Text style={styles.sheetBtnSaveText}>Apply</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: tc.canvas,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  fabCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.red,
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: ts.gutter,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tc.border,
+    justifyContent: 'center',
   },
-  appBarTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: tc.textPrimary,
-    letterSpacing: -0.3,
-  },
-  iconBtn: { padding: 8, borderRadius: tr.full },
-  scroll: { padding: ts.gutter, gap: 12, paddingBottom: 40 },
+
+  // Section headers
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginTop: 2,
   },
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: tc.textSecondary,
-    letterSpacing: 0.6,
+  fdHeaderGap: {
+    marginTop: 6,
   },
-  sectionAdd: { padding: 4 },
-  fdSectionGap: { marginTop: 12 },
-  emptySub: { fontSize: 12, color: tc.textMuted, textAlign: 'center', paddingHorizontal: 24, paddingVertical: 8 },
-  loanCard: {
+  sectionTotal: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  sectionEmpty: {
+    fontSize: 13,
+    color: mc.textDim,
+    lineHeight: 19,
+  },
+
+  // Item cards
+  itemCard: {
+    padding: 12,
+    gap: 8,
+  },
+  itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 14,
   },
-  loanDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: tc.attention,
-  },
-  fdDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: tc.stable,
-  },
-  loanInfo: { flex: 1, gap: 2 },
-  loanName: { fontSize: 14, fontWeight: '600', color: tc.textPrimary },
-  loanAmount: { fontSize: 13, fontWeight: '700', color: tc.attention },
-  loanAction: { padding: 4 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: ts.gutter,
   },
-  modalCard: {
-    backgroundColor: tc.surfaceRaised,
-    borderRadius: tr.lg,
-    padding: 20,
+  avatarText: {
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  itemMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  itemName: {
+    fontSize: 16,
+    color: mc.text,
+  },
+  itemAmount: {
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: mc.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconBtnDanger: {
+    backgroundColor: mc.redDim,
+  },
+  loanFootnote: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+
+  // FD empty card
+  fdEmptyCard: {
+    alignItems: 'center',
+    paddingVertical: 26,
+    gap: 4,
+  },
+  fdEmptyIcon: {
+    marginBottom: 6,
+  },
+  fdEmptyTitle: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  fdEmptySub: {
+    fontSize: 12,
+    color: mc.textDim,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  addFdChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.mintDim,
+    borderRadius: mr.chip,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    marginTop: 8,
+  },
+  addFdChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: mc.mint,
+  },
+
+  // Bottom sheets
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: mc.card,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
     gap: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
+    elevation: 24,
   },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: tc.textPrimary },
-  adjustSub: { fontSize: 12, color: tc.textSecondary },
-  signRow: { flexDirection: 'row', gap: 10 },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  sheetSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: -6,
+  },
+  textInput: {
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: mc.text,
+  },
+  signRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   signBtn: {
     flex: 1,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: mc.raised,
     alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
   },
-  signBtnMinus: { backgroundColor: 'rgba(255, 92, 92, 0.12)', borderColor: tc.attention },
-  signBtnPlus: { backgroundColor: 'rgba(46, 204, 113, 0.12)', borderColor: tc.stable },
-  signText: { fontSize: 13, fontWeight: '700', color: tc.textSecondary },
-  signTextActive: { color: tc.textPrimary },
-  input: {
-    backgroundColor: 'rgba(244,247,251,0.04)',
-    borderRadius: 10,
-    padding: 12,
-    color: tc.textPrimary,
+  signBtnActiveRed: {
+    backgroundColor: mc.redDim,
+  },
+  signBtnActiveMint: {
+    backgroundColor: mc.mintDim,
+  },
+  signText: {
     fontSize: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
+    color: mc.textDim,
   },
-  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  cancelBtn: {
+  signTextActiveRed: {
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+  signTextActiveMint: {
+    color: mc.mint,
+    fontWeight: '600',
+  },
+  sheetButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 2,
+  },
+  sheetBtn: {
+    paddingVertical: 13,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBtnCancel: {
     flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: tc.border,
+    backgroundColor: mc.raised,
   },
-  cancelText: { fontSize: 14, fontWeight: '600', color: tc.textSecondary },
-  saveBtn: {
-    flex: 2,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: tc.action,
+  sheetBtnSave: {
+    flex: 1.4,
+    backgroundColor: mc.red,
   },
-  saveText: { fontSize: 14, fontWeight: '700', color: tc.canvas },
+  sheetBtnCancelText: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  sheetBtnSaveText: {
+    fontSize: 16,
+    color: mc.white,
+    fontWeight: '500',
+  },
 });

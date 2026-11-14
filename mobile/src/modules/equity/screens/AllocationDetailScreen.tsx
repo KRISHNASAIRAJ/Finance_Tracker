@@ -1,24 +1,24 @@
 /**
  * AllocationDetailScreen — donut chart breakdown of asset allocation by category
  * (Equity, MF, Gold, Realty, ETF) with per-holding drill-down.
+ *
+ * Restyled to the Meridian v2 reference (s29): a "PORTFOLIO" hero with the
+ * donut and total P&L, then a section of per-holding cards with the value /
+ * cost / P&L stat row, allocation bar and unit details. Tap a donut segment
+ * to scroll to that holding. All logic is unchanged.
  */
 import React, { useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Card, EmptyState, Label, Screen, TopBar } from '../../../shared/components/meridian';
 import { useInvestmentsStore, Holding, holdingValueOf, holdingDisplayName } from '../store';
 
 const HOLDING_COLORS = [
@@ -28,15 +28,15 @@ const HOLDING_COLORS = [
 ];
 
 const formatCurrency = (paise: number) =>
-  `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const formatCurrencyDetailed = (paise: number) =>
-  `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
 export default function AllocationDetailScreen() {
   const navigation = useNavigation();
   const { holdings } = useInvestmentsStore();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
   const holdingY = useRef<Record<string, number>>({});
 
   const holdingValues = holdings
@@ -49,6 +49,9 @@ export default function AllocationDetailScreen() {
     .filter((h: any) => h.value > 0);
 
   const totalValue = holdingValues.reduce((s: number, h: any) => s + h.value, 0);
+  const totalCost = holdingValues.reduce((s: number, h: any) => s + h.quantity * h.avgPrice, 0);
+  const totalPnl = totalValue - totalCost;
+  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
 
   // Sort by value descending and assign colors
   const sorted = [...holdingValues]
@@ -59,10 +62,10 @@ export default function AllocationDetailScreen() {
       color: HOLDING_COLORS[i % HOLDING_COLORS.length],
     }));
 
-  const R = 70;
-  const strokeW = 18;
-  const cx = 90;
-  const cy = 90;
+  const R = 58;
+  const strokeW = 15;
+  const cx = 70;
+  const cy = 70;
   const circumference = 2 * Math.PI * R;
 
   // Build segment angle spans (clockwise from 12 o'clock) for tap hit-testing
@@ -96,109 +99,98 @@ export default function AllocationDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Portfolio Breakdown</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <Screen bottomInset={36} ref={scrollRef}>
+      <TopBar title="Portfolio breakdown" onBack={() => navigation.goBack()} variant="left" />
 
-      {/* Donut — fixed permanently at top, outside the scroll view */}
-      {sorted.length > 0 && (
-        <View style={styles.donutCard}>
-          <View style={styles.donutRow}>
-            <View style={styles.donutChartWrap}>
-              <Svg width={180} height={180} viewBox="0 0 180 180">
-                {sorted.map((h: any) => {
-                  const sliceLen = totalValue > 0 ? (h.value / totalValue) * circumference : 0;
-                  const dashArray = `${sliceLen} ${circumference - sliceLen}`;
-                  const startDeg = segments.find((s: any) => s.id === h.id)?.startDeg ?? 0;
-                  return (
-                    <Circle
-                      key={h.id}
-                      cx={cx}
-                      cy={cy}
-                      r={R}
-                      stroke={h.color}
-                      strokeWidth={strokeW}
-                      strokeDasharray={dashArray}
-                      strokeDashoffset={-(startDeg / 360) * circumference}
-                      fill="none"
-                      strokeLinecap="butt"
-                    />
-                  );
-                })}
-                <SvgText
-                  x={cx}
-                  y={cy - 4}
-                  textAnchor="middle"
-                  fontSize={16}
-                  fontWeight="800"
-                  fill={colors.onSurface}
-                >
-                  {formatCurrency(totalValue)}
-                </SvgText>
-                <SvgText
-                  x={cx}
-                  y={cy + 14}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill={colors.onSurfaceVariant}
-                >
-                  Total
-                </SvgText>
-              </Svg>
-              {/* Native transparent overlay — reliably catches every tap */}
-              <TouchableOpacity
-                style={styles.donutTapOverlay}
-                activeOpacity={1}
-                onPress={handleSegmentTap}
-              />
+      {sorted.length === 0 ? (
+        <EmptyState
+          icon="pie-chart-outline"
+          title="No holdings to show"
+          subtitle="Add holdings to see the breakdown"
+        />
+      ) : (
+        <>
+          {/* Hero — donut + portfolio summary */}
+          <Card>
+            <View style={styles.heroRow}>
+              <View style={styles.donutWrap}>
+                <Svg width={140} height={140} viewBox="0 0 140 140">
+                  {sorted.map((h: any) => {
+                    const sliceLen = totalValue > 0 ? (h.value / totalValue) * circumference : 0;
+                    const dashArray = `${sliceLen} ${circumference - sliceLen}`;
+                    const startDeg = segments.find((s: any) => s.id === h.id)?.startDeg ?? 0;
+                    return (
+                      <Circle
+                        key={h.id}
+                        cx={cx}
+                        cy={cy}
+                        r={R}
+                        stroke={h.color}
+                        strokeWidth={strokeW}
+                        strokeDasharray={dashArray}
+                        strokeDashoffset={-(startDeg / 360) * circumference}
+                        fill="none"
+                        strokeLinecap="butt"
+                      />
+                    );
+                  })}
+                  <SvgText x={cx} y={cy - 2} textAnchor="middle" fontSize={15} fontWeight="500" fill={mc.text}>
+                    {formatCurrency(totalValue)}
+                  </SvgText>
+                  <SvgText x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fill={mc.textDim}>
+                    Total
+                  </SvgText>
+                </Svg>
+                {/* Native transparent overlay — reliably catches every tap */}
+                <TouchableOpacity
+                  style={styles.donutTapOverlay}
+                  activeOpacity={1}
+                  onPress={handleSegmentTap}
+                />
+              </View>
+
+              <View style={styles.heroRight}>
+                <Label>PORTFOLIO</Label>
+                <Text style={[styles.heroPnl, { color: totalPnl >= 0 ? mc.mint : mc.redSoft }]}>
+                  {totalPnl >= 0 ? '+' : '-'}{formatCurrency(Math.abs(totalPnl))}
+                </Text>
+                <Text style={styles.heroCaption}>
+                  {sorted.length} {sorted.length === 1 ? 'holding' : 'holdings'} · {totalPnlPct >= 0 ? '+' : ''}{totalPnlPct.toFixed(1)}%
+                </Text>
+              </View>
             </View>
-          </View>
-        </View>
-      )}
+          </Card>
 
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {sorted.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="pie-chart-outline" size={32} color={colors.outline} />
-            <Text style={styles.emptyText}>No holdings to show</Text>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionLabel}>INDIVIDUAL HOLDINGS</Text>
-            {sorted.map((h: any) => {
-              const cost = h.quantity * h.avgPrice;
-              const pnl = h.value - cost;
-              const pnlPct = cost > 0 ? ((pnl / cost) * 100).toFixed(1) : '0.0';
-              const isProfit = pnl >= 0;
-              const isMF = h.type === 'mf';
+          <Label style={styles.sectionLabel}>INDIVIDUAL HOLDINGS</Label>
 
-              return (
-                <View
-                  key={h.id}
-                  style={[styles.holdingCard, { borderLeftColor: h.color }]}
-                  onLayout={(e) => { holdingY.current[h.id] = e.nativeEvent.layout.y; }}
-                >
+          {sorted.map((h: any) => {
+            const cost = h.quantity * h.avgPrice;
+            const pnl = h.value - cost;
+            const pnlPct = cost > 0 ? ((pnl / cost) * 100).toFixed(1) : '0.0';
+            const isProfit = pnl >= 0;
+            const isMF = h.type === 'mf';
+            const isin = h.isin || h.symbol;
+            const kind = h.allocation ?? (h.type === 'mf' ? 'Mutual fund' : h.type === 'etf' ? 'ETF' : 'Equity');
+            const sipTag = isMF && (h.sipAmount || h.sipDay) ? ' · SIP' : '';
+
+            return (
+              <View
+                key={h.id}
+                style={styles.holdingCard}
+                onLayout={(e) => { holdingY.current[h.id] = e.nativeEvent.layout.y; }}
+              >
                   <View style={styles.holdingHeader}>
                     <View style={[styles.dot, { backgroundColor: h.color }]} />
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.holdingTitleWrap}>
                       <Text style={styles.holdingName} numberOfLines={1}>
                         {isMF ? holdingDisplayName(h) : h.symbol}
                       </Text>
                       <Text style={styles.holdingSub} numberOfLines={1}>
-                        {isMF ? h.symbol : h.name} · {h.allocation ?? (h.type === 'mf' ? 'Mutual Funds' : 'Equity')}
+                        {isin} · {kind}{sipTag}
                       </Text>
                     </View>
-                    <View style={[styles.plBadge, { backgroundColor: isProfit ? `${colors.success}15` : `${colors.error}15` }]}>
-                      <Text style={[styles.plText, { color: isProfit ? colors.success : colors.error }]}>
+                    <View style={[styles.plPill, { backgroundColor: isProfit ? mc.mintDim : mc.redDim }]}>
+                      <Text style={[styles.plPillText, { color: isProfit ? mc.mint : mc.redSoft }]}>
                         {isProfit ? '+' : ''}{pnlPct}%
                       </Text>
                     </View>
@@ -207,134 +199,158 @@ export default function AllocationDetailScreen() {
                   <View style={styles.metricsRow}>
                     <View style={styles.metric}>
                       <Text style={styles.metricVal}>{formatCurrency(h.value)}</Text>
-                      <Text style={styles.metricLbl}>Current Value</Text>
+                      <Text style={styles.metricLbl}>VALUE</Text>
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricVal}>{formatCurrency(cost)}</Text>
-                      <Text style={styles.metricLbl}>Cost Basis</Text>
+                      <Text style={styles.metricLbl}>COST</Text>
                     </View>
                     <View style={styles.metric}>
-                      <Text style={[styles.metricVal, { color: isProfit ? colors.success : colors.error }]}>
+                      <Text style={[styles.metricVal, { color: isProfit ? mc.mint : mc.redSoft }]}>
                         {isProfit ? '+' : ''}{formatCurrency(pnl)}
                       </Text>
                       <Text style={styles.metricLbl}>P&amp;L</Text>
                     </View>
                   </View>
 
-                  {/* Allocation bar */}
-                  <View style={styles.allocBar}>
+                  <View style={styles.allocBarRow}>
                     <View style={styles.allocBarBg}>
-                      <View style={[styles.allocBarFill, { width: `${h.pct}%`, backgroundColor: h.color }]} />
+                      <View style={[styles.allocBarFill, { width: `${Math.max(h.pct, 2)}%`, backgroundColor: h.color }]} />
                     </View>
                     <Text style={styles.allocPct}>{h.pct.toFixed(1)}% of portfolio</Text>
                   </View>
 
-                  <View style={styles.holdingDetails}>
-                    <Text style={styles.detailText}>
-                      {isMF
-                        ? `${h.quantity.toFixed(2)} Units · NAV ${formatCurrencyDetailed(h.currentPrice)} · Avg ${formatCurrencyDetailed(h.avgPrice)}`
-                        : `${h.quantity} Shares · LTP ${formatCurrencyDetailed(h.currentPrice)} · Avg ${formatCurrencyDetailed(h.avgPrice)}`}
-                    </Text>
-                    {h.folio && <Text style={styles.detailFolio}>Folio: {h.folio}</Text>}
-                  </View>
-                </View>
-              );
-            })}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                  <Text style={styles.detailText}>
+                    {isMF
+                      ? `${h.quantity.toFixed(2)} units · NAV ${formatCurrencyDetailed(h.currentPrice)} · avg ${formatCurrencyDetailed(h.avgPrice)}`
+                      : `${h.quantity} shares · LTP ${formatCurrencyDetailed(h.currentPrice)} · avg ${formatCurrencyDetailed(h.avgPrice)}`}
+                  </Text>
+                  {h.folio ? <Text style={styles.detailText}>Folio: {h.folio}</Text> : null}
+              </View>
+            );
+          })}
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    gap: 16,
   },
-  backBtn: { padding: 6, borderRadius: rounded.full },
-  appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
-  scroll: { padding: spacing.containerPadding, gap: 16, paddingBottom: 60 },
-  emptyWrap: { alignItems: 'center', paddingVertical: 48, gap: 10 },
-  emptyText: { fontSize: 14, color: colors.onSurfaceVariant },
-  donutCard: {
-    backgroundColor: colors.background,
-    borderColor: 'rgba(155,165,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.xl,
-    padding: spacing.cardPadding,
-  },
-  donutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  donutChartWrap: {
+  donutWrap: {
     position: 'relative',
   },
   donutTapOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 140,
+    height: 140,
+  },
+  heroRight: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  heroPnl: {
+    fontSize: 22,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  heroCaption: {
+    fontSize: 12,
+    color: mc.textDim,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
-    marginTop: 4,
+    paddingHorizontal: 4,
+    marginTop: 2,
   },
   holdingCard: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(155,165,255,0.08)',
-    borderLeftWidth: 3,
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
     padding: 14,
-    gap: 10,
+    gap: 0,
   },
   holdingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginBottom: 12,
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  holdingName: { fontSize: 14, fontWeight: '700', color: colors.onSurface, flex: 1 },
-  holdingSub: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 2 },
-  plBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: rounded.full,
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
-  plText: { fontSize: 11, fontWeight: '700' },
-  metricsRow: { flexDirection: 'row', gap: 24 },
-  metric: { gap: 2 },
-  metricVal: { fontSize: 15, fontWeight: '800', color: colors.onSurface },
-  metricLbl: { fontSize: 10, color: colors.onSurfaceVariant },
-  allocBar: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  holdingTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  holdingName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  holdingSub: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  plPill: {
+    borderRadius: mr.badge,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  plPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  metric: {
+    flex: 1,
+    gap: 2,
+  },
+  metricVal: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  metricLbl: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textDim,
+  },
+  allocBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
   allocBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 3,
+    backgroundColor: mc.track,
     overflow: 'hidden',
   },
-  allocBarFill: { height: 6, borderRadius: 3 },
-  allocPct: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
-  holdingDetails: { gap: 2 },
-  detailText: { fontSize: 10, color: colors.outline },
-  detailFolio: { fontSize: 10, color: colors.outline, marginTop: 1 },
+  allocBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  allocPct: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  detailText: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
 });

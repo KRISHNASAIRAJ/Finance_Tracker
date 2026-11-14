@@ -82,9 +82,17 @@ export default function MonthlySpendScreen() {
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const spentByCategory = new Map<string, number>();
   for (const tx of transactions) {
-    if (tx.type === 'income' || tx.type === 'credit_card_bill') continue;
+    if (tx.type === 'income' || tx.type === 'credit_card_bill' || tx.type === 'fixed_expense') continue;
     // Fuel is counted from garage fills below (single source of truth — avoids double count)
     if (tx.type === 'fuel_purchase') continue;
+    // Wallet loads are transfers, not spend — keep them out of the category bars
+    if (
+      EXCLUDED_CATEGORIES.some(
+        (cat) => cat.toLowerCase() === (tx.category || '').toLowerCase()
+      )
+    )
+      continue;
+    if (tx.type !== 'expense' && tx.type !== 'vehicle_service') continue;
     if (!tx.date.startsWith(monthKey)) continue;
     spentByCategory.set(tx.category, (spentByCategory.get(tx.category) ?? 0) + tx.amount);
   }

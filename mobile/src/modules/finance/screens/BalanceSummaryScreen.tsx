@@ -1,51 +1,31 @@
 ﻿/**
- * BalanceSummaryScreen — consolidated balance summary across bank accounts
- * and credit cards with due dates and min-balance exclusions.
- * Glass Noir UI with donut-palette section color coding.
+ * BalanceSummaryScreen — consolidated balance summary across bank accounts,
+ * wallets, credit cards and lending, with due dates and min-balance
+ * exclusions.
+ *
+ * Restyled to the Meridian v2 reference (s25): a net-worth hero with an
+ * allocation bar and the banks/lent/cards stat trio, then flat section
+ * cards in semantic accents. Wallet rows stay tappable (balance editor) and
+ * the Monthly Spends section keeps its month picker.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../shared/theme/colors';
-import { spacing } from '../../../shared/theme/spacing';
+
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Card, Label, PressScale, Screen, TopBar } from '../../../shared/components/meridian';
 import { useFinanceStore, getMinBalanceForAccount } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import MonthPickerModal from '../components/MonthPickerModal';
 import WalletBalanceEditor from '../components/WalletBalanceEditor';
 import BankLogo from '../../../shared/components/BankLogo';
-
-// Donut palette — same 6 colors used on the home screen cards
-const DONUT = {
-  pink: '#ffb2b9',
-  blue: '#5ee6ff',
-  coral: '#ea6479',
-  purple: '#d0bcff',
-  peach: '#ffdadc',
-  cyan: '#00cbe6',
-  red: '#FF887D',
-  amber: '#E2A45C',
-  green: '#59D6C7',
-};
-
-interface SectionItem {
-  label: string;
-  value: number;
-  subtitle: string;
-  alert: boolean;
-  bank?: string;
-  /** When set, the row becomes tappable (used by the Wallets section). */
-  onPress?: () => void;
-}
 
 const ordinalSuffix = (n: number): string => {
   if (n >= 11 && n <= 13) return 'th';
@@ -71,7 +51,7 @@ export default function BalanceSummaryScreen() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthPickerVisible, setMonthPickerVisible] = useState(false);
-  // Bank Balances and Wallets open expanded so every row is visible.
+  // These sections open expanded so every row is visible.
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Bank Balances': true,
     Wallets: true,
@@ -113,6 +93,7 @@ export default function BalanceSummaryScreen() {
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum, f) => sum + f.amount, 0);
+  const unpaidFixedCount = fixedExpenses.filter((f) => f.lastPaidMonth !== currentMonthStr).length;
   const cardOutstandingTotal = cards.reduce((sum, c) => sum + c.balance, 0);
   const deficitsSum = accounts.reduce((sum, acc) => {
     const min = getMinBalanceForAccount(acc.title);
@@ -137,247 +118,301 @@ export default function BalanceSummaryScreen() {
     return `₹${rupees.toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
   };
 
-  const sections: Array<{
-    title: string;
-    icon: string;
-    color: string;
-    items: SectionItem[];
-    total: number;
-    totalLabel: string;
-  }> = [
-    {
-      title: 'Bank Balances',
-      icon: 'business-outline',
-      color: DONUT.blue,
-      items: [
-        ...accounts.map((acc) => ({
-          label: acc.title,
-          bank: acc.title,
-          value: acc.amount,
-          subtitle: acc.amount < getMinBalanceForAccount(acc.title)
-            ? `Below min ₹${(getMinBalanceForAccount(acc.title) / 100).toLocaleString('en-IN')}`
-            : '',
-          alert: acc.amount < getMinBalanceForAccount(acc.title),
-        })),
-      ],
-      total: accountsTotal,
-      totalLabel: 'Total Bank Balance',
-    },
-    {
-      // Wallets are cash — their own section, and they count towards the
-      // balance and the net worth.
-      title: 'Wallets',
-      icon: 'cash-outline',
-      color: DONUT.green,
-      items: (wallets || []).map((w) => ({
-        label: w.name,
-        value: w.amount,
-        subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
-        alert: false,
-        onPress: () => openWalletEditor(w.id, w.name, w.amount),
-      })),
-      total: walletTotal,
-      totalLabel: 'Total Wallets',
-    },
-    {
-      title: 'Credit Card Bills',
-      icon: 'card-outline',
-      color: DONUT.coral,
-      items: cards.filter((c) => c.balance > 0).map((c) => ({
-        label: `${c.name} •••• ${c.endingWith}`,
-        value: c.balance,
-        subtitle: formatDueDate(c.dueDate),
-        alert: false,
-      })),
-      total: cardOutstandingTotal,
-      totalLabel: 'Total Card Bills',
-    },
-    {
-      title: 'Lent Money',
-      icon: 'arrow-up-circle-outline',
-      color: DONUT.pink,
-      items: receivables.filter((r) => r.type === 'lent').map((r) => ({
-        label: r.personName,
-        value: r.amount,
-        subtitle: formatDueDate(r.dueDate),
-        alert: false,
-      })),
-      total: totalLent,
-      totalLabel: 'Total Lent',
-    },
-    {
-      title: 'Borrowed Money',
-      icon: 'arrow-down-circle-outline',
-      color: DONUT.purple,
-      items: receivables.filter((r) => r.type === 'borrowed').map((r) => ({
-        label: r.personName,
-        value: r.amount,
-        subtitle: formatDueDate(r.dueDate),
-        alert: false,
-      })),
-      total: totalBorrowed,
-      totalLabel: 'Total Borrowed',
-    },
-    {
-      title: 'Fixed Expenses (Unpaid)',
-      icon: 'lock-closed-outline',
-      color: DONUT.peach,
-      items: fixedExpenses.filter((f) => f.lastPaidMonth !== currentMonthStr).map((f) => ({
-        label: f.name,
-        value: f.amount,
-        subtitle: `Due ${f.billingDay}${ordinalSuffix(f.billingDay)} of month`,
-        alert: false,
-      })),
-      total: unpaidFixedExpensesTotal,
-      totalLabel: 'Total Unpaid Fixed',
-    },
-    {
-      title: 'Monthly Spends',
-      icon: 'wallet-outline',
-      color: DONUT.cyan,
-      items: monthlyTxns
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 3)
-        .map((tx) => ({
-          label: tx.notes || tx.category || 'Expense',
-          value: tx.amount,
-          subtitle: new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-          alert: false,
-        })),
-      total: monthlyExpenses,
-      totalLabel: selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-    },
-  ];
+  // ─── Derived section data ──────────────────────────────────────────────
+  const bankItems = accounts.map((acc) => ({
+    key: acc.id ?? acc.title,
+    label: acc.title,
+    bank: acc.title,
+    value: acc.amount,
+    subtitle:
+      acc.amount < getMinBalanceForAccount(acc.title)
+        ? `Below min ₹${(getMinBalanceForAccount(acc.title) / 100).toLocaleString('en-IN')}`
+        : '',
+    alert: acc.amount < getMinBalanceForAccount(acc.title),
+    onPress: undefined as undefined | (() => void),
+  }));
+
+  const walletItems = (wallets || []).map((w) => ({
+    key: w.id,
+    label: w.name,
+    bank: undefined as string | undefined,
+    value: w.amount,
+    subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
+    alert: false,
+    onPress: () => openWalletEditor(w.id, w.name, w.amount),
+  }));
+  const zeroWallets = (wallets || []).filter((w) => (w.amount ?? 0) <= 0).length;
+
+  const cardItems = cards
+    .filter((c) => c.balance > 0)
+    .map((c) => ({
+      key: c.id ?? `${c.name}-${c.endingWith}`,
+      label: `${c.name} •••• ${c.endingWith}`,
+      bank: undefined as string | undefined,
+      value: c.balance,
+      subtitle: formatDueDate(c.dueDate),
+      alert: false,
+      onPress: undefined as undefined | (() => void),
+    }));
+
+  const lentItems = receivables
+    .filter((r) => r.type === 'lent')
+    .map((r) => ({
+      key: r.id,
+      label: r.personName,
+      bank: undefined as string | undefined,
+      value: r.amount - (r.paidAmount || 0),
+      subtitle: formatDueDate(r.dueDate),
+      alert: false,
+      onPress: undefined as undefined | (() => void),
+    }));
+
+  const borrowedCount = receivables.filter((r) => r.type === 'borrowed').length;
+
+  // Allocation bar — banks (sky), wallets (violet), to receive (mint)
+  const allocTotal = Math.max(1, banksNet + walletTotal + totalLent);
+  const alloc = [
+    { label: 'Banks', color: mc.sky, value: Math.max(0, banksNet) },
+    { label: 'Wallets', color: mc.violet, value: walletTotal },
+    { label: 'To receive', color: mc.mint, value: totalLent },
+  ].map((s) => ({ ...s, widthPct: (Math.max(0, s.value) / allocTotal) * 100 }));
+
+  interface SectionRowItem {
+    key: string;
+    label: string;
+    bank?: string;
+    value: number;
+    subtitle: string;
+    alert: boolean;
+    onPress?: () => void;
+  }
+
+  const renderSectionRow = (item: SectionRowItem) => (
+    <TouchableOpacity
+      key={item.key}
+      activeOpacity={item.onPress ? 0.7 : 1}
+      onPress={item.onPress}
+      style={styles.itemRow}
+    >
+      <View style={styles.itemLeft}>
+        {item.bank ? <BankLogo title={item.bank} size={30} /> : null}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.itemLabel} numberOfLines={1}>{item.label}</Text>
+          {item.subtitle ? (
+            <Text style={[styles.itemSubtitle, item.alert && { color: mc.redSoft }]} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.itemValueWrap}>
+        <Text style={[styles.itemValue, item.alert && { color: mc.redSoft }]}>
+          {formatCurrency(item.value)}
+        </Text>
+        {item.onPress ? <Ionicons name="create-outline" size={15} color={mc.textDim} style={{ marginLeft: 6 }} /> : null}
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderSection = (
+    title: string,
+    icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap,
+    accent: string,
+    dim: string,
+    items: SectionRowItem[],
+    total: number,
+    emptyText: string,
+    footerNote?: string
+  ) => {
+    const expanded = expandedSections[title];
+    const visible = expanded ? items : items.slice(0, 3);
+    return (
+      <Card style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionIcon, { backgroundColor: dim }]}>
+            <Ionicons name={icon} size={17} color={accent} />
+          </View>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={[styles.sectionTotal, { color: accent }]}>{formatCurrency(total)}</Text>
+        </View>
+        {items.length === 0 ? (
+          <Text style={styles.sectionEmpty}>{emptyText}</Text>
+        ) : (
+          <>
+            {visible.map(renderSectionRow)}
+            {items.length > 3 ? (
+              <TouchableOpacity style={styles.moreBtn} onPress={() => toggleSection(title)} activeOpacity={0.8}>
+                <Text style={styles.moreText}>
+                  {expanded ? 'Show less' : `Show all ${items.length}`}
+                </Text>
+                <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={mc.redSoft} />
+              </TouchableOpacity>
+            ) : null}
+          </>
+        )}
+        {footerNote ? <Text style={styles.sectionFoot}>{footerNote}</Text> : null}
+      </Card>
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Balance Summary</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen bottomInset={36}>
+      <TopBar title="Balance summary" onBack={() => navigation.goBack()} variant="left" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Net Worth Card — glass with gradient tint */}
-        <View style={[styles.glassPanel, styles.heroCard]}>
-          <View style={styles.heroGlow} />
-          <Text style={styles.heroLabel}>Total Net Worth</Text>
-          <Text style={styles.heroValue}>{formatCurrency(totalNetWorth)}</Text>
-          <View style={styles.heroBreakdown}>
-            <View style={styles.heroChip}>
-              <View style={[styles.heroChipDot, { backgroundColor: DONUT.blue }]} />
-              <Text style={styles.heroChipLabel}>Banks</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.blue }]}>{formatCurrency(banksNet)}</Text>
+      {/* Hero — net worth, allocation bar, stat trio */}
+      <Card>
+        <Label>TOTAL NET WORTH</Label>
+        <Text style={styles.heroValue}>{formatCurrency(totalNetWorth)}</Text>
+
+        <View style={styles.allocBar}>
+          {alloc.map((seg) => (
+            <View
+              key={seg.label}
+              style={[styles.allocSeg, { width: `${seg.widthPct}%`, backgroundColor: seg.color }]}
+            />
+          ))}
+        </View>
+        <View style={styles.allocLegend}>
+          {alloc.map((seg) => (
+            <View key={seg.label} style={styles.allocLegendItem}>
+              <View style={[styles.legendDot, { backgroundColor: seg.color }]} />
+              <Text style={styles.legendText}>{seg.label}</Text>
             </View>
-            <View style={styles.heroChip}>
-              <View style={[styles.heroChipDot, { backgroundColor: DONUT.green }]} />
-              <Text style={styles.heroChipLabel}>Wallets</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.green }]}>{formatCurrency(walletTotal)}</Text>
-            </View>
-            <View style={styles.heroChip}>
-              <View style={[styles.heroChipDot, { backgroundColor: DONUT.pink }]} />
-              <Text style={styles.heroChipLabel}>Lent</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.pink }]}>+{formatCurrency(totalLent)}</Text>
-            </View>
-            <View style={styles.heroChip}>
-              <View style={[styles.heroChipDot, { backgroundColor: DONUT.coral }]} />
-              <Text style={styles.heroChipLabel}>Cards</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.coral }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
-            </View>
-            <View style={styles.heroChip}>
-              <View style={[styles.heroChipDot, { backgroundColor: DONUT.purple }]} />
-              <Text style={styles.heroChipLabel}>Fixed</Text>
-              <Text style={[styles.heroChipValue, { color: DONUT.purple }]}>-{formatCurrency(unpaidFixedExpensesTotal)}</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
-        {/* Sections — glass cards with color-coded headers */}
-        {sections.map((section) => (
-          <View key={section.title} style={[styles.glassPanel, styles.section]}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIconWrap, { backgroundColor: `${section.color}1F` }]}>
-                <Ionicons name={section.icon as any} size={18} color={section.color} />
-              </View>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              {section.title === 'Monthly Spends' && (
-                <TouchableOpacity
-                  style={styles.monthBtn}
-                  onPress={() => setMonthPickerVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.monthBtnText}>
-                    {selectedMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                  </Text>
-                  <Ionicons name="chevron-down" size={12} color={colors.primary} />
-                </TouchableOpacity>
-              )}
-              <Text style={[styles.sectionTotal, { color: section.color }]}>{formatCurrency(section.total)}</Text>
-            </View>
-            {section.items.length > 0 && (
-              <View style={styles.sectionBody}>
-                {(expandedSections[section.title] ? section.items : section.items.slice(0, 3)).map((item, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    activeOpacity={item.onPress ? 0.7 : 1}
-                    onPress={item.onPress}
-                    style={[styles.itemRow, idx === (expandedSections[section.title] ? section.items.length : Math.min(3, section.items.length)) - 1 && { borderBottomWidth: 0 }]}>
-                    <View style={styles.itemLeft}>
-                      {item.bank && <BankLogo title={item.bank} size={30} />}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itemLabel}>{item.label}</Text>
-                        {item.subtitle && (
-                          <Text style={[styles.itemSubtitle, item.alert && { color: DONUT.red }]}>{item.subtitle}</Text>
-                        )}
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.itemValue, item.alert && { color: DONUT.red }]}>{formatCurrency(item.value)}</Text>
-                      {item.onPress && (
-                        <Ionicons name="create-outline" size={15} color={colors.onSurfaceVariant} style={{ marginLeft: 8 }} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                {section.items.length > 3 && (
-                  <TouchableOpacity
-                    style={styles.viewAllBtn}
-                    onPress={() => toggleSection(section.title)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.viewAllText}>
-                      {expandedSections[section.title] ? 'Show Less' : `Show More (${section.items.length - 3} more)`}
-                    </Text>
-                    <Ionicons
-                      name={expandedSections[section.title] ? 'chevron-up' : 'chevron-down'}
-                      size={14}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            {section.items.length === 0 && (
-              <View style={styles.sectionBody}>
-                <Text style={styles.emptyText}>
-                  {section.title === 'Wallets' ? 'No wallets yet' : 'No entries'}
+        <View style={styles.statTrio}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{formatCurrency(banksNet)}</Text>
+            <Text style={styles.statLabel}>BANKS*</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: mc.mint }]}>+{formatCurrency(totalLent)}</Text>
+            <Text style={styles.statLabel}>LENT</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: mc.redSoft }]}>-{formatCurrency(cardOutstandingTotal)}</Text>
+            <Text style={styles.statLabel}>CARDS</Text>
+          </View>
+        </View>
+        <Text style={styles.footnote}>
+          {`*Bank balance above minimum balances (₹${Math.round(accountsTotal / 100).toLocaleString('en-IN')} total)`}
+        </Text>
+      </Card>
+
+      {/* Bank balances */}
+      {renderSection(
+        'Bank Balances',
+        'business-outline',
+        mc.sky,
+        mc.skyDim,
+        bankItems,
+        accountsTotal,
+        'No bank accounts yet'
+      )}
+
+      {/* Wallets */}
+      {renderSection(
+        'Wallets',
+        'wallet-outline',
+        mc.violet,
+        mc.violetDim,
+        walletItems,
+        walletTotal,
+        'No wallets yet',
+        zeroWallets > 0 ? `${zeroWallets} wallet${zeroWallets === 1 ? '' : 's'} at ₹0` : undefined
+      )}
+
+      {/* Credit card bills */}
+      {renderSection(
+        'Credit Card Bills',
+        'card-outline',
+        mc.redSoft,
+        mc.redDim,
+        cardItems,
+        cardOutstandingTotal,
+        'No card bills due'
+      )}
+
+      {/* Lent money */}
+      {renderSection(
+        'Lent Money',
+        'arrow-up-circle-outline',
+        mc.mint,
+        mc.mintDim,
+        lentItems,
+        totalLent,
+        'Nobody owes you yet'
+      )}
+
+      {/* Borrowed + fixed unpaid — two up */}
+      <View style={styles.twoUp}>
+        <Card style={styles.twoUpCell}>
+          <Label>BORROWED</Label>
+          <Text style={styles.twoUpValue}>{formatCurrency(totalBorrowed)}</Text>
+          <Text style={styles.twoUpCaption}>
+            {borrowedCount === 0 ? 'No entries' : `${borrowedCount} pending`}
+          </Text>
+        </Card>
+        <Card style={styles.twoUpCell}>
+          <Label>FIXED UNPAID</Label>
+          <Text style={[styles.twoUpValue, unpaidFixedExpensesTotal === 0 && { color: mc.mint }]}>
+            {formatCurrency(unpaidFixedExpensesTotal)}
+          </Text>
+          <Text style={styles.twoUpCaption}>
+            {unpaidFixedCount === 0 ? 'All paid' : `${unpaidFixedCount} unpaid`}
+          </Text>
+        </Card>
+      </View>
+
+      {/* Monthly spends (kept) */}
+      <Card>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionIcon, { backgroundColor: mc.skyDim }]}>
+            <Ionicons name="wallet-outline" size={17} color={mc.sky} />
+          </View>
+          <Text style={styles.sectionTitle}>Monthly Spends</Text>
+          <PressScale
+            style={styles.monthPill}
+            onPress={() => setMonthPickerVisible(true)}
+            scale={0.96}
+            accessibilityLabel="Choose month"
+          >
+            <Text style={styles.monthPillText}>
+              {selectedMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={mc.textDim} />
+          </PressScale>
+        </View>
+        <View style={styles.monthTotalRow}>
+          <Text style={styles.sectionTotal}>{formatCurrency(monthlyExpenses)}</Text>
+        </View>
+        {monthlyTxns
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 3)
+          .map((tx) => (
+            <View key={tx.id} style={styles.itemRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemLabel} numberOfLines={1}>{tx.notes || tx.category || 'Expense'}</Text>
+                <Text style={styles.itemSubtitle}>
+                  {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </Text>
               </View>
-            )}
-          </View>
-        ))}
+              <Text style={styles.itemValue}>{formatCurrency(tx.amount)}</Text>
+            </View>
+          ))}
+        {monthlyTxns.length === 0 ? <Text style={styles.sectionEmpty}>No spends this month yet</Text> : null}
+      </Card>
 
-        {deficitsSum > 0 && (
-          <View style={styles.deficitBanner}>
-            <Ionicons name="warning" size={16} color={DONUT.amber} />
-            <Text style={styles.deficitText}>
-              Bank balance deficits: {formatCurrency(deficitsSum)} below minimum required
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+      {/* Deficits banner */}
+      {deficitsSum > 0 ? (
+        <Card style={styles.deficitCard}>
+          <Ionicons name="warning" size={17} color={mc.amber} />
+          <Text style={styles.deficitText}>
+            Bank balance deficits: {formatCurrency(deficitsSum)} below minimum required
+          </Text>
+        </Card>
+      ) : null}
 
       <MonthPickerModal
         visible={monthPickerVisible}
@@ -395,221 +430,200 @@ export default function BalanceSummaryScreen() {
         onSave={saveWalletAmount}
         onClose={() => setEditingWallet(null)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  appBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appBarTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120,
-  },
-  glassPanel: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 28,
-    overflow: 'hidden',
-  },
-  heroCard: {
-    padding: 24,
-    alignItems: 'center',
-    gap: 8,
-    borderColor: 'rgba(94,230,255,0.28)',
-  },
-  heroGlow: {
-    position: 'absolute',
-    top: -60,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(94,230,255,0.08)',
-  },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
   heroValue: {
     fontSize: 36,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -1,
-  },
-  heroBreakdown: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 10,
-    justifyContent: 'center',
-  },
-  heroChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    minWidth: 84,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  heroChipDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 4,
-  },
-  heroChipLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.55)',
     fontWeight: '500',
-    marginBottom: 2,
+    color: mc.text,
+    marginTop: 4,
+    marginBottom: 14,
   },
-  heroChipValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  allocBar: {
+    flexDirection: 'row',
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    gap: 3,
+    marginBottom: 10,
   },
-  section: {
-    borderRadius: 24,
+  allocSeg: {
+    height: 12,
+    borderRadius: 6,
+  },
+  allocLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  allocLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  statTrio: {
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
+    paddingTop: 12,
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  statLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textDim,
+  },
+  footnote: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 10,
+  },
+  sectionCard: {
+    paddingBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 10,
+    marginBottom: 10,
   },
-  sectionIconWrap: {
+  sectionIcon: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: mr.tile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 15,
+    color: mc.text,
   },
   sectionTotal: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '500',
   },
-  sectionBody: {
-    backgroundColor: 'rgba(255,255,255,0.02)',
+  sectionEmpty: {
+    fontSize: 13,
+    color: mc.textFaint,
+    paddingVertical: 6,
+  },
+  sectionFoot: {
+    fontSize: 11,
+    color: mc.textDim,
+    textAlign: 'center',
+    paddingTop: 10,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
+    gap: 10,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
   },
   itemLeft: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
   itemLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 14,
+    color: mc.text,
   },
   itemSubtitle: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.55)',
+    color: mc.textDim,
     marginTop: 2,
+  },
+  itemValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   itemValue: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '500',
+    color: mc.text,
   },
-  emptyText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
-  deficitBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(226,164,92,0.12)',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(226,164,92,0.3)',
-  },
-  deficitText: {
-    fontSize: 12,
-    color: '#E2A45C',
-    fontWeight: '600',
-    flex: 1,
-  },
-  viewAllBtn: {
+  moreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingTop: 10,
   },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  monthBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  monthBtnText: {
+  moreText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: mc.redSoft,
+  },
+  twoUp: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  twoUpCell: {
+    flex: 1,
+    gap: 4,
+  },
+  twoUpValue: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  twoUpCaption: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  monthPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.raised,
+    borderRadius: mr.chip,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  monthPillText: {
+    fontSize: 12,
+    color: mc.text,
+  },
+  monthTotalRow: {
+    marginBottom: 4,
+  },
+  deficitCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: mc.amberDim,
+  },
+  deficitText: {
+    flex: 1,
+    fontSize: 13,
+    color: mc.amber,
   },
 });

@@ -1,26 +1,28 @@
 /**
  * AddFuelFillScreen — form to log a new fuel fill with amount, liters, odometer,
  * station, and automatic transaction creation.
+ *
+ * Restyled to the Meridian v2 reference (s27): a large title, flat fields,
+ * a vehicle chip, a station dropdown, a PAID VIA segmented row and a
+ * sky-tinted estimated-total panel. All logic is unchanged.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import { Label, PressScale, Screen } from '../../../shared/components/meridian';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import { useAuth } from '../../../services/AuthProvider';
@@ -36,13 +38,14 @@ const PAYMENT_MODES = [
   { id: 'upi', label: 'UPI' },
   { id: 'card', label: 'Card' },
   { id: 'hp_pay', label: 'HP Pay' },
-];
+] as const;
 
 /** Last recorded price/liter (rupees, editable text) for the vehicle, or ''. */
 function lastFuelPriceText(vehicle?: string): string {
   if (!vehicle) return '';
   const paise = useGarageStore.getState().getLastFuelPrice(vehicle);
-  return paise > 0 ? (paise / 100).toFixed(2) : '';
+  if (!paise) return '';
+  return (paise / 100).toFixed(2);
 }
 
 export default function AddFuelFillScreen() {
@@ -59,7 +62,7 @@ export default function AddFuelFillScreen() {
   const [customStation, setCustomStation] = useState('');
   const [fillDate, setFillDate] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [paymentMode, setPaymentMode] = useState('cash');
+  const [paymentMode, setPaymentMode] = useState<(typeof PAYMENT_MODES)[number]['id']>('cash');
 
   const selectVehicle = (v: string) => {
     const suggestion = lastFuelPriceText(v);
@@ -67,6 +70,13 @@ export default function AddFuelFillScreen() {
       prev.trim() === '' || prev === lastFuelPriceText(selectedVehicle) ? suggestion : prev
     );
     setSelectedVehicle(v);
+  };
+
+  const calculatedTotal = () => {
+    const l = parseFloat(liters);
+    const p = parseFloat(pricePerLiter);
+    if (isNaN(l) || isNaN(p)) return '₹0.00';
+    return `₹${(l * p).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
   };
 
   const handleSubmit = () => {
@@ -96,75 +106,77 @@ export default function AddFuelFillScreen() {
 
     const finalStation = station === 'Other' ? customStation.trim() : station;
 
-    addFuelFill({
-      vehicle: selectedVehicle,
-      amount: totalAmountInPaise,
-      liters: rawLiters,
-      pricePerLiter: priceInPaise,
-      odometer: rawOdo,
-      station: finalStation || undefined,
-      date: fillDate.toISOString(),
-      paymentMode,
-    }, user?.id);
-
+    addFuelFill(
+      {
+        vehicle: selectedVehicle,
+        amount: totalAmountInPaise,
+        liters: rawLiters,
+        pricePerLiter: priceInPaise,
+        odometer: rawOdo,
+        station: finalStation || undefined,
+        date: fillDate.toISOString(),
+        paymentMode,
+      },
+      user?.id
+    );
     navigation.goBack();
   };
 
-  // Dynamically calculate estimated total cost
-  const calculatedTotal = () => {
-    const l = parseFloat(liters);
-    const p = parseFloat(pricePerLiter);
-    if (isNaN(l) || isNaN(p)) return '₹0.00';
-    return `₹${(l * p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.formHeader}>
-            <Text style={styles.headerTitle}>Log Fuel Fill</Text>
-            <Text style={styles.headerSubtitle}>Calculates mileage dynamically</Text>
-          </View>
+    <Screen scroll={false} bottomInset={0}>
+      <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Large title */}
+        <View style={styles.formHeader}>
+          <Text style={styles.headerTitle}>Log fuel fill</Text>
+          <Text style={styles.headerSubtitle}>Mileage is calculated for you</Text>
+        </View>
 
-          {/* Vehicle Selector */}
+        <ScrollView
+          style={styles.keyboardView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Vehicle chip */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>SELECT VEHICLE</Text>
-            <View style={styles.tabRow}>
+            <Label style={styles.sectionLabel}>VEHICLE</Label>
+            <View style={styles.chipRow}>
               {vehicles.map((v) => {
                 const isSelected = selectedVehicle === v;
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={v}
-                    style={[styles.tabButton, isSelected && styles.tabButtonActive]}
                     onPress={() => selectVehicle(v)}
+                    scale={0.95}
+                    style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}
+                    accessibilityLabel={`Select ${v}`}
                   >
-                    <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
-                  </TouchableOpacity>
+                    <Ionicons name="bicycle-outline" size={14} color={isSelected ? mc.redSoft : mc.textDim} />
+                    <Text style={[styles.vehicleChipText, isSelected && styles.vehicleChipTextActive]} numberOfLines={1}>
+                      {v}
+                    </Text>
+                  </PressScale>
                 );
               })}
             </View>
           </View>
 
-          {/* Fuel Station Dropdown */}
+          {/* Fuel station dropdown */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>FUEL STATION</Text>
+            <Label style={styles.sectionLabel}>FUEL STATION</Label>
             <TouchableOpacity
               style={styles.dropdownButton}
-              onPress={() => setShowStationDropdown(!showStationDropdown)}
+              onPress={() => setShowStationDropdown((v) => !v)}
               activeOpacity={0.7}
+              accessibilityLabel="Choose fuel station"
             >
               <Text style={[styles.dropdownText, !station && styles.dropdownPlaceholder]}>
                 {station || 'Select fuel station'}
               </Text>
               <Ionicons
                 name={showStationDropdown ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={colors.onSurfaceVariant}
+                size={15}
+                color={mc.textDim}
               />
             </TouchableOpacity>
             {showStationDropdown && (
@@ -174,12 +186,16 @@ export default function AddFuelFillScreen() {
                   return (
                     <TouchableOpacity
                       key={opt}
-                      style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
-                      onPress={() => { setStation(opt); setShowStationDropdown(false); }}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setStation(opt);
+                        setShowStationDropdown(false);
+                      }}
                     >
-                      <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
+                      <Text style={[styles.dropdownItemText, isSelected && { color: mc.redSoft, fontWeight: '600' }]}>
                         {opt}
                       </Text>
+                      {isSelected ? <Ionicons name="checkmark" size={14} color={mc.redSoft} /> : null}
                     </TouchableOpacity>
                   );
                 })}
@@ -189,33 +205,32 @@ export default function AddFuelFillScreen() {
               <TextInput
                 style={[styles.textInput, { marginTop: 8 }]}
                 placeholder="Enter petrol bunk name"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={mc.textGhost}
                 value={customStation}
                 onChangeText={setCustomStation}
               />
             )}
           </View>
 
-          {/* Input Fields */}
+          {/* Liters + price */}
           <View style={styles.gridInputs}>
             <View style={[styles.formSection, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>LITERS</Text>
+              <Label style={styles.sectionLabel}>LITERS</Label>
               <TextInput
                 style={styles.textInput}
                 placeholder="0.00"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={mc.textGhost}
                 keyboardType="decimal-pad"
                 value={liters}
                 onChangeText={setLiters}
               />
             </View>
-
             <View style={[styles.formSection, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>PRICE / LITER</Text>
+              <Label style={styles.sectionLabel}>PRICE PER LITER</Label>
               <TextInput
                 style={styles.textInput}
-                placeholder="₹0.00"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholder="115.62"
+                placeholderTextColor={mc.textGhost}
                 keyboardType="decimal-pad"
                 value={pricePerLiter}
                 onChangeText={setPricePerLiter}
@@ -223,272 +238,263 @@ export default function AddFuelFillScreen() {
             </View>
           </View>
 
+          {/* Odometer */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>ODOMETER READING (KM)</Text>
+            <Label style={styles.sectionLabel}>ODOMETER (KM)</Label>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. 42150"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholder="e.g. 5300"
+              placeholderTextColor={mc.textGhost}
               keyboardType="number-pad"
               value={odometer}
               onChangeText={setOdometer}
             />
           </View>
 
+          {/* Date */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>FILL DATE</Text>
+            <Label style={styles.sectionLabel}>DATE</Label>
             <TouchableOpacity
-              style={styles.datePickerTrigger}
+              style={styles.dateTrigger}
               onPress={() => setCalendarVisible(true)}
               activeOpacity={0.8}
+              accessibilityLabel="Choose fill date"
             >
-              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-              <Text style={styles.datePickerText}>
+              <Ionicons name="calendar-outline" size={17} color={mc.sky} />
+              <Text style={styles.dateTriggerText}>
                 {fillDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Payment mode — "HP Pay" is paid from the HP Pay wallet. */}
+          {/* Paid via segmented */}
           <View style={styles.formSection}>
-            <Text style={styles.inputLabel}>PAID VIA</Text>
-            <View style={styles.tabRow}>
+            <Label style={styles.sectionLabel}>PAID VIA</Label>
+            <View style={styles.segmented}>
               {PAYMENT_MODES.map((m) => {
                 const isSelected = paymentMode === m.id;
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={m.id}
-                    style={[styles.tabButton, isSelected && styles.tabButtonActive]}
                     onPress={() => setPaymentMode(m.id)}
-                    activeOpacity={0.7}
+                    scale={0.97}
+                    style={[styles.segment, isSelected && styles.segmentActive]}
+                    accessibilityLabel={`Pay with ${m.label}`}
                   >
-                    <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{m.label}</Text>
-                  </TouchableOpacity>
+                    <Text style={[styles.segmentText, isSelected && styles.segmentTextActive]}>{m.label}</Text>
+                  </PressScale>
                 );
               })}
             </View>
             {paymentMode === 'hp_pay' && (
-              <Text style={styles.hintText}>
-                The HP Pay wallet balance goes down by this amount.
-              </Text>
+              <Text style={styles.hintText}>The HP Pay wallet balance goes down by this amount.</Text>
             )}
           </View>
 
-          {/* Dynamic Summary Card */}
+          {/* Estimated total */}
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Estimated Total Amount</Text>
+            <Text style={styles.summaryLabel}>Estimated total</Text>
             <Text style={styles.summaryValue}>{calculatedTotal()}</Text>
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleSubmit}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.submitButtonText}>Log Fuel Purchase</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Actions */}
+          <PressScale style={styles.submitButton} onPress={handleSubmit} scale={0.98} accessibilityLabel="Log fuel purchase">
+            <Text style={styles.submitButtonText}>Log fuel purchase</Text>
+          </PressScale>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
       <CalendarPicker
         visible={calendarVisible}
         selected={fillDate}
         onSelect={setFillDate}
         onClose={() => setCalendarVisible(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-  },
+  keyboardView: { flex: 1 },
   formHeader: {
-    paddingVertical: 12,
+    paddingHorizontal: 2,
+    marginBottom: 14,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.onSurface,
+    fontSize: 26,
+    fontWeight: '500',
+    color: mc.text,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    color: mc.textDim,
     marginTop: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 2,
+    paddingBottom: 40,
+    gap: 16,
   },
   formSection: {
-    gap: spacing.stackGapSm,
+    gap: 8,
   },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 4,
-    gap: 4,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: rounded.DEFAULT,
-  },
-  tabButtonActive: {
-    backgroundColor: colors.primaryContainer,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-  },
-  tabTextActive: {
-    color: colors.onSurface,
-  },
-  hintText: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 4,
+  sectionLabel: {
+    paddingHorizontal: 4,
   },
   gridInputs: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  vehicleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: mc.raised,
+    borderRadius: mr.chip,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  vehicleChipActive: {
+    backgroundColor: mc.redDim,
+    borderColor: mc.redDim,
+  },
+  vehicleChipText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  vehicleChipTextActive: {
+    color: mc.redSoft,
+    fontWeight: '600',
   },
   textInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 16,
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: mc.text,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  dropdownText: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  dropdownPlaceholder: {
+    color: mc.textGhost,
+  },
+  dropdownMenu: {
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    color: colors.onSurface,
-    fontSize: 16,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  dateTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: mc.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  dateTriggerText: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: mc.card,
+    borderRadius: 20,
+    padding: 4,
+    gap: 2,
+  },
+  segment: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: 16,
+  },
+  segmentActive: {
+    backgroundColor: mc.red,
+  },
+  segmentText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  segmentTextActive: {
+    color: mc.white,
+    fontWeight: '500',
+  },
+  hintText: {
+    fontSize: 11,
+    color: mc.textDim,
+    paddingHorizontal: 4,
   },
   summaryCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 20,
+    backgroundColor: mc.skyDim,
+    borderRadius: mr.row,
+    paddingVertical: 18,
     alignItems: 'center',
     gap: 4,
   },
   summaryLabel: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
+    color: mc.sky,
+    opacity: 0.85,
   },
   summaryValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.onSurface,
-  },
-  buttonContainer: {
-    gap: spacing.stackGapSm,
-    marginTop: 16,
+    fontSize: 34,
+    fontWeight: '500',
+    color: mc.sky,
   },
   submitButton: {
-    backgroundColor: colors.primaryContainer,
-    borderRadius: rounded.DEFAULT,
-    paddingVertical: 16,
+    backgroundColor: mc.red,
+    borderRadius: 22,
+    paddingVertical: 15,
     alignItems: 'center',
+    marginTop: 2,
   },
   submitButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '500',
+    color: mc.white,
   },
   cancelButton: {
-    paddingVertical: 12,
     alignItems: 'center',
+    paddingVertical: 12,
   },
   cancelButtonText: {
     fontSize: 14,
-    color: colors.onSurfaceVariant,
-    fontWeight: '600',
-  },
-  datePickerTrigger: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  datePickerText: {
-    fontSize: 15,
-    color: colors.onSurface,
-    fontWeight: '500',
-  },
-  dropdownButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: colors.onSurface,
-    fontWeight: '500',
-  },
-  dropdownPlaceholder: {
-    color: colors.onSurfaceVariant,
-    fontWeight: '400',
-  },
-  dropdownMenu: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    marginTop: 4,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  dropdownItemActive: {
-    backgroundColor: `${colors.primary}20`,
-  },
-  dropdownItemText: {
-    fontSize: 15,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
-  },
-  dropdownItemTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
+    color: mc.textDim,
   },
 });

@@ -147,13 +147,23 @@ export default function FinanceHomeScreen() {
     return picked.map((s) => s.totalValue / 100);
   }, [snapshots, range]);
 
-  // ---- Weekly spend (real transactions) ----
+  // ---- Weekly spend (real transactions, wallet loads excluded) ----
   const weekData = useMemo(() => {
     const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const excluded = new Set([
+      'rent',
+      'sip',
+      'investments',
+      'housing',
+      'wallet loads',
+      'wallet load',
+      ...fixedExpenses.map((f: any) => String(f.name).toLowerCase()),
+    ]);
     const buckets = new Array(7).fill(0);
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6).getTime();
     for (const tx of transactions) {
-      if (tx.type !== 'expense') continue;
+      if (tx.type !== 'expense' && tx.type !== 'vehicle_service') continue;
+      if (excluded.has((tx.category || '').toLowerCase())) continue;
       const t = new Date(tx.date).getTime();
       if (t < start) continue;
       const dayIdx = Math.floor((t - start) / 86400000);
@@ -164,7 +174,7 @@ export default function FinanceHomeScreen() {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + i);
       return { label: labels[d.getDay()], value, isToday: i === 6 };
     });
-  }, [transactions, now.getTime()]);
+  }, [transactions, now.getTime(), fixedExpenses]);
   const weekTotal = weekData.reduce((s, d) => s + d.value, 0);
 
   // ---- Dynamic category calculations for the expense distribution ----
@@ -250,7 +260,20 @@ export default function FinanceHomeScreen() {
   const donutSegments = categoriesSorted.slice(0, 6);
 
   return (
-    <Screen bottomInset={120}>
+    <Screen
+      bottomInset={120}
+      floating={
+        /* Add expense — floating action button, pinned above the tab bar */
+        <PressScale
+          onPress={() => navigation.navigate('AddExpense')}
+          scale={0.95}
+          style={styles.fab}
+          accessibilityLabel="Add expense"
+        >
+          <Ionicons name="add" size={26} color={mc.white} />
+        </PressScale>
+      }
+    >
       {/* Top bar */}
       <Rise index={0}>
         <View style={styles.appBar}>
@@ -547,9 +570,38 @@ export default function FinanceHomeScreen() {
                 }));
                 const combined = [...filteredTxs, ...fuelPseudoTxs]
                   .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 4);
+                  .slice(0, 8);
 
-                return combined.map((tx: any) => (
+                // Group by day — TODAY / YESTERDAY / "12 NOV" — each with its own total
+                const dayStartOf = (d: Date) =>
+                  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                const todayStart = dayStartOf(new Date());
+                const yesterdayStart = todayStart - 86400000;
+                const groups: { key: string; label: string; total: number; items: any[] }[] = [];
+                for (const tx of combined) {
+                  const txDay = new Date(tx.date);
+                  const txStart = dayStartOf(txDay);
+                  const key = String(txStart);
+                  let group = groups.find((g) => g.key === key);
+                  if (!group) {
+                    const label =
+                      txStart === todayStart
+                        ? 'TODAY'
+                        : txStart === yesterdayStart
+                          ? 'YESTERDAY'
+                          : txDay
+                              .toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                              .toUpperCase();
+                    group = { key, label, total: 0, items: [] };
+                    groups.push(group);
+                  }
+                  group.items.push(tx);
+                  if (tx.type === 'expense' || tx.type === 'vehicle_service') {
+                    group.total += tx.amount;
+                  }
+                }
+
+                const renderTx = (tx: any) => (
                   <ExpandableTransactionCard
                     key={tx.id}
                     tx={tx}
@@ -589,6 +641,18 @@ export default function FinanceHomeScreen() {
                       );
                     }}
                   />
+                );
+
+                return groups.map((group) => (
+                  <View key={group.key} style={styles.recentGroup}>
+                    <View style={styles.recentGroupHead}>
+                      <Text style={styles.recentGroupLabel}>{group.label}</Text>
+                      <Text style={styles.recentGroupTotal}>
+                        {`₹${Math.round(group.total / 100).toLocaleString('en-IN')}`}
+                      </Text>
+                    </View>
+                    {group.items.map(renderTx)}
+                  </View>
                 ));
               })()}
             </View>
@@ -609,6 +673,22 @@ const styles = StyleSheet.create({
   appBarSide: {
     width: 38,
     height: 38,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 92,
+    right: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#EB0028',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   appBarTitle: {
     fontSize: 26,
@@ -823,5 +903,25 @@ const styles = StyleSheet.create({
   cardRows: {
     paddingHorizontal: 14,
     paddingBottom: 6,
+  },
+  recentGroup: {
+    marginTop: 10,
+  },
+  recentGroupHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  recentGroupLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 1.2,
+    color: mc.textDim,
+  },
+  recentGroupTotal: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: mc.textDim,
   },
 });

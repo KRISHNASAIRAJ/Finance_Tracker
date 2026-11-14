@@ -1,5 +1,5 @@
 /**
- * LentBorrowedScreen â€” money lent and borrowed (receivables, expected
+ * LentBorrowedScreen — money lent and borrowed (receivables, expected
  * income) with add/edit and mark-as-paid actions.
  *
  * Restyled to the Meridian v2 reference: a lent/borrowed segmented control,
@@ -26,7 +26,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { mc, mr } from '../../../shared/theme/meridian';
 import {
   Card,
-  Chip,
   EmptyState,
   Fab,
   Label,
@@ -500,7 +499,7 @@ export default function LentBorrowedScreen() {
                       </Text>
                       <View style={styles.metaRow}>
                         <Text style={styles.itemSubtitle}>
-                          {group.items.length} txns Â· {pendingCount} pending
+                          {group.items.length} txns · {pendingCount} pending
                         </Text>
                         <View style={styles.dueChip}>
                           <Text style={[styles.dueChipText, { color: dueColor }]}>
@@ -712,7 +711,7 @@ export default function LentBorrowedScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {selectedItem ? 'Edit Entry' : 'Add Lent & Borrow'}
+              {selectedItem ? 'Edit entry' : 'Add lent or borrowed'}
             </Text>
 
             {/* Lent vs Borrow toggle inside Modal */}
@@ -732,22 +731,26 @@ export default function LentBorrowedScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>PERSON NAME</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter name"
-                placeholderTextColor={mc.textFaint}
-                value={personName}
-                onChangeText={setPersonName}
-              />
+              <Text style={styles.inputLabel}>PERSON</Text>
+              <View style={styles.personInputWrap}>
+                <Ionicons name="person-outline" size={17} color={mc.textDim} />
+                <TextInput
+                  style={styles.textInputInner}
+                  placeholder="Enter name"
+                  placeholderTextColor={mc.textGhost}
+                  value={personName}
+                  onChangeText={setPersonName}
+                  autoCapitalize="words"
+                />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>AMOUNT (₹)</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.amountInput]}
                 placeholder="0.00"
-                placeholderTextColor={mc.textFaint}
+                placeholderTextColor={mc.textGhost}
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
@@ -859,7 +862,7 @@ export default function LentBorrowedScreen() {
                 onPress={() => setDatePickerVisible(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="calendar-outline" size={18} color={mc.text} />
+                <Ionicons name="calendar-outline" size={18} color={mc.redSoft} />
                 <Text style={styles.datePickerText}>
                   {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
@@ -1337,44 +1340,71 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: mc.overlay,
-    justifyContent: 'center',
-    padding: 24,
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: mc.card,
-    borderRadius: mr.card,
-    padding: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 18,
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    elevation: 24,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '500',
     color: mc.text,
   },
   modalToggleRow: {
     flexDirection: 'row',
-    gap: 8,
+    backgroundColor: mc.raised,
+    borderRadius: 20,
+    padding: 4,
   },
   modalToggleBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 16,
-    backgroundColor: mc.raised,
+    backgroundColor: 'transparent',
   },
   modalToggleBtnLent: {
     backgroundColor: mc.red,
   },
   modalToggleBtnBorrowed: {
-    backgroundColor: mc.sky,
+    backgroundColor: mc.red,
   },
   modalToggleText: {
-    fontSize: 13,
+    fontSize: 14,
     color: mc.textDim,
   },
   modalToggleTextActive: {
     color: mc.white,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  personInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+  },
+  textInputInner: {
+    flex: 1,
+    paddingVertical: 14,
+    color: mc.text,
+    fontSize: 15,
+  },
+  amountInput: {
+    fontSize: 20,
+    paddingVertical: 15,
   },
   inputGroup: {
     gap: 6,
@@ -1382,13 +1412,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 10,
     letterSpacing: 1,
-    color: mc.textFaint,
+    color: mc.textDim,
+    paddingHorizontal: 4,
   },
   textInput: {
     backgroundColor: mc.raised,
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     color: mc.text,
     fontSize: 15,
   },
@@ -1417,9 +1448,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     backgroundColor: mc.raised,
-    borderRadius: 12,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   datePickerText: {
     fontSize: 15,
@@ -1428,21 +1459,25 @@ const styles = StyleSheet.create({
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 18,
+    gap: 10,
     marginTop: 4,
   },
   modalBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
+    paddingVertical: 13,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalBtnCancel: {
+    flex: 1,
     backgroundColor: mc.raised,
   },
   modalBtnDelete: {
     backgroundColor: mc.redDim,
   },
   modalBtnSave: {
+    flex: 1.4,
     backgroundColor: mc.red,
   },
   modalBtnTextCancel: {
@@ -1455,9 +1490,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalBtnTextSave: {
-    fontSize: 14,
+    fontSize: 16,
     color: mc.white,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   paymentInfo: {
     fontSize: 12,

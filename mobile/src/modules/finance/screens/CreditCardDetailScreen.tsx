@@ -1,46 +1,42 @@
 ﻿/**
  * CreditCardDetailScreen — per-card detail: bills, spend, due dates and
  * usage breakdown with edit actions.
+ *
+ * Restyled to the Meridian v2 reference (s22): a credit-card hero with the
+ * outstanding amount and a days-until-due ring, billing/network and
+ * charges/points stat cards, a bill-payment progress panel, the current
+ * bill and next-cycle transactions, and the pay-bill action.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
-  Modal,
   TextInput,
+  Modal,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr, alpha, clamp01 } from '../../../shared/theme/meridian';
+import {
+  Card,
+  IconTile,
+  Label,
+  ProgressBar,
+  Ring,
+  Screen,
+  TopBar,
+} from '../../../shared/components/meridian';
 import { useFinanceStore } from '../store';
 import { cardRewardValue } from '../cardRewards';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
-import CardBrandLogo from '../../../shared/components/CardBrandLogo';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
 
 type DetailRouteProp = RouteProp<FinanceStackParamList, 'CreditCardDetail'>;
-
-function getCardAccent(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('cashback') || n.includes('sbi')) return colors.action;
-  if (n.includes('power') || n.includes('idfc')) return colors.stable;
-  if (n.includes('simplysave')) return colors.amber;
-  if (n.includes('hsbc')) return colors.attention;
-  if (n.includes('amazon') || n.includes('icici')) return colors.action;
-  if (n.includes('slice')) return colors.amber;
-  if (n.includes('cred') || n.includes('indusind')) return colors.attention;
-  return colors.primary;
-}
 
 export default function CreditCardDetailScreen() {
   const navigation = useNavigation();
@@ -70,22 +66,18 @@ export default function CreditCardDetailScreen() {
 
   if (!card) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.appBar}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+      <Screen bottomInset={36}>
+        <TopBar title="Card detail" onBack={() => navigation.goBack()} variant="center" />
         <Text style={styles.notFound}>Card not found</Text>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
-  const accent = getCardAccent(card.name);
   const daysUntilDue = Math.ceil(
     (new Date(card.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  const urgency = daysUntilDue <= 3 ? colors.error : daysUntilDue <= 7 ? colors.amber : colors.success;
+  const urgency = daysUntilDue <= 3 ? mc.redSoft : daysUntilDue <= 7 ? mc.amber : mc.mint;
+  const dueFraction = clamp01(Math.max(0, daysUntilDue) / 31);
 
   const cardTransactions = transactions.filter(
     (tx: any) => tx.linkedCardId === cardId || (tx.category === 'Credit Card Bill' && tx.notes?.includes(card.name))
@@ -100,27 +92,43 @@ export default function CreditCardDetailScreen() {
     dueDateRef.getMonth() - 1,
     dueDateRef.getDate()
   );
-  const currentBillTxs = cardTransactions
+  const purchases = cardTransactions.filter((tx: any) => tx.type !== 'credit_card_bill');
+  const billPaidTxs = cardTransactions
+    .filter((tx: any) => tx.type === 'credit_card_bill')
+    .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3);
+
+  const currentBillTxs = purchases
     .filter((tx: any) => {
       const d = new Date(tx.date);
       return d >= cycleStartRef && d < dueDateRef;
     })
     .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const nextCycleTxs = cardTransactions
+  const nextCycleTxs = purchases
     .filter((tx: any) => new Date(tx.date) >= dueDateRef)
     .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const cardLimit = card.cardLimit || 0;
-  const utilization = cardLimit > 0 ? (card.balance / cardLimit) * 100 : 0;
+  const utilization = cardLimit > 0 ? clamp01(card.balance / cardLimit) : 0;
+
+  const billAmount = card.billAmount ?? card.balance;
+  const paidAmount = card.paidAmount ?? 0;
+  const billLeft = Math.max(0, billAmount - paidAmount);
+  const paidFraction = billAmount > 0 ? clamp01(paidAmount / billAmount) : 0;
 
   const formatCurrency = (paise: number) =>
     `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+  const formatDecimal = (paise: number) =>
+    `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
   const formatOrdinal = (day: number) => {
     const s = ['th', 'st', 'nd', 'rd'];
     const v = day % 100;
     return `${day}${s[(v - 20) % 10] || s[v] || s[0]}`;
   };
+
+  const dueDateShort = dueDateRef.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
   const openSettingsPanel = () => {
     setSettingsBillingDay((card.billingDay || 1).toString());
@@ -148,421 +156,357 @@ export default function CreditCardDetailScreen() {
     setShowSettings(false);
   };
 
+  const renderTxRow = (tx: any, isLast: boolean) => (
+    <View key={tx.id} style={[styles.txRow, !isLast && styles.txDivider]}>
+      <View style={[styles.txCategoryIcon, { backgroundColor: alpha(getCategoryColor(tx.category), 0.13) }]}>
+        <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
+      </View>
+      <View style={styles.txMain}>
+        <Text style={styles.txName} numberOfLines={1}>
+          {tx.notes || tx.category}
+        </Text>
+        <Text style={styles.txDate}>
+          {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+        </Text>
+      </View>
+      <Text style={[styles.txAmount, tx.type === 'income' && { color: mc.mint }]}>
+        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+      </Text>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle} numberOfLines={1}>{card.name}</Text>
-        <TouchableOpacity style={styles.iconButton} onPress={openSettingsPanel}>
-          <Ionicons name="settings-outline" size={24} color={showSettings ? colors.primary : colors.onSurfaceVariant} />
-        </TouchableOpacity>
+    <Screen bottomInset={36}>
+      <TopBar
+        title={card.name}
+        onBack={() => navigation.goBack()}
+        variant="center"
+        right={
+          <TouchableOpacity
+            style={styles.gearBtn}
+            onPress={openSettingsPanel}
+            accessibilityLabel="Card settings"
+          >
+            <Ionicons name="settings-outline" size={19} color={showSettings ? mc.redSoft : mc.text} />
+          </TouchableOpacity>
+        }
+      />
+
+      {/* Hero card */}
+      <Card tone="alt" style={styles.heroCard}>
+        <View style={styles.heroTop}>
+          <View style={styles.heroLeft}>
+            <Text style={styles.heroName} numberOfLines={1}>{card.name}</Text>
+            <Text style={styles.heroNumber}>•••• {card.endingWith}</Text>
+          </View>
+          {card.network ? (
+            <View style={styles.networkBadge}>
+              <Text style={styles.networkBadgeText}>{card.network}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.heroBottom}>
+          <View style={styles.heroOutstanding}>
+            <View style={styles.heroOutstandingLabelRow}>
+              <Label>OUTSTANDING</Label>
+              <TouchableOpacity
+                onPress={() => {
+                  setEditAmountInput((card.balance / 100).toString());
+                  setShowEditAmountModal(true);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Edit outstanding"
+              >
+                <Ionicons name="pencil" size={11} color={mc.textDim} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.heroAmount}>{formatCurrency(card.balance)}</Text>
+          </View>
+
+          <Ring
+            size={84}
+            stroke={8}
+            progress={dueFraction}
+            color={urgency}
+            style={styles.heroRing}
+          >
+            <Text style={[styles.ringValue, { color: urgency }]}>
+              {Math.max(0, daysUntilDue)}d
+            </Text>
+            <Text style={styles.ringSub}>{dueDateShort}</Text>
+          </Ring>
+        </View>
+      </Card>
+
+      {/* Limit utilization */}
+      {cardLimit > 0 ? (
+        <Card>
+          <View style={styles.cardHeaderRow}>
+            <Label>LIMIT UTILIZATION</Label>
+            <Text style={[styles.cardHeaderValue, { color: utilization >= 0.8 ? mc.redSoft : utilization >= 0.5 ? mc.amber : mc.mint }]}>
+              {Math.round(utilization * 100)}%
+            </Text>
+          </View>
+          <ProgressBar
+            value={utilization}
+            color={utilization >= 0.8 ? mc.redSoft : utilization >= 0.5 ? mc.amber : mc.mint}
+            height={8}
+            style={styles.utilizationBar}
+          />
+          <Text style={styles.cardFootnote}>
+            {formatCurrency(card.balance)} of {formatCurrency(cardLimit)} limit
+          </Text>
+        </Card>
+      ) : null}
+
+      {/* Billing date + network */}
+      <View style={styles.twoUp}>
+        <Card style={styles.twoUpCell}>
+          <Label>BILLING DATE</Label>
+          <Text style={styles.twoUpValue}>{formatOrdinal(card.billingDay ?? 1)}</Text>
+        </Card>
+        <Card style={styles.twoUpCell}>
+          <Label>NETWORK</Label>
+          <Text style={styles.twoUpValue}>{card.network || '—'}</Text>
+        </Card>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Card Hero */}
-        <View style={[styles.heroCard, { borderColor: `${accent}40` }]}>
-          <View style={[styles.heroAccent, { backgroundColor: accent }]} />
-          <View style={styles.heroContent}>
-            <View style={styles.heroTop}>
-              <View>
-                <Text style={styles.heroName}>{card.name}</Text>
-                <Text style={styles.heroNumber}>
-                  •••• {card.endingWith} · {card.network}
-                </Text>
-                {card.bank ? (
-                  <Text style={styles.heroBank}>{card.bank}</Text>
-                ) : null}
-              </View>
-              <CardBrandLogo network={card.network || ''} size={44} />
-            </View>
-
-            <View style={styles.heroStats}>
-              <View style={styles.heroStat}>
-                <View style={styles.heroStatLabelRow}>
-                  <Text style={styles.heroStatLabel}>OUTSTANDING</Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setEditAmountInput((card.balance / 100).toString());
-                      setShowEditAmountModal(true);
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="create-outline" size={14} color={colors.onSurfaceVariant} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.heroStatValue, { color: accent }]}>
-                  {formatCurrency(card.balance)}
-                </Text>
-              </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>DUE DATE</Text>
-                <Text style={[styles.heroStatValue, { color: urgency }]}>
-                  {new Date(card.dueDate).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </Text>
-                <Text style={[styles.heroDueDays, { color: urgency }]}>
-                  {daysUntilDue > 0 ? `${daysUntilDue}d remaining` : daysUntilDue === 0 ? 'Due today' : `${Math.abs(daysUntilDue)}d overdue`}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Limit Utilization */}
-        {cardLimit > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Limit Utilization</Text>
-              <Text style={[styles.sectionValue, { color: utilization > 80 ? colors.error : utilization > 50 ? colors.amber : colors.success }]}>
-                {utilization.toFixed(0)}%
-              </Text>
-            </View>
-            <View style={styles.progressBg}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: utilization > 80 ? colors.error : utilization > 50 ? colors.amber : colors.success,
-                    width: `${Math.min(100, utilization)}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.utilizationText}>
-              {formatCurrency(card.balance)} of {formatCurrency(cardLimit)} limit
+      {/* Annual charges */}
+      <Card>
+        <View style={styles.chargesRow}>
+          <View style={styles.chargesMain}>
+            <Label>ANNUAL CHARGES</Label>
+            <Text style={styles.chargesSub} numberOfLines={1}>
+              {(card.annualCharge ?? 0) > 0
+                ? card.annualChargeDate
+                  ? `Charged on ${new Date(card.annualChargeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                  : 'Annual fee'
+                : 'Never charged'}
             </Text>
           </View>
-        )}
-
-        {/* Billing Info */}
-        <View style={styles.section}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Ionicons name="calendar-outline" size={16} color={colors.onSurfaceVariant} />
-              <View>
-                <Text style={styles.infoLabel}>Billing Date</Text>
-                <Text style={styles.infoValue}>{formatOrdinal(card.billingDay ?? 1)}</Text>
-              </View>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="card-outline" size={16} color={colors.onSurfaceVariant} />
-              <View>
-                <Text style={styles.infoLabel}>Card Network</Text>
-                <Text style={styles.infoValue}>{card.network}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Annual Charges */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Annual Charges</Text>
-            {(card.annualCharge ?? 0) > 0 ? (
-              <Text style={[styles.sectionValue, { color: colors.amber }]}>
-                {formatCurrency(card.annualCharge)}
-              </Text>
-            ) : (
-              <Text style={[styles.sectionValue, { color: colors.success }]}>LTF</Text>
-            )}
-          </View>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Ionicons name="pricetag-outline" size={16} color={colors.onSurfaceVariant} />
-              <View>
-                <Text style={styles.infoLabel}>Annual Charges Date</Text>
-                <Text style={styles.infoValue}>
-                  {card.annualChargeDate
-                    ? new Date(card.annualChargeDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-                    : 'Not set'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="shield-checkmark-outline" size={16} color={colors.onSurfaceVariant} />
-              <View>
-                <Text style={styles.infoLabel}>Status</Text>
-                <Text style={[styles.infoValue, { color: (card.annualCharge ?? 0) > 0 ? colors.amber : colors.success }]}>
-                  {(card.annualCharge ?? 0) > 0 ? 'Charged' : 'Lifetime Free'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Inline Card Settings */}
-        {showSettings && (
-          <View style={styles.settingsPanel}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Edit Card Details</Text>
-            </View>
-
-            <View style={styles.inputRow}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.settingsInputLabel}>BILLING DAY</Text>
-                <TextInput
-                  style={styles.settingsTextInput}
-                  value={settingsBillingDay}
-                  onChangeText={setSettingsBillingDay}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  placeholder="15"
-                  placeholderTextColor={colors.outline}
-                />
-              </View>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.settingsInputLabel}>ANNUAL CHARGES (₹)</Text>
-                <TextInput
-                  style={styles.settingsTextInput}
-                  value={settingsAmc}
-                  onChangeText={setSettingsAmc}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.outline}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputRow}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.settingsInputLabel}>DUE DATE</Text>
-                <TouchableOpacity
-                  style={styles.settingsDateTrigger}
-                  onPress={() => setSettingsDueCalendarVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-                  <Text style={styles.settingsDateText}>
-                    {settingsDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.settingsInputLabel}>AC DATE</Text>
-                <TouchableOpacity
-                  style={styles.settingsDateTrigger}
-                  onPress={() => setSettingsAcCalendarVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-                  <Text style={styles.settingsDateText}>
-                    {settingsAcDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.settingsButtons}>
-              <TouchableOpacity
-                style={[styles.settingsBtn, styles.settingsBtnCancel]}
-                onPress={() => setShowSettings(false)}
-              >
-                <Text style={styles.settingsBtnCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.settingsBtn, styles.settingsBtnSave]}
-                onPress={saveSettings}
-              >
-                <Text style={styles.settingsBtnSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Reward Points */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Reward Points</Text>
-            <TouchableOpacity
-              onPress={() => {
-                setPointsInput(String(reward.points || ''));
-                setShowPointsModal(true);
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={15} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.billRow}>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>POINTS</Text>
-              <Text style={styles.billValue}>{reward.points.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>{reward.rule.directCashback ? 'CASHBACK' : 'REWARD VALUE'}</Text>
-              <Text style={[styles.billValue, { color: '#FFD79A' }]}>
-                {formatCurrency(reward.rewardPaise)}
+          {(card.annualCharge ?? 0) > 0 ? (
+            <View style={[styles.pill, { backgroundColor: mc.amberDim }]}>
+              <Text style={[styles.pillText, { color: mc.amber }]}>
+                {formatCurrency(card.annualCharge)} / yr
               </Text>
             </View>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>RATE</Text>
-              <Text style={[styles.billValue, { fontSize: 13 }]}>{reward.rule.label}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Bill Payment */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bill Payment</Text>
-          </View>
-          <View style={styles.billRow}>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>BILL AMOUNT</Text>
-              <Text style={styles.billValue}>{formatCurrency(card.billAmount ?? card.balance)}</Text>
-            </View>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>PAID</Text>
-              <Text style={[styles.billValue, { color: colors.success }]}>{formatCurrency(card.paidAmount ?? 0)}</Text>
-            </View>
-            <View style={styles.billItem}>
-              <Text style={styles.billLabel}>REMAINING</Text>
-              <Text style={[styles.billValue, { color: colors.error }]}>
-                {formatCurrency(Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)))}
-              </Text>
-            </View>
-          </View>
-          {(card.billAmount ?? card.balance) > 0 && (
-            <View style={styles.payProgressBg}>
-              <View
-                style={[
-                  styles.payProgressFill,
-                  {
-                    backgroundColor: colors.success,
-                    width: `${Math.min(100, ((card.paidAmount ?? 0) / (card.billAmount ?? card.balance)) * 100)}%`,
-                  },
-                ]}
-              />
+          ) : (
+            <View style={[styles.pill, { backgroundColor: mc.mintDim }]}>
+              <Ionicons name="shield-checkmark" size={12} color={mc.mint} />
+              <Text style={[styles.pillText, { color: mc.mint }]}>Lifetime free</Text>
             </View>
           )}
+        </View>
+      </Card>
+
+      {/* Reward points */}
+      <Card>
+        <View style={styles.cardHeaderRow}>
+          <Label>REWARD POINTS</Label>
           <TouchableOpacity
-            style={[styles.payButton, { backgroundColor: accent }]}
             onPress={() => {
-              const remaining = Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)) / 100;
-              setPaymentInput(remaining > 0 ? remaining.toString() : '');
-              setShowPayModal(true);
+              setPointsInput(String(reward.points || ''));
+              setShowPointsModal(true);
             }}
-            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Edit reward points"
           >
-            <Ionicons name="card-outline" size={18} color={colors.textInverse} />
-            <Text style={styles.payButtonText}>Pay Bill</Text>
+            <Ionicons name="pencil" size={14} color={mc.textDim} />
           </TouchableOpacity>
         </View>
+        <View style={styles.statRow}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{reward.points.toLocaleString('en-IN')}</Text>
+            <Text style={styles.statLabel}>POINTS</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: mc.amber }]}>{formatCurrency(reward.rewardPaise)}</Text>
+            <Text style={styles.statLabel}>{reward.rule.directCashback ? 'CASHBACK' : 'VALUE'}</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, styles.statRate]} numberOfLines={1}>{reward.rule.label}</Text>
+            <Text style={styles.statLabel}>RATE</Text>
+          </View>
+        </View>
+      </Card>
 
-        {/* Card Transactions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          {cardTransactions.length === 0 ? (
-            <Text style={styles.emptyText}>No transactions found for this card</Text>
+      {/* Bill payment */}
+      <Card>
+        <Label>BILL PAYMENT</Label>
+        {billAmount > 0 ? (
+          <ProgressBar value={paidFraction} color={mc.mint} height={8} style={styles.payBar} />
+        ) : (
+          <ProgressBar value={0} color={mc.mint} height={8} style={styles.payBar} />
+        )}
+        <View style={styles.statRow}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>{formatCurrency(billAmount)}</Text>
+            <Text style={styles.statLabel}>BILL</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: mc.mint }]}>{formatCurrency(paidAmount)}</Text>
+            <Text style={styles.statLabel}>PAID</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: mc.redSoft }]}>{formatCurrency(billLeft)}</Text>
+            <Text style={styles.statLabel}>LEFT</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Pay bill */}
+      <TouchableOpacity
+        style={styles.payButton}
+        onPress={() => {
+          const remaining = Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)) / 100;
+          setPaymentInput(remaining > 0 ? remaining.toString() : '');
+          setShowPayModal(true);
+        }}
+        activeOpacity={0.85}
+        accessibilityLabel="Pay bill"
+      >
+        <Ionicons name="card-outline" size={18} color={mc.white} />
+        <Text style={styles.payButtonText}>Pay bill</Text>
+      </TouchableOpacity>
+
+      {/* Inline card settings */}
+      {showSettings && (
+        <Card>
+          <View style={styles.cardHeaderRow}>
+            <Label>EDIT CARD DETAILS</Label>
+          </View>
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.settingsInputLabel}>BILLING DAY</Text>
+              <TextInput
+                style={styles.settingsTextInput}
+                value={settingsBillingDay}
+                onChangeText={setSettingsBillingDay}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="15"
+                placeholderTextColor={mc.textGhost}
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.settingsInputLabel}>ANNUAL CHARGES (₹)</Text>
+              <TextInput
+                style={styles.settingsTextInput}
+                value={settingsAmc}
+                onChangeText={setSettingsAmc}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={mc.textGhost}
+              />
+            </View>
+          </View>
+          <View style={styles.inputRow}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.settingsInputLabel}>DUE DATE</Text>
+              <TouchableOpacity
+                style={styles.settingsDateTrigger}
+                onPress={() => setSettingsDueCalendarVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={15} color={mc.redSoft} />
+                <Text style={styles.settingsDateText}>
+                  {settingsDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.settingsInputLabel}>AC DATE</Text>
+              <TouchableOpacity
+                style={styles.settingsDateTrigger}
+                onPress={() => setSettingsAcCalendarVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={15} color={mc.redSoft} />
+                <Text style={styles.settingsDateText}>
+                  {settingsAcDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.settingsButtons}>
+            <TouchableOpacity style={[styles.settingsBtn, styles.settingsBtnCancel]} onPress={() => setShowSettings(false)}>
+              <Text style={styles.settingsBtnCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.settingsBtn, styles.settingsBtnSave]} onPress={saveSettings}>
+              <Text style={styles.settingsBtnSaveText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+      )}
+
+      {/* Current bill */}
+      <Card pad={false} style={styles.billCard}>
+        <View style={styles.billCardPad}>
+          <Label>CURRENT BILL · DUE {dueDateShort.toUpperCase()}</Label>
+          {billPaidTxs.length === 0 ? (
+            <Text style={styles.sectionEmpty}>No payments logged yet</Text>
           ) : (
-            <>
-              <Text style={styles.cycleLabel}>
-                CURRENT BILL · DUE {dueDateRef.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-              </Text>
-              {currentBillTxs.length === 0 ? (
-                <Text style={styles.emptyText}>No spends in this statement period</Text>
-              ) : (
-                currentBillTxs.slice(0, 10).map((tx: any, index: number) => (
-                  <View
-                    key={tx.id}
-                    style={[
-                      styles.txItem,
-                      index < Math.min(currentBillTxs.length, 10) - 1 && styles.txBorder,
-                    ]}
-                  >
-                    <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
-                      <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
-                    </View>
-                    <View style={styles.txInfo}>
-                      <Text style={styles.txName} numberOfLines={1}>
-                        {tx.notes || tx.category}
-                      </Text>
-                      <Text style={styles.txDate}>
-                        {new Date(tx.date).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </Text>
-                    </View>
-                    <Text style={[styles.txAmount, { color: tx.type === 'income' ? colors.success : colors.onSurface }]}>
-                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                    </Text>
-                  </View>
-                ))
-              )}
+            billPaidTxs.map((tx: any, index: number) => (
+              <View key={tx.id} style={[styles.txRow, index < billPaidTxs.length - 1 && styles.txDivider]}>
+                <IconTile icon="receipt-outline" color={mc.mint} background={mc.mintDim} size={36} />
+                <View style={styles.txMain}>
+                  <Text style={styles.txName}>Bill paid</Text>
+                  <Text style={styles.txDate}>
+                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+                <Text style={[styles.txAmount, { color: mc.text }]}>{formatCurrency(tx.amount)}</Text>
+              </View>
+            ))
+          )}
 
-              <Text style={[styles.cycleLabel, { marginTop: 10 }]}>
-                NEXT CYCLE · AFTER {dueDateRef.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-              </Text>
-              {nextCycleTxs.length === 0 ? (
-                <Text style={styles.emptyText}>No spends after the statement date yet</Text>
-              ) : (
-                nextCycleTxs.slice(0, 10).map((tx: any, index: number) => (
-                  <View
-                    key={tx.id}
-                    style={[
-                      styles.txItem,
-                      index < Math.min(nextCycleTxs.length, 10) - 1 && styles.txBorder,
-                    ]}
-                  >
-                    <View style={[styles.txIcon, { backgroundColor: `${getCategoryColor(tx.category)}20` }]}>
-                      <CategoryIcon category={tx.category} size={18} color={getCategoryColor(tx.category)} />
-                    </View>
-                    <View style={styles.txInfo}>
-                      <Text style={styles.txName} numberOfLines={1}>
-                        {tx.notes || tx.category}
-                      </Text>
-                      <Text style={styles.txDate}>
-                        {new Date(tx.date).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </Text>
-                    </View>
-                    <Text style={[styles.txAmount, { color: tx.type === 'income' ? colors.success : colors.onSurface }]}>
-                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </>
+          <Label style={styles.nextCycleLabel}>NEXT CYCLE · AFTER {dueDateShort.toUpperCase()}</Label>
+          {nextCycleTxs.length === 0 ? (
+            <Text style={styles.sectionEmpty}>No spends after the statement date yet</Text>
+          ) : (
+            nextCycleTxs.slice(0, 10).map((tx: any, index: number) =>
+              renderTxRow(tx, index === Math.min(nextCycleTxs.length, 10) - 1)
+            )
           )}
         </View>
-      </ScrollView>
 
+        {currentBillTxs.length > 0 ? (
+          <>
+            <View style={styles.billCardPad}>
+              <Label style={styles.nextCycleLabel}>THIS STATEMENT · {currentBillTxs.length} PURCHASES</Label>
+              {currentBillTxs.slice(0, 10).map((tx: any, index: number) =>
+                renderTxRow(tx, index === Math.min(currentBillTxs.length, 10) - 1)
+              )}
+            </View>
+          </>
+        ) : null}
+      </Card>
+
+      {/* Edit outstanding modal — bottom sheet */}
       <Modal visible={showEditAmountModal} transparent animationType="fade" onRequestClose={() => setShowEditAmountModal(false)}>
-        <View style={styles.payModalOverlay}>
-          <View style={styles.payModalContent}>
-            <Text style={styles.payModalTitle}>Update Outstanding — {card.name}</Text>
-            <Text style={styles.payModalSub}>
-              Set the latest outstanding balance from your bank app
-            </Text>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>{card.name}</Text>
+            <Text style={styles.sheetSub}>•••• {card.endingWith}</Text>
             <View style={styles.inputGroup}>
-              <Text style={styles.payInputLabel}>LATEST OUTSTANDING AMOUNT (₹)</Text>
+              <Text style={styles.settingsInputLabel}>NEW OUTSTANDING (₹)</Text>
               <TextInput
-                style={styles.payTextInput}
+                style={[styles.settingsTextInput, styles.sheetAmount]}
                 value={editAmountInput}
                 onChangeText={setEditAmountInput}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textGhost}
                 autoFocus
               />
             </View>
-            <View style={styles.payModalButtons}>
-              <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnCancel]}
-                onPress={() => setShowEditAmountModal(false)}
-              >
-                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+            <View style={styles.sheetButtons}>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnCancel]} onPress={() => setShowEditAmountModal(false)}>
+                <Text style={styles.sheetBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                style={[styles.sheetBtn, styles.sheetBtnSave]}
                 onPress={() => {
                   const amount = Math.round(parseFloat(editAmountInput) * 100);
                   if (isNaN(amount) || amount < 0) { alert('Enter a valid amount'); return; }
@@ -570,40 +514,40 @@ export default function CreditCardDetailScreen() {
                   setShowEditAmountModal(false);
                 }}
               >
-                <Text style={styles.payModalBtnSaveText}>Update Amount</Text>
+                <Text style={styles.sheetBtnSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
+      {/* Reward points modal */}
       <Modal visible={showPointsModal} transparent animationType="fade" onRequestClose={() => setShowPointsModal(false)}>
-        <View style={styles.payModalOverlay}>
-          <View style={styles.payModalContent}>
-            <Text style={styles.payModalTitle}>Reward Points — {card.name}</Text>
-            <Text style={styles.payModalSub}>
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Reward points</Text>
+            <Text style={styles.sheetSub}>
               {reward.rule.label}. {reward.rule.directCashback
                 ? 'These points redeem directly as cashback.'
                 : 'Reward value = points ÷ 4.'}
             </Text>
-            <Text style={styles.payInputLabel}>POINTS COLLECTED</Text>
-            <TextInput
-              style={styles.payTextInput}
-              value={pointsInput}
-              onChangeText={setPointsInput}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor={colors.onSurfaceVariant}
-            />
-            <View style={styles.payModalButtons}>
-              <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnCancel]}
-                onPress={() => setShowPointsModal(false)}
-              >
-                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.settingsInputLabel}>POINTS COLLECTED</Text>
+              <TextInput
+                style={[styles.settingsTextInput, styles.sheetAmount]}
+                value={pointsInput}
+                onChangeText={setPointsInput}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={mc.textGhost}
+              />
+            </View>
+            <View style={styles.sheetButtons}>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnCancel]} onPress={() => setShowPointsModal(false)}>
+                <Text style={styles.sheetBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                style={[styles.sheetBtn, styles.sheetBtnSave]}
                 onPress={() => {
                   const pts = Math.round(parseFloat(pointsInput.replace(/,/g, '')));
                   if (isNaN(pts) || pts < 0) { alert('Enter a valid points count'); return; }
@@ -611,41 +555,39 @@ export default function CreditCardDetailScreen() {
                   setShowPointsModal(false);
                 }}
               >
-                <Text style={styles.payModalBtnSaveText}>Save Points</Text>
+                <Text style={styles.sheetBtnSaveText}>Save points</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
+      {/* Pay bill modal */}
       <Modal visible={showPayModal} transparent animationType="fade" onRequestClose={() => setShowPayModal(false)}>
-        <View style={styles.payModalOverlay}>
-          <View style={styles.payModalContent}>
-            <Text style={styles.payModalTitle}>Pay Bill — {card.name}</Text>
-            <Text style={styles.payModalSub}>
-              Total bill: {formatCurrency(card.billAmount ?? card.balance)} | Already paid: {formatCurrency(card.paidAmount ?? 0)}
+        <View style={styles.sheetOverlay}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Pay bill</Text>
+            <Text style={styles.sheetSub}>
+              Total bill: {formatDecimal(card.billAmount ?? card.balance)} · Already paid: {formatDecimal(card.paidAmount ?? 0)}
             </Text>
             <View style={styles.inputGroup}>
-              <Text style={styles.payInputLabel}>PAYMENT AMOUNT (₹)</Text>
+              <Text style={styles.settingsInputLabel}>PAYMENT AMOUNT (₹)</Text>
               <TextInput
-                style={styles.payTextInput}
+                style={[styles.settingsTextInput, styles.sheetAmount]}
                 value={paymentInput}
                 onChangeText={setPaymentInput}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textGhost}
                 autoFocus
               />
             </View>
-            <View style={styles.payModalButtons}>
-              <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnCancel]}
-                onPress={() => setShowPayModal(false)}
-              >
-                <Text style={styles.payModalBtnCancelText}>Cancel</Text>
+            <View style={styles.sheetButtons}>
+              <TouchableOpacity style={[styles.sheetBtn, styles.sheetBtnCancel]} onPress={() => setShowPayModal(false)}>
+                <Text style={styles.sheetBtnCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.payModalBtn, styles.payModalBtnSave]}
+                style={[styles.sheetBtn, styles.sheetBtnSave]}
                 onPress={() => {
                   const amount = Math.round(parseFloat(paymentInput) * 100);
                   // 0 is valid — paying 0 on an already-clear bill just rolls
@@ -655,7 +597,7 @@ export default function CreditCardDetailScreen() {
                   setShowPayModal(false);
                 }}
               >
-                <Text style={styles.payModalBtnSaveText}>Confirm Payment</Text>
+                <Text style={styles.sheetBtnSaveText}>Confirm payment</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -664,163 +606,378 @@ export default function CreditCardDetailScreen() {
 
       <CalendarPicker visible={settingsDueCalendarVisible} selected={settingsDueDate} onSelect={setSettingsDueDate} onClose={() => setSettingsDueCalendarVisible(false)} />
       <CalendarPicker visible={settingsAcCalendarVisible} selected={settingsAcDate} onSelect={setSettingsAcDate} onClose={() => setSettingsAcCalendarVisible(false)} />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  notFound: {
+    color: mc.textDim,
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 24,
   },
-  appBar: {
+  gearBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Hero card
+  heroCard: {
+    gap: 18,
+  },
+  heroTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  heroName: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  heroNumber: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 3,
+  },
+  networkBadge: {
+    backgroundColor: mc.white,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  networkBadgeText: {
+    color: '#E8650A',
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  heroBottom: {
+    flexDirection: 'row',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  appBarTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, flex: 1, textAlign: 'center' },
-  iconButton: { padding: 8, borderRadius: rounded.full },
-  scrollContent: { padding: spacing.containerPadding, gap: 16, paddingBottom: 40 },
-  notFound: { color: colors.onSurfaceVariant, fontSize: 14, textAlign: 'center', padding: 24 },
-  heroCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
+  heroOutstanding: {
+    flex: 1,
+    minWidth: 0,
   },
-  heroAccent: { height: 4 },
-  heroContent: { padding: spacing.cardPadding, gap: 16 },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  heroName: { fontSize: 20, fontWeight: '800', color: colors.onSurface },
-  heroNumber: { fontSize: 13, color: colors.onSurfaceVariant, marginTop: 2 },
-  heroBank: { fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2, textTransform: 'uppercase' },
-  heroStats: { flexDirection: 'row', gap: 24 },
-  heroStat: { flex: 1 },
-  heroStatLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroStatLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  heroStatValue: { fontSize: 24, fontWeight: '800', marginTop: 2 },
-  heroDueDays: { fontSize: 12, fontWeight: '500', marginTop: 2 },
-  section: { gap: 10 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  sectionValue: { fontSize: 14, fontWeight: '700' },
-  progressBg: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 3,
-    overflow: 'hidden',
+  heroOutstandingLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  progressFill: { height: 6, borderRadius: 3 },
-  utilizationText: { fontSize: 11, color: colors.onSurfaceVariant },
-  infoRow: { flexDirection: 'row', gap: 16 },
-  infoItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceContainer, padding: 12, borderRadius: rounded.DEFAULT },
-  infoLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
-  infoValue: { fontSize: 13, fontWeight: '600', color: colors.onSurface, marginTop: 1 },
-  emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 12 },
-  cycleLabel: {
+  heroAmount: {
+    fontSize: 32,
+    fontWeight: '500',
+    color: mc.redSoft,
+    marginTop: 6,
+  },
+  heroRing: {
+    flex: 0,
+  },
+  ringValue: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  ringSub: {
+    fontSize: 9,
+    color: mc.textDim,
+    marginTop: 1,
+  },
+
+  // Shared card bits
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+  },
+  cardHeaderValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cardFootnote: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 8,
+  },
+  utilizationBar: {
+    marginTop: 2,
+  },
+
+  // Two-up
+  twoUp: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  twoUpCell: {
+    flex: 1,
+    gap: 2,
+    padding: 12,
+  },
+  twoUpValue: {
+    fontSize: 17,
+    color: mc.text,
+    marginTop: 2,
+  },
+
+  // Annual charges
+  chargesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  chargesMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chargesSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: mr.badge,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Stat row (points / bill payment)
+  statRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+  },
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  statRate: {
+    fontSize: 13,
+  },
+  statLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
-    marginTop: 4,
-    marginBottom: 2,
+    letterSpacing: 1,
+    color: mc.textDim,
   },
-  txItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  txBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  txIcon: { width: 36, height: 36, borderRadius: rounded.DEFAULT, alignItems: 'center', justifyContent: 'center' },
-  txInfo: { flex: 1 },
-  txName: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
-  txDate: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 1 },
-  txAmount: { fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  billRow: { flexDirection: 'row', gap: 8 },
-  billItem: { flex: 1, backgroundColor: colors.surfaceContainer, padding: 10, borderRadius: rounded.DEFAULT },
-  billLabel: { fontSize: 9, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
-  billValue: { fontSize: 16, fontWeight: '800', marginTop: 2 },
-  payProgressBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginTop: 4 },
-  payProgressFill: { height: 6, borderRadius: 3 },
+  payBar: {
+    marginTop: 10,
+    marginBottom: 4,
+  },
+
+  // Pay button
   payButton: {
+    backgroundColor: mc.red,
+    borderRadius: 22,
+    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: rounded.lg,
-    marginTop: 8,
   },
-  payButtonText: { fontSize: 15, fontWeight: '700', color: colors.textInverse },
-  payModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  payModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 24,
-    gap: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  payModalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  payModalSub: { fontSize: 12, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: -8 },
-  inputGroup: { gap: 6 },
-  payInputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  payTextInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 48,
-    paddingHorizontal: 14,
-    color: colors.onSurface,
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  payModalButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  payModalBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  payModalBtnCancel: { backgroundColor: 'transparent' },
-  payModalBtnSave: { backgroundColor: colors.primaryContainer },
-  payModalBtnCancelText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  payModalBtnSaveText: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
-  settingsPanel: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: spacing.cardPadding,
-    gap: 12,
-  },
-  inputRow: { flexDirection: 'row', gap: 12 },
-  settingsInputLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  settingsTextInput: {
-    backgroundColor: colors.surfaceContainerHigh,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
-    fontSize: 14,
+  payButtonText: {
+    fontSize: 16,
     fontWeight: '500',
+    color: mc.white,
+  },
+
+  // Settings panel
+  inputRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  settingsInputLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textDim,
+    paddingHorizontal: 4,
+  },
+  settingsTextInput: {
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: mc.text,
   },
   settingsDateTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.surfaceContainerHigh,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 10,
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
   },
-  settingsDateText: { fontSize: 12, color: colors.onSurface, fontWeight: '600' },
-  settingsButtons: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  settingsBtn: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  settingsBtnCancel: { backgroundColor: colors.primaryFixedDim },
-  settingsBtnSave: { backgroundColor: colors.primaryContainer },
-  settingsBtnCancelText: { fontSize: 14, color: colors.textPrimary, fontWeight: '600' },
-  settingsBtnSaveText: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
+  settingsDateText: {
+    fontSize: 13,
+    color: mc.text,
+  },
+  settingsButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 2,
+  },
+  settingsBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 18,
+  },
+  settingsBtnCancel: {
+    backgroundColor: mc.raised,
+  },
+  settingsBtnSave: {
+    backgroundColor: mc.red,
+  },
+  settingsBtnCancelText: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  settingsBtnSaveText: {
+    fontSize: 14,
+    color: mc.white,
+    fontWeight: '500',
+  },
+
+  // Bill sections
+  billCard: {
+    paddingVertical: 6,
+  },
+  billCardPad: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  nextCycleLabel: {
+    marginTop: 12,
+    marginBottom: 2,
+  },
+  sectionEmpty: {
+    fontSize: 13,
+    color: mc.textFaint,
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  txCategoryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: mr.tile,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+  },
+  txDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: mc.line,
+  },
+  txMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  txName: {
+    fontSize: 14,
+    color: mc.text,
+  },
+  txDate: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  txAmount: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: mc.redSoft,
+  },
+
+  // Bottom sheets
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: mc.card,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 18,
+    gap: 12,
+    elevation: 24,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  sheetSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: -6,
+  },
+  sheetAmount: {
+    fontSize: 20,
+    paddingVertical: 15,
+  },
+  sheetButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  sheetBtn: {
+    paddingVertical: 13,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBtnCancel: {
+    flex: 1,
+    backgroundColor: mc.raised,
+  },
+  sheetBtnSave: {
+    flex: 1.4,
+    backgroundColor: mc.red,
+  },
+  sheetBtnCancelText: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  sheetBtnSaveText: {
+    fontSize: 16,
+    color: mc.white,
+    fontWeight: '500',
+  },
 });

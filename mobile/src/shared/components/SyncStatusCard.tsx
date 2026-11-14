@@ -9,7 +9,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { tc, glass, ts, tr } from '../theme/tracend';
+import { mc, mr } from '../theme/meridian';
 
 type Phase = 'idle' | 'spending' | 'cooling' | 'recovering' | 'synced';
 
@@ -131,14 +131,14 @@ export default function SyncStatusCard({
   // Status pill color & label
   const statusInfo = useMemo(() => {
     if (syncing) {
-      return { label: '429 RATE LIMITED', color: tc.amber };
+      return { label: 'SYNCING', color: mc.amber };
     }
-    if (lastError) return { label: '429 ERROR', color: tc.attention };
-    if (queueCount > 0) return { label: `${queueCount} PENDING`, color: tc.amber };
-    return { label: '200 OK', color: tc.stable };
+    if (lastError) return { label: 'SYNC ERROR', color: mc.redSoft };
+    if (queueCount > 0) return { label: `${queueCount} PENDING`, color: mc.amber };
+    return { label: '200 OK', color: mc.mint };
   }, [syncing, queueCount, lastError]);
 
-  const pipBg = statusInfo.color === tc.stable ? tc.stable : tc.amber;
+  const pipColor = statusInfo.color;
 
   return (
     <View style={styles.card}>
@@ -156,7 +156,7 @@ export default function SyncStatusCard({
       {/* Pip row */}
       <View style={styles.pipRow}>
         {pips.map((anim, i) => (
-          <Pip key={i} anim={anim} color={pipBg} />
+          <Pip key={i} anim={anim} color={pipColor} />
         ))}
       </View>
 
@@ -192,7 +192,7 @@ export default function SyncStatusCard({
       {/* Error card */}
       {lastError && (
         <View style={styles.errorCard}>
-          <Ionicons name="alert-circle-outline" size={14} color={tc.attention} />
+          <Ionicons name="alert-circle-outline" size={14} color={mc.redSoft} />
           <Text style={styles.errorText} numberOfLines={3}>{lastError}</Text>
         </View>
       )}
@@ -207,7 +207,7 @@ export default function SyncStatusCard({
         <Ionicons
           name={syncing ? 'sync-outline' : 'cloud-upload-outline'}
           size={16}
-          color={tc.textPrimary}
+          color={mc.text}
           style={syncing ? styles.syncSpinner : undefined}
         />
         <Text style={styles.syncBtnText}>
@@ -248,25 +248,23 @@ function Pip({ anim, color }: { anim: Animated.Value; color: string }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: glass.fillStrong,
-    borderRadius: tr.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: glass.border,
-    padding: ts.lg,
-    marginBottom: ts.md,
+    backgroundColor: mc.card,
+    borderRadius: mr.row,
+    padding: 14,
+    marginTop: 4,
+    gap: 10,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: ts.md,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: tr.full,
+    borderRadius: 12,
     borderWidth: 1,
   },
   statusDot: {
@@ -277,24 +275,22 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.8,
   },
   lastSynced: {
     fontSize: 11,
-    color: tc.textMuted,
+    color: mc.textDim,
   },
   pipRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: ts.sm,
+    gap: 4,
   },
   pipTrack: {
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: glass.track,
-    borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: mc.track,
     overflow: 'hidden',
   },
   pipFill: {
@@ -303,37 +299,34 @@ const styles = StyleSheet.create({
   },
   arcRow: {
     alignItems: 'center',
-    height: 20,
-    marginBottom: ts.sm,
+    height: 18,
   },
   arc: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: 'transparent',
-    borderTopColor: tc.stable,
-    borderRightColor: tc.stable,
+    borderTopColor: mc.mint,
+    borderRightColor: mc.mint,
   },
   arcTip: {},
   pendingLine: {
     fontSize: 11,
-    color: tc.amber,
-    marginBottom: ts.sm,
+    color: mc.amber,
   },
   errorCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: tc.attention + '11',
-    borderRadius: tr.sm,
-    padding: ts.sm,
-    marginBottom: ts.sm,
+    backgroundColor: mc.redDim,
+    borderRadius: 12,
+    padding: 10,
   },
   errorText: {
     flex: 1,
     fontSize: 11,
-    color: tc.attention,
+    color: mc.redSoft,
     lineHeight: 16,
   },
   syncBtn: {
@@ -341,27 +334,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: glass.fill,
-    borderRadius: tr.sm,
-    paddingVertical: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: glass.border,
+    backgroundColor: mc.raised,
+    borderRadius: 16,
+    paddingVertical: 12,
   },
   syncBtnDisabled: {
     opacity: 0.5,
   },
   syncBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: tc.textPrimary,
+    fontSize: 14,
+    fontWeight: '500',
+    color: mc.text,
   },
-  syncSpinner: {
-    // use a rotate animation
-  },
+  syncSpinner: {},
   attemptLine: {
-    fontSize: 9,
-    color: tc.textMuted,
+    fontSize: 11,
+    color: mc.textDim,
     textAlign: 'center',
-    marginTop: ts.xs,
   },
 });

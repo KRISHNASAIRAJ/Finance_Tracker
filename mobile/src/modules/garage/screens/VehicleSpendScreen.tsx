@@ -1,25 +1,34 @@
 /**
- * VehicleSpendScreen — per-vehicle maintenance log viewer with form to add
- * new service records and filter by vehicle.
+ * VehicleSpendScreen — per-vehicle service log with a quick-add form and
+ * filter by vehicle.
+ *
+ * Restyled to the same Meridian v2 service-history layout (s7 family) as
+ * the All Maintenance screen: a total spend panel and a timeline of the
+ * vehicle's service records. The inline quick-add form still works.
  */
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
-  TouchableOpacity,
   TextInput,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  Card,
+  EmptyState,
+  IconTile,
+  Label,
+  PressScale,
+  Rise,
+  Screen,
+  TimelineItem,
+} from '../../../shared/components/meridian';
 import { useGarageStore } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
@@ -46,6 +55,19 @@ export default function VehicleSpendScreen() {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   };
 
+  const serviceIcon = (log: (typeof vehicleMaint)[number]) => {
+    const type = (log.serviceType || '').toLowerCase();
+    if (type.includes('oil')) return 'water-outline' as const;
+    return 'construct-outline' as const;
+  };
+
+  const serviceColor = (log: (typeof vehicleMaint)[number]) => {
+    const type = (log.serviceType || '').toLowerCase();
+    if (type.includes('oil')) return mc.sky;
+    if (type.includes('general')) return mc.violet;
+    return mc.amber;
+  };
+
   const handleAdd = () => {
     const rawAmount = parseFloat(amount);
     if (isNaN(rawAmount) || rawAmount <= 0) {
@@ -56,6 +78,7 @@ export default function VehicleSpendScreen() {
       alert('Please select or enter a service type');
       return;
     }
+
     addMaintenanceLog({
       vehicle: selectedVehicle,
       amount: Math.round(rawAmount * 100),
@@ -69,397 +92,398 @@ export default function VehicleSpendScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Vehicle Spend</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen bottomInset={40}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton} accessibilityLabel="Go back">
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.appBarTitle}>Vehicle spend</Text>
+          <PressScale
+            onPress={() => setShowForm((v) => !v)}
+            scale={0.92}
+            style={styles.fabCircle}
+            accessibilityLabel={showForm ? 'Close quick add' : 'Add service record'}
+          >
+            <Ionicons name={showForm ? 'close' : 'add'} size={19} color={mc.white} />
+          </PressScale>
+        </View>
+      </Rise>
 
-      {/* Vehicle tabs */}
-      <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+      {/* Vehicle chips */}
+      <Rise index={1}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.vehicleRow, vehicles.length <= 1 && styles.vehicleRowCentered]}
+        >
           {vehicles.map((v) => {
             const isSelected = selectedVehicle === v;
             return (
-              <TouchableOpacity
-                key={v}
-                style={[styles.tabButton, isSelected && styles.tabButtonActive]}
-                onPress={() => setSelectedVehicle(v)}
-              >
-                <Text style={styles.vehicleEmoji}>🛵</Text>
-                <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
-              </TouchableOpacity>
+              <PressScale key={v} onPress={() => setSelectedVehicle(v)} scale={0.96}>
+                <View style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}>
+                  <Ionicons
+                    name="bicycle-outline"
+                    size={15}
+                    color={isSelected ? mc.redSoft : mc.textDim}
+                  />
+                  <Text style={[styles.vehicleChipText, isSelected && styles.vehicleChipTextActive]} numberOfLines={1}>
+                    {v}
+                  </Text>
+                </View>
+              </PressScale>
             );
           })}
         </ScrollView>
-      </View>
+      </Rise>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Total Spend Card */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>TOTAL SERVICE SPEND</Text>
-          <Text style={styles.heroValue}>{formatCurrency(totalSpend)}</Text>
-          <Text style={styles.heroSub}>{vehicleMaint.length} service{vehicleMaint.length !== 1 ? 's' : ''} logged</Text>
-        </View>
+      {/* Total spend */}
+      <Rise index={2}>
+        <Card>
+          <View style={styles.spendRow}>
+            <View style={styles.spendMain}>
+              <Label>TOTAL SERVICE SPEND</Label>
+              <Text style={styles.spendValue}>{formatCurrency(totalSpend)}</Text>
+              <Text style={styles.spendSub}>
+                {vehicleMaint.length} log{vehicleMaint.length !== 1 ? 's' : ''} for {selectedVehicle ?? 'vehicle'}
+              </Text>
+            </View>
+            <PressScale
+              onPress={() => setShowForm((v) => !v)}
+              scale={0.95}
+              style={styles.addBtn}
+              accessibilityLabel="Log service"
+            >
+              <Ionicons name="construct-outline" size={15} color={mc.white} />
+              <Text style={styles.addBtnText}>{showForm ? 'Close' : 'Add service'}</Text>
+            </PressScale>
+          </View>
+        </Card>
+      </Rise>
 
-        {/* Add Form */}
-        {showForm && (
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Log Service Expense</Text>
+      {/* Quick-add form */}
+      {showForm ? (
+        <Rise index={3}>
+          <Card style={styles.formCard}>
+            <Label>LOG SERVICE EXPENSE</Label>
             <View style={styles.formSection}>
-              <Text style={styles.inputLabel}>AMOUNT (₹)</Text>
+              <Label small style={styles.inputLabel}>AMOUNT (₹)</Label>
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. 1500"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={mc.textGhost}
                 keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
               />
             </View>
             <View style={styles.formSection}>
-              <Text style={styles.inputLabel}>SERVICE TYPE</Text>
+              <Label small style={styles.inputLabel}>SERVICE TYPE</Label>
               <View style={styles.chipRow}>
-                {SERVICE_TYPES.map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.chip, serviceType === st && styles.chipActive]}
-                    onPress={() => setServiceType(st)}
-                  >
-                    <Text style={[styles.chipText, serviceType === st && styles.chipTextActive]}>{st}</Text>
-                  </TouchableOpacity>
-                ))}
+                {SERVICE_TYPES.map((st) => {
+                  const isSelected = serviceType === st;
+                  return (
+                    <PressScale
+                      key={st}
+                      onPress={() => setServiceType(st)}
+                      scale={0.95}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{st}</Text>
+                    </PressScale>
+                  );
+                })}
               </View>
               <TextInput
                 style={styles.textInput}
-                placeholder="Or type custom service..."
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholder="Or type a custom service..."
+                placeholderTextColor={mc.textGhost}
                 value={serviceType}
                 onChangeText={setServiceType}
               />
             </View>
             <View style={styles.formSection}>
-              <Text style={styles.inputLabel}>NOTES (OPTIONAL)</Text>
+              <Label small style={styles.inputLabel}>NOTES (OPTIONAL)</Label>
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Changed engine oil at 5000km"
-                placeholderTextColor={colors.onSurfaceVariant}
+                placeholderTextColor={mc.textGhost}
                 value={notes}
                 onChangeText={setNotes}
               />
             </View>
             <View style={styles.formActions}>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+              <PressScale onPress={() => setShowForm(false)} scale={0.97} style={styles.cancelBtn} accessibilityLabel="Cancel">
                 <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              </PressScale>
+              <PressScale onPress={handleAdd} scale={0.97} style={styles.saveBtn} accessibilityLabel="Save service record">
+                <Text style={styles.saveBtnText}>Save</Text>
+              </PressScale>
             </View>
-          </View>
-        )}
+          </Card>
+        </Rise>
+      ) : null}
 
-        {/* Service Logs */}
-        <View style={styles.logsSection}>
-          <View style={styles.logsHeaderRow}>
-            <Text style={styles.sectionTitle}>SERVICE HISTORY</Text>
-          </View>
-          {vehicleMaint.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="construct-outline" size={40} color={colors.outline} />
-              <Text style={styles.emptyText}>No service logs yet</Text>
-            </View>
-          ) : (
-            vehicleMaint.map((log) => (
-              <View key={log.id} style={styles.logRow}>
-                <View style={styles.logLeft}>
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.amber}18` }]}>
-                    <Ionicons name="construct-outline" size={16} color={colors.amber} />
-                  </View>
-                  <View style={{ flex: 1, flexShrink: 1 }}>
-                    <Text style={styles.logTitle}>{log.serviceType}</Text>
-                    <Text style={styles.logSub} numberOfLines={1}>
-                      {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {log.notes ? ` · ${log.notes}` : ''}
-                    </Text>
-                  </View>
+      {/* Service history timeline */}
+      {vehicleMaint.length > 0 ? (
+        <Rise index={4}>
+          <Label style={styles.sectionTitle}>SERVICE HISTORY</Label>
+          {vehicleMaint.map((log, idx) => (
+            <TimelineItem
+              key={log.id}
+              color={serviceColor(log)}
+              last={idx === vehicleMaint.length - 1}
+              style={styles.timelineItem}
+            >
+              <Card style={styles.timelineCard}>
+                <IconTile icon={serviceIcon(log)} color={serviceColor(log)} size={38} radius={13} />
+                <View style={styles.timelineMain}>
+                  <Text style={styles.logTitle} numberOfLines={1}>
+                    {log.serviceType}
+                  </Text>
+                  <Text style={styles.logSub} numberOfLines={1}>
+                    {typeof log.odometer === 'number' && log.odometer > 0
+                      ? `${log.odometer.toLocaleString('en-IN')} km · `
+                      : ''}
+                    {log.notes ? log.notes : log.vehicle}
+                  </Text>
                 </View>
-                <Text style={styles.logAmount}>{formatCurrency(log.amount)}</Text>
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
-
-      {/* FAB */}
-      {!showForm && (
-        <TouchableOpacity style={styles.fab} onPress={() => setShowForm(true)} activeOpacity={0.85}>
-          <Ionicons name="add" size={28} color={colors.textPrimary} />
-        </TouchableOpacity>
+                <View style={styles.timelineRight}>
+                  <Text style={styles.logAmount}>{formatCurrency(log.amount)}</Text>
+                  <Text style={styles.logDate}>
+                    {new Date(log.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+              </Card>
+            </TimelineItem>
+          ))}
+        </Rise>
+      ) : (
+        <Rise index={4}>
+          <EmptyState
+            icon="construct-outline"
+            title="No service logs yet"
+            subtitle="Add your first service record above"
+          />
+        </Rise>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
+    justifyContent: 'space-between',
+    height: 52,
+    paddingHorizontal: 2,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabContainer: {
-    backgroundColor: colors.surface,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  appBarTitle: {
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
   },
-  tabScroll: {
-    paddingHorizontal: spacing.containerPadding,
+  fabCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Vehicle chips
+  vehicleRow: {
     gap: 8,
+    paddingHorizontal: 2,
   },
-  tabButton: {
+  vehicleRowCentered: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  vehicleChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.full,
-    paddingHorizontal: 16,
+    backgroundColor: mc.card,
+    borderRadius: mr.chip,
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  tabButtonActive: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.primary,
+  vehicleChipActive: {
+    backgroundColor: mc.redDim,
+    borderColor: mc.redDim,
   },
-  vehicleEmoji: {
-    fontSize: 14,
-  },
-  tabText: {
-    color: colors.onSurfaceVariant,
+  vehicleChipText: {
     fontSize: 13,
+    color: mc.textDim,
+    maxWidth: 140,
+  },
+  vehicleChipTextActive: {
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+
+  // Total spend card
+  spendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  spendMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  spendValue: {
+    fontSize: 30,
     fontWeight: '500',
-  },
-  tabTextActive: {
-    color: colors.onSurface,
-    fontWeight: '600',
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120,
-  },
-  heroCard: {
-    backgroundColor: colors.surface,
-    borderColor: `${colors.amber}26`,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 20,
-    gap: 4,
-  },
-  heroLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
-  },
-  heroValue: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: colors.amber,
-    letterSpacing: -1,
-  },
-  heroSub: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
+    color: mc.text,
     marginTop: 2,
   },
-  formCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 16,
-    gap: 14,
+  spendSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
   },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: mc.red,
+    borderRadius: mr.chip,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: mc.white,
+  },
+
+  // Quick-add form
+  formCard: {
+    gap: 12,
   },
   formSection: {
-    gap: 8,
+    gap: 6,
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    paddingHorizontal: 4,
   },
   textInput: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.DEFAULT,
-    paddingHorizontal: 16,
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    color: colors.onSurface,
-    fontSize: 14,
+    fontSize: 15,
+    color: mc.text,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   chip: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.full,
+    backgroundColor: mc.raised,
+    borderRadius: 16,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   chipActive: {
-    backgroundColor: `${colors.primary}25`,
-    borderColor: colors.primary,
+    backgroundColor: mc.redDim,
+    borderColor: mc.redDim,
   },
   chipText: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
+    fontSize: 13,
+    color: mc.textDim,
   },
   chipTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
+    color: mc.redSoft,
+    fontWeight: '600',
   },
   formActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    gap: 10,
   },
   saveBtn: {
-    flex: 1,
-    backgroundColor: colors.primaryContainer,
-    borderRadius: rounded.DEFAULT,
-    paddingVertical: 14,
+    flex: 1.4,
+    backgroundColor: mc.red,
+    borderRadius: 22,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   saveBtnText: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.white,
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 14,
+    backgroundColor: mc.raised,
+    borderRadius: 22,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
   },
   cancelBtnText: {
-    color: colors.onSurfaceVariant,
-    fontWeight: '600',
     fontSize: 14,
+    color: mc.textDim,
   },
-  logsSection: {
-    gap: 8,
-  },
-  logsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+
+  // Timeline
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    paddingHorizontal: 4,
+    marginTop: 2,
   },
-  logRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    marginBottom: 8,
+  timelineItem: {
+    marginBottom: 10,
   },
-  logLeft: {
+  timelineCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
+    padding: 12,
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: rounded.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+  timelineMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   logTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
   },
   logSub: {
     fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
+    color: mc.textDim,
+  },
+  timelineRight: {
+    alignItems: 'flex-end',
+    gap: 2,
   },
   logAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
+    fontSize: 15,
     fontWeight: '500',
+    color: mc.text,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+  logDate: {
+    fontSize: 11,
+    color: mc.textDim,
   },
 });
