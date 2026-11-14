@@ -1,28 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The red sleep block: a rounded body with the raised island bump on the
-     top right, merged cleanly into a single unified red mass. -->
+     top right, merged seamlessly into a single red mass.
+
+     Geometry (matches the reference mock):
+       - the body starts at 20dp and the bump is 26dp tall, so they overlap by
+         6dp and no hairline seam can appear between them;
+       - the bump is a full pill (13dp radius on a 26dp height), so its left
+         edge sweeps inward as the concave scoop;
+       - the body keeps a rounded TOP-LEFT corner, but a square TOP-RIGHT one,
+         so the right edge of the red mass stays perfectly straight down to the
+         bottom (the bump's own curve supplies the rounded top-right). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Body -->
+    <!-- Body: rounded top-left and both bottom corners, square top-right -->
     <item
         android:bottom="0dp"
         android:left="0dp"
         android:right="0dp"
-        android:top="22dp">
+        android:top="20dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
-            <corners android:radius="12dp" />
+            <corners
+                android:topLeftRadius="12dp"
+                android:topRightRadius="0dp"
+                android:bottomLeftRadius="12dp"
+                android:bottomRightRadius="12dp" />
         </shape>
     </item>
-    <!-- The raised island (top right bump) -->
+    <!-- The raised island bump: fully curved pill shape (radius 13dp for 26dp height) -->
     <item
         android:gravity="top|right"
         android:width="62dp"
         android:height="26dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
-            <corners
-                android:topLeftRadius="11dp"
-                android:topRightRadius="11dp" />
+            <corners android:radius="13dp" />
         </shape>
     </item>
 </layer-list>
