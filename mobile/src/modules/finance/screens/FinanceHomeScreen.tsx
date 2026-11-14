@@ -21,7 +21,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle, Defs, G as SvgG, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { mc, mr } from '../../../shared/theme/meridian';
 import {
@@ -363,14 +363,13 @@ export default function FinanceHomeScreen() {
                 <SemicircleGauge
                   progress={budgetPct}
                   width={132}
-                  height={70}
+                  height={72}
                   stroke={11}
                   color={budgetPct >= 1 ? mc.red : mc.amber}
                   trackColor={mc.track}
-                />
-                <View style={styles.gaugeValueWrap}>
+                >
                   <Text style={styles.gaugeValue}>{formatCompact(monthlyExpenses)}</Text>
-                </View>
+                </SemicircleGauge>
               </View>
               <Text style={styles.gaugeFoot}>
                 {budgetPaise > 0
@@ -389,15 +388,23 @@ export default function FinanceHomeScreen() {
               <Text style={styles.billFoot}>
                 {nextCard ? `Next due ${new Date(nextCard.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'No card due'}
               </Text>
-              <ProgressBar
-                value={cardUtilPct}
-                color={mc.redSoft}
-                height={8}
-                style={styles.billBar}
-              />
-              <Text style={styles.billFootSmall}>
-                {cardDaysLeft > 0 ? `${cardDaysLeft} days left` : 'due now'}
-              </Text>
+              {totalLimit > 0 ? (
+                <>
+                  <ProgressBar
+                    value={cardUtilPct}
+                    color={cardUtilPct >= 0.9 ? mc.redSoft : cardUtilPct >= 0.7 ? mc.amber : mc.mint}
+                    height={8}
+                    style={styles.billBar}
+                  />
+                  <Text style={styles.billFootSmall}>
+                    {`${Math.round(cardUtilPct * 100)}% of limit · ${cardDaysLeft > 0 ? `${cardDaysLeft} days left` : 'due now'}`}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.billFootSmall}>
+                  {cardDaysLeft > 0 ? `${cardDaysLeft} days left` : 'due now'}
+                </Text>
+              )}
             </Card>
           </PressScale>
         </Rise>
@@ -411,7 +418,7 @@ export default function FinanceHomeScreen() {
             <Text style={styles.rowValue}>{formatCurrency(Math.round(weekTotal * 100))}</Text>
           </View>
           <BarChart
-            data={weekData.map((d, i) => ({
+            data={weekData.map((d) => ({
               label: d.label,
               value: d.value,
               color: d.isToday ? mc.red : mc.barDim,
@@ -441,44 +448,42 @@ export default function FinanceHomeScreen() {
               <>
                 <View style={styles.donutRow}>
                   <View style={styles.donutWrap}>
-                    <Svg width={116} height={116} viewBox="0 0 100 100">
-                      <Defs>
-                        {CATEGORY_COLORS.map((c, i) => (
-                          <LinearGradient key={c} id={`finGrad${i}`} x1="0" y1="0" x2="1" y2="1">
-                            <Stop offset="0" stopColor={c} stopOpacity="0.95" />
-                            <Stop offset="1" stopColor={c} stopOpacity="0.55" />
-                          </LinearGradient>
-                        ))}
-                      </Defs>
-                      <Circle cx="50" cy="50" r="40" fill="none" stroke={mc.track} strokeWidth="8" />
-                      <Animated.View style={{ opacity: donutOpacity, transform: [{ rotate: donutRotate }] }}>
-                        <SvgG rotation={0} origin="50, 50">
-                          {(() => {
-                            const circumference = 2 * Math.PI * 40;
-                            let offset = 0;
-                            return donutSegments.map((cat, i) => {
-                              const pct = totalExpense > 0 ? cat.amount / totalExpense : 0;
-                              const segLen = Math.max(circumference * pct - 2.5, 0.8);
-                              const el = (
-                                <Circle
-                                  key={cat.name + i}
-                                  cx="50"
-                                  cy="50"
-                                  r="40"
-                                  fill="none"
-                                  stroke={`url(#finGrad${i})`}
-                                  strokeWidth="8"
-                                  strokeDasharray={`${segLen} ${circumference}`}
-                                  strokeDashoffset={-offset}
-                                />
-                              );
-                              offset += segLen + 2.5;
-                              return el;
-                            });
-                          })()}
-                        </SvgG>
-                      </Animated.View>
-                    </Svg>
+                    <Animated.View style={{ opacity: donutOpacity, transform: [{ rotate: donutRotate }] }}>
+                      <Svg width={116} height={116} viewBox="0 0 100 100">
+                        <Defs>
+                          {CATEGORY_COLORS.map((c, i) => (
+                            <LinearGradient key={c} id={`finGrad${i}`} x1="0" y1="0" x2="1" y2="1">
+                              <Stop offset="0" stopColor={c} stopOpacity="0.95" />
+                              <Stop offset="1" stopColor={c} stopOpacity="0.55" />
+                            </LinearGradient>
+                          ))}
+                        </Defs>
+                        <Circle cx="50" cy="50" r="40" fill="none" stroke={mc.track} strokeWidth="8" />
+                        {(() => {
+                          const circumference = 2 * Math.PI * 40;
+                          let offset = 0;
+                          return donutSegments.map((cat, i) => {
+                            const pct = totalExpense > 0 ? cat.amount / totalExpense : 0;
+                            const segLen = Math.max(circumference * pct - 2.5, 0.8);
+                            const el = (
+                              <Circle
+                                key={cat.name + i}
+                                cx="50"
+                                cy="50"
+                                r="40"
+                                fill="none"
+                                stroke={`url(#finGrad${i})`}
+                                strokeWidth="8"
+                                strokeDasharray={`${segLen} ${circumference}`}
+                                strokeDashoffset={-offset}
+                              />
+                            );
+                            offset += segLen + 2.5;
+                            return el;
+                          });
+                        })()}
+                      </Svg>
+                    </Animated.View>
                     <View style={styles.donutCenter}>
                       <Text style={styles.donutTotal}>{formatCompact(totalExpense)}</Text>
                       <Text style={styles.donutCaption}>this month</Text>
@@ -676,13 +681,6 @@ const styles = StyleSheet.create({
   },
   gaugeWrap: {
     marginTop: 6,
-    alignItems: 'center',
-  },
-  gaugeValueWrap: {
-    position: 'absolute',
-    top: 32,
-    left: 0,
-    right: 0,
     alignItems: 'center',
   },
   gaugeValue: {

@@ -120,7 +120,7 @@ export default function BarChart({
             <AnimatedRect
               key={`${d.label ?? i}-${i}`}
               x={i * (barW + gap)}
-              y={height}
+              y={a ? a.interpolate({ inputRange: [0, 1], outputRange: [height, height - h] }) : height - h}
               width={Math.max(2, barW)}
               height={a ? a.interpolate({ inputRange: [0, 1], outputRange: [0, h] }) : h}
               rx={radius}
