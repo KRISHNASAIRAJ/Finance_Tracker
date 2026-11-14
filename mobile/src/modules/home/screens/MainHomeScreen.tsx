@@ -1,7 +1,10 @@
 /**
- * MainHomeScreen — primary Home tab: daily quote, habit progress bar,
- * sleep info, AI finance commentary, stress-release techniques, and an
- * auto-rotating growth-principles carousel.
+ * MainHomeScreen — the Home tab.
+ *
+ * Layout follows the Meridian v2 reference: a greeting header, a two-column
+ * grid (habits ring / sleep / due today), the daily quote and the AI money
+ * note. The stress-release techniques and the growth-principles carousel are
+ * kept below — they are existing features and still work exactly as before.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -10,28 +13,35 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
-import { tc } from '../../../shared/theme/tracend';
-import GlassCard from '../../../shared/components/GlassCard';
-import Entrance from '../../../shared/components/Entrance';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  Card,
+  IconTile,
+  Label,
+  ProgressBar,
+  Ring,
+  Rise,
+  Screen,
+  Sparkline,
+} from '../../../shared/components/meridian';
 import DrawerTrigger from '../../../shared/components/DrawerTrigger';
 import { quoteForDate, stressTechniquesForDate, PRINCIPLES } from '../../../shared/dailyContent';
-import { todayKey, dayProgress, progressBlocks, habitStreak } from '../../habits/habits';
+import {
+  todayKey,
+  dayProgress,
+  habitStreak,
+  habitBestStreak,
+} from '../../habits/habits';
 import { useHabitStore, habitsForDay, useHabitDefs } from '../../habits/store';
 import { useSleepStore, sleepDurationHours, formatSleepDuration } from '../../sleep/store';
 import { useFinanceStore } from '../../finance/store';
+import { useTasksStore } from '../../tasks/store';
 import { useAuth } from '../../../services/AuthProvider';
 import { supabase } from '../../../services/supabaseClient';
 import { RootStackParamList } from '../../../navigation/RootNavigator';
@@ -51,8 +61,10 @@ export default function MainHomeScreen() {
   const navigation = useNavigation<Nav>();
   const days = useHabitStore((s) => s.days);
   const sleepEntries = useSleepStore((s) => s.entries);
-  const { user } = useAuth();
+  const tasks = useTasksStore((s) => s.tasks);
   const transactions = useFinanceStore((s) => s.transactions);
+  const onboardingName = useFinanceStore((s) => s.onboardingName);
+  const { user } = useAuth();
 
   const today = todayKey();
   const ticked = habitsForDay(days, today);
@@ -60,11 +72,21 @@ export default function MainHomeScreen() {
   const progress = dayProgress(ticked, HABITS);
   const pct = Math.round(progress * 100);
 
+  // The current streak per habit (used for the little badge on each dot).
   const streaks = HABITS.map((h) => ({
     ...h,
     streak: habitStreak(h.key, (k) => habitsForDay(days, k)),
   }));
-  const bestStreak = streaks.reduce((m, s) => Math.max(m, s.streak), 0);
+
+  // The all-time best streak — derived from the logged days, no extra data.
+  const bestStreak = useMemo(() => {
+    let best = 0;
+    for (const h of HABITS) {
+      const logged = days.filter((d) => (d.habits || []).includes(h.key)).map((d) => d.day);
+      best = Math.max(best, habitBestStreak(h.key, logged));
+    }
+    return best;
+  }, [days, HABITS]);
 
   const quote = quoteForDate();
   const techniques = stressTechniquesForDate();
@@ -79,8 +101,31 @@ export default function MainHomeScreen() {
     const avg = last7.length > 0
       ? last7.reduce((s, e) => s + sleepDurationHours(e), 0) / last7.length
       : null;
-    return { last, avg, count: sorted.length };
+    // The trend line the reference draws under the sleep total.
+    const trend = [...last7].reverse().map((e) => sleepDurationHours(e));
+    return { last, avg, count: sorted.length, trend };
   }, [sleepEntries]);
+
+  // ---- Tasks due today ----
+  const dueToday = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfDay = startOfDay + 86400000;
+    const todays = tasks.filter((t) => {
+      const d = new Date(t.dueDate).getTime();
+      return d >= startOfDay && d < endOfDay;
+    });
+    const open = todays.filter((t) => !t.completed).sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    );
+    const next = open[0] ?? null;
+    return {
+      openCount: open.length,
+      total: todays.length,
+      done: todays.length - open.length,
+      next,
+    };
+  }, [tasks]);
 
   // ---- AI finance commentary ----
   const [financeComment, setFinanceComment] = useState<FinanceComment | null>(null);
@@ -247,501 +292,481 @@ export default function MainHomeScreen() {
   const principle = PRINCIPLES[principleIndex];
   const principleIcon = PRINCIPLE_ICONS[principleIndex % PRINCIPLE_ICONS.length];
 
+  const dateLabel = new Date()
+    .toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+    .toUpperCase();
+
+  const avatarInitial = (onboardingName || user?.email || '').trim().charAt(0).toUpperCase();
+
+  const sleepBed = sleepInfo.last
+    ? new Date(sleepInfo.last.startTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    : null;
+  const sleepWake = sleepInfo.last
+    ? new Date(sleepInfo.last.endTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    : null;
+
+  const nextTaskTime = dueToday.next
+    ? new Date(dueToday.next.dueDate).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
+    : null;
+
+  const habitColors = [mc.violet, mc.sky, mc.mint, mc.amber];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['rgba(123,142,255,0.10)', 'rgba(94,230,255,0.04)', 'rgba(0,0,0,0)']}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      {/* Top bar — fixed outside the scroll so the drawer trigger never moves */}
-      <View style={styles.appBar}>
-        <DrawerTrigger />
-        <View style={styles.appBarCenter}>
-          <Text style={styles.appBarTitle}>{greeting}</Text>
-          <Text style={styles.appBarSub}>
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </Text>
-        </View>
-        <View style={styles.appBarSide} />
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Daily quote */}
-        <Entrance index={0}>
-          <GlassCard glow="indigo" radius={24} pad={false}>
-            <View style={styles.quoteBody}>
-              <LinearGradient
-                colors={['#8b95ff', '#5ee6ff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.quoteMark}
-              >
-                <Ionicons name="sunny-outline" size={16} color="#0A0A10" />
-              </LinearGradient>
-              <Text style={styles.quoteLabel}>TODAY'S QUOTE</Text>
-              <Text style={styles.quoteText}>"{quote.text}"</Text>
-              <Text style={styles.quoteSource}>— {quote.source}</Text>
+    <Screen bottomInset={120}>
+      {/* Header — date, greeting and the account avatar */}
+      <Rise index={0}>
+        <View style={styles.header}>
+          <DrawerTrigger />
+          <View style={styles.headerText}>
+            <Label small>{dateLabel}</Label>
+            <Text style={styles.greeting}>{greeting}</Text>
+          </View>
+          {avatarInitial ? (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
             </View>
-          </GlassCard>
-        </Entrance>
+          ) : (
+            <View style={styles.avatar} />
+          )}
+        </View>
+      </Rise>
 
-        {/* Habit progress */}
-        <Entrance index={1}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })}>
-            <GlassCard glow={progress >= 1 ? 'teal' : 'indigo'} radius={24}>
-              <View style={styles.habitHeadRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.habitLabel}>HABITS TODAY</Text>
-                  <Text style={styles.habitBig}>{pct}%</Text>
-                  <Text style={styles.habitSub}>
-                    {ticked.length} of {HABITS.length} done
-                    {bestStreak > 0 ? `  ·  best streak ${bestStreak}d 🔥` : ''}
+      {/* The two-column grid: habits / sleep / due today */}
+      <View style={styles.grid}>
+        {/* Habits — the ring card, spanning both rows */}
+        <Rise index={1} style={styles.habitsCell}>
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => navigation.navigate('MoreStack', { screen: 'HabitTracker' })}
+          >
+            <Card style={styles.habitsCard}>
+              <Label>HABITS</Label>
+              <View style={styles.ringWrap}>
+                <Ring progress={progress} size={112} stroke={9} color={mc.red}>
+                  <Text style={styles.ringText}>
+                    {ticked.length}/{HABITS.length}
                   </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={tc.textMuted} />
+                </Ring>
               </View>
-
-              <View style={styles.barTrack}>
-                <LinearGradient
-                  colors={progress >= 1 ? ['#4fdbcc', '#2fd48a'] : ['#8b95ff', '#5ee6ff']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.barFill, { width: `${Math.max(progress * 100, 4)}%` }]}
-                />
-              </View>
-              <Text style={styles.barBlocks}>{progressBlocks(ticked, HABITS)}</Text>
-
-              <View style={styles.quickRow}>
-                {HABITS.map((h) => {
+              <Text style={styles.streakLabel}>Best streak</Text>
+              <Text style={styles.streakValue}>
+                {bestStreak} {bestStreak === 1 ? 'day' : 'days'}
+              </Text>
+              <View style={styles.habitDots}>
+                {HABITS.map((h, i) => {
                   const done = ticked.includes(h.key);
                   const streak = streaks.find((s) => s.key === h.key)?.streak ?? 0;
                   return (
                     <TouchableOpacity
                       key={h.key}
-                      style={[styles.quickDot, done && styles.quickDotDone]}
+                      style={[
+                        styles.habitDot,
+                        done && { backgroundColor: mc.mintDim, borderColor: mc.mint },
+                      ]}
                       onPress={() => useHabitStore.getState().toggleHabit(today, h.key, user?.id)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.quickEmoji}>{h.emoji}</Text>
-                      {streak >= 3 && <View style={styles.streakBadge}><Text style={styles.streakBadgeText}>{streak}</Text></View>}
+                      <Text style={styles.habitEmoji}>{h.emoji}</Text>
+                      {streak >= 3 ? (
+                        <View style={styles.streakBadge}>
+                          <Text style={styles.streakBadgeText}>{streak}</Text>
+                        </View>
+                      ) : null}
                     </TouchableOpacity>
                   );
                 })}
               </View>
-            </GlassCard>
+            </Card>
           </TouchableOpacity>
-        </Entrance>
+        </Rise>
 
-        {/* Sleep info */}
-        <Entrance index={2}>
-          <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })}>
-            <GlassCard glow="cyan" radius={24}>
-              <View style={styles.habitHeadRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sleepLabel}>SLEEP</Text>
-                  {sleepInfo.last ? (
-                    <>
-                      <Text style={styles.sleepBig}>
-                        {formatSleepDuration(sleepDurationHours(sleepInfo.last))}
-                      </Text>
-                      <Text style={styles.habitSub}>
-                        last night · {sleepInfo.count} nights logged
-                        {sleepInfo.avg ? `  ·  7-night avg ${formatSleepDuration(sleepInfo.avg)}` : ''}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.sleepBigNone}>No nights yet</Text>
-                      <Text style={styles.habitSub}>Tap "Going to bed" tonight to start</Text>
-                    </>
-                  )}
-                </View>
-                <View style={styles.moonWrap}>
-                  <Text style={styles.moonEmoji}>{sleepInfo.avg && sleepInfo.avg >= 6.5 ? '🌙✨' : '🌙'}</Text>
-                </View>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-        </Entrance>
-
-        {/* AI finance commentary */}
-        <Entrance index={3}>
-          <GlassCard glow="amber" radius={24} pad={false}>
-            <View style={styles.financeBody}>
-              <View style={styles.financeHead}>
-                <LinearGradient
-                  colors={['#ffd9a0', '#e2a45c']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.financeIcon}
-                >
-                  <Ionicons name="sparkles" size={15} color="#0A0A10" />
-                </LinearGradient>
-                <Text style={styles.financeLabel}>MONEY NOTE · AI</Text>
-                <TouchableOpacity
-                  onPress={() => fetchFinanceComment(true)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  disabled={financeLoading}
-                >
-                  <Ionicons
-                    name={financeLoading ? 'hourglass-outline' : 'refresh'}
-                    size={16}
-                    color={tc.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
-              {financeLoading && !financeComment ? (
-                <View style={styles.financeSkeleton}>
-                  <View style={[styles.skeletonLine, { width: '92%' }]} />
-                  <View style={[styles.skeletonLine, { width: '78%' }]} />
-                  <View style={[styles.skeletonLine, { width: '45%' }]} />
-                </View>
+        {/* Sleep */}
+        <Rise index={2} style={styles.rightCell}>
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })}
+          >
+            <Card style={styles.rightCard}>
+              <Label>SLEEP</Label>
+              {sleepInfo.last ? (
+                <>
+                  <Text style={styles.cardValue}>{formatSleepDuration(sleepDurationHours(sleepInfo.last))}</Text>
+                  {sleepInfo.trend.length > 1 ? (
+                    <Sparkline data={sleepInfo.trend} width={140} height={30} color={mc.violet} />
+                  ) : null}
+                  <View style={styles.footRow}>
+                    <Text style={styles.footText}>{sleepBed}</Text>
+                    <Text style={styles.footText}>{sleepWake}</Text>
+                  </View>
+                </>
               ) : (
-                <Text style={styles.financeText}>
-                  {financeComment?.comment ?? 'Log a few transactions and I\u2019ll comment on your spending.'}
-                </Text>
+                <Text style={styles.cardValueSmall}>No nights yet</Text>
               )}
-            </View>
-          </GlassCard>
-        </Entrance>
+            </Card>
+          </TouchableOpacity>
+        </Rise>
 
-        {/* Stress release techniques */}
-        <Entrance index={4}>
-          <Text style={styles.sectionTitle}>STRESS RELEASE · 2 EASY TECHNIQUES</Text>
-          <View style={styles.techRow}>
-            {techniques.map((t) => (
-              <View key={t.name} style={styles.techCardHalf}>
-                <View style={styles.techIcon}>
-                  <Text style={styles.techEmoji}>{t.emoji}</Text>
-                </View>
-                <Text style={styles.techName}>{t.name}</Text>
-                <Text style={styles.techSteps}>{t.steps}</Text>
+        {/* Due today */}
+        <Rise index={3} style={styles.rightCell}>
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TasksDashboard' } })}
+          >
+            <Card style={styles.rightCard}>
+              <Label>DUE TODAY</Label>
+              <Text style={styles.cardValue}>
+                <Text style={{ color: dueToday.openCount > 0 ? mc.amber : mc.mint }}>
+                  {dueToday.openCount}
+                </Text>
+                {' tasks'}
+              </Text>
+              <Text style={styles.cardSub}>
+                {dueToday.next ? `Next: ${nextTaskTime}` : 'Nothing pending'}
+              </Text>
+              <ProgressBar
+                value={dueToday.total > 0 ? dueToday.done / dueToday.total : 0}
+                color={mc.amber}
+                height={6}
+                style={styles.cardBar}
+              />
+            </Card>
+          </TouchableOpacity>
+        </Rise>
+      </View>
+
+      {/* Today's quote */}
+      <Rise index={4}>
+        <Card style={styles.quoteCard}>
+          <View style={styles.quoteBar} />
+          <View style={styles.quoteBody}>
+            <Label>TODAY'S QUOTE</Label>
+            <Text style={styles.quoteText}>{quote.text}</Text>
+            <Text style={styles.quoteSource}>— {quote.source}</Text>
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Money note (AI) */}
+      <Rise index={5}>
+        <Card tone="mint" style={styles.noteCard}>
+          <View style={styles.noteHead}>
+            <Ionicons name="sparkles" size={13} color={mc.mint} />
+            <Label color={mc.mint} style={styles.noteLabel}>MONEY NOTE</Label>
+            <TouchableOpacity
+              onPress={() => fetchFinanceComment(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              disabled={financeLoading}
+            >
+              <Ionicons
+                name={financeLoading ? 'hourglass-outline' : 'refresh'}
+                size={15}
+                color={mc.mint}
+              />
+            </TouchableOpacity>
+          </View>
+          {financeLoading && !financeComment ? (
+            <View style={styles.skeleton}>
+              <View style={[styles.skeletonLine, { width: '92%' }]} />
+              <View style={[styles.skeletonLine, { width: '78%' }]} />
+              <View style={[styles.skeletonLine, { width: '45%' }]} />
+            </View>
+          ) : (
+            <Text style={styles.noteText}>
+              {financeComment?.comment ?? 'Log a few transactions and I\u2019ll comment on your spending.'}
+            </Text>
+          )}
+        </Card>
+      </Rise>
+
+      {/* Stress release techniques */}
+      <Rise index={6}>
+        <Label style={styles.sectionTitle}>STRESS RELEASE · {techniques.length} EASY TECHNIQUES</Label>
+        <View style={styles.techRow}>
+          {techniques.map((t) => (
+            <View key={t.name} style={styles.techCard}>
+              <IconTile icon="leaf-outline" color={mc.mint} size={34} radius={11} />
+              <Text style={styles.techName}>{t.name}</Text>
+              <Text style={styles.techSteps}>{t.steps}</Text>
+            </View>
+          ))}
+        </View>
+      </Rise>
+
+      {/* Growth principles — auto-rotating carousel */}
+      <Rise index={7}>
+        <Label style={styles.sectionTitle}>GROWTH PRINCIPLES</Label>
+        <View style={styles.carouselWrap}>
+          <Animated.View
+            style={{
+              opacity: carouselAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.35, 0] }),
+              transform: [
+                {
+                  translateX: carouselAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }),
+                },
+              ],
+            }}
+          >
+            <View style={styles.principleCard}>
+              <IconTile icon={principleIcon} color={mc.violet} size={44} radius={15} />
+              <View style={styles.principleText}>
+                <Text style={styles.principleTitle}>{principle.title}</Text>
+                <Text style={styles.principleBody}>{principle.body}</Text>
               </View>
+            </View>
+          </Animated.View>
+          <View style={styles.carouselDots}>
+            {PRINCIPLES.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.carouselDot, i === principleIndex && styles.carouselDotActive]}
+              />
             ))}
           </View>
-        </Entrance>
-
-        {/* Growth principles — auto-rotating carousel */}
-        <Entrance index={5}>
-          <Text style={styles.sectionTitle}>GROWTH PRINCIPLES</Text>
-          <View style={styles.carouselWrap}>
-            <Animated.View
-              style={{
-                opacity: carouselAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.35, 0] }),
-                transform: [
-                  {
-                    translateX: carouselAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }),
-                  },
-                ],
-              }}
-            >
-              <View style={styles.principleCardRow}>
-                <View style={styles.principleIconBig}>
-                  <LinearGradient
-                    colors={['rgba(79,219,204,0.2)', 'rgba(123,142,255,0.12)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <Ionicons name={principleIcon} size={20} color="#4fdbcc" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.principleTitleBig}>{principle.title}</Text>
-                  <Text style={styles.principleBodyBig}>{principle.body}</Text>
-                </View>
-              </View>
-            </Animated.View>
-            {/* dots */}
-            <View style={styles.carouselDots}>
-              {PRINCIPLES.map((_, i) => (
-                <View key={i} style={[styles.carouselDot, i === principleIndex && styles.carouselDotActive]} />
-              ))}
-            </View>
-          </View>
-        </Entrance>
-      </ScrollView>
-    </SafeAreaView>
+        </View>
+      </Rise>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120,
-  },
-  appBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    height: 58,
-    paddingHorizontal: spacing.containerPadding,
+    marginBottom: 6,
   },
-  appBarCenter: { flex: 1, alignItems: 'center' },
-  appBarSide: { width: 42, height: 42 },
-  appBarTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.3,
+  headerText: {
+    flex: 1,
   },
-  appBarSub: {
-    fontSize: 11,
-    color: tc.textMuted,
-    marginTop: 1,
+  greeting: {
+    fontSize: 26,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
   },
-  quoteBody: {
-    padding: 18,
-    gap: 10,
-  },
-  quoteMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: mc.red,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
-  quoteLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(139,149,255,0.85)',
-    letterSpacing: 2,
-  },
-  quoteText: {
+  avatarText: {
     fontSize: 17,
-    fontWeight: '600',
-    color: tc.textPrimary,
-    lineHeight: 24,
-    letterSpacing: -0.2,
+    fontWeight: '500',
+    color: mc.white,
   },
-  quoteSource: {
-    fontSize: 12,
-    color: tc.textMuted,
-    alignSelf: 'flex-end',
-  },
-  habitHeadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  habitLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(139,149,255,0.85)',
-    letterSpacing: 2,
-  },
-  sleepLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(94,230,255,0.85)',
-    letterSpacing: 2,
-  },
-  habitBig: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 2,
-    letterSpacing: -1,
-  },
-  sleepBig: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 2,
-    letterSpacing: -1,
-  },
-  sleepBigNone: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 4,
-    letterSpacing: -0.5,
-  },
-  moonWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(94,230,255,0.08)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(94,230,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moonEmoji: { fontSize: 22 },
-  habitSub: {
-    fontSize: 12,
-    color: tc.textMuted,
-    marginTop: 2,
-  },
-  barTrack: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  barBlocks: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.45)',
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  quickRow: {
+
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginTop: 14,
   },
-  quickDot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  habitsCell: {
+    width: '48%',
+  },
+  rightCell: {
+    width: '48%',
+  },
+  habitsCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  ringWrap: {
+    marginVertical: 12,
+  },
+  ringText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  streakLabel: {
+    fontSize: 13,
+    color: mc.textDim,
+    textAlign: 'center',
+  },
+  streakValue: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  habitDots: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  habitDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: mc.raised,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: mc.track,
   },
-  quickDotDone: {
-    backgroundColor: 'rgba(79,219,204,0.18)',
-    borderColor: 'rgba(79,219,204,0.5)',
+  habitEmoji: {
+    fontSize: 14,
   },
-  quickEmoji: { fontSize: 16 },
   streakBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    minWidth: 16,
-    height: 16,
+    minWidth: 15,
+    height: 15,
     borderRadius: 8,
-    backgroundColor: '#ea6479',
+    backgroundColor: mc.red,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
   streakBadgeText: {
     fontSize: 9,
-    fontWeight: '800',
-    color: '#fff',
+    fontWeight: '700',
+    color: mc.white,
   },
-  financeBody: { padding: 18, gap: 10 },
-  financeHead: {
+
+  rightCard: {
+    flex: 1,
+    minHeight: 128,
+    justifyContent: 'flex-start',
+  },
+  cardValue: {
+    fontSize: 24,
+    fontWeight: '500',
+    color: mc.text,
+    marginVertical: 4,
+  },
+  cardValueSmall: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.textDim,
+    marginVertical: 4,
+  },
+  cardSub: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  cardBar: {
+    marginTop: 10,
+  },
+  footRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  footText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+
+  quoteCard: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quoteBar: {
+    width: 4,
+    borderRadius: 2,
+    backgroundColor: mc.red,
+  },
+  quoteBody: {
+    flex: 1,
+  },
+  quoteText: {
+    fontSize: 15,
+    color: mc.text,
+    lineHeight: 22,
+    marginTop: 6,
+  },
+  quoteSource: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 6,
+  },
+
+  noteCard: {
+    padding: 14,
+  },
+  noteHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
-  financeIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  financeLabel: {
+  noteLabel: {
     flex: 1,
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(226,164,92,0.9)',
-    letterSpacing: 2,
   },
-  financeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: tc.textPrimary,
+  noteText: {
+    fontSize: 13,
+    color: '#CFEFE4',
     lineHeight: 20,
+    marginTop: 6,
   },
-  financeSkeleton: {
+  skeleton: {
     gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   skeletonLine: {
-    height: 13,
-    borderRadius: 7,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
+
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
-    letterSpacing: 2,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   techRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  techCardHalf: {
+  techCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: rounded.lg,
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
     padding: 14,
     gap: 8,
     alignItems: 'flex-start',
   },
-  techIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(94,230,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  techEmoji: { fontSize: 15 },
   techName: {
     fontSize: 13,
-    fontWeight: '700',
-    color: tc.textPrimary,
+    fontWeight: '500',
+    color: mc.text,
   },
   techSteps: {
     fontSize: 11,
-    color: tc.textMuted,
+    color: mc.textDim,
     lineHeight: 16,
   },
+
   carouselWrap: {
     gap: 12,
   },
-  principleCardRow: {
+  principleCard: {
     flexDirection: 'row',
     gap: 14,
-    backgroundColor: 'rgba(79,219,204,0.06)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(79,219,204,0.25)',
-    borderRadius: rounded.xl,
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
     padding: 18,
     minHeight: 108,
     alignItems: 'center',
   },
-  principleIconBig: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(79,219,204,0.3)',
-    overflow: 'hidden',
+  principleText: {
+    flex: 1,
   },
-  principleTitleBig: {
+  principleTitle: {
     fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    fontWeight: '500',
+    color: mc.text,
   },
-  principleBodyBig: {
+  principleBody: {
     fontSize: 12.5,
-    color: tc.textMuted,
+    color: mc.textDim,
     lineHeight: 18,
     marginTop: 4,
   },
@@ -754,10 +779,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: mc.track,
   },
   carouselDotActive: {
-    backgroundColor: '#4fdbcc',
+    backgroundColor: mc.mint,
     width: 18,
   },
 });

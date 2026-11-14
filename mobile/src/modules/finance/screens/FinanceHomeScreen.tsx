@@ -1,73 +1,85 @@
 /**
- * FinanceHomeScreen � finance home tab: net-worth hero, spend/card stats,
- * expense-distribution donut and recent transactions.
+ * FinanceHomeScreen — the Finance tab.
+ *
+ * Restyled to the Meridian v2 reference: a net-worth hero with a trend
+ * chart, a tile grid, a budget gauge, a credit-card bill panel, a weekly
+ * spend bar chart and the top categories. Every existing destination
+ * (balance summary, monthly spend, credit cards, bank accounts, lent and
+ * borrowed, fixed expenses, wallet loads, reports, all transactions) is
+ * still reachable.
  */
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Easing,
   StyleSheet,
   Text,
-  View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
-  Easing,
+  View,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, G as SvgG, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G as SvgG, LinearGradient, Stop } from 'react-native-svg';
 
-import { colors } from '../../../shared/theme/colors';
-import GlassCard from '../../../shared/components/GlassCard';
-import Entrance from '../../../shared/components/Entrance';
-import GlowText from '../../../shared/components/GlowText';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  BarChart,
+  Card,
+  CountUp,
+  Label,
+  LineChart,
+  PressScale,
+  ProgressBar,
+  RangeChips,
+  Rise,
+  Screen,
+  SemicircleGauge,
+  StatTile,
+} from '../../../shared/components/meridian';
 import DrawerTrigger from '../../../shared/components/DrawerTrigger';
-import { useFinanceStore, getMinBalanceForAccount } from '../store';
-import { FinanceStackParamList } from '../../../navigation/RootNavigator';
-import { useGarageStore } from '../../garage/store';
-import { processSyncQueue } from '../../../services/syncQueue';
-import { useFinanceSync } from '../hooks/useFinanceSync';
 import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
+import { useFinanceStore, getMinBalanceForAccount } from '../store';
+import { useGarageStore } from '../../garage/store';
+import { useInvestmentsStore } from '../../equity/store';
 import { useAuth } from '../../../services/AuthProvider';
+import { processSyncQueue } from '../../../services/syncQueue';
 
-type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'FinanceHome'>;
+type Nav = NativeStackNavigationProp<any>;
+
+const CATEGORY_COLORS = [mc.red, mc.amber, mc.sky, mc.violet, mc.mint, mc.redSoft];
 
 export default function FinanceHomeScreen() {
-  const navigation = useNavigation<NavigationProp>();
-  const garageFills = useGarageStore((s) => s.fills);
-  // Mounts the finance sync hook � pulls cloud data into the store on mount
-  // (critical on fresh installs, where the local store is empty)
-  useFinanceSync();
+  const navigation = useNavigation<Nav>();
   const {
     transactions,
     cards,
     receivables,
     accounts,
+    wallets,
     fixedExpenses,
     notifications,
+    monthlyBudget,
     getTotalBalance,
+    getWalletTotal,
     getMonthlyExpenses,
     deleteTransaction,
   } = useFinanceStore();
+  const garageFills = useGarageStore((s) => s.fills);
+  const snapshots = useInvestmentsStore((s) => s.snapshots);
+  const todayPnL = useInvestmentsStore((s) => s.getTodayPnL());
   const { user } = useAuth();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   useFocusEffect(
-    useCallback(() => {
-      processSyncQueue().catch((e: Error) => console.warn('[FinanceHome] syncQueue flush failed:', e));
+    React.useCallback(() => {
+      processSyncQueue();
     }, [])
   );
 
-  // Reminders are scheduled once at app boot (App.tsx). Re-scheduling on
-  // every mount caused cancel-all + reschedule churn and duplicate pops.
+  const unreadCount = notifications.filter((n: any) => !n.read).length;
 
-  // Donut entrance: spins in with a soft fade once on mount.
+  // ---- Donut entrance (kept from the original screen) ----
   const donutAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(donutAnim, {
@@ -80,35 +92,82 @@ export default function FinanceHomeScreen() {
   const donutRotate = donutAnim.interpolate({ inputRange: [0, 1], outputRange: ['-90deg', '0deg'] });
   const donutOpacity = donutAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
+  // ---- Money ----
   const totalBalance = getTotalBalance();
-  const totalMinBalance = accounts.reduce((sum: number, acc: any) => sum + getMinBalanceForAccount(acc.title), 0);
+  const totalMinBalance = accounts.reduce(
+    (sum: number, acc: any) => sum + getMinBalanceForAccount(acc.title),
+    0
+  );
   const effectiveBalance = totalBalance - totalMinBalance;
   const monthlyExpenses = getMonthlyExpenses();
+  const walletTotal = getWalletTotal();
+  const accountsTotal = totalBalance - walletTotal;
 
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const chartMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Dynamic calculations from user backup lists
-  const totalLent = receivables.filter((r: any) => r.type === 'lent').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
-  const totalBorrowed = receivables.filter((r: any) => r.type === 'borrowed').reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
+  const totalLent = receivables
+    .filter((r: any) => r.type === 'lent')
+    .reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
+  const totalBorrowed = receivables
+    .filter((r: any) => r.type === 'borrowed')
+    .reduce((acc: number, r: any) => acc + (r.amount - (r.paidAmount || 0)), 0);
   const cardOutstandingTotal = cards.reduce((acc: number, c: any) => acc + c.balance, 0);
   const unpaidFixedExpensesTotal = fixedExpenses
     .filter((f: any) => f.lastPaidMonth !== currentMonthStr)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
 
   const payzappMonthlyLoad = transactions
-    .filter((tx: any) =>
-      tx.type === 'expense' &&
-      (tx.category?.toLowerCase() === 'wallet loads' || tx.category?.toLowerCase() === 'wallet load' ||
-       tx.notes?.toLowerCase().includes('payzapp wallet'))
+    .filter(
+      (tx: any) =>
+        tx.type === 'expense' &&
+        (tx.category?.toLowerCase() === 'wallet loads' ||
+          tx.category?.toLowerCase() === 'wallet load' ||
+          tx.notes?.toLowerCase().includes('payzapp wallet'))
     )
     .filter((tx: any) => new Date(tx.date) >= new Date(now.getFullYear(), now.getMonth(), 1))
     .reduce((sum: number, tx: any) => sum + tx.amount, 0);
-  // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
-  const totalNetWorth = effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
 
-  // Dynamic category calculations for Expense Distribution
+  // User Formula: bank balance - min. balances + lent - borrow - fixed expenses - credit card bills
+  const totalNetWorth =
+    effectiveBalance + totalLent - totalBorrowed - unpaidFixedExpensesTotal - cardOutstandingTotal;
+
+  // ---- Portfolio trend (real snapshots) ----
+  const [range, setRange] = useState('1M');
+  const trendSeries = useMemo(() => {
+    if (snapshots.length === 0) return [] as number[];
+    const sorted = [...snapshots].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const days = range === '1W' ? 7 : range === '1M' ? 30 : range === '3M' ? 90 : 365;
+    const cutoff = Date.now() - days * 86400000;
+    const filtered = sorted.filter((s) => new Date(s.date).getTime() >= cutoff);
+    const picked = filtered.length > 1 ? filtered : sorted.slice(-2);
+    return picked.map((s) => s.totalValue / 100);
+  }, [snapshots, range]);
+
+  // ---- Weekly spend (real transactions) ----
+  const weekData = useMemo(() => {
+    const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    const buckets = new Array(7).fill(0);
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6).getTime();
+    for (const tx of transactions) {
+      if (tx.type !== 'expense') continue;
+      const t = new Date(tx.date).getTime();
+      if (t < start) continue;
+      const dayIdx = Math.floor((t - start) / 86400000);
+      if (dayIdx < 0 || dayIdx > 6) continue;
+      buckets[dayIdx] += tx.amount / 100;
+    }
+    return buckets.map((value, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + i);
+      return { label: labels[d.getDay()], value, isToday: i === 6 };
+    });
+  }, [transactions, now.getTime()]);
+  const weekTotal = weekData.reduce((s, d) => s + d.value, 0);
+
+  // ---- Dynamic category calculations for the expense distribution ----
   const EXCLUDED_CHART_CATEGORIES = [
     'Rent', 'SIP', 'Investments', 'Housing', 'Wallet Loads', 'Wallet Load',
     ...fixedExpenses.map((f: any) => f.name),
@@ -119,31 +178,50 @@ export default function FinanceHomeScreen() {
     (tx: any) =>
       (tx.type === 'expense' || tx.type === 'vehicle_service') &&
       tx.type !== 'fixed_expense' &&
-      !EXCLUDED_CHART_CATEGORIES.some(cat =>
-        cat.toLowerCase() === (tx.category || '').toLowerCase()
+      !EXCLUDED_CHART_CATEGORIES.some(
+        (cat) => cat.toLowerCase() === (tx.category || '').toLowerCase()
       ) &&
       new Date(tx.date) >= monthStart &&
       new Date(tx.date) < nextMonthStart
   );
   const fuelFillAmount = garageFills
-    .filter((f: any) => new Date(f.date) >= monthStart && new Date(f.date) < nextMonthStart)
+    .filter((f) => new Date(f.date) >= monthStart && new Date(f.date) < nextMonthStart)
     .reduce((sum: number, f: any) => sum + f.amount, 0);
-  const totalExpense = expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0) + fuelFillAmount;
+  const totalExpense =
+    expenseTxs.reduce((sum: number, tx: any) => sum + tx.amount, 0) + fuelFillAmount;
 
   const categoryTotals: { [key: string]: number } = {};
   expenseTxs.forEach((tx: any) => {
     categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
   });
-
   if (fuelFillAmount > 0) {
     categoryTotals['Fuel'] = (categoryTotals['Fuel'] || 0) + fuelFillAmount;
   }
 
-  const categoriesSorted = Object.keys(categoryTotals).map((cat: string) => ({
-    name: cat,
-    amount: categoryTotals[cat],
-    percentage: totalExpense > 0 ? (categoryTotals[cat] / totalExpense) * 100 : 0,
-  })).sort((a: any, b: any) => b.amount - a.amount); 
+  const categoriesSorted = Object.keys(categoryTotals)
+    .map((cat: string) => ({
+      name: cat,
+      amount: categoryTotals[cat],
+      percentage: totalExpense > 0 ? (categoryTotals[cat] / totalExpense) * 100 : 0,
+    }))
+    .sort((a: any, b: any) => b.amount - a.amount);
+
+  // ---- Credit cards ----
+  const nextCard = cards
+    .filter((c: any) => c.dueDate)
+    .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+  const totalLimit = cards.reduce((s: number, c: any) => s + (c.cardLimit ?? 0), 0);
+  const cardUtilPct = totalLimit > 0 ? Math.min(1, cardOutstandingTotal / totalLimit) : 0;
+  const cardDaysLeft = nextCard
+    ? Math.max(
+        0,
+        Math.ceil((new Date(nextCard.dueDate).getTime() - Date.now()) / 86400000)
+      )
+    : 0;
+
+  // ---- Budget ----
+  const budgetPaise = (monthlyBudget ?? 0) * 100;
+  const budgetPct = budgetPaise > 0 ? Math.min(1, monthlyExpenses / budgetPaise) : 0;
 
   const formatCurrency = (paise: number) => {
     const rupees = paise / 100;
@@ -169,574 +247,583 @@ export default function FinanceHomeScreen() {
     return `₹${Math.round(rupees).toLocaleString('en-IN')}`;
   };
 
-
+  const donutSegments = categoriesSorted.slice(0, 6);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['rgba(123,142,255,0.09)', 'rgba(0,0,0,0)']}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      {/* Top App Bar — fixed outside the scroll so the drawer trigger never moves */}
-      <View style={styles.appBar}>
-        <View style={styles.appBarSide}>
-          <DrawerTrigger />
-        </View>
-        <Text style={styles.appBarTitle}>MERIDIAN</Text>
-        <TouchableOpacity
-          style={styles.appBarBtn}
-          onPress={() => (navigation as any).navigate('Notifications')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
-          {unreadCount > 0 && <View style={styles.notifDot} />}
-        </TouchableOpacity>
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Section: Total Net Worth */}
-        <Entrance index={0}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('BalanceSummary')}
-            activeOpacity={0.9}
-          >
-            <GlassCard glow={totalNetWorth < 0 ? 'pink' : 'indigo'} radius={32} pad={false}>
-              <View style={styles.heroBody}>
-                <Text style={styles.heroLabel}>TOTAL NET WORTH</Text>
-                <GlowText
-                  glow={totalNetWorth < 0 ? 'pink' : 'indigo'}
-                  size={42}
-                  weight="800"
-                >
-                  {formatCurrency(totalNetWorth)}
-                </GlowText>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-        </Entrance>
-
-        {/* Primary Cards Grid */}
-        <Entrance index={1}>
-        <View style={styles.grid2}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('MonthlySpend')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="pink" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#ffb2b9', '#ea6479']} style={styles.statIconChip}>
-                  <Ionicons name="pricetags-outline" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="pink" size={26} weight="700">{formatCompact(monthlyExpenses)}</GlowText>
-                <Text style={styles.statLabel}>Monthly Spends</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('CreditCards')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="cyan" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#5ee6ff', '#00a8d6']} style={styles.statIconChip}>
-                  <Ionicons name="receipt-outline" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="cyan" size={26} weight="700">{formatCompact(cardOutstandingTotal)}</GlowText>
-                <Text style={styles.statLabel}>CC Bills</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('BankAccounts')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="teal" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#ea6479', '#ffb2b9']} style={styles.statIconChip}>
-                  <Ionicons name="business-outline" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="teal" size={26} weight="700">{formatCompact(totalBalance)}</GlowText>
-                <Text style={styles.statLabel}>Bank Acc</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('LentBorrowed')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="indigo" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#d0bcff', '#7b8eff']} style={styles.statIconChip}>
-                  <Ionicons name="people-outline" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="indigo" size={26} weight="700">{formatCompact(totalLent)}</GlowText>
-                <Text style={styles.statLabel}>Net Lent/Debit</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-        </View>
-        </Entrance>
-
-        {/* Fixed Exp + Wallets */}
-        <Entrance index={2}>
-        <View style={styles.grid2}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('FixedExpenses')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="amber" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#ffd9a0', '#e2a45c']} style={styles.statIconChip}>
-                  <Ionicons name="lock-closed-outline" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="amber" size={26} weight="700">{formatCompact(unpaidFixedExpensesTotal)}</GlowText>
-                <Text style={styles.statLabel}>Fixed Exp</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate('PayzappWallet')}
-            activeOpacity={0.85}
-          >
-            <GlassCard glow="cyan" radius={28} pad={false} style={styles.statCardInner}>
-              <View style={styles.statBody}>
-                <LinearGradient colors={['#00cbe6', '#007d8f']} style={styles.statIconChip}>
-                  <Ionicons name="wallet" size={18} color="#fff" />
-                </LinearGradient>
-                <GlowText glow="cyan" size={26} weight="700">{formatCompact(payzappMonthlyLoad)}</GlowText>
-                <Text style={styles.statLabel}>Wallets</Text>
-              </View>
-            </GlassCard>
-          </TouchableOpacity>
-        </View>
-        </Entrance>
-
-        {/* Expense Distribution */}
-        <Entrance index={3}>
-        <TouchableOpacity
-          style={styles.distributionPanel}
-          onPress={() => navigation.navigate('FinanceReports')}
-          activeOpacity={0.95}
-        >
-          <GlassCard glow="indigo" radius={28} pad>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Expense Distribution</Text>
-            </View>
-
-          <View style={styles.distributionContent}>
-            <View style={styles.donutSvgWrap}>
-              <Animated.View
-                style={{ opacity: donutOpacity, transform: [{ rotate: donutRotate }] }}
-              >
-                <Svg width={140} height={140} viewBox="0 0 100 100">
-                <Defs>
-                  <SvgGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#ffb2b9" />
-                    <Stop offset="100%" stopColor="#d0bcff" />
-                  </SvgGradient>
-                  <SvgGradient id="gradTeal" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#5ee6ff" />
-                    <Stop offset="100%" stopColor="#00cbe6" />
-                  </SvgGradient>
-                  <SvgGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#ea6479" />
-                    <Stop offset="100%" stopColor="#ffdadc" />
-                  </SvgGradient>
-                </Defs>
-
-                {/* Background track */}
-                <Circle
-                  cx={50}
-                  cy={50}
-                  r={40}
-                  stroke="rgba(255,255,255,0.05)"
-                  strokeWidth={8}
-                  fill="none"
-                />
-
-                {categoriesSorted.length > 0 && (() => {
-                  const R = 40;
-                  const strokeW = 8;
-                  const cx = 50;
-                  const cy = 50;
-                  const circumference = 2 * Math.PI * R;
-                  const gap = 2.5;
-                  const gradients = ['url(#gradPink)', 'url(#gradTeal)', 'url(#gradOrange)'];
-                  let cumulativeDeg = 0;
-                  return categoriesSorted.map((cat, i) => {
-                    const pct = cat.percentage / 100;
-                    const segLen = Math.max(pct * circumference - gap, 0.8);
-                    const deg = cumulativeDeg;
-                    cumulativeDeg += pct * 360;
-                    return (
-                      <SvgG key={cat.name} rotation={deg} origin={`${cx}, ${cy}`}>
-                        <Circle
-                          cx={cx}
-                          cy={cy}
-                          r={R}
-                          stroke={gradients[i % gradients.length]}
-                          strokeWidth={strokeW}
-                          strokeDasharray={`${segLen} ${circumference - segLen}`}
-                          strokeDashoffset={circumference * 0.25}
-                          fill="none"
-                          strokeLinecap="round"
-                        />
-                      </SvgG>
-                    );
-                  });
-                })()}
-              </Svg>
-              </Animated.View>
-              {categoriesSorted.length > 0 ? (
-                <View style={styles.donutCenter}>
-                  <Text
-                    style={styles.donutVal}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.6}
-                  >
-                    {formatCurrency(totalExpense)}
-                  </Text>
-                  <Text style={styles.donutSub}>TOTAL</Text>
-                </View>
-              ) : (
-                <View style={styles.donutCenter}>
-                  <Text style={styles.donutSub}>NO DATA</Text>
-                </View>
-              )}
-            </View>
-
-            {categoriesSorted.length > 0 && (
-              <View style={styles.legendContainer}>
-                {categoriesSorted.slice(0, 3).map((cat, i) => {
-                  const gradientColors = ['#ffb2b9', '#5ee6ff', '#ea6479'];
-                  return (
-                    <View key={cat.name} style={styles.legendItem}>
-                      <View style={styles.legendLeft}>
-                        <View style={[styles.legendDot, { backgroundColor: gradientColors[i % gradientColors.length] }]} />
-                        <Text style={styles.legendName} numberOfLines={1}>{cat.name}</Text>
-                      </View>
-                      <Text style={styles.legendPct}>{cat.percentage.toFixed(0)}%</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+    <Screen bottomInset={120}>
+      {/* Top bar */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <View style={styles.appBarSide}>
+            <DrawerTrigger />
           </View>
-          </GlassCard>
-        </TouchableOpacity>
-        </Entrance>
+          <Text style={styles.appBarTitle}>Finance</Text>
+          <TouchableOpacity
+            style={styles.appBarBtn}
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.8}
+            accessibilityLabel="Notifications"
+          >
+            <Ionicons name="notifications-outline" size={20} color={mc.text} />
+            {unreadCount > 0 ? <View style={styles.notifDot} /> : null}
+          </TouchableOpacity>
+        </View>
+      </Rise>
 
-        {/* Recent Transactions */}
-        <Entrance index={4}>
-        <GlassCard radius={28} pad={false}>
+      {/* Total net worth */}
+      <Rise index={1}>
+        <PressScale onPress={() => navigation.navigate('BalanceSummary')} scale={0.99}>
+          <Card>
+            <Label>TOTAL NET WORTH</Label>
+            <View style={styles.heroRow}>
+              <CountUp
+                value={totalNetWorth / 100}
+                format={(n) => `₹${Math.round(n).toLocaleString('en-IN')}`}
+                style={styles.heroValue}
+              />
+              <View style={styles.heroChip}>
+                <Ionicons
+                  name={todayPnL >= 0 ? 'arrow-up' : 'arrow-down'}
+                  size={11}
+                  color={todayPnL >= 0 ? mc.mint : mc.redSoft}
+                />
+                <Text style={[styles.heroChipText, { color: todayPnL >= 0 ? mc.mint : mc.redSoft }]}>
+                  {formatCompact(Math.abs(todayPnL))} today
+                </Text>
+              </View>
+            </View>
+            {trendSeries.length > 1 ? (
+              <>
+                <LineChart
+                  data={trendSeries}
+                  width={280}
+                  height={80}
+                  color={mc.red}
+                  area
+                  style={styles.heroChart}
+                />
+                <RangeChips
+                  options={['1W', '1M', '3M', '1Y']}
+                  value={range}
+                  onChange={setRange}
+                />
+              </>
+            ) : null}
+          </Card>
+        </PressScale>
+      </Rise>
+
+      {/* Money tiles */}
+      <View style={styles.tileGrid}>
+        <Rise index={2}>
+          <StatTile
+            icon="business-outline"
+            color={mc.sky}
+            value={formatCompact(accountsTotal)}
+            label="BANK"
+            onPress={() => navigation.navigate('BankAccounts')}
+          />
+        </Rise>
+        <Rise index={3}>
+          <StatTile
+            icon="wallet-outline"
+            color={mc.violet}
+            value={formatCompact(walletTotal)}
+            label="WALLETS"
+            onPress={() => navigation.navigate('PayzappWallet')}
+          />
+        </Rise>
+        <Rise index={4}>
+          <StatTile
+            icon="people-outline"
+            color={mc.amber}
+            value={formatCompact(totalLent)}
+            label="LENT"
+            onPress={() => navigation.navigate('LentBorrowed')}
+          />
+        </Rise>
+        <Rise index={5}>
+          <StatTile
+            icon="receipt-outline"
+            color={mc.mint}
+            value={formatCompact(unpaidFixedExpensesTotal)}
+            label="FIXED"
+            onPress={() => navigation.navigate('FixedExpenses')}
+          />
+        </Rise>
+      </View>
+
+      {/* Budget + credit card bills */}
+      <View style={styles.twoUp}>
+        <Rise index={6} style={styles.flexCell}>
+          <PressScale onPress={() => navigation.navigate('MonthlySpend')} scale={0.98}>
+            <Card style={styles.gaugeCard}>
+              <Label>BUDGET</Label>
+              <View style={styles.gaugeWrap}>
+                <SemicircleGauge
+                  progress={budgetPct}
+                  width={132}
+                  height={70}
+                  stroke={11}
+                  color={budgetPct >= 1 ? mc.red : mc.amber}
+                  trackColor={mc.track}
+                />
+                <View style={styles.gaugeValueWrap}>
+                  <Text style={styles.gaugeValue}>{formatCompact(monthlyExpenses)}</Text>
+                </View>
+              </View>
+              <Text style={styles.gaugeFoot}>
+                {budgetPaise > 0
+                  ? `of ${formatCompact(budgetPaise)} spent`
+                  : 'No budget set'}
+              </Text>
+            </Card>
+          </PressScale>
+        </Rise>
+
+        <Rise index={7} style={styles.flexCell}>
+          <PressScale onPress={() => navigation.navigate('CreditCards')} scale={0.98}>
+            <Card style={styles.gaugeCard}>
+              <Label>CC BILLS</Label>
+              <Text style={styles.billValue}>{formatCompact(cardOutstandingTotal)}</Text>
+              <Text style={styles.billFoot}>
+                {nextCard ? `Next due ${new Date(nextCard.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'No card due'}
+              </Text>
+              <ProgressBar
+                value={cardUtilPct}
+                color={mc.redSoft}
+                height={8}
+                style={styles.billBar}
+              />
+              <Text style={styles.billFootSmall}>
+                {cardDaysLeft > 0 ? `${cardDaysLeft} days left` : 'due now'}
+              </Text>
+            </Card>
+          </PressScale>
+        </Rise>
+      </View>
+
+      {/* This week */}
+      <Rise index={8}>
+        <Card>
+          <View style={styles.rowBetween}>
+            <Label>THIS WEEK</Label>
+            <Text style={styles.rowValue}>{formatCurrency(Math.round(weekTotal * 100))}</Text>
+          </View>
+          <BarChart
+            data={weekData.map((d, i) => ({
+              label: d.label,
+              value: d.value,
+              color: d.isToday ? mc.red : mc.barDim,
+            }))}
+            width={300}
+            height={96}
+            style={styles.weekChart}
+          />
+          <View style={styles.weekLabels}>
+            {weekData.map((d, i) => (
+              <Text key={`${d.label}-${i}`} style={[styles.weekLabel, d.isToday && styles.weekLabelToday]}>
+                {d.label}
+              </Text>
+            ))}
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Top categories + the expense donut */}
+      <Rise index={9}>
+        <PressScale onPress={() => navigation.navigate('FinanceReports')} scale={0.99}>
+          <Card>
+            <Label>TOP CATEGORIES</Label>
+            {categoriesSorted.length === 0 ? (
+              <Text style={styles.emptyText}>No spending recorded this month yet.</Text>
+            ) : (
+              <>
+                <View style={styles.donutRow}>
+                  <View style={styles.donutWrap}>
+                    <Svg width={116} height={116} viewBox="0 0 100 100">
+                      <Defs>
+                        {CATEGORY_COLORS.map((c, i) => (
+                          <LinearGradient key={c} id={`finGrad${i}`} x1="0" y1="0" x2="1" y2="1">
+                            <Stop offset="0" stopColor={c} stopOpacity="0.95" />
+                            <Stop offset="1" stopColor={c} stopOpacity="0.55" />
+                          </LinearGradient>
+                        ))}
+                      </Defs>
+                      <Circle cx="50" cy="50" r="40" fill="none" stroke={mc.track} strokeWidth="8" />
+                      <Animated.View style={{ opacity: donutOpacity, transform: [{ rotate: donutRotate }] }}>
+                        <SvgG rotation={0} origin="50, 50">
+                          {(() => {
+                            const circumference = 2 * Math.PI * 40;
+                            let offset = 0;
+                            return donutSegments.map((cat, i) => {
+                              const pct = totalExpense > 0 ? cat.amount / totalExpense : 0;
+                              const segLen = Math.max(circumference * pct - 2.5, 0.8);
+                              const el = (
+                                <Circle
+                                  key={cat.name + i}
+                                  cx="50"
+                                  cy="50"
+                                  r="40"
+                                  fill="none"
+                                  stroke={`url(#finGrad${i})`}
+                                  strokeWidth="8"
+                                  strokeDasharray={`${segLen} ${circumference}`}
+                                  strokeDashoffset={-offset}
+                                />
+                              );
+                              offset += segLen + 2.5;
+                              return el;
+                            });
+                          })()}
+                        </SvgG>
+                      </Animated.View>
+                    </Svg>
+                    <View style={styles.donutCenter}>
+                      <Text style={styles.donutTotal}>{formatCompact(totalExpense)}</Text>
+                      <Text style={styles.donutCaption}>this month</Text>
+                    </View>
+                  </View>
+                </View>
+                {categoriesSorted.slice(0, 4).map((cat: any, i: number) => (
+                  <View key={cat.name} style={styles.catRow}>
+                    <Text style={styles.catName} numberOfLines={1}>
+                      {cat.name}
+                    </Text>
+                    <View style={styles.catTrack}>
+                      <View
+                        style={[
+                          styles.catFill,
+                          {
+                            width: `${Math.max(3, cat.percentage)}%`,
+                            backgroundColor: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.catPct}>{Math.round(cat.percentage)}%</Text>
+                  </View>
+                ))}
+              </>
+            )}
+          </Card>
+        </PressScale>
+      </Rise>
+
+      {/* Recent transactions */}
+      <Rise index={10}>
+        <Card pad={false}>
           <View style={styles.listPanel}>
             <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Recent Transactions</Text>
-              {transactions.length > 5 && (
+              <Text style={styles.panelTitle}>RECENT TRANSACTIONS</Text>
+              {transactions.length > 5 ? (
                 <TouchableOpacity onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.7}>
-                  <Text style={styles.viewAllBtn}>View All</Text>
+                  <Text style={styles.viewAllBtn}>View all</Text>
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
-          <View style={styles.cardRows}>
-            {(() => {
-              const filteredTxs = transactions.filter(
-                (tx: any) => tx.category !== 'Wallet Loads' && tx.category !== 'Wallet Load' && tx.type !== 'fuel_purchase' && tx.type !== 'credit_card_bill'
-              );
-              const fuelPseudoTxs: any[] = garageFills.map((f) => ({
-                id: `fill-${f.id}`,
-                type: 'expense',
-                amount: f.amount,
-                category: 'Fuel',
-                notes: `${Number(f.liters).toFixed(2)}L Fuel`,
-                date: f.date,
-                source: 'manual',
-              }));
-              const combined = [...filteredTxs, ...fuelPseudoTxs]
-                .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .slice(0, 4);
+            <View style={styles.cardRows}>
+              {(() => {
+                const filteredTxs = transactions.filter(
+                  (tx: any) =>
+                    tx.category !== 'Wallet Loads' &&
+                    tx.category !== 'Wallet Load' &&
+                    tx.type !== 'fuel_purchase' &&
+                    tx.type !== 'credit_card_bill'
+                );
+                const fuelPseudoTxs: any[] = garageFills.map((f) => ({
+                  id: `fill-${f.id}`,
+                  type: 'expense',
+                  amount: f.amount,
+                  category: 'Fuel',
+                  notes: `${Number(f.liters).toFixed(2)}L Fuel`,
+                  date: f.date,
+                  source: 'manual',
+                }));
+                const combined = [...filteredTxs, ...fuelPseudoTxs]
+                  .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 4);
 
-              return combined.map((tx: any) => (
-                <ExpandableTransactionCard
-                  key={tx.id}
-                  tx={tx}
-                  formatAmount={formatCurrencyDetailed}
-                  onPressEdit={() => {
-                    if (tx.id?.startsWith('fill-')) {
-                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: tx.id.replace('fill-', '') } });
-                    } else {
-                      navigation.navigate('EditTransaction', { transactionId: tx.id });
-                    }
-                  }}
-                  onPressDelete={() => {
-                    const isFill = tx.id?.startsWith('fill-');
-                    const { useGarageStore: garageStore } = require('../../garage/store');
-                    Alert.alert(
-                      'Delete Transaction',
-                      `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}?`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: () => {
-                            if (isFill) {
-                              garageStore.getState().deleteFuelFill(tx.id.replace('fill-', ''), user?.id);
-                            } else {
-                              deleteTransaction(tx.id, user?.id);
-                            }
+                return combined.map((tx: any) => (
+                  <ExpandableTransactionCard
+                    key={tx.id}
+                    tx={tx}
+                    formatAmount={formatCurrencyDetailed}
+                    onPressEdit={() => {
+                      if (tx.id?.startsWith('fill-')) {
+                        navigation.navigate('GarageTab' as any, {
+                          screen: 'EditFuelFill',
+                          params: { fillId: tx.id.replace('fill-', '') },
+                        });
+                      } else {
+                        navigation.navigate('EditTransaction', { transactionId: tx.id });
+                      }
+                    }}
+                    onPressDelete={() => {
+                      const isFill = tx.id?.startsWith('fill-');
+                      const { useGarageStore: garageStore } = require('../../garage/store');
+                      Alert.alert(
+                        'Delete Transaction',
+                        `Delete "${tx.notes || tx.category}" for ${formatCurrencyDetailed(tx.amount)}?`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: () => {
+                              if (isFill) {
+                                garageStore
+                                  .getState()
+                                  .deleteFuelFill(tx.id.replace('fill-', ''), user?.id);
+                              } else {
+                                deleteTransaction(tx.id, user?.id);
+                              }
+                            },
                           },
-                        },
-                      ]
-                    );
-                  }}
-                />
-              ));
-            })()}
+                        ]
+                      );
+                    }}
+                  />
+                ));
+              })()}
+            </View>
           </View>
-          </View>
-          </GlassCard>
-        </Entrance>
-      </ScrollView>
-    </SafeAreaView>
+        </Card>
+      </Rise>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 120,
-    gap: 16,
-  },
   appBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 58,
-    paddingHorizontal: 24,
+    height: 52,
   },
   appBarSide: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
   },
   appBarTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
+    fontSize: 26,
+    fontWeight: '500',
+    color: mc.text,
   },
   appBarBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   notifDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
+    top: 9,
+    right: 10,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: mc.red,
   },
-  heroBody: {
-    padding: 26,
+
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  heroValue: {
+    fontSize: 36,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  heroChip: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: mc.mintDim,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  grid2: {
+  heroChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  heroChart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
+  },
+
+  tileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 10,
   },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 2,
-    textAlign: 'center',
+  twoUp: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    aspectRatio: 1,
-  },
-  statCardInner: {
+  flexCell: {
     flex: 1,
   },
-  statBody: {
-    flex: 1,
+
+  gaugeCard: {
+    minHeight: 148,
+    justifyContent: 'flex-start',
+  },
+  gaugeWrap: {
+    marginTop: 6,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 14,
   },
-  statIconChip: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
+  gaugeValueWrap: {
+    position: 'absolute',
+    top: 32,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  statLabel: {
-    fontSize: 12,
+  gaugeValue: {
+    fontSize: 20,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.7)',
+    color: mc.text,
+  },
+  gaugeFoot: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 8,
     textAlign: 'center',
   },
-  listPanel: {
-    padding: 16,
+
+  billValue: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: mc.redSoft,
+    marginVertical: 6,
   },
-  panelHeader: {
+  billFoot: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  billBar: {
+    marginTop: 12,
+  },
+  billFootSmall: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 6,
+  },
+
+  rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  panelTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.7)',
-  },
-  viewAllBtn: {
+  rowValue: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
+    color: mc.textDim,
   },
-  cardRows: {
-    gap: 4,
+  weekChart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
   },
-  cardRow: {
+  weekLabels: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
-  cardRowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  weekLabel: {
+    fontSize: 11,
+    color: mc.textDim,
   },
-  txIcon: {
-    borderRadius: 20,
-  },
-  cardRowDetails: {
-    flex: 1,
-    gap: 2,
-  },
-  cardRowName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  },
-  cardRowNumber: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '400',
-  },
-  cardRowDue: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  cardRowAmount: {
-    fontSize: 14,
+  weekLabelToday: {
+    color: mc.redSoft,
     fontWeight: '600',
-    color: '#FFFFFF',
-},
-  distributionPanel: {
+  },
+
+  donutRow: {
+    alignItems: 'center',
     marginTop: 8,
   },
-  distributionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  donutSvgWrap: {
-    width: 140,
-    height: 140,
+  donutWrap: {
+    width: 116,
+    height: 116,
     alignItems: 'center',
     justifyContent: 'center',
   },
   donutCenter: {
     position: 'absolute',
     alignItems: 'center',
-    justifyContent: 'center',
-    maxWidth: 96,
-    paddingHorizontal: 4,
   },
-  donutSub: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    fontWeight: '600',
-    marginTop: 2,
+  donutTotal: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: mc.text,
   },
-  donutVal: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -1,
-    textAlign: 'center',
+  donutCaption: {
+    fontSize: 11,
+    color: mc.textDim,
   },
-  legendContainer: {
-    flex: 1,
-    gap: 12,
-  },
-  legendItem: {
+
+  catRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
+    marginTop: 11,
   },
-  legendLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  catName: {
+    width: 68,
+    fontSize: 13,
+    color: mc.text,
+  },
+  catTrack: {
     flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: mc.track,
+    overflow: 'hidden',
   },
-  legendDot: {
-    width: 8,
+  catFill: {
     height: 8,
     borderRadius: 4,
   },
-  legendName: {
+  catPct: {
+    width: 34,
+    textAlign: 'right',
     fontSize: 13,
-    color: '#FFFFFF',
-    flex: 1,
+    color: mc.textDim,
   },
-  legendPct: {
+  emptyText: {
+    fontSize: 13,
+    color: mc.textDim,
+    marginTop: 10,
+  },
+
+  listPanel: {
+    paddingTop: 14,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    marginBottom: 4,
+  },
+  panelTitle: {
+    fontSize: 11,
+    letterSpacing: 1.2,
+    fontWeight: '500',
+    color: mc.textDim,
+  },
+  viewAllBtn: {
     fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.7)',
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+  cardRows: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
   },
 });

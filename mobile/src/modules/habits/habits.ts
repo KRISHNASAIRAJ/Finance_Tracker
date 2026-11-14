@@ -128,6 +128,41 @@ export function monthLabel(monthKey: string): string {
 }
 
 /**
+ * The all-time longest streak for a habit.
+ *
+ * `habitStreak` only knows about the CURRENT streak. The home screen shows
+ * the best streak ever, which is derivable from the logged days alone — no
+ * extra data is stored.
+ *
+ * @param habitKey  the habit to measure
+ * @param loggedDays every IST day key on which the habit WAS ticked
+ */
+export function habitBestStreak(habitKey: string, loggedDays: string[]): number {
+  if (loggedDays.length === 0) return 0;
+  const set = new Set(loggedDays);
+  let best = 0;
+  for (const key of loggedDays) {
+    // Only start counting on the first day of a run.
+    const prev = shiftDayKey(key, -1);
+    if (set.has(prev)) continue;
+    let run = 0;
+    let cursor = key;
+    while (set.has(cursor)) {
+      run += 1;
+      cursor = shiftDayKey(cursor, 1);
+    }
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/** Shift an IST day key (YYYY-MM-DD) by n days. */
+export function shiftDayKey(dayKey: string, n: number): string {
+  const t = new Date(`${dayKey}T00:00:00Z`).getTime() + n * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/**
  * Current streak for a habit: consecutive days (ending today or yesterday)
  * where the habit was ticked. Starts at 0.
  */

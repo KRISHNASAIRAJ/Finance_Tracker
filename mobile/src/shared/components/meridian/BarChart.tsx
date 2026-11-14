@@ -3,9 +3,12 @@
  *
  * Each bar keeps its own colour so a chart can mix "normal" and "highlighted"
  * bars (the reference's today's bar is red, the rest are dim).
+ *
+ * When `onSelect` is supplied the chart becomes interactive: tapping a bar
+ * highlights it and reports its index, so the screen can show a readout.
  */
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
 
 import { mc, mm } from '../../theme/meridian';
@@ -31,7 +34,10 @@ interface BarChartProps {
   /** Draw a dashed horizontal reference line. */
   reference?: number;
   referenceColor?: string;
-  /** Baseline for the reference line (defaults to the chart bottom). */
+  /** Tap a bar to select it. */
+  onSelect?: (index: number) => void;
+  /** The currently selected bar. */
+  selectedIndex?: number;
   style?: StyleProp<ViewStyle>;
   duration?: number;
 }
@@ -45,6 +51,8 @@ export default function BarChart({
   radius = 9,
   reference,
   referenceColor = mc.mint,
+  onSelect,
+  selectedIndex = -1,
   style,
   duration = mm.sweep,
 }: BarChartProps) {
@@ -94,6 +102,17 @@ export default function BarChart({
             opacity={0.6}
           />
         ) : null}
+        {selectedIndex >= 0 && selectedIndex < data.length ? (
+          <Line
+            x1={selectedIndex * (barW + gap) + barW / 2}
+            y1={0}
+            x2={selectedIndex * (barW + gap) + barW / 2}
+            y2={height}
+            stroke={mc.textDim}
+            strokeWidth={1}
+            strokeDasharray="3 3"
+          />
+        ) : null}
         {data.map((d, i) => {
           const h = max > 0 ? Math.max(2, (d.value / max) * (height - 2)) : 2;
           const a = anims[i];
@@ -111,10 +130,30 @@ export default function BarChart({
           );
         })}
       </Svg>
+      {onSelect ? (
+        <View style={styles.overlay} pointerEvents="box-none">
+          {data.map((_, i) => (
+            <Pressable
+              key={i}
+              style={[styles.slice, { width: barW + gap, left: i * (barW + gap) }]}
+              onPress={() => onSelect(i)}
+              accessibilityRole="button"
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { backgroundColor: 'transparent' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+  },
+  slice: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+  },
 });

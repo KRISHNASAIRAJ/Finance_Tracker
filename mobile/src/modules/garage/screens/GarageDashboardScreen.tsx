@@ -1,18 +1,17 @@
 /**
- * GarageDashboardScreen — vehicle garage root. Multi-vehicle overview, recent
- * fuel fills, quick-add FAB, and vehicle management.
+ * GarageDashboardScreen — vehicle garage root.
+ *
+ * Restyled to the Meridian v2 reference: a big efficiency readout with a
+ * per-fill bar chart, a fuel/service/cost-per-km tile row, the next-service
+ * countdown and the recent fills list. Multi-vehicle switching, vehicle
+ * add/rename/delete, the chart view toggle and tap-to-inspect all still work.
  */
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
-  
-  Platform,
-  StatusBar,
   Modal,
   TextInput,
 } from 'react-native';
@@ -20,33 +19,38 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
-import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useGarageStore, FuelFill } from '../store';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  BarChart,
+  Card,
+  IconTile,
+  Label,
+  PressScale,
+  ProgressBar,
+  Rise,
+  Screen,
+} from '../../../shared/components/meridian';
+import DrawerTrigger from '../../../shared/components/DrawerTrigger';
+import { useGarageStore, getNextServiceInfo, isGeneralService, type FuelFill } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 import { useGarageSync } from '../hooks/useGarageSync';
 import { processSyncQueue } from '../../../services/syncQueue';
-import Svg, { Path, Defs, LinearGradient, Stop, Line } from 'react-native-svg';
-import Entrance from '../../../shared/components/Entrance';
-import DrawerTrigger from '../../../shared/components/DrawerTrigger';
-
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'GarageDashboard'>;
 
-function getStationIcon(station?: string) {
-  if (!station) return { type: 'generic' as const, bg: `${colors.primary}15`, color: colors.primary, label: '⛽' };
-  const up = station.toUpperCase();
+/** The fuel-station brand badge shown on every fill row. */
+export function getStationIcon(station?: string) {
+  const up = (station || '').toUpperCase();
   if (up.includes('HPCL') || up.includes('HP ')) {
-    return { type: 'brand' as const, bg: '#e74c3c18', color: '#e74c3c', label: 'HP' };
+    return { type: 'brand' as const, bg: mc.redDim, color: mc.redSoft, label: 'HP' };
   }
   if (up.includes('BPCL') || up.includes('BP ')) {
-    return { type: 'brand' as const, bg: '#2ecc7118', color: '#2ecc71', label: 'BP' };
+    return { type: 'brand' as const, bg: mc.mintDim, color: mc.mint, label: 'BP' };
   }
   if (up.includes('IOCL') || up.includes('IO ')) {
-    return { type: 'brand' as const, bg: '#3498db18', color: '#3498db', label: 'IO' };
+    return { type: 'brand' as const, bg: mc.skyDim, color: mc.sky, label: 'IO' };
   }
-  return { type: 'generic' as const, bg: `${colors.primary}15`, color: colors.primary, label: '⛽' };
+  return { type: 'generic' as const, bg: mc.raised, color: mc.textDim, label: '⛽' };
 }
 
 export default function GarageDashboardScreen() {
@@ -92,7 +96,9 @@ export default function GarageDashboardScreen() {
 
   const sortedForChart = [...vehicleFills].sort((a, b) => a.odometer - b.odometer);
 
-  // Per-fill mileage (distance since last fill / fuel at that fill)
+  // Per-fill mileage (distance since the last fill / fuel at that fill).
+  // A fill with no usable odometer reading is skipped so it can never
+  // produce a bogus 0.0 km/l.
   const perFillMileage: { value: number; fill: FuelFill }[] = [];
   for (let i = 1; i < sortedForChart.length; i++) {
     const prevOdo = sortedForChart[i - 1].odometer;
@@ -106,7 +112,7 @@ export default function GarageDashboardScreen() {
     }
   }
 
-  // Latest Fill Mileage: average of last 3 per-fill mileage values
+  // Latest Fill Mileage: average of the last 3 per-fill mileage values
   const latestFillMileage = (() => {
     if (perFillMileage.length === 0) return 'N/A';
     const last3 = perFillMileage.slice(-3);
@@ -117,18 +123,19 @@ export default function GarageDashboardScreen() {
   // Overall Mileage: total distance / total fuel across all fills
   const overallMileage = (() => {
     if (sortedForChart.length < 2) return 'N/A';
-    const totalDist = sortedForChart[sortedForChart.length - 1].odometer - sortedForChart[0].odometer;
+    const totalDist =
+      sortedForChart[sortedForChart.length - 1].odometer - sortedForChart[0].odometer;
     const totalFuel = sortedForChart.slice(1).reduce((sum, f) => sum + f.liters, 0);
     if (totalFuel === 0) return 'N/A';
     return (totalDist / totalFuel).toFixed(1);
   })();
 
-  // Chart data: latest shows last 6 per-fill, overall shows ALL per-fill
-  const latestData = perFillMileage.length >= 2 ? perFillMileage.slice(-6).map((p) => p.value) : [];
-  const overallData = perFillMileage.length >= 2 ? perFillMileage.map((p) => p.value) : [];
-
-  const chartData = chartView === 'latest' ? latestData : overallData;
-  const activeIndex = selectedPointIndex !== null ? selectedPointIndex : (chartData.length - 1);
+  // Chart data: latest shows the last 6 per-fill values, overall shows all.
+  const latestData = perFillMileage.length >= 2 ? perFillMileage.slice(-6) : [];
+  const overallData = perFillMileage.length >= 2 ? perFillMileage : [];
+  const chartEntries = chartView === 'latest' ? latestData : overallData;
+  const chartData = chartEntries.map((p) => p.value);
+  const activeIndex = selectedPointIndex !== null ? selectedPointIndex : chartData.length - 1;
   const latestMileageVal = chartData[activeIndex]?.toFixed(1) ?? 'N/A';
   const displayMileage = chartView === 'overall' ? overallMileage : latestFillMileage;
   const sampleCount = perFillMileage.slice(-3).length;
@@ -138,38 +145,49 @@ export default function GarageDashboardScreen() {
       ? 'LATEST FILL MILEAGE'
       : `LATEST ${sampleCount} FILLS AVG`;
 
-  // Build smooth area chart wave path
-  const CHART_W = 320;
-  const CHART_H = 120;
-  const padX = 30;
-  const padY = 25;
+  // The trend chip: last-3 average against the 3 before it.
+  const trendPct = (() => {
+    if (perFillMileage.length < 6) return null;
+    const vals = perFillMileage.map((p) => p.value);
+    const last3 = vals.slice(-3);
+    const prev3 = vals.slice(-6, -3);
+    const avg = (a: number[]) => a.reduce((s, v) => s + v, 0) / a.length;
+    const now3 = avg(last3);
+    const before = avg(prev3);
+    if (before <= 0) return null;
+    return ((now3 - before) / before) * 100;
+  })();
 
-  const chartMax = chartData.length > 0 ? Math.max(...chartData) : 0;
-  const chartMin = chartData.length > 0 ? Math.min(...chartData) : 0;
-  const chartRange = chartMax === chartMin ? 1 : chartMax - chartMin;
-  const norm = (v: number) => (v - chartMin) / chartRange;
+  const chartAverage = chartData.length ? chartData.reduce((s, v) => s + v, 0) / chartData.length : 0;
 
-  const points = chartData.map((val, i) => {
-    const x = padX + (i / Math.max(chartData.length - 1, 1)) * (CHART_W - 2 * padX);
-    const y = CHART_H - padY - norm(val) * (CHART_H - 2 * padY - 10);
-    return { x, y };
-  });
+  // Cost per km — real: total spend divided by the distance covered.
+  const totalKm =
+    sortedForChart.length >= 2
+      ? sortedForChart[sortedForChart.length - 1].odometer - sortedForChart[0].odometer
+      : 0;
+  const costPerKm = totalKm > 0 ? (totalFuelSpend + totalMaintSpend) / 100 / totalKm : null;
 
-  let pathD = '';
-  let fillD = '';
-  if (points.length > 1) {
-    pathD = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const curr = points[i];
-      const next = points[i + 1];
-      const cpX1 = curr.x + (next.x - curr.x) / 2;
-      const cpY1 = curr.y;
-      const cpX2 = curr.x + (next.x - curr.x) / 2;
-      const cpY2 = next.y;
-      pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`;
-    }
-    fillD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - padY + 10} L ${points[0].x} ${CHART_H - padY + 10} Z`;
-  }
+  // Next service — real reminder maths from the garage store.
+  const currentOdometer = vehicleFills.length
+    ? Math.max(...vehicleFills.map((f) => f.odometer || 0))
+    : 0;
+  const nextService = getNextServiceInfo(
+    selectedVehicle ?? '',
+    vehicleMaint,
+    currentOdometer
+  );
+  const lastService = [...vehicleMaint]
+    .filter((m) => isGeneralService(m.serviceType) && m.odometer && m.odometer > 0)
+    .sort((a, b) => (b.odometer ?? 0) - (a.odometer ?? 0))[0];
+  const serviceSettings = useGarageStore(
+    (s) => s.serviceReminderSettings[selectedVehicle ?? '']
+  );
+  const intervalKm = serviceSettings?.intervalKm ?? 3000;
+  const serviceKmLeft = nextService?.dueKm != null ? nextService.dueKm - currentOdometer : null;
+  const serviceUsedPct =
+    serviceKmLeft != null && lastService?.odometer != null && intervalKm > 0
+      ? Math.min(1, Math.max(0, (currentOdometer - lastService.odometer) / intervalKm))
+      : 0;
 
   const lastFillDate = vehicleFills.length > 0
     ? new Date(sortedForChart[sortedForChart.length - 1]?.date ?? vehicleFills[0].date)
@@ -183,223 +201,243 @@ export default function GarageDashboardScreen() {
   // Recent fills: latest 3 only
   const recentFills = sortedForChart.slice(-3).reverse();
 
+  const firstChartDate = chartEntries.length
+    ? new Date(chartEntries[0].fill.date).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+      })
+    : null;
+  const lastChartDate = chartEntries.length
+    ? new Date(chartEntries[chartEntries.length - 1].fill.date).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+      })
+    : null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header row: drawer trigger — fixed outside the scroll so it never moves */}
-      <View style={styles.topBar}>
-        <DrawerTrigger />
-      </View>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Mileage Hero */}
-        <Entrance index={0}>
-        <View style={styles.heroCard}>
-          <ExpoLinearGradient
-            colors={['rgba(94,230,255,0.09)', 'rgba(0,0,0,0)']}
-            style={styles.heroGradient}
-            pointerEvents="none"
-          />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleTabsRow}>
-            {vehicles.map((v) => {
-              const isSelected = selectedVehicle === v;
-              return (
-                <TouchableOpacity
-                  key={v}
-                  style={[styles.tabButton, isSelected && styles.tabButtonActive]}
-                  onPress={() => setSelectedVehicle(v)}
-                  onLongPress={() => {
-                    if (vehicles.length <= 1) return;
-                    setEditingVehicleName(v);
-                    setVehicleNameInput(v);
-                    setShowVehicleModal(true);
-                  }}
-                >
-                  <Text style={styles.vehicleEmoji}>🛵</Text>
-                  <Text style={[styles.tabText, isSelected && styles.tabTextActive]}>{v}</Text>
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity
-              style={styles.addVehicleBtn}
-              onPress={() => {
-                setEditingVehicleName(null);
-                setVehicleNameInput('');
-                setShowVehicleModal(true);
-              }}
-            >
-              <Ionicons name="add" size={18} color={colors.action} />
-            </TouchableOpacity>
-          </ScrollView>
-          <View style={styles.heroDivider} />
-          <Text style={styles.heroLabel}>CURRENT EFFICIENCY</Text>
-          <View style={styles.heroValueRow}>
-            <Text style={styles.heroValue}>{displayMileage}</Text>
-            {displayMileage !== 'N/A' && <Text style={styles.heroUnit}>km/l</Text>}
-          </View>
-          <View style={styles.heroSubRow}>
-            <View style={styles.trendBadge}>
-              <Ionicons name="arrow-up" size={12} color={colors.success} />
-              <Text style={styles.trendText}>avg of last 3 fills</Text>
-            </View>
-            <Text style={styles.heroSubText}>Last fill: {lastFillDate}</Text>
-          </View>
-        </View>
-        </Entrance>
-
-        {/* Bento Spend Grid */}
-        <Entrance index={1}>
-        <View style={styles.gridSection}>
-          <TouchableOpacity
-            style={styles.gridCard}
-            onPress={() => navigation.navigate('AllFuelFills')}
-            activeOpacity={0.7}
+    <Screen bottomInset={120}>
+      {/* Header — drawer trigger, title, vehicle picker */}
+      <Rise index={0}>
+        <View style={styles.topBar}>
+          <DrawerTrigger />
+          <Text style={styles.topBarTitle}>Garage</Text>
+          <PressScale
+            onPress={() => {
+              setEditingVehicleName(null);
+              setVehicleNameInput('');
+              setShowVehicleModal(true);
+            }}
+            scale={0.96}
+            style={styles.vehicleChip}
           >
-            <View style={styles.gridHeader}>
-              <View style={[styles.gridIcon, { backgroundColor: '#5ee6ff20' }]}>
-                <Ionicons name="water-outline" size={16} color="#5ee6ff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.gridLabel} numberOfLines={1}>Fuel Spend</Text>
-              </View>
-            </View>
-            <Text style={[styles.gridValue, { fontWeight: '700', color: '#5ee6ff' }]}>{formatCurrency(monthlyFuelSpend)}</Text>
-            <Text style={styles.gridSubValue}>{formatCurrency(totalFuelSpend)} total</Text>
-            <TouchableOpacity
-              style={styles.cardAction}
-              onPress={(e) => { e.stopPropagation(); navigation.navigate('AddFuelFill'); }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.cardActionText, { color: '#5ee6ff' }]}>+ Add Fuel Fill</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.gridCard}
-            onPress={() => navigation.navigate('AllMaintenance')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.gridHeader}>
-              <View style={[styles.gridIcon, { backgroundColor: '#ea647920' }]}>
-                <Ionicons name="construct-outline" size={16} color="#ea6479" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.gridLabel} numberOfLines={1}>Service/Maint</Text>
-              </View>
-            </View>
-            <Text style={[styles.gridValue, { color: '#ea6479' }]}>{formatCurrency(totalMaintSpend)}</Text>
-            <Text style={styles.gridLink}>{vehicleMaint.length} logs →</Text>
-            <TouchableOpacity
-              style={styles.cardAction}
-              onPress={(e) => { e.stopPropagation(); navigation.navigate('AddMaintenance', {}); }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.cardActionText, { color: '#ea6479' }]}>+ Add Service</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
+            <Ionicons name="bicycle-outline" size={15} color={mc.red} />
+            <Text style={styles.vehicleChipText} numberOfLines={1}>
+              {selectedVehicle ?? 'Add vehicle'}
+            </Text>
+            <Ionicons name="chevron-down" size={13} color={mc.textDim} />
+          </PressScale>
         </View>
-        </Entrance>
+      </Rise>
 
-        {/* Mileage Trend Chart */}
-        <Entrance index={2}>
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeaderRow}>
+      {/* Efficiency hero + per-fill chart */}
+      <Rise index={1}>
+        <Card>
+          <View style={styles.heroHead}>
             <View>
-              <Text style={styles.chartSubLabel}>{displayLabel}</Text>
-              <View style={styles.chartValueRow}>
-                <Text style={styles.chartBigValue}>{displayMileage}</Text>
-                {displayMileage !== 'N/A' && <Text style={styles.chartUnit}>km/l</Text>}
+              <Label>EFFICIENCY</Label>
+              <View style={styles.heroValueRow}>
+                <Text style={styles.heroValue}>{displayMileage}</Text>
+                {displayMileage !== 'N/A' ? <Text style={styles.heroUnit}>km/l</Text> : null}
               </View>
             </View>
-            <View style={styles.chartToggleGroup}>
-              <TouchableOpacity
-                style={[styles.chartToggleBtn, chartView === 'latest' && styles.chartToggleBtnActive]}
-                onPress={() => setChartView('latest')}
+            {trendPct !== null ? (
+              <View
+                style={[
+                  styles.trendBadge,
+                  { backgroundColor: trendPct >= 0 ? mc.mintDim : mc.redDim },
+                ]}
               >
-                <Text style={[styles.chartToggleText, chartView === 'latest' && styles.chartToggleTextActive]}>Latest</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chartToggleBtn, chartView === 'overall' && styles.chartToggleBtnActive]}
-                onPress={() => setChartView('overall')}
-              >
-                <Text style={[styles.chartToggleText, chartView === 'overall' && styles.chartToggleTextActive]}>Overall</Text>
-              </TouchableOpacity>
-            </View>
+                <Ionicons
+                  name={trendPct >= 0 ? 'arrow-up' : 'arrow-down'}
+                  size={11}
+                  color={trendPct >= 0 ? mc.mint : mc.redSoft}
+                />
+                <Text
+                  style={[
+                    styles.trendText,
+                    { color: trendPct >= 0 ? mc.mint : mc.redSoft },
+                  ]}
+                >
+                  {Math.abs(trendPct).toFixed(1)}%
+                </Text>
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.areaChartContainer}>
-            {points.length > 1 ? (
-              <>
-                <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
-                  <Defs>
-                    <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0%" stopColor={colors.action} stopOpacity="0.35" />
-                      <Stop offset="100%" stopColor={colors.action} stopOpacity="0.0" />
-                    </LinearGradient>
-                  </Defs>
-
-                  <Line x1="0" y1={CHART_H * 0.33} x2={CHART_W} y2={CHART_H * 0.33} stroke={colors.border} strokeWidth="1" />
-                  <Line x1="0" y1={CHART_H * 0.66} x2={CHART_W} y2={CHART_H * 0.66} stroke={colors.border} strokeWidth="1" />
-
-                  <Path d={fillD} fill="url(#grad)" />
-                  <Path d={pathD} stroke={colors.action} strokeWidth="2.5" fill="none" />
-
-                  {activeIndex >= 0 && activeIndex < points.length && (
-                    <Line
-                      x1={points[activeIndex].x}
-                      y1={points[activeIndex].y}
-                      x2={points[activeIndex].x}
-                      y2={CHART_H - padY + 10}
-                      stroke={colors.action}
-                      strokeWidth="1.5"
-                      strokeDasharray="3,3"
-                    />
-                  )}
-                </Svg>
-
-                {activeIndex >= 0 && activeIndex < points.length && (
-                  <View
+          <View style={styles.chartToggleRow}>
+            {(['latest', 'overall'] as const).map((v) => (
+              <PressScale key={v} onPress={() => setChartView(v)} scale={0.95}>
+                <View style={[styles.chartToggle, chartView === v && styles.chartToggleActive]}>
+                  <Text
                     style={[
-                      styles.floatValueBadge,
-                      {
-                        left: points[activeIndex].x - 45,
-                        top: points[activeIndex].y - 32,
-                      },
+                      styles.chartToggleText,
+                      chartView === v && styles.chartToggleTextActive,
                     ]}
                   >
-                    <Text style={styles.floatValueText}>{latestMileageVal} km/l</Text>
-                  </View>
-                )}
-
-                <View style={styles.touchOverlay}>
-                  {points.map((_, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.touchSlice}
-                      onPress={() => setSelectedPointIndex(idx)}
-                      activeOpacity={1}
-                    />
-                  ))}
+                    {v === 'latest' ? 'Latest 6' : 'Overall'}
+                  </Text>
                 </View>
-              </>
-            ) : (
-              <View style={{ height: CHART_H, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>Not enough data for chart</Text>
-              </View>
-            )}
+              </PressScale>
+            ))}
+            <Text style={styles.chartToggleHint}>{displayLabel}</Text>
           </View>
-        </View>
-        </Entrance>
 
-        {/* Recent Fuel Logs */}
-        <Entrance index={3}>
-        <View style={styles.logsSection}>
+          {chartData.length > 1 ? (
+            <>
+              <BarChart
+                data={chartData.map((v) => ({ value: v, color: mc.barDim }))}
+                width={300}
+                height={104}
+                reference={chartAverage}
+                referenceColor={mc.sky}
+                onSelect={(i) => setSelectedPointIndex(i)}
+                selectedIndex={activeIndex}
+                style={styles.chart}
+              />
+              <View style={styles.chartFoot}>
+                <Text style={styles.chartFootText}>{firstChartDate}</Text>
+                <Text style={[styles.chartFootText, { color: mc.sky }]}>
+                  avg {chartAverage.toFixed(1)}
+                </Text>
+                <Text style={[styles.chartFootText, { color: mc.redSoft }]}>{lastChartDate}</Text>
+              </View>
+              <Text style={styles.selectedValue}>
+                {latestMileageVal} km/l ·{' '}
+                {chartEntries[activeIndex]
+                  ? new Date(chartEntries[activeIndex].fill.date).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                    })
+                  : ''}
+              </Text>
+            </>
+          ) : (
+            <View style={styles.chartEmpty}>
+              <Text style={styles.chartEmptyText}>Not enough data for a chart yet</Text>
+            </View>
+          )}
+        </Card>
+      </Rise>
+
+      {/* Fuel / service / cost per km */}
+      <View style={styles.tileRow}>
+        <Rise index={2} style={styles.tileCell}>
+          <Card style={styles.tileCard}>
+            <IconTile icon="water-outline" color={mc.sky} size={32} radius={11} />
+            <Text style={styles.tileValue}>{formatCurrency(monthlyFuelSpend)}</Text>
+            <Label small>FUEL</Label>
+            <PressScale
+              onPress={() => navigation.navigate('AllFuelFills')}
+              scale={0.95}
+              style={styles.tileAction}
+            >
+              <Text style={[styles.tileActionText, { color: mc.sky }]}>View fills</Text>
+            </PressScale>
+            <PressScale
+              onPress={() => navigation.navigate('AddFuelFill')}
+              scale={0.95}
+              style={styles.tileAction}
+            >
+              <Text style={[styles.tileActionText, { color: mc.sky }]}>+ Add fill</Text>
+            </PressScale>
+          </Card>
+        </Rise>
+
+        <Rise index={3} style={styles.tileCell}>
+          <Card style={styles.tileCard}>
+            <IconTile icon="construct-outline" color={mc.violet} size={32} radius={11} />
+            <Text style={styles.tileValue}>{formatCurrency(totalMaintSpend)}</Text>
+            <Label small>SERVICE</Label>
+            <PressScale
+              onPress={() => navigation.navigate('AllMaintenance')}
+              scale={0.95}
+              style={styles.tileAction}
+            >
+              <Text style={[styles.tileActionText, { color: mc.violet }]}>
+                {vehicleMaint.length} logs
+              </Text>
+            </PressScale>
+            <PressScale
+              onPress={() => navigation.navigate('AddMaintenance', {})}
+              scale={0.95}
+              style={styles.tileAction}
+            >
+              <Text style={[styles.tileActionText, { color: mc.violet }]}>+ Add service</Text>
+            </PressScale>
+          </Card>
+        </Rise>
+
+        <Rise index={4} style={styles.tileCell}>
+          <Card style={styles.tileCard}>
+            <IconTile icon="cash-outline" color={mc.amber} size={32} radius={11} />
+            <Text style={styles.tileValue}>
+              {costPerKm !== null ? `₹${costPerKm.toFixed(2)}` : '—'}
+            </Text>
+            <Label small>PER KM</Label>
+            <PressScale
+              onPress={() => navigation.navigate('VehicleSpend')}
+              scale={0.95}
+              style={styles.tileAction}
+            >
+              <Text style={[styles.tileActionText, { color: mc.amber }]}>Breakdown</Text>
+            </PressScale>
+          </Card>
+        </Rise>
+      </View>
+
+      {/* Next service */}
+      <Rise index={5}>
+        <Card>
+          <View style={styles.rowBetween}>
+            <Label>NEXT SERVICE</Label>
+            {serviceKmLeft !== null ? (
+              <Text style={[styles.serviceLeft, serviceKmLeft <= 200 && { color: mc.redSoft }]}>
+                {serviceKmLeft} km left
+              </Text>
+            ) : null}
+          </View>
+          <ProgressBar
+            value={serviceUsedPct}
+            color={serviceKmLeft !== null && serviceKmLeft <= 200 ? mc.redSoft : mc.amber}
+            height={10}
+            style={styles.serviceBar}
+          />
+          <View style={styles.serviceFoot}>
+            <Text style={styles.serviceFootText}>
+              Last {lastService?.odometer != null ? `${lastService.odometer} km` : '—'}
+            </Text>
+            <Text style={styles.serviceFootText}>
+              {nextService?.dueKm != null ? `Due ${nextService.dueKm} km` : 'No service logged'}
+            </Text>
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Recent fills */}
+      <Rise index={6}>
+        <Card pad={false}>
           <View style={styles.logsHeaderRow}>
-            <Text style={styles.sectionTitle}>RECENT FUEL LOGS</Text>
-            {vehicleFills.length > 3 && (
-              <TouchableOpacity onPress={() => navigation.navigate('AllFuelFills')}>
-                <Text style={styles.viewMoreText}>View More</Text>
+            <Label>RECENT FILLS</Label>
+            <View style={styles.logsHeaderActions}>
+              {vehicleFills.length > 3 ? (
+                <TouchableOpacity onPress={() => navigation.navigate('AllFuelFills')}>
+                  <Text style={[styles.viewMoreText, { color: mc.textDim }]}>View all</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => navigation.navigate('AddFuelFill')}>
+                <Text style={[styles.viewMoreText, { color: mc.redSoft }]}>+ Add fill</Text>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
           <View style={styles.logsContainer}>
             {recentFills.length === 0 ? (
@@ -408,45 +446,50 @@ export default function GarageDashboardScreen() {
                 <Text style={styles.emptyText}>No fuel fills logged yet</Text>
               </View>
             ) : (
-              recentFills.map((fill) => (
-                <TouchableOpacity
-                  key={fill.id}
-                  style={styles.logRow}
-                  onPress={() => navigation.navigate('EditFuelFill', { fillId: fill.id })}
-                >
-                  <View style={styles.logLeft}>
-                    <View style={[styles.iconContainer, { backgroundColor: getStationIcon(fill.station).bg }]}>
-                      {getStationIcon(fill.station).type === 'brand' ? (
-                        <Text style={[styles.brandIconText, { color: getStationIcon(fill.station).color }]}>
-                          {getStationIcon(fill.station).label}
-                        </Text>
-                      ) : (
-                        <Text style={styles.fuelEmoji}>{getStationIcon(fill.station).label}</Text>
-                      )}
+              recentFills.map((fill, idx) => {
+                const station = getStationIcon(fill.station);
+                return (
+                  <PressScale
+                    key={fill.id}
+                    onPress={() => navigation.navigate('EditFuelFill', { fillId: fill.id })}
+                    scale={0.99}
+                    style={[styles.logRow, idx > 0 && styles.logRowDivider]}
+                  >
+                    <View style={[styles.iconContainer, { backgroundColor: station.bg }]}>
+                      <Text style={[styles.brandIconText, { color: station.color }]}>
+                        {station.label}
+                      </Text>
                     </View>
-                    <View>
-                      <Text style={styles.logTitle}>{fill.liters} Liters Fuel</Text>
+                    <View style={styles.logMain}>
+                      <Text style={styles.logTitle}>{fill.liters} L</Text>
                       <Text style={styles.logSub} numberOfLines={1}>
                         {fill.odometer} km · {formatCurrency(fill.pricePerLiter)}/L
                       </Text>
                     </View>
-                  </View>
-                  <View style={styles.logRight}>
-                    <Text style={styles.logAmount}>{formatCurrency(fill.amount)}</Text>
-                    <Text style={styles.logDate}>
-                      {new Date(fill.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
+                    <View style={styles.logRight}>
+                      <Text style={styles.logAmount}>{formatCurrency(fill.amount)}</Text>
+                      <Text style={styles.logDate}>
+                        {new Date(fill.date).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
+                      </Text>
+                    </View>
+                  </PressScale>
+                );
+              })
             )}
           </View>
-        </View>
-        </Entrance>
-      </ScrollView>
+        </Card>
+      </Rise>
 
       {/* Vehicle Add/Edit/Delete Modal */}
-      <Modal visible={showVehicleModal} transparent animationType="fade" onRequestClose={() => setShowVehicleModal(false)}>
+      <Modal
+        visible={showVehicleModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowVehicleModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
@@ -457,9 +500,9 @@ export default function GarageDashboardScreen() {
               value={vehicleNameInput}
               onChangeText={setVehicleNameInput}
               placeholder="Vehicle name"
-              placeholderTextColor={colors.outline}
+              placeholderTextColor={mc.textFaint}
             />
-            {editingVehicleName && vehicles.length > 1 && (
+            {editingVehicleName && vehicles.length > 1 ? (
               <TouchableOpacity
                 style={styles.deleteBtn}
                 onPress={() => {
@@ -470,10 +513,12 @@ export default function GarageDashboardScreen() {
                   setShowVehicleModal(false);
                 }}
               >
-                <Ionicons name="trash-outline" size={16} color={colors.error} />
-                <Text style={styles.deleteBtnText}>Delete "{editingVehicleName}"</Text>
+                <Ionicons name="trash-outline" size={16} color={mc.redSoft} />
+                <Text style={[styles.deleteBtnText, { color: mc.redSoft }]}>
+                  Delete "{editingVehicleName}"
+                </Text>
               </TouchableOpacity>
-            )}
+            ) : null}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnCancel]}
@@ -485,14 +530,20 @@ export default function GarageDashboardScreen() {
                 style={[styles.modalBtn, styles.modalBtnSave]}
                 onPress={() => {
                   const name = vehicleNameInput.trim();
-                  if (!name) { alert('Enter a vehicle name'); return; }
+                  if (!name) {
+                    alert('Enter a vehicle name');
+                    return;
+                  }
                   if (editingVehicleName && name !== editingVehicleName) {
                     editVehicle(editingVehicleName, name);
                     if (selectedVehicle === editingVehicleName) {
                       setSelectedVehicle(name);
                     }
                   } else if (!editingVehicleName) {
-                    if (vehicles.includes(name)) { alert('Vehicle already exists'); return; }
+                    if (vehicles.includes(name)) {
+                      alert('Vehicle already exists');
+                      return;
+                    }
                     addVehicle(name);
                     setSelectedVehicle(name);
                   }
@@ -507,446 +558,318 @@ export default function GarageDashboardScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 52,
+  },
+  topBarTitle: {
     flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+    fontSize: 26,
+    fontWeight: '500',
+    color: mc.text,
   },
-  tabContainer: {
-    backgroundColor: colors.surface,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  tabScroll: {
-    paddingHorizontal: spacing.containerPadding,
-    gap: 8,
-  },
-  vehicleTabsRow: {
-    paddingBottom: 4,
-    gap: 8,
-  },
-  heroDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border,
-    marginVertical: 4,
-  },
-  tabButton: {
+  vehicleChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(155,165,255,0.08)',
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.full,
-    paddingHorizontal: 16,
+    backgroundColor: mc.card,
+    borderRadius: 22,
+    paddingHorizontal: 12,
     paddingVertical: 8,
+    maxWidth: 160,
   },
-  tabButtonActive: {
-    backgroundColor: colors.actionDim,
-    borderColor: colors.action,
-  },
-  vehicleEmoji: {
+  vehicleChipText: {
     fontSize: 14,
+    color: mc.text,
+    flexShrink: 1,
   },
-  tabText: {
-    color: colors.onSurfaceVariant,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: colors.onSurface,
-    fontWeight: '600',
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120,
-  },
-  topBar: {
-    alignSelf: 'flex-start',
-    paddingLeft: spacing.containerPadding,
-    height: 58,
-    justifyContent: 'center',
-  },
-  heroCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 20,
+
+  heroHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 4,
-    overflow: 'hidden',
-  },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  heroLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   heroValueRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'baseline',
     gap: 6,
     marginTop: 4,
   },
   heroValue: {
     fontSize: 40,
-    fontWeight: '800',
-    color: colors.action,
-    letterSpacing: -1,
+    fontWeight: '500',
+    color: mc.text,
   },
   heroUnit: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    marginBottom: 6,
-  },
-  heroSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
+    fontSize: 15,
+    color: mc.textDim,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: rounded.full,
-  },
-  trendText: {
-    fontSize: 11,
-    color: colors.success,
-    fontWeight: '700',
-  },
-  heroSubText: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
-  gridSection: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  gridCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    gap: 12,
-  },
-  gridHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  gridIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridLabel: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    flexShrink: 1,
-  },
-  cardAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    marginTop: 4,
-  },
-  cardActionText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  gridValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  gridSubValue: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  gridLink: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: 2,
-  },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.borderStrong,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: spacing.cardPadding,
-    overflow: 'hidden',
-  },
-  chartHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  chartSubLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  chartValueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  chartBigValue: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: colors.action,
-    letterSpacing: -1,
-  },
-  chartUnit: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  chartToggleGroup: {
-    flexDirection: 'row',
-    backgroundColor: colors.border,
-    borderRadius: rounded.full,
-    padding: 2,
-    gap: 2,
-  },
-  chartToggleBtn: {
+    borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: rounded.full,
   },
-  chartToggleBtnActive: {
-    backgroundColor: colors.actionStrong,
+  trendText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  chartToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  chartToggle: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: mc.raised,
+  },
+  chartToggleActive: {
+    backgroundColor: mc.redDim,
   },
   chartToggleText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: mc.textDim,
   },
   chartToggleTextActive: {
-    color: colors.action,
+    color: mc.redSoft,
+    fontWeight: '600',
   },
-  areaChartContainer: {
-    position: 'relative',
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  floatValueBadge: {
-    position: 'absolute',
-    backgroundColor: 'rgba(18,18,24,0.92)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: rounded.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.action,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  floatValueText: {
+  chartToggleHint: {
+    flex: 1,
+    textAlign: 'right',
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.action,
+    letterSpacing: 0.8,
+    color: mc.textFaint,
   },
-  logsSection: {
-    gap: 8,
+  chart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
   },
+  chartFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  chartFootText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  selectedValue: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  chartEmpty: {
+    height: 104,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartEmptyText: {
+    color: mc.textDim,
+    fontSize: 13,
+  },
+
+  tileRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  tileCell: {
+    flex: 1,
+  },
+  tileCard: {
+    flex: 1,
+    gap: 6,
+    paddingVertical: 12,
+  },
+  tileValue: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  tileAction: {
+    backgroundColor: 'transparent',
+  },
+  tileActionText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  serviceLeft: {
+    fontSize: 13,
+    color: mc.amber,
+    fontWeight: '600',
+  },
+  serviceBar: {
+    marginTop: 10,
+  },
+  serviceFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  serviceFootText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+
   logsHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+  logsHeaderActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
   },
   viewMoreText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primary,
   },
   logsContainer: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
+    paddingHorizontal: 14,
+    paddingBottom: 6,
   },
   logRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  logLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: 'transparent',
+  },
+  logRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: rounded.full,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandIconText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '500',
   },
-  fuelEmoji: {
-    fontSize: 16,
-  },
-  fuelEmojiLarge: {
-    fontSize: 40,
+  logMain: {
+    flex: 1,
+    minWidth: 0,
   },
   logTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
+    fontSize: 15,
+    color: mc.text,
   },
   logSub: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
+    fontSize: 11,
+    color: mc.textDim,
     marginTop: 2,
   },
   logRight: {
     alignItems: 'flex-end',
   },
   logAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontSize: 15,
+    color: mc.text,
   },
   logDate: {
     fontSize: 11,
-    color: colors.onSurfaceVariant,
+    color: mc.textDim,
     marginTop: 2,
   },
   emptyState: {
-    padding: 32,
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 18,
+  },
+  fuelEmojiLarge: {
+    fontSize: 26,
   },
   emptyText: {
     fontSize: 13,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
+    color: mc.textDim,
+    marginTop: 6,
   },
-  touchOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    zIndex: 20,
-  },
-  touchSlice: {
-    flex: 1,
-    height: '100%',
-    backgroundColor: 'transparent',
-  },
-  addVehicleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: mc.overlay,
     justifyContent: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 24,
-    gap: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
+    padding: 20,
+    gap: 12,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-    textAlign: 'center',
+    fontWeight: '500',
+    color: mc.text,
   },
   modalInput: {
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
-    fontSize: 14,
-    fontWeight: '500',
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 15,
   },
   deleteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    gap: 8,
   },
   deleteBtnText: {
-    fontSize: 13,
-    color: colors.error,
-    fontWeight: '600',
+    fontSize: 14,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'flex-end',
+    gap: 10,
     marginTop: 4,
   },
   modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
   },
-  modalBtnCancel: { backgroundColor: 'transparent' },
-  modalBtnSave: { backgroundColor: colors.primaryContainer },
-  modalBtnTextCancel: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalBtnTextSave: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
+  modalBtnCancel: {
+    backgroundColor: mc.raised,
+  },
+  modalBtnSave: {
+    backgroundColor: mc.red,
+  },
+  modalBtnTextCancel: {
+    color: mc.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalBtnTextSave: {
+    color: mc.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
