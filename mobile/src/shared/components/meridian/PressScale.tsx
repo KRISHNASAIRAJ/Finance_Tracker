@@ -19,7 +19,10 @@ import useReducedMotion from './useReducedMotion';
 interface PressScaleProps {
   children: React.ReactNode;
   onPress?: (event: GestureResponderEvent) => void;
-  onLongPress?: () => void;
+  /** Long-press handler (the habit rows use it to enter edit mode). */
+  onLongPress?: (event: GestureResponderEvent) => void;
+  /** Delay before a long-press is recognised. */
+  delayLongPress?: number;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   /** How far it shrinks while held. */
@@ -34,6 +37,7 @@ export default function PressScale({
   children,
   onPress,
   onLongPress,
+  delayLongPress,
   style,
   disabled,
   scale = 0.97,
@@ -59,6 +63,7 @@ export default function PressScale({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
+      delayLongPress={delayLongPress}
       onPressIn={() => to(scale)}
       onPressOut={() => to(1)}
       disabled={disabled}

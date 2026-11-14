@@ -12,13 +12,9 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   Modal,
-  Platform,
-  StatusBar,
   Alert,
   Switch,
 } from 'react-native';
@@ -26,9 +22,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Circle, Line } from 'react-native-svg';
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
 import { useAuth } from '../../../services/AuthProvider';
 import TimePicker from '../../../shared/components/TimePicker';
 import {
@@ -63,6 +56,19 @@ import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
 import { toLocalInput, parseLocalInput } from './sleepTime';
+import { mc } from '../../../shared/theme/meridian';
+import {
+  BarChart,
+  Card,
+  EmptyState,
+  Label,
+  PressScale,
+  Rise,
+  Screen,
+  SegmentedControl,
+  Sparkline,
+  Toggle,
+} from '../../../shared/components/meridian';
 
 type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
@@ -571,144 +577,187 @@ export default function SleepDashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <View style={styles.appBarCenter}>
-          <Text style={styles.appBarTitle}>Sleep Tracker</Text>
+    <Screen bottomInset={40}>
+      {/* Header — back, title, add */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton} accessibilityLabel="Go back">
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.appBarTitle}>Sleep tracker</Text>
+          <PressScale onPress={openAdd} scale={0.9} style={styles.addBtn} accessibilityLabel="Log sleep">
+            <Ionicons name="add" size={19} color={mc.ink} />
+          </PressScale>
         </View>
-        <TouchableOpacity style={styles.iconBtn} onPress={openAdd}>
-          <Ionicons name="add" size={26} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+      </Rise>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Hero stats */}
-        {latest && (
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>LAST NIGHT</Text>
-            <View style={styles.heroRow}>
-              <Text style={styles.heroValue}>{formatSleepDuration(sleepDurationHours(latest))}</Text>
+      {/* Rate last night out of 5 */}
+      {latest && !latest.quality && (
+        <Rise index={1}>
+          <Card>
+            <View style={styles.rateRow}>
+              <View style={styles.rateMain}>
+                <Text style={styles.rateTitle}>How did you sleep?</Text>
+                <Text style={styles.rateSub}>Rate last night out of 5</Text>
+              </View>
+              <View style={styles.rateStars}>
+                {[1, 2, 3, 4, 5].map((q) => (
+                  <PressScale key={q} onPress={() => rateNight(latest, q)} scale={0.85} accessibilityLabel={`${q} star${q === 1 ? '' : 's'}`}>
+                    <Ionicons name="star-outline" size={24} color={mc.violet} />
+                  </PressScale>
+                ))}
+              </View>
             </View>
+          </Card>
+        </Rise>
+      )}
+
+      {/* Last night hero */}
+      {latest && (
+        <Rise index={2}>
+          <Card tone="violet">
+            <Label color={mc.violet}>LAST NIGHT</Label>
+            <Text style={styles.heroValue}>{formatSleepDuration(sleepDurationHours(latest))}</Text>
+            {last7.length > 1 && (
+              <Sparkline
+                data={last7.map((e) => sleepDurationHours(e))}
+                width={120}
+                height={38}
+                color={mc.violet}
+              />
+            )}
             <View style={styles.heroMeta}>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Bed</Text>
-                <Text style={styles.heroStatValue}>
-                  {new Date(latest.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              <View style={styles.heroMetaItem}>
+                <Text style={styles.heroMetaLabel}>Bed</Text>
+                <Text style={styles.heroMetaValue}>
+                  {new Date(latest.startTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
                 </Text>
               </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Wake</Text>
-                <Text style={styles.heroStatValue}>
-                  {new Date(latest.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              <View style={styles.heroMetaItem}>
+                <Text style={styles.heroMetaLabel}>Wake</Text>
+                <Text style={styles.heroMetaValue}>
+                  {new Date(latest.endTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
                 </Text>
               </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatLabel}>Quality</Text>
-                <Text style={styles.heroStatValue}>{latest.quality ? `${latest.quality}/5` : '—'}</Text>
+              <View style={styles.heroMetaItem}>
+                <Text style={styles.heroMetaLabel}>Quality</Text>
+                <Text style={styles.heroMetaValue}>{latest.quality ? `${latest.quality}/5` : '—'}</Text>
               </View>
             </View>
-            {lastAvg && <Text style={styles.avgText}>7-night avg: {lastAvg}</Text>}
-          </View>
-        )}
+            {lastAvg && <Text style={styles.avgText}>7-night average: {lastAvg}</Text>}
+          </Card>
+        </Rise>
+      )}
 
-        {/* Rate the last night out of 5 */}
-        {latest && !latest.quality && (
-          <View style={styles.rateCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rateTitle}>How did you sleep?</Text>
-              <Text style={styles.rateSub}>Rate last night out of 5</Text>
-            </View>
-            <View style={styles.rateStars}>
-              {[1, 2, 3, 4, 5].map((q) => (
-                <TouchableOpacity
-                  key={q}
-                  style={styles.rateStarBtn}
-                  onPress={() => rateNight(latest, q)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="star-outline" size={26} color={colors.primary} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Session detected by the motion sensor */}
-        {autoAvailable && autoSession && !autoSaved && (
-          <View style={styles.autoDetectCard}>
+      {/* Session detected by the motion sensor */}
+      {autoAvailable && autoSession && !autoSaved && (
+        <Rise index={3}>
+          <Card>
             <View style={styles.detectHead}>
-              <Ionicons name="radio-outline" size={18} color={colors.primary} />
+              <Ionicons name="radio-outline" size={17} color={mc.violet} />
               <Text style={styles.detectTitle}>Detected automatically</Text>
             </View>
             <Text style={styles.detectTimes}>
-              {new Date(autoSession.bedTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}{' '}
-              → {new Date(autoSession.wakeTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-              {'  '}({formatSleepDuration(autoSession.durationMin / 60)})
+              {new Date(autoSession.bedTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              {' → '}
+              {new Date(autoSession.wakeTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              {'  '}
+              <Text style={styles.detectDuration}>({formatSleepDuration(autoSession.durationMin / 60)})</Text>
             </Text>
-            <Text style={styles.autoDetectMeta}>
+            <Text style={styles.detectMeta}>
               {autoSession.interruptions > 0
                 ? `${autoSession.interruptions} wake-up${autoSession.interruptions > 1 ? 's' : ''} · ${Math.round(autoSession.confidence * 100)}% confident`
                 : `${Math.round(autoSession.confidence * 100)}% confident`}
             </Text>
             <View style={styles.detectActions}>
-              <TouchableOpacity style={styles.detectAccept} onPress={saveDetectedSession}>
+              <PressScale onPress={saveDetectedSession} scale={0.95} style={styles.detectAccept}>
                 <Text style={styles.detectAcceptText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.detectDismiss} onPress={() => setAutoSession(null)}>
+              </PressScale>
+              <PressScale onPress={() => setAutoSession(null)} scale={0.95} style={styles.detectDismiss}>
                 <Text style={styles.detectDismissText}>Dismiss</Text>
-              </TouchableOpacity>
+              </PressScale>
             </View>
-          </View>
-        )}
+          </Card>
+        </Rise>
+      )}
 
-        {/* A 5–10 minute awake gap inside the night — the user decides whether
-            it was a long interruption or the end of the sleep. */}
-        {autoAvailable && autoSession?.pendingGap && (
-          <View style={styles.gapCard}>
+      {/* A 5–10 minute awake gap inside the night */}
+      {autoAvailable && autoSession?.pendingGap && (
+        <Rise index={3}>
+          <Card>
             <View style={styles.detectHead}>
-              <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+              <Ionicons name="help-circle-outline" size={17} color={mc.amber} />
               <Text style={styles.detectTitle}>You were up for a while</Text>
             </View>
             <Text style={styles.gapText}>
               Around{' '}
-              {new Date(autoSession.pendingGap.startMs).toLocaleTimeString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-              })}
+              {new Date(autoSession.pendingGap.startMs).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
               {' — about '}
               {autoSession.pendingGap.minutes} min. Was that a long interruption, or did your sleep end there?
             </Text>
             <View style={styles.detectActions}>
-              <TouchableOpacity style={styles.detectAccept} onPress={openGapPrompt}>
+              <PressScale onPress={openGapPrompt} scale={0.95} style={styles.detectAccept}>
                 <Text style={styles.detectAcceptText}>Long interruption</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.detectDismiss} onPress={() => resolveGap('ended')}>
+              </PressScale>
+              <PressScale onPress={() => resolveGap('ended')} scale={0.95} style={styles.detectDismiss}>
                 <Text style={styles.detectDismissText}>Sleep ended there</Text>
-              </TouchableOpacity>
+              </PressScale>
             </View>
-          </View>
-        )}
+          </Card>
+        </Rise>
+      )}
 
-        {/* Automatic tracking (accelerometer) */}
-        {autoAvailable && (
-          <View style={styles.autoCard}>
+      {/* Last 7 nights */}
+      {last7.length > 1 && (
+        <Rise index={4}>
+          <Card>
+            <View style={styles.rowBetween}>
+              <Label>LAST 7 NIGHTS</Label>
+              <Text style={styles.rowValue}>Avg {lastAvg}</Text>
+            </View>
+            <BarChart
+              data={last7.map((e) => {
+                const d = sleepDurationHours(e);
+                return {
+                  label: new Date(e.startTime).toLocaleDateString('en-IN', { weekday: 'narrow' }),
+                  value: d,
+                  color: d < 6 ? mc.redSoft : mc.violet,
+                };
+              })}
+              width={300}
+              height={100}
+              reference={7.5}
+              referenceColor={mc.mint}
+              style={styles.chart}
+            />
+            <View style={styles.chartFoot}>
+              <Text style={styles.chartFootText}>{new Date(last7[0].startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+              <Text style={[styles.chartFootText, { color: mc.mint }]}>target 7h 30m</Text>
+              <Text style={[styles.chartFootText, { color: mc.mint }]}>
+                {new Date(last7[last7.length - 1].startTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </Text>
+            </View>
+          </Card>
+        </Rise>
+      )}
+
+      {/* Automatic tracking */}
+      {autoAvailable && (
+        <Rise index={5}>
+          <Card>
             <View style={styles.autoHead}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.autoTitle}>Automatic tracking</Text>
+                <Text style={styles.autoSub}>{autoStatusText}</Text>
               </View>
-              <Switch
+              <Toggle
                 value={autoConfig.enabled}
-                onValueChange={toggleAuto}
-                trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.primaryContainer }}
-                thumbColor={autoConfig.enabled ? colors.primary : 'rgba(255,255,255,0.5)'}
+                onChange={toggleAuto}
+                accessibilityLabel="Automatic tracking"
               />
             </View>
 
-            {autoConfig.enabled ? (
+            {autoConfig.enabled && (
               <>
                 <View style={styles.autoStatusRow}>
                   <View style={styles.autoStat}>
@@ -722,43 +771,42 @@ export default function SleepDashboardScreen() {
                   {autoStatus?.alarmActive && (
                     <View style={styles.autoStat}>
                       <Text style={styles.autoStatLabel}>ALARM</Text>
-                      <Text style={[styles.autoStatValue, { color: colors.error }]}>Ringing</Text>
+                      <Text style={[styles.autoStatValue, { color: mc.redSoft }]}>Ringing</Text>
                     </View>
                   )}
                 </View>
 
                 <Text style={styles.autoFieldLabel}>SENSITIVITY</Text>
-                <View style={styles.chipRow}>
-                  {(['low', 'medium', 'high'] as SleepSensitivity[]).map((s) => (
-                    <TouchableOpacity
-                      key={s}
-                      style={[styles.chip, autoConfig.sensitivity === s && styles.chipActive]}
-                      onPress={() => changeSensitivity(s)}
-                    >
-                      <Text style={[styles.chipText, autoConfig.sensitivity === s && styles.chipTextActive]}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <SegmentedControl
+                  options={['low', 'medium', 'high'].map((s) => ({
+                    key: s,
+                    label: s.charAt(0).toUpperCase() + s.slice(1),
+                  }))}
+                  value={autoConfig.sensitivity}
+                  onChange={(v) => changeSensitivity(v as SleepSensitivity)}
+                  accent={mc.violet}
+                  activeText={mc.ink}
+                />
                 <Text style={styles.autoHint}>
                   Medium is best with the phone under a pillow — it needs sustained movement to count as awake.
                 </Text>
 
                 <Text style={styles.autoFieldLabel}>NIGHT WINDOW</Text>
                 <View style={styles.chipRow}>
-                  <TouchableOpacity
-                    style={styles.chip}
+                  <PressScale
                     onPress={() => setTimePicker({ kind: 'nightStart', value: autoConfig.sleepStartMin })}
+                    scale={0.95}
+                    style={styles.chip}
                   >
                     <Text style={styles.chipText}>From {fmtClock(autoConfig.sleepStartMin)}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.chip}
+                  </PressScale>
+                  <PressScale
                     onPress={() => setTimePicker({ kind: 'nightEnd', value: autoConfig.sleepEndMin })}
+                    scale={0.95}
+                    style={styles.chip}
                   >
                     <Text style={styles.chipText}>Until {fmtClock(autoConfig.sleepEndMin)}</Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 </View>
 
                 <View style={styles.autoAlarmRow}>
@@ -766,11 +814,10 @@ export default function SleepDashboardScreen() {
                     <Text style={styles.autoTitle}>Smart alarm</Text>
                     <Text style={styles.autoSub}>Rings inside the wake window with Stop / Snooze</Text>
                   </View>
-                  <Switch
+                  <Toggle
                     value={autoConfig.alarmEnabled}
-                    onValueChange={toggleAlarm}
-                    trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.primaryContainer }}
-                    thumbColor={autoConfig.alarmEnabled ? colors.primary : 'rgba(255,255,255,0.5)'}
+                    onChange={toggleAlarm}
+                    accessibilityLabel="Smart alarm"
                   />
                 </View>
 
@@ -778,136 +825,117 @@ export default function SleepDashboardScreen() {
                   <>
                     <Text style={styles.autoFieldLabel}>WAKE WINDOW</Text>
                     <View style={styles.chipRow}>
-                      <TouchableOpacity
-                        style={styles.chip}
+                      <PressScale
                         onPress={() => setTimePicker({ kind: 'wakeStart', value: autoConfig.wakeStartMin })}
+                        scale={0.95}
+                        style={styles.chip}
                       >
                         <Text style={styles.chipText}>{fmtClock(autoConfig.wakeStartMin)}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.chip}
+                      </PressScale>
+                      <PressScale
                         onPress={() => setTimePicker({ kind: 'wakeEnd', value: autoConfig.wakeEndMin })}
+                        scale={0.95}
+                        style={styles.chip}
                       >
                         <Text style={styles.chipText}>{fmtClock(autoConfig.wakeEndMin)}</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.chip, autoConfig.alarmMode === 'fixed' && styles.chipActive]}
+                      </PressScale>
+                      <PressScale
                         onPress={async () => {
                           const next = {
                             ...autoConfig,
-                            alarmMode: (autoConfig.alarmMode === 'fixed'
-                              ? 'smart'
-                              : 'fixed') as SleepAlarmMode,
+                            alarmMode: (autoConfig.alarmMode === 'fixed' ? 'smart' : 'fixed') as SleepAlarmMode,
                           };
                           setAutoConfig(next);
                           await setMotionConfig(next);
                         }}
+                        scale={0.95}
+                        style={[styles.chip, autoConfig.alarmMode === 'fixed' && styles.chipActive]}
                       >
                         <Text style={[styles.chipText, autoConfig.alarmMode === 'fixed' && styles.chipTextActive]}>
                           {autoConfig.alarmMode === 'fixed' ? 'Exact time' : 'Light sleep'}
                         </Text>
-                      </TouchableOpacity>
+                      </PressScale>
                     </View>
                   </>
                 )}
               </>
-            ) : (
-              <Text style={styles.autoHint}>
-                Meridian watches your phone's motion overnight and works out when you fell asleep and woke
-                up. Nothing leaves the phone.
-              </Text>
             )}
-          </View>
-        )}
+          </Card>
+        </Rise>
+      )}
 
-        {/* One-tap session */}
-        {!pendingBedtime ? (
-          <TouchableOpacity style={styles.bedBtn} onPress={tapBed} activeOpacity={0.85}>
-            <Ionicons name="moon" size={22} color={colors.onSurface} />
+      {/* Going to bed / good morning */}
+      {!pendingBedtime ? (
+        <Rise index={6}>
+          <PressScale onPress={tapBed} scale={0.97} style={styles.bedBtn} accessibilityLabel="Going to bed">
+            <Ionicons name="moon" size={22} color={mc.ink} />
             <View style={styles.bedBtnTextWrap}>
               <Text style={styles.bedBtnTitle}>Going to bed</Text>
-              <Text style={styles.bedBtnSub}>Tap when you're off to sleep</Text>
+              <Text style={styles.bedBtnSub}>Tap when you are off to sleep</Text>
             </View>
-          </TouchableOpacity>
-        ) : (
+          </PressScale>
+        </Rise>
+      ) : (
+        <Rise index={6}>
           <View style={styles.wakeWrap}>
             <View style={styles.wakeInfo}>
-              <Ionicons name="moon" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+              <Ionicons name="moon" size={16} color={mc.violet} style={{ marginRight: 8 }} />
               <Text style={styles.wakeInfoText}>
                 In bed since{' '}
-                {new Date(pendingBedtime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                {new Date(pendingBedtime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
               </Text>
             </View>
-            <TouchableOpacity style={styles.wakeBtn} onPress={tapWake} activeOpacity={0.85}>
-              <Ionicons name="sunny" size={22} color={colors.onSurface} />
+            <PressScale onPress={tapWake} scale={0.97} style={styles.bedBtn} accessibilityLabel="Good morning">
+              <Ionicons name="sunny" size={22} color={mc.ink} />
               <View style={styles.bedBtnTextWrap}>
                 <Text style={styles.bedBtnTitle}>Good morning</Text>
                 <Text style={styles.bedBtnSub}>Tap when you wake up</Text>
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBed} onPress={() => savePendingBedtime(null)}>
+            </PressScale>
+            <PressScale onPress={() => savePendingBedtime(null)} scale={0.96} style={styles.cancelBed}>
               <Text style={styles.cancelBedText}>Cancel session</Text>
-            </TouchableOpacity>
+            </PressScale>
           </View>
-        )}
+        </Rise>
+      )}
 
-        {/* Quick log for the previous night (when nothing was tracked) */}
-        <TouchableOpacity style={styles.quickLogBtn} onPress={quickLogLastNight} activeOpacity={0.85}>
-          <Ionicons name="checkmark-circle-outline" size={18} color={colors.primary} />
-          <View style={{ flex: 1 }}>
+      {/* Quick log */}
+      <Rise index={7}>
+        <PressScale onPress={quickLogLastNight} scale={0.98} style={styles.quickLogBtn} accessibilityLabel="Log last night">
+          <Ionicons name="checkmark-circle-outline" size={17} color={mc.violet} />
+          <View style={styles.quickLogMain}>
             <Text style={styles.quickLogTitle}>Log last night</Text>
             <Text style={styles.quickLogSub}>
               {formatSleepDuration(typicalSleepMs / 3600000)} · until 7:00 AM
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceVariant} />
-        </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={15} color={mc.textFaint} />
+        </PressScale>
+      </Rise>
 
-        {/* Trend chart */}
-        {points.length > 1 && (
-          <View style={styles.chartCard}>
-            <Text style={styles.chartTitle}>DURATION — LAST 7 NIGHTS</Text>
-            <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
-              <Defs>
-                <SvgLinearGradient id="sGrad" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.25" />
-                  <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
-                </SvgLinearGradient>
-              </Defs>
-              <Line x1={padX} y1={targetY} x2={CHART_W - padX} y2={targetY} stroke={colors.success} strokeWidth="1.5" strokeDasharray="6,4" />
-              <Path d={fillD} fill="url(#sGrad)" />
-              <Path d={pathD} stroke={colors.primary} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-              {points.length > 0 && (
-                <Circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="4" fill={colors.primary} />
-              )}
-            </Svg>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
-              <Text style={styles.legendText}>Target: 7h 30m</Text>
-            </View>
-          </View>
-        )}
-
-        {/* AI insight */}
-        {entries.length > 0 && (
-          <View style={styles.insightCard}>
+      {/* AI insight */}
+      {entries.length > 0 && (
+        <Rise index={8}>
+          <Card>
             {insightLoading ? (
               <Text style={styles.insightText}>Thinking…</Text>
             ) : insight ? (
               <Text style={styles.insightText}>{insight}</Text>
             ) : (
-              <TouchableOpacity style={styles.insightBtn} onPress={fetchInsight} disabled={insightLoading}>
-                <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+              <PressScale onPress={fetchInsight} scale={0.97} style={styles.insightBtn} accessibilityLabel="Get AI sleep insight">
+                <Ionicons name="sparkles-outline" size={16} color={mc.violet} />
                 <Text style={styles.insightBtnText}>Get AI sleep insight</Text>
-              </TouchableOpacity>
+              </PressScale>
             )}
-          </View>
-        )}
+          </Card>
+        </Rise>
+      )}
 
-        {/* Settings: bedtime reminder */}
-        <View style={styles.settingsCard}>
+      {/* Bedtime reminder */}
+      <Rise index={9}>
+        <Card>
           <View style={styles.settingsRow}>
-            <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+            <Ionicons name="notifications-outline" size={16} color={mc.violet} />
             <Text style={styles.settingsLabel}>Bedtime reminder</Text>
             <View style={styles.reminderBtns}>
               {[
@@ -917,71 +945,74 @@ export default function SleepDashboardScreen() {
               ].map((opt) => {
                 const active = reminderTime?.hour === opt.h && reminderTime?.minute === opt.m;
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={opt.label}
-                    style={[styles.reminderBtn, active && styles.reminderBtnActive]}
                     onPress={() => changeReminder({ hour: opt.h, minute: opt.m })}
+                    scale={0.94}
+                    style={[styles.reminderBtn, active && styles.reminderBtnActive]}
                   >
-                    <Text style={[styles.reminderBtnText, active && styles.reminderBtnTextActive]}>{opt.label}</Text>
-                  </TouchableOpacity>
+                    <Text style={[styles.reminderBtnText, active && styles.reminderBtnTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </PressScale>
                 );
               })}
               {reminderTime && (
-                <TouchableOpacity
-                  style={styles.reminderOff}
-                  onPress={() => changeReminder(null)}
-                >
+                <PressScale onPress={() => changeReminder(null)} scale={0.94} style={styles.reminderOff}>
                   <Text style={styles.reminderOffText}>Off</Text>
-                </TouchableOpacity>
+                </PressScale>
               )}
             </View>
           </View>
-        </View>
+        </Card>
+      </Rise>
 
-        {/* History — compact, the full list lives on its own page */}
+      {/* HISTORY */}
+      <Rise index={10}>
         <View style={styles.historyHead}>
-          <Text style={styles.sectionTitle}>HISTORY</Text>
+          <Label>HISTORY</Label>
           {sorted.length > 0 && (
-            <TouchableOpacity style={styles.historyMore} onPress={() => navigation.navigate('SleepHistory')}>
+            <PressScale onPress={() => navigation.navigate('SleepHistory')} scale={0.95} style={styles.historyMoreBtn}>
               <Text style={styles.historyMoreText}>View all ({sorted.length})</Text>
-              <Ionicons name="chevron-forward" size={13} color={colors.primary} />
-            </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={13} color={mc.violet} />
+            </PressScale>
           )}
         </View>
         {sorted.length === 0 ? (
-          <Text style={styles.emptyText}>No sleep logs yet. Tap "Going to bed" tonight to start.</Text>
+          <EmptyState
+            icon="moon-outline"
+            title="No sleep logs yet"
+            subtitle="Tap &quot;Going to bed&quot; tonight to start"
+          />
         ) : (
           sorted.slice(0, 5).map((e) => {
             const d = sleepDurationHours(e);
             const below = d < 6;
             const good = d >= 7;
             return (
-              <TouchableOpacity
-                key={e.id}
-                style={styles.compactRow}
-                onPress={() => openEdit(e)}
-                activeOpacity={0.7}
-              >
+              <PressScale key={e.id} onPress={() => openEdit(e)} scale={0.99} style={styles.compactRow}>
                 <Ionicons
                   name={e.source?.startsWith('auto') ? 'sparkles-outline' : 'moon-outline'}
-                  size={13}
-                  color={colors.primary}
+                  size={15}
+                  color={mc.violet}
                 />
-                <Text style={styles.compactDate}>
-                  {new Date(e.startTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </Text>
-                <Text style={styles.compactTimes}>
-                  {new Date(e.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })} –{' '}
-                  {new Date(e.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </Text>
-                <Text style={[styles.compactDur, { color: below ? colors.error : good ? colors.success : colors.onSurface }]}>
+                <View style={styles.compactMain}>
+                  <Text style={styles.compactDate}>
+                    {new Date(e.startTime).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </Text>
+                  <Text style={styles.compactTimes}>
+                    {new Date(e.startTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}{' – '}
+                    {new Date(e.endTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                  </Text>
+                </View>
+                <Text style={[styles.compactDur, { color: below ? mc.redSoft : good ? mc.mint : mc.text }]}>
                   {formatSleepDuration(d)}
                 </Text>
-              </TouchableOpacity>
+              </PressScale>
             );
           })
         )}
-      </ScrollView>
+      </Rise>
 
       {/* Add/Edit Modal */}
       <Modal visible={showLog} transparent animationType="slide" onRequestClose={() => setShowLog(false)}>
@@ -995,7 +1026,7 @@ export default function SleepDashboardScreen() {
               value={form.bed}
               onChangeText={(t) => setForm((f) => ({ ...f, bed: t }))}
               placeholder="e.g. 2026-09-12 23:30"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={mc.textDim}
             />
 
             <Text style={styles.fieldLabel}>Wake time (YYYY-MM-DD HH:MM)</Text>
@@ -1004,7 +1035,7 @@ export default function SleepDashboardScreen() {
               value={form.wake}
               onChangeText={(t) => setForm((f) => ({ ...f, wake: t }))}
               placeholder="e.g. 2026-09-13 07:15"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={mc.textDim}
             />
 
             <Text style={styles.fieldLabel}>Quality (1–5, optional)</Text>
@@ -1015,7 +1046,7 @@ export default function SleepDashboardScreen() {
                   style={[styles.qualityBtn, form.quality === String(q) && styles.qualityBtnActive]}
                   onPress={() => setForm((f) => ({ ...f, quality: f.quality === String(q) ? '' : String(q) }))}
                 >
-                  <Ionicons name={q <= (parseInt(form.quality, 10) || 0) ? 'star' : 'star-outline'} size={20} color={colors.primary} />
+                  <Ionicons name={q <= (parseInt(form.quality, 10) || 0) ? 'star' : 'star-outline'} size={20} color={mc.violet} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -1027,7 +1058,7 @@ export default function SleepDashboardScreen() {
               onChangeText={(t) => setForm((f) => ({ ...f, interruptions: t.replace(/[^0-9]/g, '') }))}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={mc.textDim}
             />
 
             <Text style={styles.fieldLabel}>Notes</Text>
@@ -1036,13 +1067,13 @@ export default function SleepDashboardScreen() {
               value={form.notes}
               onChangeText={(t) => setForm((f) => ({ ...f, notes: t }))}
               placeholder="Optional"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={mc.textDim}
             />
 
             {editing ? (
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity
-                  style={[styles.saveBtn, { flex: 1, backgroundColor: colors.errorContainer }]}
+                  style={[styles.saveBtn, { flex: 1, backgroundColor: mc.redDim }]}
                   onPress={() => {
                     // Never delete a night without asking.
                     Alert.alert(
@@ -1100,7 +1131,7 @@ export default function SleepDashboardScreen() {
               onChangeText={(t) => setGapMinutesInput(t.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               placeholder="minutes"
-              placeholderTextColor={colors.onSurfaceVariant}
+              placeholderTextColor={mc.textDim}
             />
             <TouchableOpacity style={styles.saveBtn} onPress={confirmGapPrompt}>
               <Text style={styles.saveBtnText}>Save</Text>
@@ -1119,153 +1150,479 @@ export default function SleepDashboardScreen() {
         onSelect={(d) => applyPickedTime(d.getHours() * 60 + d.getMinutes())}
         onClose={() => setTimePicker(null)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0 },
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', height: 64, paddingHorizontal: spacing.containerPadding, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  appBarCenter: { alignItems: 'center' },
-  appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
-  iconBtn: { padding: 8, borderRadius: rounded.full },
-  scroll: { padding: spacing.containerPadding, gap: 14, paddingBottom: 40 },
-
-  detectCard: { backgroundColor: colors.primaryContainer, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  detectHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  detectTitle: { fontSize: 13, fontWeight: '700', color: colors.onSurface },
-  detectTimes: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  detectActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  detectAccept: { backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 20, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  detectAcceptText: { fontSize: 13, fontWeight: '700', color: colors.onPrimary },
-  detectDismiss: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: 'center' },
-  detectDismissText: { fontSize: 13, fontWeight: '700', color: colors.onSurfaceVariant },
-
-  bedBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.primaryContainer, padding: 18, borderRadius: rounded.lg },
-  bedBtnTextWrap: { gap: 2 },
-  bedBtnTitle: { fontSize: 16, fontWeight: '800', color: colors.onSurface },
-  bedBtnSub: { fontSize: 12, color: colors.onSurfaceVariant },
-  wakeWrap: { gap: 10 },
-  wakeInfo: { flexDirection: 'row', alignItems: 'center', paddingLeft: 4 },
-  wakeInfoText: { fontSize: 12, color: colors.onSurfaceVariant, fontWeight: '600' },
-  wakeBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.primaryContainer, padding: 18, borderRadius: rounded.lg },
-  cancelBed: { alignItems: 'center', paddingVertical: 6 },
-  cancelBedText: { fontSize: 12, color: colors.onSurfaceVariant, fontWeight: '600' },
-
-  heroCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 20, alignItems: 'center', gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  heroLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  heroRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  heroValue: { fontSize: 38, fontWeight: '800', color: colors.onSurface, letterSpacing: -1 },
-  heroMeta: { flexDirection: 'row', gap: 24, marginTop: 4 },
-  heroStat: { alignItems: 'center', gap: 2 },
-  heroStatLabel: { fontSize: 10, color: colors.onSurfaceVariant, fontWeight: '600' },
-  heroStatValue: { fontSize: 14, color: colors.onSurface, fontWeight: '700' },
-  avgText: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 4 },
-
-  chartCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  chartTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11, color: colors.onSurfaceVariant },
-
-  insightCard: { backgroundColor: colors.primaryContainer, borderRadius: rounded.lg, padding: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  insightText: { fontSize: 13, color: colors.onSurface, lineHeight: 19 },
-  insightBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
-  insightBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-
-  settingsCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  settingsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  settingsLabel: { fontSize: 12, fontWeight: '600', color: colors.onSurface, marginRight: 4 },
-  reminderBtns: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  reminderBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  reminderBtnActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
-  reminderBtnText: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant },
-  reminderBtnTextActive: { color: colors.onSurface },
-  reminderOff: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.error },
-  reminderOffText: { fontSize: 11, fontWeight: '600', color: colors.error },
-  detectEnable: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  detectEnableText: { fontSize: 12, fontWeight: '600', color: colors.primary, flex: 1 },
-
-  autoCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 14, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  autoHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  autoTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  autoSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
-  autoHint: { fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
-  autoStatusRow: { flexDirection: 'row', gap: 18, paddingVertical: 2 },
-  autoStat: { gap: 2 },
-  autoStatLabel: { fontSize: 9, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  autoStatValue: { fontSize: 13, fontWeight: '700', color: colors.onSurface },
-  autoFieldLabel: { fontSize: 9, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
-  autoAlarmRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  chipActive: { backgroundColor: colors.primaryContainer, borderColor: colors.primary },
-  chipText: { fontSize: 12, fontWeight: '600', color: colors.onSurfaceVariant },
-  chipTextActive: { color: colors.onSurface },
-  autoDetectCard: { backgroundColor: colors.primaryContainer, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  autoDetectMeta: { fontSize: 11, color: colors.onSurfaceVariant },
-  gapCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  gapText: { fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
-  rateCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  rateTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  rateSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
-  rateStars: { flexDirection: 'row', gap: 2 },
-  rateStarBtn: { padding: 2 },
-
-  sectionTitle: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginTop: 4 },
-  historyHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  historyMore: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 6, borderRadius: rounded.full, backgroundColor: colors.primaryContainer },
-  historyMoreText: { fontSize: 11, fontWeight: '700', color: colors.primary },
-  compactRow: {
+  appBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    backgroundColor: colors.surface,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    gap: 12,
+    height: 52,
   },
-  compactDate: { fontSize: 12, fontWeight: '700', color: colors.onSurface, width: 78 },
-  compactTimes: { flex: 1, fontSize: 11, color: colors.onSurfaceVariant },
-  compactDur: { fontSize: 12, fontWeight: '700' },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appBarTitle: {
+    flex: 1,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  addBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.violet,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  rateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rateMain: {
+    flex: 1,
+  },
+  rateTitle: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  rateSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  rateStars: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+
+  heroValue: {
+    fontSize: 40,
+    fontWeight: '500',
+    color: mc.text,
+    marginVertical: 4,
+  },
+  heroMeta: {
+    flexDirection: 'row',
+    gap: 28,
+    marginTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(155,140,255,0.25)',
+    paddingTop: 10,
+  },
+  heroMetaItem: {
+    flex: 1,
+  },
+  heroMetaLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textDim,
+    textTransform: 'uppercase',
+  },
+  heroMetaValue: {
+    fontSize: 13,
+    color: mc.text,
+    marginTop: 2,
+  },
+  avgText: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 10,
+  },
+
+  detectHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detectTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: mc.text,
+  },
+  detectTimes: {
+    fontSize: 14,
+    color: mc.text,
+    fontWeight: '500',
+    marginTop: 6,
+  },
+  detectDuration: {
+    color: mc.textDim,
+    fontWeight: '400',
+  },
+  detectMeta: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 4,
+  },
+  detectActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  detectAccept: {
+    backgroundColor: mc.violet,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  detectAcceptText: {
+    fontSize: 13,
+    color: mc.ink,
+    fontWeight: '600',
+  },
+  detectDismiss: {
+    backgroundColor: mc.raised,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  detectDismissText: {
+    fontSize: 13,
+    color: mc.text,
+  },
+  gapText: {
+    fontSize: 13,
+    color: mc.textDim,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowValue: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  chart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
+  },
+  chartFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  chartFootText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+
+  autoHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  autoTitle: {
+    fontSize: 15,
+    color: mc.text,
+    fontWeight: '500',
+  },
+  autoSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  autoStatusRow: {
+    flexDirection: 'row',
+    gap: 18,
+    marginTop: 12,
+  },
+  autoStat: {
+    flex: 1,
+  },
+  autoStatLabel: {
+    fontSize: 10,
+    color: mc.textFaint,
+    letterSpacing: 1,
+  },
+  autoStatValue: {
+    fontSize: 14,
+    color: mc.text,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  autoFieldLabel: {
+    fontSize: 10,
+    color: mc.textFaint,
+    letterSpacing: 1,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  autoHint: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  chip: {
+    backgroundColor: mc.raised,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  chipActive: {
+    backgroundColor: mc.violetDim,
+  },
+  chipText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  chipTextActive: {
+    color: mc.violet,
+  },
+  autoAlarmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+  },
+
+  bedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: mc.violet,
+    borderRadius: 26,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  bedBtnTextWrap: {
+    flex: 1,
+  },
+  bedBtnTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.ink,
+  },
+  bedBtnSub: {
+    fontSize: 12,
+    color: mc.ink,
+    opacity: 0.75,
+    marginTop: 2,
+  },
+  wakeWrap: {
+    gap: 10,
+  },
+  wakeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  wakeInfoText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
+  cancelBed: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+  },
+  cancelBedText: {
+    fontSize: 13,
+    color: mc.redSoft,
+  },
+
   quickLogBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderRadius: rounded.lg,
-    padding: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    gap: 12,
+    backgroundColor: mc.card,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  quickLogTitle: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  quickLogSub: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
-  emptyText: { fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 20 },
+  quickLogMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  quickLogTitle: {
+    fontSize: 14,
+    color: mc.text,
+  },
+  quickLogSub: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
 
-  entryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  entryMain: { flex: 1, flexDirection: 'row', padding: 12, gap: 12, alignItems: 'center' },
-  entryIcon: { width: 40, height: 40, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' },
-  entryInfo: { flex: 1, gap: 2 },
-  entryDate: { fontSize: 13, fontWeight: '600', color: colors.onSurface },
-  entryTimes: { fontSize: 11, color: colors.onSurfaceVariant },
-  entryNote: { fontSize: 11, color: colors.onSurfaceVariant },
-  entryStats: { alignItems: 'flex-end', gap: 2 },
-  entryDur: { fontSize: 15, fontWeight: '700' },
-  entryQuality: { fontSize: 11, color: colors.onSurfaceVariant },
-  entryDelete: { padding: 12, paddingLeft: 4 },
+  insightText: {
+    fontSize: 13,
+    color: mc.text,
+    lineHeight: 18,
+  },
+  insightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 6,
+  },
+  insightBtnText: {
+    fontSize: 13,
+    color: mc.violet,
+    fontWeight: '600',
+  },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center', marginBottom: 16 },
-  fieldLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6, marginBottom: 4, marginTop: 8 },
-  fieldInput: { backgroundColor: colors.surface, borderRadius: rounded.DEFAULT, height: 44, paddingHorizontal: 14, color: colors.onSurface, fontSize: 15, fontWeight: '500', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  qualityRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  qualityBtn: { padding: 8, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  qualityBtnActive: { backgroundColor: colors.primaryContainer },
-  saveBtn: { backgroundColor: colors.primaryContainer, paddingVertical: 14, borderRadius: rounded.lg, alignItems: 'center', marginTop: 16 },
-  saveBtnText: { fontSize: 15, fontWeight: '700', color: colors.onSurface },
-  cancelBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
-  cancelBtnText: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  settingsLabel: {
+    fontSize: 14,
+    color: mc.text,
+    marginRight: 'auto',
+  },
+  reminderBtns: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  reminderBtn: {
+    backgroundColor: mc.raised,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  reminderBtnActive: {
+    backgroundColor: mc.violet,
+  },
+  reminderBtnText: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  reminderBtnTextActive: {
+    color: mc.ink,
+    fontWeight: '600',
+  },
+  reminderOff: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reminderOffText: {
+    fontSize: 12,
+    color: mc.redSoft,
+  },
+
+  historyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historyMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  historyMoreText: {
+    fontSize: 12,
+    color: mc.violet,
+    fontWeight: '600',
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: mc.line,
+  },
+  compactMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactDate: {
+    fontSize: 14,
+    color: mc.text,
+  },
+  compactTimes: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  compactDur: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'center',
+    padding: 22,
+  },
+  modalSheet: {
+    backgroundColor: mc.card,
+    borderRadius: 26,
+    padding: 20,
+    gap: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  fieldInput: {
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    color: mc.text,
+    fontSize: 14,
+  },
+  qualityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  qualityBtn: {
+    padding: 6,
+    borderRadius: 12,
+  },
+  qualityBtnActive: {
+    backgroundColor: mc.violetDim,
+  },
+  saveBtn: {
+    backgroundColor: mc.violet,
+    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  saveBtnText: {
+    fontSize: 14,
+    color: mc.ink,
+    fontWeight: '600',
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    color: mc.textDim,
+  },
 });

@@ -9,11 +9,8 @@ import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Modal,
   TextInput,
   Alert,
@@ -22,10 +19,6 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
-import { tc } from '../../../shared/theme/tracend';
-import Entrance from '../../../shared/components/Entrance';
 import {
   HabitDef,
   todayKey,
@@ -40,6 +33,15 @@ import {
 import { useHabitStore, habitsForDay, useHabitDefs } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
+import { mc } from '../../../shared/theme/meridian';
+import {
+  Card,
+  Label,
+  PressScale,
+  Ring,
+  Rise,
+  Screen,
+} from '../../../shared/components/meridian';
 
 type Nav = NativeStackNavigationProp<MoreStackParamList>;
 
@@ -153,141 +155,151 @@ export default function HabitTrackerScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Habit Tracker</Text>
-        <TouchableOpacity style={styles.appBarSide} onPress={() => setShowAddHabit(true)} activeOpacity={0.7}>
-          <Ionicons name="add" size={22} color={colors.onSurface} />
-        </TouchableOpacity>
-      </View>
+    <Screen bottomInset={40}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton} accessibilityLabel="Go back">
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.appBarTitle}>Habit tracker</Text>
+          <PressScale onPress={() => setShowAddHabit(true)} scale={0.9} style={styles.addBtn} accessibilityLabel="Add habit">
+            <Ionicons name="add" size={19} color={mc.white} />
+          </PressScale>
+        </View>
+      </Rise>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Today card */}
-        <Entrance index={0}>
-          <View style={styles.todayCard}>
-            <View style={styles.todayHeadRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.todayLabel}>TODAY · {dayPercent(ticked, HABITS)}</Text>
-                <Text style={styles.todaySub}>
-                  {ticked.length} of {HABITS.length} done · long-press a habit to edit
-                </Text>
-              </View>
-              {habitOverrides && (
-                <TouchableOpacity onPress={resetHabitSet} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="refresh" size={15} color={tc.textMuted} />
-                </TouchableOpacity>
-              )}
+      {/* TODAY */}
+      <Rise index={1}>
+        <Card>
+          <View style={styles.todayRow}>
+            <Ring
+              progress={dayProgress(ticked, HABITS)}
+              size={56}
+              stroke={7}
+              color={mc.red}
+            >
+              <Text style={styles.ringText}>
+                {ticked.length}/{HABITS.length}
+              </Text>
+            </Ring>
+            <View style={styles.todayMain}>
+              <Label color={mc.redSoft}>TODAY</Label>
+              <Text style={styles.todayBig}>
+                {ticked.length} of {HABITS.length} done
+              </Text>
+              <Text style={styles.todaySub}>Long-press a habit to edit</Text>
             </View>
-            <View style={styles.habitList}>
-              {HABITS.map((h) => {
-                const done = ticked.includes(h.key);
-                const streak = streakFor(h.key);
-                return (
-                  <TouchableOpacity
-                    key={h.key}
-                    style={styles.habitRow}
-                    onPress={() => toggle(h.key)}
-                    onLongPress={() => openEditHabit(h)}
-                    delayLongPress={400}
-                    activeOpacity={0.75}
-                  >
-                    {/* tick box */}
-                    <View style={[styles.tickBox, done && styles.tickBoxDone]}>
-                      {done && <Ionicons name="checkmark" size={15} color="#0A0A10" />}
-                    </View>
-                    <Text style={styles.habitEmoji}>{h.emoji}</Text>
-                    <Text style={[styles.habitText, done && styles.habitTextDone]} numberOfLines={2}>
-                      {h.label}
-                    </Text>
-                    {streak >= 3 && (
-                      <View style={styles.streakPill}>
-                        <Text style={styles.streakPillText}>🔥 {streak}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {habitOverrides && (
+              <PressScale onPress={resetHabitSet} scale={0.9} accessibilityLabel="Reset habit list">
+                <Ionicons name="refresh" size={16} color={mc.textDim} />
+              </PressScale>
+            )}
           </View>
-        </Entrance>
+          <View style={styles.habitList}>
+            {HABITS.map((h) => {
+              const done = ticked.includes(h.key);
+              const streak = streakFor(h.key);
+              return (
+                <PressScale
+                  key={h.key}
+                  onPress={() => toggle(h.key)}
+                  onLongPress={() => openEditHabit(h)}
+                  delayLongPress={400}
+                  scale={0.98}
+                  style={styles.habitRow}
+                >
+                  <View style={[styles.circle, done && styles.circleDone]}>
+                    {done ? <Ionicons name="checkmark" size={14} color={mc.ink} /> : null}
+                  </View>
+                  <Text style={styles.habitEmoji}>{h.emoji}</Text>
+                  <Text style={[styles.habitText, done && styles.habitTextDone]} numberOfLines={2}>
+                    {h.label}
+                  </Text>
+                  {streak >= 3 && (
+                    <View style={styles.streakPill}>
+                      <Ionicons name="flame" size={12} color={mc.redSoft} />
+                      <Text style={styles.streakText}>{streak}</Text>
+                    </View>
+                  )}
+                </PressScale>
+              );
+            })}
+          </View>
+        </Card>
+      </Rise>
 
-        {/* Monthly overview */}
-        <Entrance index={1}>
-          <View style={styles.monthCard}>
-            <View style={styles.monthNav}>
-              <TouchableOpacity style={styles.monthBtn} onPress={() => setViewMonth(shiftMonth(viewMonth, -1))}>
-                <Ionicons name="chevron-back" size={16} color={tc.textMuted} />
-              </TouchableOpacity>
-              <View style={{ alignItems: 'center' }}>
-                <Text style={styles.monthTitle}>{monthLabel(viewMonth)}</Text>
-                <Text style={styles.monthAvg}>Monthly average {Math.round(monthAverage * 100)}%</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.monthBtn}
-                onPress={() => {
-                  const next = shiftMonth(viewMonth, 1);
-                  if (next <= monthOf(today)) setViewMonth(next);
-                }}
-              >
-                <Ionicons name="chevron-forward" size={16} color={tc.textMuted} />
-              </TouchableOpacity>
+      {/* Monthly overview */}
+      <Rise index={2}>
+        <Card>
+          <View style={styles.monthNav}>
+            <PressScale onPress={() => setViewMonth(shiftMonth(viewMonth, -1))} scale={0.9} style={styles.monthBtn} accessibilityLabel="Previous month">
+              <Ionicons name="chevron-back" size={17} color={mc.textDim} />
+            </PressScale>
+            <View style={styles.monthCenter}>
+              <Text style={styles.monthTitle}>{monthLabel(viewMonth)}</Text>
+              <Text style={styles.monthAvg}>
+                Monthly average {Math.round(monthAverage * 100)}%
+              </Text>
             </View>
+            <PressScale
+              onPress={() => {
+                const next = shiftMonth(viewMonth, 1);
+                if (next <= monthOf(today)) setViewMonth(next);
+              }}
+              scale={0.9}
+              style={styles.monthBtn}
+              accessibilityLabel="Next month"
+            >
+              <Ionicons name="chevron-forward" size={17} color={mc.textDim} />
+            </PressScale>
+          </View>
 
-            {/* progress blocks for the month */}
-            <Text style={styles.monthBlocks}>
-              {'⬛'.repeat(Math.round(monthAverage * 10)) + '⬜'.repeat(10 - Math.round(monthAverage * 10))}
-              {'  '}{Math.round(monthAverage * 100)}%
-            </Text>
-
-            {/* grid: habit rows × day columns */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View>
-                {/* header row: day numbers */}
-                <View style={styles.gridRow}>
-                  <View style={styles.gridLabelCell} />
-                  {monthDays.map((d, i) => (
-                    <View
-                      key={d}
-                      style={[styles.gridDayCell, i === todayIndex && styles.gridTodayCol]}
-                    >
-                      <Text style={[styles.gridDayText, i === todayIndex && styles.gridDayTextToday]}>
-                        {String(i + 1).padStart(2, '0')}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-                {/* habit rows */}
-                {HABITS.map((h) => (
-                  <View key={h.key} style={styles.gridRow}>
-                    <View style={styles.gridLabelCell}>
-                      <Text style={styles.gridLabelEmoji} numberOfLines={1}>{h.emoji}</Text>
-                    </View>
-                    {monthDays.map((d, i) => {
-                      const done = (habitsByDay.get(d) ?? []).includes(h.key);
-                      return (
-                        <View
-                          key={d}
-                          style={[
-                            styles.gridCell,
-                            done && styles.gridCellDone,
-                            i === todayIndex && styles.gridTodayCol,
-                          ]}
-                        >
-                          {done && <View style={styles.gridCellDot} />}
-                        </View>
-                      );
-                    })}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View>
+              {/* header row: day numbers */}
+              <View style={styles.gridRow}>
+                <View style={styles.gridLabelCell} />
+                {monthDays.map((d, i) => (
+                  <View
+                    key={d}
+                    style={[styles.gridDayCell, i === todayIndex && styles.gridTodayCol]}
+                  >
+                    <Text style={[styles.gridDayText, i === todayIndex && styles.gridDayTextToday]}>
+                      {String(i + 1).padStart(2, '0')}
+                    </Text>
                   </View>
                 ))}
               </View>
-             </ScrollView>
-           </View>
-         </Entrance>
-       </ScrollView>
+              {/* habit rows */}
+              {HABITS.map((h) => (
+                <View key={h.key} style={styles.gridRow}>
+                  <View style={styles.gridLabelCell}>
+                    <Text style={styles.gridLabelEmoji} numberOfLines={1}>
+                      {h.emoji}
+                    </Text>
+                  </View>
+                  {monthDays.map((d, i) => {
+                    const done = (habitsByDay.get(d) ?? []).includes(h.key);
+                    return (
+                      <View
+                        key={d}
+                        style={[
+                          styles.gridCell,
+                          done && styles.gridCellDone,
+                          i === todayIndex && styles.gridTodayCol,
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </Card>
+      </Rise>
 
+      {/* Edit habit (long-press) */}
       {/* Edit habit (long-press) */}
       <Modal visible={!!editHabit} transparent animationType="fade" onRequestClose={() => setEditHabit(null)}>
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setEditHabit(null)} activeOpacity={1}>
@@ -299,7 +311,7 @@ export default function HabitTrackerScreen() {
                 value={editEmoji}
                 onChangeText={setEditEmoji}
                 placeholder="Emoji"
-                placeholderTextColor={tc.textMuted}
+                placeholderTextColor={mc.textDim}
                 maxLength={4}
               />
               <TextInput
@@ -307,7 +319,7 @@ export default function HabitTrackerScreen() {
                 value={editLabel}
                 onChangeText={setEditLabel}
                 placeholder="Habit name"
-                placeholderTextColor={tc.textMuted}
+                placeholderTextColor={mc.textDim}
                 autoFocus
                 onSubmitEditing={saveHabitEdit}
               />
@@ -338,7 +350,7 @@ export default function HabitTrackerScreen() {
                 value={newHabitEmoji}
                 onChangeText={setNewHabitEmoji}
                 placeholder="Emoji"
-                placeholderTextColor={tc.textMuted}
+                placeholderTextColor={mc.textDim}
                 maxLength={4}
               />
               <TextInput
@@ -346,7 +358,7 @@ export default function HabitTrackerScreen() {
                 value={newHabitLabel}
                 onChangeText={setNewHabitLabel}
                 placeholder="e.g. Stretch 10 minutes"
-                placeholderTextColor={tc.textMuted}
+                placeholderTextColor={mc.textDim}
                 autoFocus
                 onSubmitEditing={addHabit}
               />
@@ -365,260 +377,248 @@ export default function HabitTrackerScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-     </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.containerPadding,
-    paddingVertical: 8,
-    gap: 8,
+    gap: 12,
+    height: 52,
+  },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appBarTitle: {
     flex: 1,
-    textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
   },
-  appBarSide: { width: 40, height: 40 },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  addBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 100,
+
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
-  todayCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderRadius: rounded.xl,
-    padding: 16,
-    gap: 12,
+  todayMain: {
+    flex: 1,
+    minWidth: 0,
   },
-  todayHeadRow: { flexDirection: 'row', alignItems: 'center' },
-  todayLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: 'rgba(139,149,255,0.9)',
-    letterSpacing: 1.5,
+  todayBig: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 4,
   },
   todaySub: {
     fontSize: 12,
-    color: tc.textMuted,
+    color: mc.textDim,
     marginTop: 2,
   },
-  habitList: { gap: 4 },
+  ringText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  habitList: {
+    marginTop: 12,
+    gap: 2,
+  },
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: rounded.md,
+    gap: 12,
+    paddingVertical: 9,
+    paddingRight: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: mc.line,
+    backgroundColor: 'transparent',
   },
-  tickBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
+  circle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3A3A42',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  tickBoxDone: {
-    backgroundColor: '#4fdbcc',
-    borderColor: '#4fdbcc',
+  circleDone: {
+    backgroundColor: mc.mint,
+    borderColor: mc.mint,
   },
-  habitEmoji: { fontSize: 15 },
+  habitEmoji: {
+    fontSize: 16,
+  },
   habitText: {
     flex: 1,
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: tc.textPrimary,
-    lineHeight: 18,
+    fontSize: 15,
+    color: mc.text,
   },
   habitTextDone: {
-    color: tc.textMuted,
+    color: mc.textDim,
     textDecorationLine: 'line-through',
-    textDecorationColor: 'rgba(79,219,204,0.6)',
   },
   streakPill: {
-    backgroundColor: 'rgba(234,100,121,0.15)',
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: mc.redDim,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    borderRadius: 10,
   },
-  streakPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ea6479',
+  streakText: {
+    fontSize: 12,
+    color: mc.redSoft,
+    fontWeight: '600',
   },
-  monthCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderRadius: rounded.xl,
-    padding: 16,
-    gap: 12,
-  },
+
   monthNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   monthBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: mc.raised,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  monthCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   monthTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: tc.textPrimary,
+    fontSize: 17,
+    fontWeight: '500',
+    color: mc.text,
   },
   monthAvg: {
-    fontSize: 11,
-    color: tc.textMuted,
+    fontSize: 12,
+    color: mc.textDim,
     marginTop: 2,
   },
-  monthBlocks: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1,
+  gridRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  gridRow: { flexDirection: 'row', alignItems: 'center' },
   gridLabelCell: {
     width: 34,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
   },
-  gridLabelEmoji: { fontSize: 13 },
   gridDayCell: {
-    width: 16,
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  gridDayText: {
-    fontSize: 8,
-    color: 'rgba(255,255,255,0.35)',
-    fontWeight: '600',
-  },
-  gridDayTextToday: { color: '#5ee6ff', fontWeight: '800' },
-  gridCell: {
-    width: 16,
-    height: 16,
-    borderRadius: 5,
-    marginVertical: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.07)',
+    width: 22,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  gridCellDone: {
-    backgroundColor: 'rgba(79,219,204,0.35)',
-    borderColor: 'rgba(79,219,204,0.55)',
-  },
-  gridCellDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4fdbcc',
   },
   gridTodayCol: {
-    backgroundColor: 'rgba(94,230,255,0.08)',
+    backgroundColor: mc.redDim,
+    borderRadius: 6,
   },
+  gridDayText: {
+    fontSize: 9,
+    color: mc.textDim,
+  },
+  gridDayTextToday: {
+    color: mc.redSoft,
+    fontWeight: '700',
+  },
+  gridCell: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: mc.raised,
+    marginVertical: 2,
+  },
+  gridCellDone: {
+    backgroundColor: mc.mint,
+  },
+  gridLabelEmoji: {
+    fontSize: 13,
+  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
+    backgroundColor: mc.overlay,
     justifyContent: 'center',
-    padding: 24,
+    padding: 26,
   },
   modalCard: {
-    width: '100%',
-    backgroundColor: '#14141F',
-    borderRadius: rounded.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: mc.card,
+    borderRadius: 26,
     padding: 20,
-    gap: 12,
+    gap: 14,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.text,
   },
   modalEmojiRow: {
     flexDirection: 'row',
     gap: 10,
   },
   modalEmojiInput: {
-    width: 64,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderRadius: rounded.md,
+    backgroundColor: mc.raised,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 18,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 16,
+    width: 52,
     textAlign: 'center',
-    color: tc.textPrimary,
   },
   modalInputFlex: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-    borderRadius: rounded.md,
+    backgroundColor: mc.raised,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: tc.textPrimary,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 15,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 10,
     justifyContent: 'flex-end',
+    gap: 10,
   },
   modalBtn: {
-    backgroundColor: '#4fdbcc',
-    borderRadius: rounded.md,
+    backgroundColor: mc.red,
     paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  modalBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0A0A10',
+    paddingVertical: 11,
+    borderRadius: 20,
   },
   modalBtnGhost: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'transparent',
   },
   modalBtnGhostText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: tc.textMuted,
+    fontSize: 14,
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+  modalBtnText: {
+    fontSize: 14,
+    color: mc.white,
+    fontWeight: '600',
   },
 });
