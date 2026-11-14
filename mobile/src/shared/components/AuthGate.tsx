@@ -33,13 +33,9 @@ export default function AuthGate({ children }: Props) {
   const [error, setError] = useState('');
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <EKGLoader size={200} />
-        </View>
-      </SafeAreaView>
-    );
+    // The launch overlay (LoadingScreen) covers the auth check — nothing to
+    // render here yet; the native splash persists until the app mounts.
+    return null;
   }
 
   if (user || skipped) {

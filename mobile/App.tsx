@@ -321,6 +321,10 @@ if (data.screen === 'TaskDetail' && data.taskId) {
 
   return (
     <AuthProvider>
+      {/* Launch loading overlay — covers the auth check and the app boot */}
+      <LoadingBoundary>
+        <LoadingScreen />
+      </LoadingBoundary>
       <AuthGate>
         <SafeAreaProvider>
           <NavigationContainer ref={navigationRef} theme={navigationTheme}>
@@ -328,10 +332,6 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             <RestorePrompt />
             <RootNavigator />
             <DrawerMenu />
-            {/* Launch loading overlay — brand mark + wordmark, then fades out */}
-            <LoadingBoundary>
-              <LoadingScreen />
-            </LoadingBoundary>
           </NavigationContainer>
         </SafeAreaProvider>
       </AuthGate>

@@ -178,6 +178,7 @@ export default function MonthlySpendScreen() {
           <PressScale
             onPress={() => navigation.navigate('AddExpense')}
             scale={0.95}
+            wrapStyle={styles.fabWrap}
             style={styles.fab}
             accessibilityLabel="Add expense"
           >
@@ -672,12 +673,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  fab: {
+  fabWrap: {
     position: 'absolute',
     bottom: 32,
     right: 18,
     width: 56,
     height: 56,
+  },
+  fab: {
+    flex: 1,
     borderRadius: 28,
     backgroundColor: mc.red,
     alignItems: 'center',

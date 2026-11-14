@@ -214,10 +214,10 @@ export default function VehicleSpendScreen() {
               />
             </View>
             <View style={styles.formActions}>
-              <PressScale onPress={() => setShowForm(false)} scale={0.97} style={styles.cancelBtn} accessibilityLabel="Cancel">
+              <PressScale onPress={() => setShowForm(false)} scale={0.97} style={styles.cancelBtn} wrapStyle={{ flex: 1 }} accessibilityLabel="Cancel">
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </PressScale>
-              <PressScale onPress={handleAdd} scale={0.97} style={styles.saveBtn} accessibilityLabel="Save service record">
+              <PressScale onPress={handleAdd} scale={0.97} style={styles.saveBtn} wrapStyle={{ flex: 1.4 }} accessibilityLabel="Save service record">
                 <Text style={styles.saveBtnText}>Save</Text>
               </PressScale>
             </View>
@@ -422,7 +422,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   saveBtn: {
-    flex: 1.4,
     backgroundColor: mc.red,
     borderRadius: 22,
     paddingVertical: 12,
@@ -434,7 +433,6 @@ const styles = StyleSheet.create({
     color: mc.white,
   },
   cancelBtn: {
-    flex: 1,
     backgroundColor: mc.raised,
     borderRadius: 22,
     paddingVertical: 12,

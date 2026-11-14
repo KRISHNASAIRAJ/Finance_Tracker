@@ -1,5 +1,5 @@
-﻿/**
- * CreditCardsScreen — credit-card management.
+/**
+ * CreditCardsScreen � credit-card management.
  *
  * Restyled to the Meridian v2 reference: a "total due" panel with a split
  * bar, the card stack and a "due soon" list. Adding, editing and deleting
@@ -65,7 +65,7 @@ export default function CreditCardsScreen() {
   const [addCalendarVisible, setAddCalendarVisible] = useState(false);
 
   const formatCurrency = (paise: number) =>
-    `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+    `?${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
   const openEdit = (card: CreditCard) => {
     setEditingCard(card);
@@ -206,7 +206,7 @@ export default function CreditCardsScreen() {
             {largestCards.length > 0 ? (
               <Text style={styles.largestText}>
                 Largest:{' '}
-                {largestCards.map((c) => `${c.name} ${formatCurrency(c.balance)}`).join(' · ')}
+                {largestCards.map((c) => `${c.name} ${formatCurrency(c.balance)}`).join(' � ')}
               </Text>
             ) : null}
           </Card>
@@ -238,7 +238,7 @@ export default function CreditCardsScreen() {
                   </Text>
                   <Ionicons name="wifi-outline" size={15} color={mc.textFaint} />
                 </View>
-                <Text style={styles.stackNumber}>•••• •••• •••• {card.endingWith}</Text>
+                <Text style={styles.stackNumber}>���� ���� ���� {card.endingWith}</Text>
                 <PressScale
                   onPress={() => openEdit(card)}
                   scale={0.95}
@@ -287,7 +287,7 @@ export default function CreditCardsScreen() {
                         {card.network}
                       </Chip>
                     </View>
-                    <Text style={styles.dueSub}>•••• {card.endingWith}</Text>
+                    <Text style={styles.dueSub}>���� {card.endingWith}</Text>
                   </View>
                   <View style={styles.dueRight}>
                     <Text style={styles.dueAmount}>{formatCurrency(card.balance)}</Text>
@@ -317,7 +317,7 @@ export default function CreditCardsScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{editingCard.name}</Text>
-              <Text style={styles.modalSub}>•••• {editingCard.endingWith}</Text>
+              <Text style={styles.modalSub}>���� {editingCard.endingWith}</Text>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>NEW OUTSTANDING</Text>
@@ -380,10 +380,10 @@ export default function CreditCardsScreen() {
               </View>
 
               <View style={styles.modalButtons}>
-                <PressScale onPress={() => setEditingCard(null)} scale={0.97} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
+                <PressScale onPress={() => setEditingCard(null)} scale={0.97} wrapStyle={{ flex: 1 }} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
                   <Text style={styles.modalBtnTextCancel}>Cancel</Text>
                 </PressScale>
-                <PressScale onPress={handleSave} scale={0.97} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Save">
+                <PressScale onPress={handleSave} scale={0.97} wrapStyle={{ flex: 1.4 }} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Save">
                   <Text style={styles.modalBtnTextSave}>Save</Text>
                 </PressScale>
               </View>
@@ -494,7 +494,7 @@ export default function CreditCardsScreen() {
 
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>LIMIT (₹, optional)</Text>
+                <Text style={styles.inputLabel}>LIMIT (?, optional)</Text>
                 <TextInput
                   style={styles.textInput}
                   value={addLimit}
@@ -505,7 +505,7 @@ export default function CreditCardsScreen() {
                 />
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>BALANCE (₹)</Text>
+                <Text style={styles.inputLabel}>BALANCE (?)</Text>
                 <TextInput
                   style={styles.textInput}
                   value={addBalance}
@@ -518,10 +518,10 @@ export default function CreditCardsScreen() {
             </View>
 
             <View style={styles.modalButtons}>
-              <PressScale onPress={() => setShowAddModal(false)} scale={0.97} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
+              <PressScale onPress={() => setShowAddModal(false)} scale={0.97} wrapStyle={{ flex: 1 }} style={[styles.modalBtn, styles.modalBtnCancelPill]} accessibilityLabel="Cancel">
                 <Text style={styles.modalBtnTextCancel}>Cancel</Text>
               </PressScale>
-              <PressScale onPress={handleAddCard} scale={0.97} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Add card">
+              <PressScale onPress={handleAddCard} scale={0.97} wrapStyle={{ flex: 1.4 }} style={[styles.modalBtn, styles.modalBtnSavePill]} accessibilityLabel="Add card">
                 <Text style={styles.modalBtnTextSave}>Add card</Text>
               </PressScale>
             </View>
@@ -578,7 +578,7 @@ export default function CreditCardsScreen() {
                     <Text style={styles.settingsRowText} numberOfLines={1}>
                       {card.name}
                     </Text>
-                    <Text style={styles.settingsRowSub}>•••• {card.endingWith}</Text>
+                    <Text style={styles.settingsRowSub}>���� {card.endingWith}</Text>
                   </View>
                   <PressScale
                     onPress={() => deleteCard(card.id, user?.id)}
@@ -912,11 +912,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBtnCancelPill: {
-    flex: 1,
     backgroundColor: mc.raised,
   },
   modalBtnSavePill: {
-    flex: 1.4,
     backgroundColor: mc.red,
   },
   modalBtnTextCancel: {

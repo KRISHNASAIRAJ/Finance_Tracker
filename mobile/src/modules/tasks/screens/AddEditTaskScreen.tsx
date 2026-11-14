@@ -223,7 +223,8 @@ export default function AddEditTaskScreen() {
             <Label style={styles.sectionLabel}>DUE</Label>
             <View style={styles.dateTimeRow}>
               <PressScale
-                style={[styles.dateTrigger, { flex: 1.35 }]}
+                style={styles.dateTrigger}
+                wrapStyle={{ flex: 1.35 }}
                 onPress={() => setCalendarVisible(true)}
                 scale={0.98}
                 accessibilityLabel="Choose date"
@@ -234,7 +235,8 @@ export default function AddEditTaskScreen() {
                 </Text>
               </PressScale>
               <PressScale
-                style={[styles.dateTrigger, { flex: 1 }]}
+                style={styles.dateTrigger}
+                wrapStyle={{ flex: 1 }}
                 onPress={() => setTimeVisible(true)}
                 scale={0.98}
                 accessibilityLabel="Choose time"

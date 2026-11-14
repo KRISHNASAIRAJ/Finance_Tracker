@@ -1,24 +1,28 @@
 /**
  * SlideToUnlock — iOS-style slide-to-unlock control used as the primary
- * "add transaction" action. A round thumb rides a pill track 1:1 with the
- * pointer (no transition while dragging) while a green fill grows behind it.
- * On release: past ~85% it latches open and fires onComplete; otherwise it
- * springs back with an overshooting spring (RN equivalent of
- * cubic-bezier(0.34, 1.56, 0.64, 1)).
+ * "add transaction" action. A round knob rides a pill track 1:1 with the
+ * pointer (no transition while dragging) while a tinted fill grows behind it.
+ * On release: past ~85% it latches open, fires a haptic and calls onComplete;
+ * otherwise it springs back with an overshooting spring.
  *
  * onComplete may return false (or a Promise resolving false) to signal that
  * the action failed — the control then resets itself to the start so the
  * user can try again.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   PanResponder,
   StyleSheet,
   Text,
+  Vibration,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { alpha } from '../theme/meridian';
+import useReducedMotion from './meridian/useReducedMotion';
 
 interface SlideToUnlockProps {
   onComplete: () => boolean | void | Promise<boolean | void>;
@@ -27,6 +31,10 @@ interface SlideToUnlockProps {
   height?: number;
   thumbSize?: number;
   fillColor?: string;
+  /** Knob colour — defaults to fillColor. */
+  knobColor?: string;
+  /** Colour of the arrow glyph inside the knob. */
+  knobIconColor?: string;
   disabled?: boolean;
 }
 
@@ -34,15 +42,21 @@ export default function SlideToUnlock({
   onComplete,
   label = 'Slide to add',
   completeLabel = 'Added',
-  height = 56,
-  thumbSize = 46,
-  fillColor = '#59D6C7',
+  height = 60,
+  thumbSize = 50,
+  fillColor = '#EB0028',
+  knobColor,
+  knobIconColor = '#FFFFFF',
   disabled = false,
 }: SlideToUnlockProps) {
+  const knob = knobColor ?? fillColor;
   const [trackW, setTrackW] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const unlockedRef = useRef(false);
   const [unlocked, setUnlocked] = useState(false);
+  const reduced = useReducedMotion();
+  const nudge = useRef(new Animated.Value(0)).current;
+  const chevrons = useRef(new Animated.Value(0)).current;
 
   // Refs keep the latest props/geometry readable inside the (once-created)
   // PanResponder closure — otherwise it captures the very first render's
@@ -76,6 +90,7 @@ export default function SlideToUnlock({
     if (dx >= maxXRef.current * 0.85) {
       unlockedRef.current = true;
       setUnlocked(true);
+      Vibration.vibrate(12); // haptic confirmation at the 85% threshold
       Animated.spring(translateX, {
         toValue: maxXRef.current,
         friction: 7,
@@ -113,11 +128,38 @@ export default function SlideToUnlock({
     })
   ).current;
 
+  // Idle affordances: knob arrow nudges, chevrons at the far edge pulse
+  useEffect(() => {
+    if (reduced || unlocked) return;
+    const nudgeLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(nudge, { toValue: 1, duration: 900, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(nudge, { toValue: 0, duration: 900, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.delay(700),
+      ])
+    );
+    const chevLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chevrons, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(chevrons, { toValue: 0, duration: 700, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.delay(350),
+      ])
+    );
+    nudgeLoop.start();
+    chevLoop.start();
+    return () => {
+      nudgeLoop.stop();
+      chevLoop.stop();
+    };
+  }, [reduced, unlocked, nudge, chevrons]);
+
   const fillWidth = translateX.interpolate({
     inputRange: [0, Math.max(maxX, 1)],
     outputRange: [0, trackW],
     extrapolate: 'clamp',
   });
+  const chevronsOpacity = chevrons.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] });
+  const nudgeX = nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 6] });
 
   return (
     <View
@@ -127,13 +169,13 @@ export default function SlideToUnlock({
         if (Math.abs(w - trackW) > 1) setTrackW(w);
       }}
     >
-      {/* Growing green fill behind the thumb */}
+      {/* Growing tinted fill behind the knob */}
       <Animated.View
         style={[
           styles.fill,
           {
             width: fillWidth,
-            backgroundColor: fillColor,
+            backgroundColor: alpha(fillColor, 0.16),
             borderRadius: height / 2,
           },
         ]}
@@ -144,7 +186,13 @@ export default function SlideToUnlock({
         {unlocked ? completeLabel : label}
       </Text>
 
-      {/* Thumb */}
+      {/* Chevrons at the far edge, pulsing */}
+      <Animated.View style={[styles.chevrons, { opacity: chevronsOpacity }]} pointerEvents="none">
+        <Ionicons name="chevron-forward" size={17} color="#55555C" style={styles.chevronOverlap} />
+        <Ionicons name="chevron-forward" size={17} color="#55555C" />
+      </Animated.View>
+
+      {/* Knob */}
       <Animated.View
         style={[
           styles.thumbWrap,
@@ -156,12 +204,14 @@ export default function SlideToUnlock({
         ]}
         {...pan.panHandlers}
       >
-        <View style={[styles.thumb, { width: thumbSize, height: thumbSize, borderRadius: thumbSize / 2, backgroundColor: unlocked ? fillColor : '#ffffff' }]}>
-          <Ionicons
-            name={unlocked ? 'checkmark' : 'arrow-forward'}
-            size={22}
-            color={unlocked ? '#0b1f1b' : '#3a4fc9'}
-          />
+        <View style={[styles.thumb, { width: thumbSize, height: thumbSize, borderRadius: thumbSize / 2, backgroundColor: unlocked ? fillColor : knob }]}>
+          <Animated.View style={{ transform: [{ translateX: nudgeX }] }}>
+            <Ionicons
+              name={unlocked ? 'checkmark' : 'arrow-forward'}
+              size={22}
+              color={knobIconColor}
+            />
+          </Animated.View>
         </View>
       </Animated.View>
     </View>
@@ -173,9 +223,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: '#131316',
     overflow: 'hidden',
     position: 'relative',
   },
@@ -187,9 +235,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 15,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.85)',
-    letterSpacing: 0.3,
+    fontWeight: '500',
+    color: '#C8C8CE',
+    letterSpacing: 0.4,
+  },
+  chevrons: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chevronOverlap: {
+    marginRight: -9,
   },
   thumbWrap: {
     position: 'absolute',

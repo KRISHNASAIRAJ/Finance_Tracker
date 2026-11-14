@@ -267,6 +267,7 @@ export default function FinanceHomeScreen() {
         <PressScale
           onPress={() => navigation.navigate('AddExpense')}
           scale={0.95}
+          wrapStyle={styles.fabWrap}
           style={styles.fab}
           accessibilityLabel="Add expense"
         >
@@ -351,8 +352,8 @@ export default function FinanceHomeScreen() {
           <StatTile
             icon="wallet-outline"
             color={mc.violet}
-            value={formatCompact(walletTotal)}
-            label="WALLETS"
+            value={formatCompact(payzappMonthlyLoad)}
+            label="WALLET LOAD"
             onPress={() => navigation.navigate('PayzappWallet')}
           />
         </Rise>
@@ -570,7 +571,7 @@ export default function FinanceHomeScreen() {
                 }));
                 const combined = [...filteredTxs, ...fuelPseudoTxs]
                   .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 8);
+                  .slice(0, 5);
 
                 // Group by day — TODAY / YESTERDAY / "12 NOV" — each with its own total
                 const dayStartOf = (d: Date) =>
@@ -674,12 +675,15 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
   },
-  fab: {
+  fabWrap: {
     position: 'absolute',
     bottom: 92,
     right: 18,
     width: 56,
     height: 56,
+  },
+  fab: {
+    flex: 1,
     borderRadius: 28,
     backgroundColor: mc.red,
     alignItems: 'center',

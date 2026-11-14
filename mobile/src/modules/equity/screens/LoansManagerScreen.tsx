@@ -296,6 +296,7 @@ export default function LoansManagerScreen() {
             <View style={styles.signRow}>
               <PressScale
                 style={[styles.signBtn, adjustSign === 'minus' && styles.signBtnActiveRed]}
+                wrapStyle={{ flex: 1 }}
                 onPress={() => setAdjustSign('minus')}
                 scale={0.97}
               >
@@ -305,6 +306,7 @@ export default function LoansManagerScreen() {
               </PressScale>
               <PressScale
                 style={[styles.signBtn, adjustSign === 'plus' && styles.signBtnActiveMint]}
+                wrapStyle={{ flex: 1 }}
                 onPress={() => setAdjustSign('plus')}
                 scale={0.97}
               >
@@ -492,7 +494,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   signBtn: {
-    flex: 1,
     paddingVertical: 12,
     borderRadius: 18,
     backgroundColor: mc.raised,

@@ -23,6 +23,8 @@ interface PressScaleProps {
   onLongPress?: (event: GestureResponderEvent) => void;
   /** Delay before a long-press is recognised. */
   delayLongPress?: number;
+  /** Layout styles for the outer Pressable (flex, width, margins). */
+  wrapStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   /** How far it shrinks while held. */
@@ -38,6 +40,7 @@ export default function PressScale({
   onPress,
   onLongPress,
   delayLongPress,
+  wrapStyle,
   style,
   disabled,
   scale = 0.97,
@@ -48,7 +51,6 @@ export default function PressScale({
 }: PressScaleProps) {
   const anim = useRef(new Animated.Value(1)).current;
   const reduced = useReducedMotion();
-
   const to = (v: number) => {
     if (reduced) return;
     Animated.timing(anim, {
@@ -71,6 +73,7 @@ export default function PressScale({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       testID={testID}
+      style={wrapStyle}
     >
       <Animated.View style={[styles.base, { transform: [{ scale: anim }] }, style]}>
         {children}

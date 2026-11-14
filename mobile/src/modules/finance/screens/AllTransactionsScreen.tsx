@@ -330,6 +330,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: mr.chip,

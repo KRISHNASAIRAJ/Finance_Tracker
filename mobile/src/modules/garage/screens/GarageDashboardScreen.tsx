@@ -215,7 +215,21 @@ export default function GarageDashboardScreen() {
     : null;
 
   return (
-    <Screen bottomInset={120}>
+    <Screen
+      bottomInset={120}
+      floating={
+        /* Log fuel fill — floating action button, pinned above the tab bar */
+        <PressScale
+          onPress={() => navigation.navigate('AddFuelFill')}
+          scale={0.95}
+          wrapStyle={styles.fabWrap}
+          style={styles.fab}
+          accessibilityLabel="Log fuel fill"
+        >
+          <Ionicons name="add" size={26} color={mc.white} />
+        </PressScale>
+      }
+    >
       {/* Header — drawer trigger, title, vehicle picker */}
       <Rise index={0}>
         <View style={styles.topBar}>
@@ -295,7 +309,10 @@ export default function GarageDashboardScreen() {
           {chartData.length > 1 ? (
             <>
               <BarChart
-                data={chartData.map((v) => ({ value: v, color: mc.barDim }))}
+                data={chartData.map((v, i) => ({
+                  value: v,
+                  color: i === chartData.length - 1 ? mc.red : mc.barDim,
+                }))}
                 width={300}
                 height={104}
                 reference={chartAverage}
@@ -589,6 +606,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: mc.text,
     flexShrink: 1,
+  },
+  fabWrap: {
+    position: 'absolute',
+    bottom: 92,
+    right: 18,
+    width: 56,
+    height: 56,
+  },
+  fab: {
+    flex: 1,
+    borderRadius: 28,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#EB0028',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
 
   heroHead: {

@@ -12,6 +12,7 @@ import {
   Text,
   View,
   FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -52,6 +53,8 @@ export default function TasksDashboardScreen() {
   );
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'upcoming' | 'done'>('all');
+  /** When a week-strip day is tapped, the list narrows to that day's tasks. */
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -69,6 +72,23 @@ export default function TasksDashboardScreen() {
   const getFilteredTasks = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // A tapped day on the week strip narrows the list to that day's tasks
+    if (selectedDay) {
+      const order = { urgent: 0, high: 1, medium: 2, low: 3 };
+      const [y, m, d] = selectedDay.split('-').map(Number);
+      return tasks
+        .filter((t) => {
+          if (!t.dueDate) return false;
+          const td = new Date(t.dueDate);
+          return (
+            td.getFullYear() === y &&
+            td.getMonth() === m - 1 &&
+            td.getDate() === d
+          );
+        })
+        .sort((a, b) => (order[a.priority] ?? 2) - (order[b.priority] ?? 2));
+    }
 
     switch (activeTab) {
       case 'today':
@@ -106,6 +126,14 @@ export default function TasksDashboardScreen() {
   }, []);
 
   const sections = useMemo(() => {
+    if (selectedDay) {
+      const dt = selectedDay.split('-').map(Number);
+      const day = new Date(dt[0], dt[1] - 1, dt[2]);
+      const label = day
+        .toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })
+        .toUpperCase();
+      return [{ title: label, data: filteredList }];
+    }
     if (activeTab === 'done') {
       return [{ title: 'COMPLETED', data: filteredList }];
     }
@@ -122,7 +150,7 @@ export default function TasksDashboardScreen() {
     if (todayItems.length) out.push({ title: 'TODAY', data: todayItems });
     if (laterItems.length) out.push({ title: 'COMING UP', data: laterItems });
     return out;
-  }, [filteredList, activeTab, todayStart]);
+  }, [filteredList, activeTab, selectedDay, todayStart]);
 
   // ---- The week strip: the seven days around today ----
   const week = useMemo(() => {
@@ -271,6 +299,7 @@ export default function TasksDashboardScreen() {
           <PressScale
             onPress={() => navigation.navigate('AddEditTask', {})}
             scale={0.95}
+            wrapStyle={styles.fabWrap}
             style={styles.fab}
             accessibilityLabel="New task"
           >
@@ -302,27 +331,56 @@ export default function TasksDashboardScreen() {
         </View>
       </Rise>
 
-      {/* Week strip */}
+      {/* Week strip — tappable, narrows the list to that day */}
       <Rise index={1}>
         <View style={styles.weekRow}>
-          {week.map((d) => (
-            <View key={d.key} style={[styles.dayChip, d.isToday && styles.dayChipToday]}>
-              <Text style={[styles.dayLabel, d.isToday && styles.dayLabelToday]}>{d.label}</Text>
-              <Text style={[styles.dayNumber, d.isToday && styles.dayNumberToday]}>
-                {d.date}
-              </Text>
-              {d.hasTasks ? (
+          {week.map((d) => {
+            const isSelected = selectedDay === d.key;
+            return (
+              <PressScale
+                key={d.key}
+                wrapStyle={{ flex: 1 }}
+                onPress={() => setSelectedDay((prev) => (prev === d.key ? null : d.key))}
+                scale={0.94}
+                accessibilityLabel={`Tasks for ${d.label} ${d.date}`}
+              >
                 <View
                   style={[
-                    styles.dayDot,
-                    d.isToday ? styles.dayDotToday : { backgroundColor: mc.sky },
+                    styles.dayChip,
+                    d.isToday && styles.dayChipToday,
+                    isSelected && !d.isToday && styles.dayChipSelected,
                   ]}
-                />
-              ) : (
-                <View style={styles.dayDotSpacer} />
-              )}
-            </View>
-          ))}
+                >
+                  <Text style={[styles.dayLabel, d.isToday && styles.dayLabelToday, isSelected && styles.dayLabelSelected]}>
+                    {d.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      d.isToday && styles.dayNumberToday,
+                      isSelected && !d.isToday && styles.dayNumberSelected,
+                    ]}
+                  >
+                    {d.date}
+                  </Text>
+                  {d.hasTasks ? (
+                    <View
+                      style={[
+                        styles.dayDot,
+                        d.isToday
+                          ? styles.dayDotToday
+                          : isSelected
+                            ? styles.dayDotSelected
+                            : { backgroundColor: mc.sky },
+                      ]}
+                    />
+                  ) : (
+                    <View style={styles.dayDotSpacer} />
+                  )}
+                </View>
+              </PressScale>
+            );
+          })}
         </View>
       </Rise>
 
@@ -330,16 +388,27 @@ export default function TasksDashboardScreen() {
       <Rise index={2}>
         <View style={styles.tabContainer}>
           {(['all', 'upcoming'] as const).map((t) => (
-            <PressScale key={t} onPress={() => setActiveTab(t)} scale={0.96}>
-              <View style={[styles.tabButton, activeTab === t && styles.tabActive]}>
-                <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
+            <PressScale
+              key={t}
+              onPress={() => {
+                setActiveTab(t);
+                setSelectedDay(null);
+              }}
+              scale={0.96}
+              wrapStyle={{ flex: 1 }}
+            >
+              <View style={[styles.tabButton, activeTab === t && !selectedDay && styles.tabActive]}>
+                <Text style={[styles.tabText, activeTab === t && !selectedDay && styles.tabTextActive]}>
                   {t === 'all' ? 'Active' : 'Upcoming'}
                 </Text>
               </View>
             </PressScale>
           ))}
           <PressScale
-            onPress={() => setActiveTab(activeTab === 'done' ? 'all' : 'done')}
+            onPress={() => {
+              setActiveTab(activeTab === 'done' ? 'all' : 'done');
+              setSelectedDay(null);
+            }}
             scale={0.9}
             style={[styles.trashBtn, activeTab === 'done' && styles.trashBtnActive]}
             accessibilityLabel="Show completed tasks"
@@ -362,12 +431,25 @@ export default function TasksDashboardScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="checkbox-outline" size={40} color={mc.textGhost} />
-            <Text style={styles.emptyText}>No tasks found in this view</Text>
+            <Text style={styles.emptyText}>
+              {selectedDay ? 'No tasks due on this day' : 'No tasks found in this view'}
+            </Text>
           </View>
         }
         renderItem={({ item: section }) => (
           <View>
-            <Label style={styles.sectionTitle}>{section.title}</Label>
+            <View style={styles.sectionHeaderRow}>
+              <Label style={styles.sectionTitle}>{section.title}</Label>
+              {selectedDay ? (
+                <TouchableOpacity
+                  onPress={() => setSelectedDay(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Clear selected day"
+                >
+                  <Text style={styles.clearDayText}>Clear ×</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             {section.data.map((task, index) => (
               <View key={task.id}>{renderTaskItem({ item: task, index })}</View>
             ))}
@@ -413,6 +495,7 @@ const styles = StyleSheet.create({
   dayChip: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: mc.card,
@@ -420,12 +503,18 @@ const styles = StyleSheet.create({
   dayChipToday: {
     backgroundColor: mc.red,
   },
+  dayChipSelected: {
+    backgroundColor: mc.redDim,
+  },
   dayLabel: {
     fontSize: 11,
     color: mc.textDim,
   },
   dayLabelToday: {
     color: mc.redLav,
+  },
+  dayLabelSelected: {
+    color: mc.redSoft,
   },
   dayNumber: {
     fontSize: 17,
@@ -436,6 +525,9 @@ const styles = StyleSheet.create({
   dayNumberToday: {
     color: mc.white,
   },
+  dayNumberSelected: {
+    color: mc.redSoft,
+  },
   dayDot: {
     width: 4,
     height: 4,
@@ -444,6 +536,9 @@ const styles = StyleSheet.create({
   },
   dayDotToday: {
     backgroundColor: mc.white,
+  },
+  dayDotSelected: {
+    backgroundColor: mc.redSoft,
   },
   dayDotSpacer: {
     width: 4,
@@ -487,10 +582,21 @@ const styles = StyleSheet.create({
     backgroundColor: mc.redDim,
   },
 
-  sectionTitle: {
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 4,
     marginTop: 10,
     marginBottom: 8,
+  },
+  sectionTitle: {
     marginLeft: 4,
+  },
+  clearDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: mc.redSoft,
   },
   listContent: {
     paddingBottom: 0,
@@ -573,12 +679,15 @@ const styles = StyleSheet.create({
     color: mc.textDim,
     marginTop: 10,
   },
-  fab: {
+  fabWrap: {
     position: 'absolute',
     bottom: 92,
     right: 18,
     width: 56,
     height: 56,
+  },
+  fab: {
+    flex: 1,
     borderRadius: 28,
     backgroundColor: mc.red,
     alignItems: 'center',

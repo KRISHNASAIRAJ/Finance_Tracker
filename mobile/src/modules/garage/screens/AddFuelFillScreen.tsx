@@ -278,10 +278,13 @@ export default function AddFuelFillScreen() {
                     key={m.id}
                     onPress={() => setPaymentMode(m.id)}
                     scale={0.97}
+                    wrapStyle={styles.segmentWrap}
                     style={[styles.segment, isSelected && styles.segmentActive]}
                     accessibilityLabel={`Pay with ${m.label}`}
                   >
-                    <Text style={[styles.segmentText, isSelected && styles.segmentTextActive]}>{m.label}</Text>
+                    <Text style={[styles.segmentText, isSelected && styles.segmentTextActive]} numberOfLines={1}>
+                      {m.label}
+                    </Text>
                   </PressScale>
                 );
               })}
@@ -438,9 +441,12 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 2,
   },
-  segment: {
+  segmentWrap: {
     flex: 1,
+  },
+  segment: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 9,
     borderRadius: 16,
   },
