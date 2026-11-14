@@ -418,7 +418,7 @@ export default function MainHomeScreen() {
                 <Text style={{ color: dueToday.openCount > 0 ? mc.amber : mc.mint }}>
                   {dueToday.openCount}
                 </Text>
-                {' tasks'}
+                {dueToday.openCount === 1 ? ' task' : ' tasks'}
               </Text>
               <Text style={styles.cardSub}>
                 {dueToday.next ? `Next: ${nextTaskTime}` : 'Nothing pending'}
