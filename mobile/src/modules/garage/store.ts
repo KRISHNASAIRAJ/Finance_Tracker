@@ -430,6 +430,31 @@ export function getNextServiceInfo(
 const SEED_FLAG_KEY = 'meridian-garage-seeded-v1';
 
 /**
+ * Km/l for every fill that has a usable previous odometer reading.
+ *
+ * A fill whose odometer is missing (the cloud merge coerces it to 0) or whose
+ * odometer did not move has no measurable distance, so it is skipped. That
+ * keeps a fill with no previous reading from producing a bogus 0.0 km/l and
+ * poisoning the "worst efficiency" figure.
+ */
+export function perFillKmPerL(fills: FuelFill[]): { value: number; fill: FuelFill }[] {
+  const sorted = [...fills].sort((a, b) => (a.odometer || 0) - (b.odometer || 0));
+  const out: { value: number; fill: FuelFill }[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prevOdo = sorted[i - 1].odometer;
+    const currOdo = sorted[i].odometer;
+    if (typeof prevOdo !== 'number' || typeof currOdo !== 'number') continue;
+    const dist = currOdo - prevOdo;
+    if (dist <= 0) continue;
+    const fuel = sorted[i].liters;
+    if (fuel > 0) {
+      out.push({ value: parseFloat((dist / fuel).toFixed(1)), fill: sorted[i] });
+    }
+  }
+  return out;
+}
+
+/**
  * One-time seed of the user's real historical services so km-based
  * service reminders have a baseline. Local-only (no cloud sync), guarded
  * by an AsyncStorage flag so it never runs twice.

@@ -1,44 +1,57 @@
 ﻿/**
- * MonthlySpendScreen — month-by-month spend breakdown with SVG charts,
- * category drill-down and garage fuel expenses included.
+ * MonthlySpendScreen — what the month has cost so far.
+ *
+ * Restyled to the Meridian v2 reference: the spend headline against the
+ * budget, a daily-spend bar chart, the category limits and the month's
+ * transactions.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Modal,
+  TextInput,
   Alert,
-  Platform,
-  StatusBar,
-  Dimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useFinanceStore } from '../store';
-import { FinanceStackParamList } from '../../../navigation/RootNavigator';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  BarChart,
+  Card,
+  Label,
+  PressScale,
+  ProgressBar,
+  Rise,
+  Screen,
+} from '../../../shared/components/meridian';
+import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
 import { getCategoryColor } from '../../../shared/categoryMap';
 import CategoryIcon from '../../../shared/CategoryIcon';
-import { useAuth } from '../../../services/AuthProvider';
+import { useFinanceStore } from '../store';
+import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { useGarageStore } from '../../garage/store';
-import ExpandableTransactionCard from '../../../shared/components/ExpandableTransactionCard';
+import { useAuth } from '../../../services/AuthProvider';
 
 type NavigationProp = NativeStackNavigationProp<FinanceStackParamList, 'MonthlySpend'>;
 
 export default function MonthlySpendScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const {
+    transactions,
+    monthlyBudget,
+    setMonthlyBudget,
+    fixedExpenses,
+    categoryBudgets,
+    deleteTransaction,
+  } = useFinanceStore();
+  const garageFills = useGarageStore((s) => s.fills);
   const { user } = useAuth();
-  const { transactions, monthlyBudget, setMonthlyBudget, fixedExpenses, categoryBudgets, deleteTransaction } = useFinanceStore();
-  const { fills: garageFills } = useGarageStore();
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -56,9 +69,12 @@ export default function MonthlySpendScreen() {
     .filter((tx) => new Date(tx.date) >= startOfMonth)
     .filter((tx) => tx.type !== 'fixed_expense')
     .filter((tx) => tx.type !== 'fuel_purchase')
-    .filter((tx) => !EXCLUDED_CATEGORIES.some(cat =>
-      cat.toLowerCase() === (tx.category || '').toLowerCase()
-    ))
+    .filter(
+      (tx) =>
+        !EXCLUDED_CATEGORIES.some(
+          (cat) => cat.toLowerCase() === (tx.category || '').toLowerCase()
+        )
+    )
     .filter((tx) => tx.type === 'expense' || tx.type === 'vehicle_service');
 
   const monthGarageFills = garageFills.filter((f) => new Date(f.date) >= startOfMonth);
@@ -86,30 +102,22 @@ export default function MonthlySpendScreen() {
   const remaining = budgetPaise > 0 ? Math.max(0, budgetPaise - totalSpend) : 0;
   const daysLeft = lastDay - now.getDate() + 1;
   const safePerDay = daysLeft > 0 && budgetPaise > 0 ? Math.round(remaining / daysLeft) : 0;
+  const budgetUsedPct = budgetPaise > 0 ? Math.min(1, totalSpend / budgetPaise) : 0;
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handlePointPress = (idx: number) => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setSelectedDay(idx);
-    hideTimer.current = setTimeout(() => setSelectedDay(null), 10000);
-  };
-
-  useEffect(() => {
-    return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
-  }, []);
 
   const monthlyTxs = transactions
     .filter((tx) => new Date(tx.date) >= startOfMonth)
     .filter((tx) => tx.type !== 'fixed_expense')
     .filter((tx) => tx.type !== 'fuel_purchase')
     .filter((tx) => tx.type !== 'credit_card_bill')
-    .filter((tx) => !EXCLUDED_CATEGORIES.some(cat =>
-      cat.toLowerCase() === (tx.category || '').toLowerCase()
-    ));
+    .filter(
+      (tx) =>
+        !EXCLUDED_CATEGORIES.some(
+          (cat) => cat.toLowerCase() === (tx.category || '').toLowerCase()
+        )
+    );
 
   const monthFuelPseudoTxs: any[] = monthGarageFills.map((f) => ({
     id: `fill-${f.id}`,
@@ -122,23 +130,25 @@ export default function MonthlySpendScreen() {
     source: 'manual',
   }));
 
-  const allMonthTxs = [...monthlyTxs, ...monthFuelPseudoTxs]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const allMonthTxs = [...monthlyTxs, ...monthFuelPseudoTxs].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   const formatCurrency = (paise: number) => {
-    return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0, minimumFractionDigits: 0 })}`;
+    return `₹${(paise / 100).toLocaleString('en-IN', {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    })}`;
   };
 
   const formatCurrencyDetailed = (paise: number) => {
-    return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+    return `₹${(paise / 100).toLocaleString('en-IN', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    })}`;
   };
 
-  // Daily cumulative spend chart
-  const CHART_W = Dimensions.get('window').width - 64;
-  const CHART_H = 130;
-  const padX = 10;
-  const padY = 35;
-
+  // Daily spend for every day of the month so far.
   const todayDate = now.getDate();
   const dailySums: number[] = Array(todayDate).fill(0);
   expenseTxs.forEach((tx) => {
@@ -150,93 +160,149 @@ export default function MonthlySpendScreen() {
     if (day >= 0 && day < todayDate) dailySums[day] += f.amount;
   });
 
-  const chartMax = dailySums.length > 0 ? Math.max(...dailySums, 1) : 1;
-
-  const points = dailySums.map((val, i) => {
-    const x = padX + (i / Math.max(dailySums.length - 1, 1)) * (CHART_W - 2 * padX);
-    const y = CHART_H - padY - (val / chartMax) * (CHART_H - 2 * padY - 5);
-    return { x, y, val };
-  });
-
-  let pathD = '';
-  let fillD = '';
-  if (points.length > 1) {
-    pathD = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const curr = points[i];
-      const next = points[i + 1];
-      const cpX1 = curr.x + (next.x - curr.x) / 2;
-      const cpY1 = curr.y;
-      const cpX2 = curr.x + (next.x - curr.x) / 2;
-      const cpY2 = next.y;
-      pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${next.x} ${next.y}`;
-    }
-    fillD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - padY} L ${points[0].x} ${CHART_H - padY} Z`;
-  }
+  const peakSpend = dailySums.length ? Math.max(...dailySums) : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Monthly Spend</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <Screen bottomInset={110}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.logoText}>Monthly spend</Text>
+          <View style={styles.appBarSpacer} />
+        </View>
+      </Rise>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Total Spend + Budget */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>TOTAL MONTH SPEND</Text>
-          <Text style={[styles.summaryValue, { color: budgetExceeded ? '#ea6479' : '#ffb2b9' }]}>
-            {formatCurrency(totalSpend)}
-          </Text>
+      {/* Spend vs budget */}
+      <Rise index={1}>
+        <Card>
+          <View style={styles.summaryTop}>
+            <View>
+              <Label>SPENT THIS MONTH</Label>
+              <Text style={[styles.summaryValue, { color: budgetExceeded ? mc.redSoft : mc.text }]}>
+                {formatCurrency(totalSpend)}
+              </Text>
+            </View>
+            {budgetPaise > 0 ? (
+              <View style={styles.budgetAside}>
+                <Text style={styles.budgetAsideText}>of {formatCurrency(budgetPaise)}</Text>
+                <Text
+                  style={[
+                    styles.budgetAsidePct,
+                    { color: budgetExceeded ? mc.redSoft : mc.amber },
+                  ]}
+                >
+                  {Math.round(budgetUsedPct * 100)}% used
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
           {budgetPaise > 0 ? (
-            <View style={styles.budgetInfo}>
-              <View style={styles.budgetRow}>
-                <Text style={styles.budgetLabel}>Budget</Text>
-                <Text style={styles.budgetVal}>{formatCurrency(budgetPaise)}</Text>
+            <>
+              <ProgressBar
+                value={budgetUsedPct}
+                color={budgetExceeded ? mc.redSoft : mc.amber}
+                height={10}
+                style={styles.budgetBar}
+              />
+              <View style={styles.safeRow}>
+                {budgetExceeded ? (
+                  <View style={styles.safeChipWarn}>
+                    <Ionicons name="warning" size={13} color={mc.redSoft} />
+                    <Text style={[styles.safeChipText, { color: mc.redSoft }]}>
+                      Over by {formatCurrency(totalSpend - budgetPaise)}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.safeChip}>
+                    <Text style={[styles.safeChipText, { color: mc.sky }]}>
+                      Safe to spend {formatCurrency(safePerDay)}/day
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.daysLeft}>{daysLeft} days left</Text>
               </View>
-              <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${Math.min(100, (totalSpend / budgetPaise) * 100)}%`, backgroundColor: budgetExceeded ? '#ea6479' : '#5ee6ff' }]} />
+              <View style={styles.budgetActions}>
+                <PressScale
+                  onPress={() => {
+                    setBudgetInput((monthlyBudget || '').toString());
+                    setBudgetModalVisible(true);
+                  }}
+                  scale={0.96}
+                  style={styles.budgetBtn}
+                >
+                  <Text style={styles.budgetBtnText}>Edit budget</Text>
+                </PressScale>
+                <PressScale
+                  onPress={() => navigation.navigate('CategoryBudgets')}
+                  scale={0.96}
+                  style={styles.budgetBtn}
+                >
+                  <Text style={styles.budgetBtnText}>Category limits</Text>
+                </PressScale>
               </View>
-              {budgetExceeded ? (
-                <View style={styles.budgetWarning}>
-                  <Ionicons name="warning" size={14} color="#ea6479" />
-                  <Text style={styles.budgetWarningText}>Budget crossed by {formatCurrency(totalSpend - budgetPaise)}</Text>
-                
-                </View>
-              ) : (
-                <View style={styles.safeInfo}>
-                  <Text style={styles.safeLabel}>Safe to spend</Text>
-                  <Text style={styles.safeVal}>{formatCurrency(safePerDay)}/day</Text>
-                  <Text style={styles.safeLabel}>({daysLeft} days left)</Text>
-                </View>
-              )}
-              <TouchableOpacity style={styles.editBudgetBtn} onPress={() => { setBudgetInput((monthlyBudget || '').toString()); setBudgetModalVisible(true); }}>
-                <Text style={styles.editBudgetText}>{budgetPaise > 0 ? 'Edit Budget' : 'Set Budget'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.editBudgetBtn} onPress={() => navigation.navigate('CategoryBudgets')}>
-                <Text style={styles.editBudgetText}>Category Limits</Text>
-              </TouchableOpacity>
-            </View>
+            </>
           ) : (
-            <TouchableOpacity style={styles.setBudgetBtn} onPress={() => { setBudgetInput(''); setBudgetModalVisible(true); }}>
-              <Ionicons name="wallet-outline" size={16} color={colors.primary} />
-              <Text style={styles.setBudgetText}>Set Monthly Budget</Text>
-            </TouchableOpacity>
+            <PressScale
+              onPress={() => {
+                setBudgetInput('');
+                setBudgetModalVisible(true);
+              }}
+              scale={0.97}
+              style={styles.setBudgetBtn}
+            >
+              <Ionicons name="wallet-outline" size={16} color={mc.text} />
+              <Text style={styles.setBudgetText}>Set monthly budget</Text>
+            </PressScale>
           )}
-        </View>
+        </Card>
+      </Rise>
 
-        {/* Category Limits */}
-        {categoryBudgets.length > 0 && (
-          <View style={styles.chartCard}>
-            <View style={styles.budgetRow}>
-              <Text style={styles.sectionTitle}>CATEGORY LIMITS</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('CategoryBudgets')} activeOpacity={0.7}>
-                <Text style={styles.editBudgetText}>Manage</Text>
-              </TouchableOpacity>
+      {/* Daily spend */}
+      {dailySums.some((v) => v > 0) ? (
+        <Rise index={2}>
+          <Card>
+            <View style={styles.rowBetween}>
+              <Label>DAILY SPEND</Label>
+              <Text style={styles.rowValue}>Peak {formatCurrency(peakSpend)}</Text>
+            </View>
+            <BarChart
+              data={dailySums.map((v, i) => ({
+                label: String(i + 1),
+                value: v / 100,
+                color: i === todayDate - 1 ? mc.red : mc.barDim,
+              }))}
+              width={300}
+              height={104}
+              style={styles.chart}
+            />
+            <View style={styles.chartFoot}>
+              <Text style={styles.chartFootText}>
+                1 {currentMonthName}
+              </Text>
+              <Text style={[styles.chartFootText, { color: mc.redSoft }]}>
+                {todayDate} {currentMonthName}
+              </Text>
+            </View>
+          </Card>
+        </Rise>
+      ) : null}
+
+      {/* Category limits */}
+      {categoryBudgets.length > 0 ? (
+        <Rise index={3}>
+          <Card>
+            <View style={styles.rowBetween}>
+              <Label>CATEGORY LIMITS</Label>
+              <PressScale
+                onPress={() => navigation.navigate('CategoryBudgets')}
+                scale={0.95}
+              >
+                <Text style={styles.manageLink}>Manage</Text>
+              </PressScale>
             </View>
             {categoryBudgets.map((budget) => {
               const spent = spentByCategory.get(budget.category) ?? 0;
@@ -245,120 +311,54 @@ export default function MonthlySpendScreen() {
               const catColor = getCategoryColor(budget.category, false);
               return (
                 <View key={budget.category} style={styles.catLimitRow}>
-                  <View style={styles.catLimitTop}>
-                    <View style={styles.catLimitNameRow}>
-                      <CategoryIcon category={budget.category} size={14} color={catColor} />
-                      <Text style={[styles.catLimitName, { color: over ? colors.error : colors.onSurface }]} numberOfLines={1}>
-                        {budget.category}
-                      </Text>
-                    </View>
-                    <Text style={[styles.catLimitSpent, { color: over ? colors.error : colors.onSurfaceVariant }]}>
-                      {formatCurrency(spent)}{' '}
-                      <Text style={{ color: 'rgba(255,255,255,0.35)' }}>/</Text>
-                      {' '}{formatCurrency(budget.amountPaise)}
-                      {over ? ' · over' : ''}
-                    </Text>
-                  </View>
+                  <CategoryIcon category={budget.category} size={15} color={catColor} />
+                  <Text
+                    style={[styles.catLimitName, over && { color: mc.redSoft }]}
+                    numberOfLines={1}
+                  >
+                    {budget.category}
+                  </Text>
                   <View style={styles.catLimitTrack}>
                     <View
                       style={[
                         styles.catLimitFill,
-                        { width: `${pct}%`, backgroundColor: over ? colors.error : colors.success },
+                        {
+                          width: `${Math.max(3, pct)}%`,
+                          backgroundColor: over ? mc.redSoft : mc.amber,
+                        },
                       ]}
                     />
                   </View>
+                  <Text style={styles.catLimitSpent}>{formatCurrency(spent)}</Text>
                 </View>
               );
             })}
-          </View>
-        )}
+          </Card>
+        </Rise>
+      ) : null}
 
-        {/* Area Graph */}
-        {dailySums.some((v) => v > 0) && (
-          <View style={styles.chartCard}>
-            <Text style={styles.sectionTitle}>DAILY SPEND</Text>
-            <View style={{ position: 'relative' }}>
-              <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} pointerEvents="none">
-                <Defs>
-                  <LinearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#ffb2b9" stopOpacity="0.35" />
-                    <Stop offset="1" stopColor="#d0bcff" stopOpacity="0" />
-                  </LinearGradient>
-                </Defs>
-                {fillD ? <Path d={fillD} fill="url(#spendGrad)" /> : null}
-                {pathD ? <Path d={pathD} stroke="#ffb2b9" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
-                {selectedDay !== null && selectedDay < points.length && (
-                  <>
-                    <Line
-                      x1={points[selectedDay].x} y1={points[selectedDay].y}
-                      x2={points[selectedDay].x} y2={CHART_H - padY}
-                      stroke="#ffb2b9" strokeWidth={1} strokeDasharray="3,3"
-                    />
-                    <Circle cx={points[selectedDay].x} cy={points[selectedDay].y} r={4} fill="#ffb2b9" />
-                  </>
-                )}
-              </Svg>
-
-              {selectedDay !== null && selectedDay < points.length && (
-                <View style={[styles.tooltip, {
-                  left: Math.max(0, Math.min(points[selectedDay].x - 35, CHART_W - 85)),
-                  top: Math.max(0, points[selectedDay].y - 28),
-                }]}>
-                  <Text style={styles.tooltipText}>
-                      {currentMonthName} {selectedDay + 1}: {formatCurrency(dailySums[selectedDay])}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.touchOverlay}>
-                {points.map((_, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.touchSlice}
-                    onPress={() => handlePointPress(idx)}
-                    activeOpacity={1}
-                  />
-                ))}
-              </View>
+      {/* Transactions */}
+      <Rise index={4}>
+        <Label style={styles.sectionTitle}>TRANSACTIONS THIS MONTH</Label>
+        <Card pad={false}>
+          {allMonthTxs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={30} color={mc.textGhost} />
+              <Text style={styles.emptyText}>No transactions logged this month</Text>
             </View>
-          </View>
-        )}
-
-        {/* Budget Modal */}
-        <Modal visible={budgetModalVisible} transparent animationType="fade" onRequestClose={() => setBudgetModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Monthly Budget</Text>
-              <View style={styles.inpGrp}>
-                <Text style={styles.inpLabel}>BUDGET (₹)</Text>
-                <TextInput style={styles.inp} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.outline} autoFocus />
-              </View>
-              <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.modalCancel} onPress={() => setBudgetModalVisible(false)}><Text style={styles.modalCancelTxt}>Cancel</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.modalSave} onPress={() => { const v = parseFloat(budgetInput); setMonthlyBudget(isNaN(v) ? 0 : Math.max(0, Math.round(v)), user?.id); setBudgetModalVisible(false); }}><Text style={styles.modalSaveTxt}>Save</Text></TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Transactions List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TRANSACTIONS THIS MONTH</Text>
-          <View style={styles.listContainer}>
-            {monthlyTxs.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="receipt-outline" size={32} color={colors.outline} />
-                <Text style={styles.emptyText}>No transactions logged this month</Text>
-              </View>
-            ) : (
-              allMonthTxs.slice(0, 5).map((tx: any) => (
+          ) : (
+            <>
+              {allMonthTxs.slice(0, 5).map((tx: any) => (
                 <ExpandableTransactionCard
                   key={tx.id}
                   tx={tx}
                   formatAmount={formatCurrencyDetailed}
                   onPressEdit={() => {
                     if (tx.id?.startsWith('fill-')) {
-                      navigation.navigate('GarageTab' as any, { screen: 'EditFuelFill', params: { fillId: (tx.id as string).replace('fill-', '') } });
+                      navigation.navigate('GarageTab' as any, {
+                        screen: 'EditFuelFill',
+                        params: { fillId: (tx.id as string).replace('fill-', '') },
+                      });
                     } else {
                       navigation.navigate('EditTransaction', { transactionId: tx.id });
                     }
@@ -375,7 +375,9 @@ export default function MonthlySpendScreen() {
                           style: 'destructive',
                           onPress: () => {
                             if (isFill) {
-                              useGarageStore.getState().deleteFuelFill((tx.id as string).replace('fill-', ''), user?.id);
+                              useGarageStore
+                                .getState()
+                                .deleteFuelFill((tx.id as string).replace('fill-', ''), user?.id);
                             } else {
                               deleteTransaction(tx.id, user?.id);
                             }
@@ -385,188 +387,332 @@ export default function MonthlySpendScreen() {
                     );
                   }}
                 />
-              ))
-            )}
-            {allMonthTxs.length > 5 && (
-              <TouchableOpacity style={styles.viewAllBtn} onPress={() => navigation.navigate('AllTransactions')} activeOpacity={0.8}>
-                <Text style={styles.viewAllText}>View All ({allMonthTxs.length - 5} more)</Text>
-                <Ionicons name="arrow-forward" size={14} color={colors.primary} />
-              </TouchableOpacity>
-            )}
+              ))}
+              {allMonthTxs.length > 5 ? (
+                <PressScale
+                  onPress={() => navigation.navigate('AllTransactions')}
+                  scale={0.97}
+                  style={styles.viewAllBtn}
+                >
+                  <Text style={styles.viewAllText}>
+                    View all ({allMonthTxs.length - 5} more)
+                  </Text>
+                  <Ionicons name="arrow-forward" size={14} color={mc.redSoft} />
+                </PressScale>
+              ) : null}
+            </>
+          )}
+        </Card>
+      </Rise>
+
+      {/* Budget Modal */}
+      <Modal
+        visible={budgetModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBudgetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Monthly budget</Text>
+            <View style={styles.inpGrp}>
+              <Text style={styles.inpLabel}>BUDGET (₹)</Text>
+              <TextInput
+                style={styles.inp}
+                value={budgetInput}
+                onChangeText={setBudgetInput}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={mc.textFaint}
+                autoFocus
+              />
+            </View>
+            <View style={styles.modalBtns}>
+              <PressScale onPress={() => setBudgetModalVisible(false)} scale={0.96}>
+                <Text style={styles.modalCancelTxt}>Cancel</Text>
+              </PressScale>
+              <PressScale
+                onPress={() => {
+                  const v = parseFloat(budgetInput);
+                  setMonthlyBudget(isNaN(v) ? 0 : Math.max(0, Math.round(v)), user?.id);
+                  setBudgetModalVisible(false);
+                }}
+                scale={0.96}
+              >
+                <Text style={styles.modalSaveTxt}>Save</Text>
+              </PressScale>
+            </View>
           </View>
         </View>
-      </ScrollView>
+      </Modal>
 
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddExpense')} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color={colors.textPrimary} />
-      </TouchableOpacity>
-    </SafeAreaView>
+      {/* FAB */}
+      <Rise index={5}>
+        <PressScale
+          onPress={() => navigation.navigate('AddExpense')}
+          scale={0.95}
+          style={styles.fab}
+          accessibilityLabel="Add expense"
+        >
+          <Ionicons name="add" size={26} color={mc.white} />
+        </PressScale>
+      </Rise>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: 12,
+    height: 52,
   },
-  logoText: { fontSize: 18, fontWeight: '700', color: colors.onSurface },
-  iconButton: { padding: 8, borderRadius: rounded.full },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 120,
-  },
-  summaryCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 24,
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
   },
-  summaryLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 1 },
-  summaryValue: { fontSize: 30, fontWeight: '800' },
-  budgetInfo: { gap: 8, marginTop: 8, width: '100%' },
-  budgetRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  budgetLabel: { fontSize: 12, color: colors.onSurfaceVariant, fontWeight: '500' },
-  budgetVal: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  barBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: 6, borderRadius: 3 },
-  budgetWarning: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  budgetWarningText: { fontSize: 12, fontWeight: '600', color: '#ea6479' },
-  safeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
-  safeLabel: { fontSize: 11, color: colors.onSurfaceVariant },
-  safeVal: { fontSize: 14, fontWeight: '700', color: '#5ee6ff' },
-  editBudgetBtn: { alignItems: 'center', paddingVertical: 6 },
-  editBudgetText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
-  setBudgetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 8 },
-  setBudgetText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
-  chartCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 16,
-    gap: 10,
-    overflow: 'hidden',
-  },
-  catLimitRow: {
-    gap: 6,
-  },
-  catLimitTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  catLimitNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  logoText: {
     flex: 1,
-    marginRight: 10,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  appBarSpacer: {
+    width: 38,
+  },
+
+  summaryTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  summaryValue: {
+    fontSize: 34,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  budgetAside: {
+    alignItems: 'flex-end',
+  },
+  budgetAsideText: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  budgetAsidePct: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  budgetBar: {
+    marginVertical: 12,
+  },
+  safeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  safeChip: {
+    backgroundColor: mc.skyDim,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  safeChipWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.redDim,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  safeChipText: {
+    fontSize: 13,
+  },
+  daysLeft: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  budgetActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  budgetBtn: {
+    backgroundColor: mc.raised,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  budgetBtnText: {
+    fontSize: 12,
+    color: mc.textDim,
+    fontWeight: '600',
+  },
+  setBudgetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: mc.raised,
+    borderRadius: 22,
+    paddingVertical: 12,
+    marginTop: 12,
+  },
+  setBudgetText: {
+    fontSize: 14,
+    color: mc.text,
+    fontWeight: '500',
+  },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowValue: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+  chart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
+  },
+  chartFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  chartFootText: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  manageLink: {
+    fontSize: 12,
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+
+  catLimitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 11,
   },
   catLimitName: {
+    width: 58,
     fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  catLimitSpent: {
-    fontSize: 11,
-    fontWeight: '600',
-    flexShrink: 0,
+    color: mc.text,
   },
   catLimitTrack: {
-    height: 5,
-    borderRadius: rounded.full,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: mc.track,
     overflow: 'hidden',
   },
   catLimitFill: {
-    height: '100%',
-    borderRadius: rounded.full,
+    height: 8,
+    borderRadius: 4,
   },
-  tooltip: {
-    position: 'absolute',
-    backgroundColor: '#ffb2b9',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  catLimitSpent: {
+    width: 62,
+    textAlign: 'right',
+    fontSize: 13,
+    color: mc.text,
   },
-  tooltipText: { fontSize: 9, fontWeight: '700', color: colors.textPrimary },
-  touchOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    flexDirection: 'row',
+
+  sectionTitle: {
+    marginTop: 6,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  touchSlice: { flex: 1 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  inpGrp: { gap: 6 },
-  inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  inp: { backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44, paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500' },
-  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  modalCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  modalSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  modalSaveTxt: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
-  section: { gap: 8 },
-  sectionTitle: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  listContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyState: {
     alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 24,
   },
-  itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconWrapper: { width: 32, height: 32, borderRadius: rounded.DEFAULT, alignItems: 'center', justifyContent: 'center' },
-  itemTitle: { fontSize: 14, fontWeight: '600', color: colors.onSurface },
-  itemSubtitle: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
-  itemRight: { alignItems: 'flex-end' },
-  itemAmount: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  itemDate: { fontSize: 10, color: colors.onSurfaceVariant, marginTop: 2 },
-  emptyState: { padding: 32, alignItems: 'center', gap: 8 },
-  emptyText: { fontSize: 13, color: colors.onSurfaceVariant, fontWeight: '500' },
+  emptyText: {
+    fontSize: 13,
+    color: mc.textDim,
+    marginTop: 8,
+  },
   viewAllBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.border,
-  },
-  viewAllText: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  fab: {
-    position: 'absolute',
-    bottom: 110,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: rounded.full,
-    backgroundColor: colors.primaryContainer,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
+
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
+    padding: 20,
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  inpGrp: {
+    gap: 6,
+  },
+  inpLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textFaint,
+  },
+  inp: {
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 15,
+  },
+  modalBtns: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 18,
+    marginTop: 4,
+  },
+  modalCancelTxt: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  modalSaveTxt: {
+    fontSize: 14,
+    color: mc.redSoft,
+    fontWeight: '600',
   },
 });

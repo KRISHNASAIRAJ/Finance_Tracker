@@ -1,24 +1,33 @@
 ﻿/**
- * FixedExpensesScreen — manages fixed monthly expenses (amount, billing day,
- * variable flag) with add/edit/delete support.
+ * FixedExpensesScreen — the monthly obligations list.
+ *
+ * Restyled to the Meridian v2 reference: a completion ring with the pending
+ * total, a monthly-total breakdown bar and the upcoming due dates.
  */
 import React from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
   TextInput,
-  Platform,
-  StatusBar,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  Card,
+  Chip,
+  IconTile,
+  Label,
+  PressScale,
+  Ring,
+  Rise,
+  Screen,
+  StackedShareBar,
+  type ShareSegment,
+} from '../../../shared/components/meridian';
 import { useFinanceStore } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 
@@ -42,6 +51,19 @@ function getIcon(name: string, category: string): keyof typeof Ionicons.glyphMap
   return 'receipt-outline';
 }
 
+/** The bucket an obligation falls into — drives the colour and the split. */
+function bucketOf(name: string, category: string): 'bills' | 'sips' | 'other' {
+  const n = name.toLowerCase();
+  const c = (category || '').toLowerCase();
+  if (c === 'investments' || n.includes('sip') || n.includes('flexi') || n.includes('invesco') || n.includes('motilal')) {
+    return 'sips';
+  }
+  if (c === 'housing' || n.includes('rent') || n.includes('electricity') || n.includes('bill')) {
+    return 'bills';
+  }
+  return 'other';
+}
+
 export default function FixedExpensesScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -62,6 +84,23 @@ export default function FixedExpensesScreen() {
 
   const pendingExpenses = orderedExpenses.filter((item) => item.lastPaidMonth !== currentMonthStr);
   const totalPending = pendingExpenses.reduce((sum, item) => sum + item.amount, 0);
+  const paidCount = orderedExpenses.length - pendingExpenses.length;
+  const totalMonthly = orderedExpenses.reduce((sum, item) => sum + item.amount, 0);
+
+  // The split of the monthly total by bucket — real data, real totals.
+  const buckets = orderedExpenses.reduce(
+    (acc, item) => {
+      const b = bucketOf(item.name, item.category);
+      acc[b] += item.amount;
+      return acc;
+    },
+    { bills: 0, sips: 0, other: 0 }
+  );
+  const segments: ShareSegment[] = [
+    { key: 'bills', value: buckets.bills, color: mc.sky },
+    { key: 'sips', value: buckets.sips, color: mc.violet },
+    { key: 'other', value: buckets.other, color: mc.amber },
+  ].filter((s) => s.value > 0);
 
   const [amountInputs, setAmountInputs] = React.useState<Record<string, string>>({});
 
@@ -73,210 +112,295 @@ export default function FixedExpensesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* AppBar */}
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Fixed Expenses</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Total Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>TOTAL PENDING THIS MONTH</Text>
-          <Text style={[styles.summaryValue, { color: totalPending > 0 ? colors.error : colors.success }]}>
-            {formatCurrency(totalPending)}
-          </Text>
+    <Screen bottomInset={40}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.logoText}>Fixed expenses</Text>
+          <View style={styles.appBarSpacer} />
         </View>
+      </Rise>
 
-        {/* List of obligations */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>MONTHLY OBLIGATIONS</Text>
-          <View style={styles.listContainer}>
-            {orderedExpenses.map((item) => {
+      {/* Pending this month */}
+      <Rise index={1}>
+        <Card>
+          <View style={styles.summaryRow}>
+            <Ring
+              progress={orderedExpenses.length ? paidCount / orderedExpenses.length : 0}
+              size={84}
+              stroke={9}
+              color={pendingExpenses.length === 0 ? mc.mint : mc.amber}
+            >
+              <Text style={styles.ringText}>
+                {paidCount}/{orderedExpenses.length}
+              </Text>
+            </Ring>
+            <View style={styles.summaryMain}>
+              <Label>PENDING THIS MONTH</Label>
+              <Text
+                style={[
+                  styles.summaryValue,
+                  { color: pendingExpenses.length === 0 ? mc.mint : mc.amber },
+                ]}
+              >
+                {formatCurrency(totalPending)}
+              </Text>
+              <Text style={styles.summarySub}>
+                {pendingExpenses.length === 0
+                  ? 'All obligations paid'
+                  : `${pendingExpenses.length} of ${orderedExpenses.length} still due`}
+              </Text>
+            </View>
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Monthly total */}
+      {totalMonthly > 0 ? (
+        <Rise index={2}>
+          <Card>
+            <View style={styles.rowBetween}>
+              <Label>MONTHLY TOTAL</Label>
+              <Text style={styles.rowValue}>{formatCurrency(totalMonthly)}</Text>
+            </View>
+            <StackedShareBar segments={segments} height={12} style={styles.splitBar} />
+            <View style={styles.splitLegend}>
+              {buckets.bills > 0 ? (
+                <View style={styles.splitItem}>
+                  <View style={[styles.splitDot, { backgroundColor: mc.sky }]} />
+                  <Text style={styles.splitLabel}>Rent and bills {formatCurrency(buckets.bills)}</Text>
+                </View>
+              ) : null}
+              {buckets.sips > 0 ? (
+                <View style={styles.splitItem}>
+                  <View style={[styles.splitDot, { backgroundColor: mc.violet }]} />
+                  <Text style={styles.splitLabel}>SIPs {formatCurrency(buckets.sips)}</Text>
+                </View>
+              ) : null}
+              {buckets.other > 0 ? (
+                <View style={styles.splitItem}>
+                  <View style={[styles.splitDot, { backgroundColor: mc.amber }]} />
+                  <Text style={styles.splitLabel}>Other {formatCurrency(buckets.other)}</Text>
+                </View>
+              ) : null}
+            </View>
+          </Card>
+        </Rise>
+      ) : null}
+
+      {/* Upcoming due dates */}
+      <Rise index={3}>
+        <Label style={styles.sectionTitle}>UPCOMING DUE DATES</Label>
+        <Card pad={false}>
+          {orderedExpenses.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No fixed expenses yet.</Text>
+            </View>
+          ) : (
+            orderedExpenses.map((item, idx) => {
               const isPaid = item.lastPaidMonth === currentMonthStr;
               const variable = isVariable(item.name);
               const inputKey = `amt_${item.id}`;
               const inputVal = amountInputs[inputKey] ?? (item.amount / 100).toString();
+              const bucket = bucketOf(item.name, item.category);
+              const accent =
+                bucket === 'sips' ? mc.violet : bucket === 'bills' ? mc.sky : mc.amber;
 
               return (
-                <View key={item.id} style={styles.rowItem}>
-                  <View style={styles.itemLeft}>
-                    <View
-                      style={[
-                        styles.iconWrapper,
-                        { backgroundColor: isPaid ? `${colors.success}15` : `${colors.error}15` },
-                      ]}
-                    >
-                      <Ionicons
-                        name={getIcon(item.name, item.category)}
-                        size={18}
-                        color={isPaid ? colors.success : colors.error}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemTitle}>{item.name}</Text>
-                      <Text style={styles.itemSubtitle}>
-                        {isPaid
-                          ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
-                          : item.billingDay === 31
-                            ? `Due on the last day of every month`
-                            : `Due on ${ordinal(item.billingDay)} of every month`}
-                      </Text>
-                    </View>
+                <View key={item.id} style={[styles.rowItem, idx > 0 && styles.rowItemDivider]}>
+                  <IconTile icon={getIcon(item.name, item.category)} color={accent} size={38} radius={13} />
+                  <View style={styles.itemMain}>
+                    <Text style={styles.itemTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.itemSubtitle}>
+                      {isPaid
+                        ? `Paid · Next due ${new Date(item.dueDate).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}`
+                        : item.billingDay === 31
+                          ? 'Due on the last day of every month'
+                          : `Due on ${ordinal(item.billingDay)} of every month`}
+                    </Text>
                   </View>
                   <View style={styles.itemRight}>
                     {variable && !isPaid ? (
-                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                      <View style={styles.variableWrap}>
                         <TextInput
                           style={styles.amountInput}
                           value={inputVal}
-                          onChangeText={(v) => setAmountInputs((prev) => ({ ...prev, [inputKey]: v }))}
+                          onChangeText={(v) =>
+                            setAmountInputs((prev) => ({ ...prev, [inputKey]: v }))
+                          }
                           keyboardType="decimal-pad"
                           placeholder="0"
-                          placeholderTextColor={colors.outline}
+                          placeholderTextColor={mc.textFaint}
                         />
-                        <TouchableOpacity
-                          style={styles.payButton}
+                        <PressScale
                           onPress={() => {
                             const val = parseFloat(inputVal);
-                            if (isNaN(val) || val <= 0) { alert('Enter a valid amount'); return; }
+                            if (isNaN(val) || val <= 0) {
+                              alert('Enter a valid amount');
+                              return;
+                            }
                             payFixedExpenseWithAmount(item.id, Math.round(val * 100), user?.id);
                           }}
-                          activeOpacity={0.8}
+                          scale={0.95}
+                          style={styles.payButton}
                         >
                           <Text style={styles.payButtonText}>Pay</Text>
-                        </TouchableOpacity>
+                        </PressScale>
                       </View>
                     ) : (
                       <>
                         <Text style={styles.itemAmount}>{formatCurrency(item.amount)}</Text>
                         {isPaid ? (
-                          <TouchableOpacity
-                            style={styles.paidBadge}
+                          <PressScale
                             onPress={() => unmarkFixedExpensePaid(item.id, user?.id)}
-                            activeOpacity={0.8}
+                            scale={0.95}
                           >
-                            <Ionicons name="checkmark-circle" size={12} color={colors.textPrimary} />
-                            <Text style={styles.paidBadgeText}>Paid</Text>
-                          </TouchableOpacity>
+                            <Chip size="sm" variant="solid" color={mc.mint} icon="checkmark">
+                              Paid
+                            </Chip>
+                          </PressScale>
                         ) : (
-                          <TouchableOpacity
+                          <PressScale
+                            onPress={() =>
+                              payFixedExpenseWithAmount(item.id, item.amount, user?.id)
+                            }
+                            scale={0.95}
                             style={styles.payButton}
-                            onPress={() => payFixedExpenseWithAmount(item.id, item.amount, user?.id)}
-                            activeOpacity={0.8}
                           >
                             <Text style={styles.payButtonText}>Pay</Text>
-                          </TouchableOpacity>
+                          </PressScale>
                         )}
                       </>
                     )}
                   </View>
                 </View>
               );
-            })}
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+            })
+          )}
+        </Card>
+      </Rise>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 40,
-  },
-  summaryCard: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 24,
-    alignItems: 'center',
-    gap: 4,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 1,
-  },
-  summaryValue: {
-    fontSize: 30,
-    fontWeight: '800',
-  },
-  section: {
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
-  },
-  listContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
+    height: 52,
   },
-  iconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: rounded.DEFAULT,
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoText: {
+    flex: 1,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  appBarSpacer: {
+    width: 38,
+  },
+
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  summaryMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  ringText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  summaryValue: {
+    fontSize: 32,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  summarySub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rowValue: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  splitBar: {
+    marginVertical: 12,
+  },
+  splitLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  splitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  splitDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  splitLabel: {
+    fontSize: 12,
+    color: mc.textDim,
+  },
+
+  sectionTitle: {
+    marginTop: 6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  rowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  rowItemDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
+  },
+  itemMain: {
+    flex: 1,
+    minWidth: 0,
+  },
   itemTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
+    fontSize: 15,
+    color: mc.text,
   },
   itemSubtitle: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    color: mc.textDim,
     marginTop: 2,
   },
   itemRight: {
@@ -284,59 +408,41 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   itemAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
   },
-  payButton: {
-    backgroundColor: colors.primaryContainer,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: rounded.DEFAULT,
+  variableWrap: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
   amountInput: {
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    borderRadius: rounded.DEFAULT,
-    height: 36,
-    minWidth: 92,
+    backgroundColor: mc.raised,
+    borderRadius: 10,
     paddingHorizontal: 10,
-    color: colors.onSurface,
-    fontSize: 14,
-    fontWeight: '700',
+    paddingVertical: 6,
+    color: mc.text,
+    fontSize: 13,
+    minWidth: 80,
     textAlign: 'right',
   },
+  payButton: {
+    backgroundColor: mc.red,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
   payButtonText: {
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  unpayButton: {
-    backgroundColor: `${colors.error}14`,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: `${colors.error}28`,
-  },
-  unpayButtonText: {
-    color: colors.error,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
+    color: mc.white,
   },
-  paidBadge: {
-    flexDirection: 'row',
+  emptyState: {
     alignItems: 'center',
-    backgroundColor: colors.success,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: rounded.full,
-    gap: 4,
+    paddingVertical: 24,
   },
-  paidBadgeText: {
-    color: colors.textPrimary,
-    fontSize: 10,
-    fontWeight: '700',
+  emptyText: {
+    fontSize: 14,
+    color: mc.textDim,
   },
 });

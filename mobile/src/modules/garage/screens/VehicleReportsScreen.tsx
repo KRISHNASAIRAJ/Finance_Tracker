@@ -20,7 +20,7 @@ import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing, rounded } from '../../../shared/theme/spacing';
-import { useGarageStore } from '../store';
+import { useGarageStore, perFillKmPerL } from '../store';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'VehicleReports'>;
@@ -39,13 +39,9 @@ export default function VehicleReportsScreen() {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   };
 
-  // Mileage per fill
-  const perFillMileage: number[] = [];
-  for (let i = 1; i < vehicleFills.length; i++) {
-    const dist = vehicleFills[i].odometer - vehicleFills[i - 1].odometer;
-    const fuel = vehicleFills[i].liters;
-    if (fuel > 0) perFillMileage.push(parseFloat((dist / fuel).toFixed(1)));
-  }
+  // Mileage per fill — fills with no usable previous odometer reading are
+  // skipped, so they can never report a bogus 0.0 km/l.
+  const perFillMileage: number[] = perFillKmPerL(vehicleFills).map((p) => p.value);
 
   // Overall mileage
   const overallMileage = (() => {

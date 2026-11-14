@@ -1,32 +1,44 @@
-﻿/**
- * LentBorrowedScreen — tracks money lent and borrowed (receivables, expected
+/**
+ * LentBorrowedScreen â€” money lent and borrowed (receivables, expected
  * income) with add/edit and mark-as-paid actions.
+ *
+ * Restyled to the Meridian v2 reference: a lent/borrowed segmented control,
+ * a "money to receive" card with a per-person share bar, person rows and
+ * the optional-income panel. Every action (add, edit, receive, group
+ * receive, receive log, share, delete) still works.
  */
 import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
-  TouchableOpacity,
-  Platform,
-  StatusBar,
   Modal,
   TextInput,
   Alert,
   Share,
+  TouchableOpacity,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  Card,
+  Chip,
+  EmptyState,
+  Fab,
+  Label,
+  PressScale,
+  Rise,
+  Screen,
+  SegmentedControl,
+  StackedShareBar,
+} from '../../../shared/components/meridian';
 import { useFinanceStore, Receivable, ExpectedIncome, ReceiveLogEntry } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 import CalendarPicker from '../../../shared/components/CalendarPicker';
-
 export default function LentBorrowedScreen() {
   const navigation = useNavigation();
   const { receivables, addReceivable, editReceivable, markReceivablePayment, deleteReceivable, expectedIncomes, addExpectedIncome, editExpectedIncome, deleteExpectedIncome, receiveLog, addReceiveLog } = useFinanceStore();
@@ -372,240 +384,324 @@ export default function LentBorrowedScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* AppBar */}
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.logoText}>Lent & Borrow</Text>
-        <TouchableOpacity style={styles.iconButton} onPress={openAddModal}>
-          <Ionicons name="add" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+    <Screen bottomInset={40}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.iconButton} accessibilityLabel="Go back">
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.logoText}>Lent and borrow</Text>
+          <Fab onPress={openAddModal} icon="add" size={38} accessibilityLabel="Add entry" />
+        </View>
+      </Rise>
 
-      {/* Tabs */}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'lent' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('lent')}
-        >
-          <Text style={[styles.tabText, activeTab === 'lent' && styles.tabTextActive]}>
-            Lent ({formatCurrency(totalLent)})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'borrowed' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('borrowed')}
-        >
-          <Text style={[styles.tabText, activeTab === 'borrowed' && styles.tabTextActive]}>
-            Borrowed ({formatCurrency(totalBorrowed)})
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Lent / Borrowed */}
+      <Rise index={1}>
+        <SegmentedControl
+          options={[
+            { key: 'lent', label: `Lent ${formatCurrency(totalLent)}` },
+            { key: 'borrowed', label: `Borrowed ${formatCurrency(totalBorrowed)}` },
+          ]}
+          value={activeTab}
+          onChange={(k) => setActiveTab(k as 'lent' | 'borrowed')}
+        />
+      </Rise>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Ledger List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {activeTab === 'lent' ? 'MONEY TO RECEIVE' : 'MONEY TO PAY'} (TAP TO EDIT)
+      {/* Money to receive / pay */}
+      <Rise index={2}>
+        <Card>
+          <Label>{activeTab === 'lent' ? 'MONEY TO RECEIVE' : 'MONEY TO PAY'}</Label>
+          <Text style={[styles.moneyValue, { color: activeTab === 'lent' ? mc.mint : mc.redSoft }]}>
+            {activeTab === 'lent' ? '+' : '-'}
+            {formatCurrency(activeTab === 'lent' ? totalLent : totalBorrowed)}
           </Text>
-          <View style={styles.listContainer}>
-            {filteredItems.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="people-outline" size={36} color={colors.outline} />
-                <Text style={styles.emptyText}>No records logged</Text>
+          {(activeTab === 'lent' ? totalLent : totalBorrowed) > 0 ? (
+            <>
+              <StackedShareBar
+                segments={groupedItems.map((g, i) => ({
+                  key: `${g.personName}-${i}`,
+                  value: g.total,
+                  color: [mc.red, mc.amber, mc.sky, mc.violet, mc.mint][i % 5],
+                  minWidth: 6,
+                }))}
+                height={12}
+                style={styles.shareBar}
+              />
+              <View style={styles.legendRow}>
+                {groupedItems.slice(0, 4).map((g, i) => (
+                  <View key={`${g.personName}-${i}`} style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: [mc.red, mc.amber, mc.sky, mc.violet, mc.mint][i % 5] },
+                      ]}
+                    />
+                    <Text style={styles.legendLabel} numberOfLines={1}>
+                      {g.personName}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ) : (
-              groupedItems.map((group) => {
-                const groupKey = `${group.personName}__${group.type}`;
-                const isExpanded = expandedGroup === groupKey;
-                const pendingCount = group.items.filter(i => i.status !== 'paid').length;
-                return (
-                  <View key={groupKey}>
-                    <TouchableOpacity
-                      style={styles.rowItem}
-                      onPress={() => setExpandedGroup(isExpanded ? null : groupKey)}
-                      activeOpacity={0.7}
+            </>
+          ) : (
+            <Text style={styles.sectionSub}>
+              {activeTab === 'lent'
+                ? 'Nothing outstanding right now.'
+                : 'You do not owe anyone anything right now.'}
+            </Text>
+          )}
+        </Card>
+      </Rise>
+
+      {/* Ledger */}
+      <Rise index={3}>
+        <View style={styles.listCard}>
+          {groupedItems.length === 0 ? (
+            <EmptyState
+              icon="people-outline"
+              title="No records logged"
+              subtitle={activeTab === 'lent' ? 'Money you lend shows up here.' : 'Money you borrow shows up here.'}
+            />
+          ) : (
+            groupedItems.map((group, idx) => {
+              const groupKey = `${group.personName}__${group.type}`;
+              const isExpanded = expandedGroup === groupKey;
+              const pendingCount = group.items.filter((i) => i.status !== 'paid').length;
+              const dueDays =
+                (new Date(group.latestDue).getTime() - Date.now()) / 86400000;
+              const dueColor = dueDays <= 3 ? mc.redSoft : dueDays <= 7 ? mc.amber : mc.textDim;
+              const initial = (group.personName || '?').trim().charAt(0).toUpperCase();
+              return (
+                <View key={groupKey} style={[idx > 0 && styles.rowDivider]}>
+                  <PressScale
+                    onPress={() => setExpandedGroup(isExpanded ? null : groupKey)}
+                    scale={0.99}
+                    style={styles.rowItem}
+                  >
+                    <View
+                      style={[
+                        styles.avatar,
+                        { backgroundColor: group.type === 'lent' ? mc.redDim : mc.skyDim },
+                      ]}
                     >
-                      <View style={styles.itemLeft}>
-                        <View
-                          style={[
-                            styles.iconWrapper,
-                            { backgroundColor: group.type === 'lent' ? `${colors.success}15` : `${colors.error}15` },
-                          ]}
-                        >
-                          <Ionicons
-                            name={group.type === 'lent' ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
-                            size={20}
-                            color={group.type === 'lent' ? colors.success : colors.error}
-                          />
-                        </View>
-                        <View>
-                          <Text style={styles.itemTitle}>{group.personName}</Text>
-                          <Text style={styles.itemSubtitle}>
-                            {group.items.length} txns · Due {group.latestDue.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                            {pendingCount > 0 ? ` · ${pendingCount} pending` : ''}
+                      <Text
+                        style={[
+                          styles.avatarText,
+                          { color: group.type === 'lent' ? mc.redSoft : mc.sky },
+                        ]}
+                      >
+                        {initial}
+                      </Text>
+                    </View>
+                    <View style={styles.itemLeft}>
+                      <Text style={styles.itemTitle} numberOfLines={1}>
+                        {group.personName}
+                      </Text>
+                      <View style={styles.metaRow}>
+                        <Text style={styles.itemSubtitle}>
+                          {group.items.length} txns Â· {pendingCount} pending
+                        </Text>
+                        <View style={styles.dueChip}>
+                          <Text style={[styles.dueChipText, { color: dueColor }]}>
+                            Due{' '}
+                            {group.latestDue.toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
                           </Text>
                         </View>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[styles.itemAmount, { color: group.type === 'lent' ? colors.success : colors.error }]}>
-                          {group.type === 'lent' ? '+' : '-'}{formatCurrency(group.total)}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            copyGroupDetails({ personName: group.personName, items: group.items });
-                          }}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-
-                    {isExpanded && (
-                      <View style={styles.expandedSection}>
-                        {/* Default group actions: Receive (oldest-first) + hidden log */}
-                        <View style={styles.groupActions}>
-                          <TouchableOpacity
-                            style={styles.receiveAllBtn}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              openReceiveGroupModal({ personName: group.personName, type: group.type as 'lent' | 'borrowed', items: group.items });
-                            }}
-                          >
-                            <Ionicons
-                              name={group.type === 'lent' ? 'download-outline' : 'cash-outline'}
-                              size={12}
-                              color={colors.textPrimary}
-                            />
-                            <Text style={styles.receiveAllText}>
-                              {group.type === 'lent' ? 'Receive' : 'Pay back'}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.logBtn}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              setReceiveLogVisible(true);
-                            }}
-                          >
-                            <Ionicons name="receipt-outline" size={12} color={colors.primary} />
-                            <Text style={styles.logBtnText}>Log</Text>
-                          </TouchableOpacity>
-                        </View>
-                        {group.items.map((item) => {
-                          const remaining = item.amount - (item.paidAmount || 0);
-                          const isFullyPaid = item.status === 'paid';
-                          return (
-                            <TouchableOpacity
-                              key={item.id}
-                              style={[styles.subItem, isFullyPaid && { opacity: 0.5 }]}
-                              onPress={() => openEditModal(item)}
-                              activeOpacity={0.7}
-                            >
-                              <View style={styles.subItemLeft}>
-                                <Text style={styles.subItemAmount}>
-                                  {item.type === 'lent' ? '+' : '-'}{formatCurrency(item.amount)}
-                                </Text>
-                                {(item.paidAmount || 0) > 0 && (
-                                  <Text style={styles.subItemRemaining}>
-                                    Rem: {formatCurrency(remaining)}
-                                  </Text>
-                                )}
-                                <Text style={styles.subItemDate}>
-                                  {new Date(item.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                </Text>
-                              </View>
-                              <View style={styles.subItemRight}>
-                                {item.note ? <Text style={styles.subItemNote} numberOfLines={1}>{item.note}</Text> : null}
-                                {item.status === 'paid' ? (
-                                  <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                                ) : item.status === 'partial' ? (
-                                  <Ionicons name="time-outline" size={14} color={colors.warning} />
-                                ) : null}
-                                {!isFullyPaid && (
-                                  <TouchableOpacity
-                                    style={styles.payBtn}
-                                    onPress={(e) => { e.stopPropagation(); openPaymentModal(item); }}
-                                  >
-                                    <Ionicons name="arrow-down-circle-outline" size={12} color={colors.success} />
-                                    <Text style={styles.payBtnText}>Receive</Text>
-                                  </TouchableOpacity>
-                                )}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                        <TouchableOpacity
-                          style={styles.addSubBtn}
-                          onPress={() => {
-                            openAddModal();
-                            setPersonName(group.personName);
-                            setEntryType(group.type as 'lent' | 'borrowed');
-                            setExpandedGroup(null);
-                          }}
-                        >
-                          <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                          <Text style={styles.addSubBtnText}>Add transaction</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </View>
-
-        {/* Optional Income Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>OPTIONAL INCOME ({formatCurrency(expectedTotal)})</Text>
-            <TouchableOpacity onPress={openAddIncome}>
-              <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.listContainer}>
-            {expectedIncomes.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="cash-outline" size={36} color={colors.outline} />
-                <Text style={styles.emptyText}>No expected income entries</Text>
-                <Text style={[styles.emptyText, { fontSize: 10, color: colors.outline }]}>
-                  Add uncertain cashbacks, refunds, etc.
-                </Text>
-              </View>
-            ) : (
-              expectedIncomes.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.rowItem}
-                  onPress={() => openEditIncome(item)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.itemLeft}>
-                    <View style={[styles.iconWrapper, { backgroundColor: 'rgba(188,232,93,0.12)' }]}>
-                      <Ionicons name="cash-outline" size={20} color={colors.chartreuse} />
                     </View>
-                    <View>
-                      <Text style={styles.itemTitle}>{item.name}</Text>
-                      <Text style={styles.itemSubtitle}>
-                        {item.notes || new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    <View style={styles.itemRightCol}>
+                      <Text
+                        style={[
+                          styles.itemAmount,
+                          { color: group.type === 'lent' ? mc.mint : mc.redSoft },
+                        ]}
+                      >
+                        {group.type === 'lent' ? '+' : '-'}
+                        {formatCurrency(group.total)}
                       </Text>
+                      <PressScale
+                        onPress={(e: any) => {
+                          e?.stopPropagation?.();
+                          copyGroupDetails({ personName: group.personName, items: group.items });
+                        }}
+                        scale={0.9}
+                        accessibilityLabel="Share the list"
+                        style={styles.copyBtn}
+                      >
+                        <Ionicons name="share-social-outline" size={14} color={mc.textDim} />
+                      </PressScale>
                     </View>
-                  </View>
-                  <Text style={[styles.itemAmount, { color: colors.chartreuse }]}>
-                    +{formatCurrency(item.amount)}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
-      </ScrollView>
+                  </PressScale>
 
+                  {isExpanded ? (
+                    <View style={styles.expandedSection}>
+                      <View style={styles.groupActions}>
+                        <PressScale
+                          onPress={(e: any) => {
+                            e?.stopPropagation?.();
+                            openReceiveGroupModal({
+                              personName: group.personName,
+                              type: group.type as 'lent' | 'borrowed',
+                              items: group.items,
+                            });
+                          }}
+                          scale={0.95}
+                          style={styles.receiveAllBtn}
+                        >
+                          <Ionicons
+                            name={group.type === 'lent' ? 'download-outline' : 'cash-outline'}
+                            size={12}
+                            color={mc.white}
+                          />
+                          <Text style={styles.receiveAllText}>
+                            {group.type === 'lent' ? 'Receive' : 'Pay back'}
+                          </Text>
+                        </PressScale>
+                        <PressScale
+                          onPress={(e: any) => {
+                            e?.stopPropagation?.();
+                            setReceiveLogVisible(true);
+                          }}
+                          scale={0.95}
+                          style={styles.logBtn}
+                        >
+                          <Ionicons name="receipt-outline" size={12} color={mc.textDim} />
+                          <Text style={styles.logBtnText}>Log</Text>
+                        </PressScale>
+                      </View>
+                      {group.items.map((item) => {
+                        const remaining = item.amount - (item.paidAmount || 0);
+                        const isFullyPaid = item.status === 'paid';
+                        return (
+                          <PressScale
+                            key={item.id}
+                            onPress={() => openEditModal(item)}
+                            scale={0.99}
+                            style={[styles.subItem, isFullyPaid && { opacity: 0.5 }]}
+                          >
+                            <View style={styles.subItemLeft}>
+                              <Text style={styles.subItemAmount}>
+                                {item.type === 'lent' ? '+' : '-'}
+                                {formatCurrency(item.amount)}
+                              </Text>
+                              {(item.paidAmount || 0) > 0 ? (
+                                <Text style={styles.subItemRemaining}>
+                                  Rem: {formatCurrency(remaining)}
+                                </Text>
+                              ) : null}
+                              <Text style={styles.subItemDate}>
+                                {new Date(item.dueDate).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                })}
+                              </Text>
+                            </View>
+                            <View style={styles.subItemRight}>
+                              {item.note ? (
+                                <Text style={styles.subItemNote} numberOfLines={1}>
+                                  {item.note}
+                                </Text>
+                              ) : null}
+                              {item.status === 'paid' ? (
+                                <Ionicons name="checkmark-circle" size={14} color={mc.mint} />
+                              ) : item.status === 'partial' ? (
+                                <Ionicons name="time-outline" size={14} color={mc.amber} />
+                              ) : null}
+                              {!isFullyPaid ? (
+                                <PressScale
+                                  onPress={(e: any) => {
+                                    e?.stopPropagation?.();
+                                    openPaymentModal(item);
+                                  }}
+                                  scale={0.95}
+                                  style={styles.payBtn}
+                                >
+                                  <Ionicons
+                                    name="arrow-down-circle-outline"
+                                    size={12}
+                                    color={mc.mint}
+                                  />
+                                  <Text style={styles.payBtnText}>Receive</Text>
+                                </PressScale>
+                              ) : null}
+                            </View>
+                          </PressScale>
+                        );
+                      })}
+                      <PressScale
+                        onPress={() => {
+                          openAddModal();
+                          setPersonName(group.personName);
+                          setEntryType(group.type as 'lent' | 'borrowed');
+                          setExpandedGroup(null);
+                        }}
+                        scale={0.97}
+                        style={styles.addSubBtn}
+                      >
+                        <Ionicons name="add-circle-outline" size={15} color={mc.textDim} />
+                        <Text style={styles.addSubBtnText}>Add transaction</Text>
+                      </PressScale>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </Rise>
+
+      {/* Optional income */}
+      <Rise index={4}>
+        <View style={styles.sectionHeader}>
+          <Label>OPTIONAL INCOME ({formatCurrency(expectedTotal)})</Label>
+          <PressScale onPress={openAddIncome} scale={0.9} accessibilityLabel="Add optional income">
+            <Ionicons name="add" size={20} color={mc.redSoft} />
+          </PressScale>
+        </View>
+        {expectedIncomes.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon="cash-outline"
+              title="No optional income yet"
+              subtitle="Add cashbacks and refunds you expect"
+            />
+          </Card>
+        ) : (
+          <View style={styles.listCard}>
+            {expectedIncomes.map((item, idx) => (
+              <PressScale
+                key={item.id}
+                onPress={() => openEditIncome(item)}
+                scale={0.99}
+                style={[styles.rowItem, idx > 0 && styles.rowDivider]}
+              >
+                <View style={[styles.avatar, { backgroundColor: mc.mintDim }]}>
+                  <Ionicons name="cash-outline" size={17} color={mc.mint} />
+                </View>
+                <View style={styles.itemLeft}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.itemSubtitle} numberOfLines={1}>
+                    {item.notes ||
+                      new Date(item.date).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                  </Text>
+                </View>
+                <Text style={[styles.itemAmount, { color: mc.mint }]}>+{formatCurrency(item.amount)}</Text>
+              </PressScale>
+            ))}
+          </View>
+        )}
+      </Rise>
+
+      {/* Add / Edit Entry Modal (unchanged design, restyled) */}
       {/* Add / Edit Entry Modal */}
       <Modal
         visible={modalVisible}
@@ -640,7 +736,7 @@ export default function LentBorrowedScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter name"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textFaint}
                 value={personName}
                 onChangeText={setPersonName}
               />
@@ -651,7 +747,7 @@ export default function LentBorrowedScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="0.00"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textFaint}
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
@@ -662,22 +758,22 @@ export default function LentBorrowedScreen() {
               <>
                 <View style={styles.quickMathRow}>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.mint }]}
                     onPress={() => applyQuickMath('plus', 'amount')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.mint }]}>+</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.redSoft }]}
                     onPress={() => applyQuickMath('minus', 'amount')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.redSoft }]}>−</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.amber }]}
                     onPress={() => applyQuickMath('minus5', 'amount')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.amber }]}>−5%</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -686,7 +782,7 @@ export default function LentBorrowedScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="0.00"
-                    placeholderTextColor={colors.outline}
+                    placeholderTextColor={mc.textFaint}
                     keyboardType="numeric"
                     value={quickAmount}
                     onChangeText={setQuickAmount}
@@ -695,22 +791,22 @@ export default function LentBorrowedScreen() {
 
                 <View style={styles.quickMathRow}>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.mint }]}
                     onPress={() => applyQuickMath('plus', 'quick')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.mint }]}>+</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.redSoft }]}
                     onPress={() => applyQuickMath('minus', 'quick')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.redSoft }]}>−</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                    style={[styles.quickMathBtn, { borderColor: mc.amber }]}
                     onPress={() => applyQuickMath('minus5', 'quick')}
                   >
-                    <Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+                    <Text style={[styles.quickMathBtnText, { color: mc.amber }]}>−5%</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -726,7 +822,7 @@ export default function LentBorrowedScreen() {
                 <TextInput
                   style={styles.textInput}
                   placeholder="0.00"
-                  placeholderTextColor={colors.outline}
+                  placeholderTextColor={mc.textFaint}
                   keyboardType="numeric"
                   value={quickAmount}
                   onChangeText={setQuickAmount}
@@ -734,22 +830,22 @@ export default function LentBorrowedScreen() {
               </View>
               <View style={styles.quickMathRow}>
                 <TouchableOpacity
-                  style={[styles.quickMathBtn, { borderColor: colors.success }]}
+                  style={[styles.quickMathBtn, { borderColor: mc.mint }]}
                   onPress={() => applyQuickMath('plus')}
                 >
-                  <Text style={[styles.quickMathBtnText, { color: colors.success }]}>+</Text>
+                  <Text style={[styles.quickMathBtnText, { color: mc.mint }]}>+</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.quickMathBtn, { borderColor: colors.error }]}
+                  style={[styles.quickMathBtn, { borderColor: mc.redSoft }]}
                   onPress={() => applyQuickMath('minus')}
                 >
-                  <Text style={[styles.quickMathBtnText, { color: colors.error }]}>−</Text>
+                  <Text style={[styles.quickMathBtnText, { color: mc.redSoft }]}>−</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.quickMathBtn, { borderColor: colors.warning }]}
+                  style={[styles.quickMathBtn, { borderColor: mc.amber }]}
                   onPress={() => applyQuickMath('minus5')}
                 >
-<Text style={[styles.quickMathBtnText, { color: colors.warning }]}>−5%</Text>
+<Text style={[styles.quickMathBtnText, { color: mc.amber }]}>−5%</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -763,7 +859,7 @@ export default function LentBorrowedScreen() {
                 onPress={() => setDatePickerVisible(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={18} color={mc.text} />
                 <Text style={styles.datePickerText}>
                   {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
@@ -775,7 +871,7 @@ export default function LentBorrowedScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="Optional notes"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textFaint}
                 value={notes}
                 onChangeText={setNotes}
               />
@@ -823,18 +919,18 @@ export default function LentBorrowedScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>NAME</Text>
-              <TextInput style={styles.textInput} placeholder="Cashback, refund, etc." placeholderTextColor={colors.outline} value={incomeName} onChangeText={setIncomeName} />
+              <TextInput style={styles.textInput} placeholder="Cashback, refund, etc." placeholderTextColor={mc.textFaint} value={incomeName} onChangeText={setIncomeName} />
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>AMOUNT (₹)</Text>
-              <TextInput style={styles.textInput} placeholder="0.00" placeholderTextColor={colors.outline} keyboardType="numeric" value={incomeAmount} onChangeText={setIncomeAmount} />
+              <TextInput style={styles.textInput} placeholder="0.00" placeholderTextColor={mc.textFaint} keyboardType="numeric" value={incomeAmount} onChangeText={setIncomeAmount} />
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>EXPECTED DATE</Text>
               <TouchableOpacity style={styles.datePickerTrigger} onPress={() => setIncomeDatePickerVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={18} color={mc.text} />
                 <Text style={styles.datePickerText}>
                   {incomeDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </Text>
@@ -843,7 +939,7 @@ export default function LentBorrowedScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>NOTES (OPTIONAL)</Text>
-              <TextInput style={styles.textInput} placeholder="Optional notes" placeholderTextColor={colors.outline} value={incomeNotes} onChangeText={setIncomeNotes} />
+              <TextInput style={styles.textInput} placeholder="Optional notes" placeholderTextColor={mc.textFaint} value={incomeNotes} onChangeText={setIncomeNotes} />
             </View>
 
             <View style={styles.modalButtons}>
@@ -890,7 +986,7 @@ export default function LentBorrowedScreen() {
                   <TextInput
                     style={styles.textInput}
                     placeholder="0.00"
-                    placeholderTextColor={colors.outline}
+                    placeholderTextColor={mc.textFaint}
                     keyboardType="numeric"
                     value={paymentAmount}
                     onChangeText={setPaymentAmount}
@@ -927,7 +1023,7 @@ export default function LentBorrowedScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="0.00"
-                placeholderTextColor={colors.outline}
+                placeholderTextColor={mc.textFaint}
                 keyboardType="numeric"
                 value={receiveAmount}
                 onChangeText={setReceiveAmount}
@@ -943,7 +1039,7 @@ export default function LentBorrowedScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.logLink} onPress={() => setReceiveLogVisible(true)}>
-              <Ionicons name="receipt-outline" size={12} color={colors.primary} />
+              <Ionicons name="receipt-outline" size={12} color={mc.text} />
               <Text style={styles.logLinkText}>Receive log</Text>
             </TouchableOpacity>
           </View>
@@ -989,460 +1085,439 @@ export default function LentBorrowedScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
+    gap: 12,
+    height: 52,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: rounded.full,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
-    marginHorizontal: spacing.containerPadding,
-    marginTop: 16,
-    borderRadius: rounded.lg,
-    padding: 4,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
     alignItems: 'center',
-    borderRadius: rounded.DEFAULT,
+    justifyContent: 'center',
   },
-  tabButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  logoText: {
+    flex: 1,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
   },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
+  sectionSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 10,
   },
-  tabTextActive: {
-    color: colors.onSurface,
-    fontWeight: '700',
+
+  moneyValue: {
+    fontSize: 34,
+    fontWeight: '500',
+    marginVertical: 6,
   },
-  scrollContent: {
-    padding: spacing.containerPadding,
-    gap: spacing.stackGapLg,
-    paddingBottom: 40,
+  shareBar: {
+    marginVertical: 10,
   },
-  section: {
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 2,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 11,
+    color: mc.textDim,
+    maxWidth: 90,
+  },
+
+  listCard: {
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
+    overflow: 'hidden',
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
+  },
+  rowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  itemLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  itemTitle: {
+    fontSize: 15,
+    color: mc.text,
+  },
+  itemSubtitle: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+    marginTop: 3,
+  },
+  dueChip: {
+    backgroundColor: mc.raised,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  dueChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  itemRightCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  copyBtn: {
+    alignSelf: 'flex-end',
+  },
+  itemAmount: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: mc.textDim,
     marginTop: 8,
   },
-  sectionTitle: {
-    fontSize: 11,
+
+  expandedSection: {
+    backgroundColor: mc.raised,
+    borderRadius: mr.row,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    padding: 10,
+    gap: 8,
+  },
+  groupActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  receiveAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.red,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  receiveAllText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    color: mc.white,
+  },
+  logBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: mc.raised,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  logBtnText: {
+    fontSize: 12,
+    color: mc.textDim,
+    fontWeight: '600',
+  },
+  subItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: mc.card,
+    borderRadius: 16,
+    padding: 10,
+  },
+  subItemLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  subItemAmount: {
+    fontSize: 14,
+    color: mc.text,
+    fontWeight: '500',
+  },
+  subItemDate: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  subItemRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  subItemNote: {
+    fontSize: 11,
+    color: mc.textDim,
+    maxWidth: 140,
+  },
+  subItemRemaining: {
+    fontSize: 11,
+    color: mc.amber,
+    marginTop: 2,
+  },
+  payBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: mc.mintDim,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  payBtnText: {
+    fontSize: 11,
+    color: mc.mint,
+    fontWeight: '600',
+  },
+  addSubBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  addSubBtnText: {
+    fontSize: 13,
+    color: mc.textDim,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+    marginLeft: 2,
   },
-  listContainer: {
-    backgroundColor: colors.surfaceContainer,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.cardPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  iconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
-  itemSubtitle: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  itemAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
-  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: mc.overlay,
     justifyContent: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: rounded.lg,
-    padding: 24,
-    gap: 16,
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
+    padding: 20,
+    gap: 12,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: colors.onSurface,
-    textAlign: 'center',
+    fontWeight: '500',
+    color: mc.text,
   },
   modalToggleRow: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.lg,
-    padding: 4,
+    gap: 8,
   },
   modalToggleBtn: {
     flex: 1,
-    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: rounded.DEFAULT,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: mc.raised,
   },
   modalToggleBtnLent: {
-    backgroundColor: colors.successContainer,
+    backgroundColor: mc.red,
   },
   modalToggleBtnBorrowed: {
-    backgroundColor: colors.errorContainer,
+    backgroundColor: mc.sky,
   },
   modalToggleText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
+    color: mc.textDim,
   },
   modalToggleTextActive: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+    color: mc.white,
+    fontWeight: '600',
   },
   inputGroup: {
     gap: 6,
   },
   inputLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.6,
+    letterSpacing: 1,
+    color: mc.textFaint,
   },
   textInput: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 44,
-    paddingHorizontal: 12,
-    color: colors.onSurface,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  adjBtn: {
-    minWidth: 24,
-    height: 24,
-    borderRadius: rounded.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  adjBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 15,
   },
   quickMathGroup: {
     gap: 8,
-    padding: 12,
-    borderRadius: rounded.DEFAULT,
-    backgroundColor: colors.surfaceContainer,
   },
   quickMathRow: {
     flexDirection: 'row',
     gap: 10,
   },
   quickMathBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: rounded.DEFAULT,
+    width: 44,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: mc.raised,
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
   },
   quickMathBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '600',
+    color: mc.text,
   },
   datePickerTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: rounded.DEFAULT,
-    borderColor: colors.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 44,
-    paddingHorizontal: 12,
     gap: 10,
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   datePickerText: {
-    fontSize: 14,
-    color: colors.onSurface,
-    fontWeight: '600',
+    fontSize: 15,
+    color: mc.text,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    justifyContent: 'flex-end',
+    gap: 18,
+    marginTop: 4,
   },
   modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: rounded.DEFAULT,
-    alignItems: 'center',
-  },
-  modalBtnDelete: {
-    backgroundColor: colors.attentionDim,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 18,
   },
   modalBtnCancel: {
-    backgroundColor: 'transparent',
+    backgroundColor: mc.raised,
+  },
+  modalBtnDelete: {
+    backgroundColor: mc.redDim,
   },
   modalBtnSave: {
-    backgroundColor: colors.primaryContainer,
-  },
-  modalBtnTextDelete: {
-    fontSize: 14,
-    color: colors.error,
-    fontWeight: '600',
+    backgroundColor: mc.red,
   },
   modalBtnTextCancel: {
     fontSize: 14,
-    color: colors.onSurfaceVariant,
+    color: mc.textDim,
+  },
+  modalBtnTextDelete: {
+    fontSize: 14,
+    color: mc.redSoft,
     fontWeight: '600',
   },
   modalBtnTextSave: {
     fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  expandedSection: {
-    backgroundColor: colors.surfaceContainer,
-    borderBottomLeftRadius: rounded.DEFAULT,
-    borderBottomRightRadius: rounded.DEFAULT,
-    borderTopWidth: 0,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    marginTop: -4,
-    marginBottom: 8,
-  },
-  subItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  subItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  subItemAmount: {
-    fontSize: 13,
+    color: mc.white,
     fontWeight: '600',
-    color: colors.onSurface,
-  },
-  subItemDate: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-  },
-  subItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  subItemNote: {
-    fontSize: 11,
-    color: colors.onSurfaceVariant,
-    maxWidth: 120,
-  },
-  addSubBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  addSubBtnText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  subItemRemaining: {
-    fontSize: 10,
-    color: colors.warning,
-    fontWeight: '600',
-  },
-  payBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: `${colors.success}20`,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.success,
-  },
-  payBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.success,
   },
   paymentInfo: {
-    fontSize: 13,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  groupActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  receiveAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.success,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: rounded.full,
-  },
-  receiveAllText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  logBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: rounded.full,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  logBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: -2,
   },
   logLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingTop: 10,
+    paddingVertical: 8,
   },
   logLinkText: {
-    fontSize: 12,
+    fontSize: 13,
+    color: mc.sky,
     fontWeight: '600',
-    color: colors.primary,
   },
-  logScroll: { maxHeight: 320, marginBottom: 8 },
+  logScroll: {
+    maxHeight: 320,
+    marginBottom: 8,
+  },
   logEmpty: {
     fontSize: 13,
-    color: colors.onSurfaceVariant,
+    color: mc.textDim,
+    paddingVertical: 18,
     textAlign: 'center',
-    paddingVertical: 20,
   },
   logEntry: {
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    gap: 3,
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
   },
   logEntryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 10,
   },
   logEntryName: {
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontWeight: '600',
+    color: mc.text,
     flex: 1,
   },
   logEntryAmount: {
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.success,
+    color: mc.mint,
+    fontWeight: '600',
   },
   logEntryDate: {
-    fontSize: 10,
-    color: colors.onSurfaceVariant,
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 4,
   },
   logBreakdown: {
     fontSize: 11,
-    color: colors.onSurfaceVariant,
-    paddingLeft: 6,
+    color: mc.textDim,
+    marginTop: 6,
+    lineHeight: 15,
   },
   logUnapplied: {
     fontSize: 11,
-    color: colors.warning,
-    fontWeight: '600',
-    paddingLeft: 6,
+    color: mc.amber,
+    marginTop: 6,
   },
 });

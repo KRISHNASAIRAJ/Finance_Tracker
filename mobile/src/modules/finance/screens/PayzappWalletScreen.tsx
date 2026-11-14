@@ -1,18 +1,44 @@
 ﻿/**
- * PayzappWalletScreen — tracks Payzapp wallet loads and spends, showing the
- * remaining balance against a monthly target.
+ * PayzappWalletScreen — tracks Payzapp wallet loads.
+ *
+ * Restyled to the Meridian v2 reference: the month's total, a real
+ * three-month bar chart, the big red "Log wallet load" action and the load
+ * history.
+ *
+ * The old screen showed a hard-coded ₹40,000 target and a made-up 1%
+ * "earned" cashback. Neither is real data, so both are gone — the screen
+ * now only shows what the store actually holds.
  */
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Platform, StatusBar } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Alert,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../../shared/theme/colors';
-import { spacing, rounded } from '../../../shared/theme/spacing';
+
+import { mc, mr } from '../../../shared/theme/meridian';
+import {
+  BarChart,
+  Card,
+  Label,
+  PressScale,
+  Rise,
+  Screen,
+} from '../../../shared/components/meridian';
 import { useFinanceStore, Transaction } from '../store';
 import { useAuth } from '../../../services/AuthProvider';
 
-const WALLET_TARGET = 4000000; // ₹40,000 in paise
-const formatCur = (paise: number) => `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const formatCur = (paise: number) =>
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function PayzappWalletScreen() {
   const navigation = useNavigation();
@@ -22,16 +48,21 @@ export default function PayzappWalletScreen() {
   const editTransaction = useFinanceStore((s) => s.editTransaction);
   const deleteTransaction = useFinanceStore((s) => s.deleteTransaction);
 
-  const walletLoads = useMemo(() =>
-    transactions
-      .filter((tx: Transaction) =>
-        tx.type === 'expense' &&
-        (tx.category === 'Wallet Loads' || tx.category === 'Wallet Load' ||
-         tx.notes?.toLowerCase().includes('wallet load') ||
-         tx.notes?.toLowerCase().includes('payzapp'))
-      )
-      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [transactions]);
+  const walletLoads = useMemo(
+    () =>
+      transactions
+        .filter((tx: Transaction) =>
+          tx.type === 'expense' &&
+          (tx.category === 'Wallet Loads' ||
+            tx.category === 'Wallet Load' ||
+            tx.notes?.toLowerCase().includes('wallet load') ||
+            tx.notes?.toLowerCase().includes('payzapp'))
+        )
+        .sort(
+          (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        ),
+    [transactions]
+  );
 
   const currentMonth = useMemo(() => {
     const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -40,9 +71,29 @@ export default function PayzappWalletScreen() {
       .reduce((s: number, t: Transaction) => s + t.amount, 0);
   }, [walletLoads]);
 
-  const progress = Math.min(currentMonth / WALLET_TARGET, 1);
-  const cashback = Math.round(currentMonth * 0.01);
-  const remaining = Math.max(0, WALLET_TARGET - currentMonth);
+  const currentMonthCount = useMemo(() => {
+    const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    return walletLoads.filter((tx: any) => new Date(tx.date) >= start).length;
+  }, [walletLoads]);
+
+  // The last three calendar months of real loads.
+  const lastThreeMonths = useMemo(() => {
+    const now = new Date();
+    const out: { label: string; value: number; isCurrent: boolean }[] = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const value = walletLoads
+        .filter((tx: any) => String(tx.date).slice(0, 7) === key)
+        .reduce((s: number, t: Transaction) => s + t.amount, 0);
+      out.push({
+        label: MONTH_LABELS[d.getMonth()],
+        value: value / 100,
+        isCurrent: i === 0,
+      });
+    }
+    return out;
+  }, [walletLoads]);
 
   const [showAdd, setShowAdd] = useState(false);
   const [loadAmt, setLoadAmt] = useState('');
@@ -56,29 +107,50 @@ export default function PayzappWalletScreen() {
 
   const handleAdd = () => {
     const a = parseFloat(loadAmt);
-    if (isNaN(a) || a <= 0) { Alert.alert('Enter valid amount'); return; }
-    const id = addTransaction({
-      type: 'expense', amount: Math.round(a * 100), currency: 'INR',
-      category: 'Wallet Loads', notes: loadNote.trim() || 'Payzapp wallet load', source: 'manual',
-    }, user?.id);
+    if (isNaN(a) || a <= 0) {
+      Alert.alert('Enter valid amount');
+      return;
+    }
+    const id = addTransaction(
+      {
+        type: 'expense',
+        amount: Math.round(a * 100),
+        currency: 'INR',
+        category: 'Wallet Loads',
+        notes: loadNote.trim() || 'Payzapp wallet load',
+        source: 'manual',
+      },
+      user?.id
+    );
     if (id && loadDt) {
-      const d = new Date(loadDt); d.setHours(10, 0, 0, 0);
+      const d = new Date(loadDt);
+      d.setHours(10, 0, 0, 0);
       editTransaction(id, { date: d.toISOString() }, user?.id);
     }
-    setShowAdd(false); setLoadAmt(''); setLoadNote('');
+    setShowAdd(false);
+    setLoadAmt('');
+    setLoadNote('');
     setLoadDt(new Date().toISOString().slice(0, 10));
   };
 
   const handleEdit = () => {
     if (!editing) return;
     const a = parseFloat(editAmt);
-    if (isNaN(a) || a <= 0) { Alert.alert('Enter valid amount'); return; }
-    const d = new Date(editDt); d.setHours(10, 0, 0, 0);
-    editTransaction(editing.id, {
-      amount: Math.round(a * 100),
-      date: d.toISOString(),
-      notes: editNote.trim() || editing.notes,
-    }, user?.id);
+    if (isNaN(a) || a <= 0) {
+      Alert.alert('Enter valid amount');
+      return;
+    }
+    const d = new Date(editDt);
+    d.setHours(10, 0, 0, 0);
+    editTransaction(
+      editing.id,
+      {
+        amount: Math.round(a * 100),
+        date: d.toISOString(),
+        notes: editNote.trim() || editing.notes,
+      },
+      user?.id
+    );
     setEditing(null);
   };
 
@@ -90,200 +162,426 @@ export default function PayzappWalletScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.appBarTitle}>Payzapp Wallet Loads</Text>
-        <View style={{ width: 32 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Progress Card */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressTop}>
-            <Text style={styles.progressLabel}>Loaded This Month</Text>
-            <Text style={styles.progressVal}>{formatCur(currentMonth)}</Text>
-          </View>
-          <View style={styles.barBg}>
-            <View style={[styles.barFill, { width: `${progress * 100}%` }]} />
-          </View>
-          <View style={styles.progressBottom}>
-            <Text style={styles.metaText}>
-              {progress >= 1 ? 'Done!' : `${formatCur(remaining)} left`}
-            </Text>
-            <Text style={styles.cashbackText}>
-              Earned: +{formatCur(cashback)}
-            </Text>
-          </View>
-
+    <Screen bottomInset={40}>
+      {/* Header */}
+      <Rise index={0}>
+        <View style={styles.appBar}>
+          <PressScale onPress={() => navigation.goBack()} scale={0.9} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={19} color={mc.text} />
+          </PressScale>
+          <Text style={styles.appBarTitle}>Payzapp wallet loads</Text>
+          <View style={styles.appBarSpacer} />
         </View>
+      </Rise>
 
-        {/* Add button */}
-        <TouchableOpacity
-          style={styles.addBtn}
+      {/* Loaded this month */}
+      <Rise index={1}>
+        <Card>
+          <View style={styles.topRow}>
+            <View>
+              <Label>LOADED THIS MONTH</Label>
+              <Text style={styles.monthValue}>{formatCur(currentMonth)}</Text>
+              <Text style={styles.metaText}>
+                {currentMonthCount} load{currentMonthCount === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <View style={styles.walletIcon}>
+              <Ionicons name="wallet-outline" size={20} color={mc.violet} />
+            </View>
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Last three months */}
+      <Rise index={2}>
+        <Card>
+          <Label>LAST 3 MONTHS</Label>
+          <BarChart
+            data={lastThreeMonths.map((m) => ({
+              label: m.label,
+              value: m.value,
+              color: m.isCurrent ? mc.mint : mc.barDim,
+            }))}
+            width={300}
+            height={100}
+            style={styles.chart}
+          />
+          <View style={styles.monthLabels}>
+            {lastThreeMonths.map((m) => (
+              <Text
+                key={m.label}
+                style={[styles.monthLabel, m.isCurrent && { color: mc.mint }]}
+              >
+                {m.label}
+              </Text>
+            ))}
+          </View>
+        </Card>
+      </Rise>
+
+      {/* Log a load */}
+      <Rise index={3}>
+        <PressScale
           onPress={() => {
-            setLoadAmt(''); setLoadNote('');
+            setLoadAmt('');
+            setLoadNote('');
             setLoadDt(new Date().toISOString().slice(0, 10));
             setShowAdd(true);
           }}
-          activeOpacity={0.8}
+          scale={0.97}
+          style={styles.addBtn}
         >
-          <Ionicons name="add-circle" size={18} color={colors.textInverse} />
-          <Text style={styles.addBtnText}>Log Wallet Load</Text>
-        </TouchableOpacity>
+          <Ionicons name="add" size={20} color={mc.white} />
+          <Text style={styles.addBtnText}>Log wallet load</Text>
+        </PressScale>
+      </Rise>
 
-        {/* Load History */}
-        <Text style={styles.sectionLabel}>LOAD HISTORY</Text>
+      {/* Load history */}
+      <Rise index={4}>
+        <Label style={styles.sectionLabel}>LOAD HISTORY</Label>
         {walletLoads.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="wallet-outline" size={24} color={colors.outline} />
+          <Card style={styles.emptyWrap}>
+            <Ionicons name="wallet-outline" size={26} color={mc.textGhost} />
             <Text style={styles.emptyText}>No wallet loads recorded yet.</Text>
-            <Text style={styles.emptySub}>Tap "Log Wallet Load" to add one manually.</Text>
-          </View>
+            <Text style={styles.emptySub}>Tap &quot;Log wallet load&quot; to add one manually.</Text>
+          </Card>
         ) : (
-          walletLoads.map((tx: Transaction) => (
-            <View key={tx.id} style={styles.loadItem}>
-              <View style={styles.loadLeft}>
-                <View style={[styles.loadDot, { backgroundColor: colors.chartreuse }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.loadAmt}>-{formatCur(tx.amount)}</Text>
+          <Card pad={false}>
+            {walletLoads.map((tx: Transaction, idx: number) => (
+              <View key={tx.id} style={[styles.loadItem, idx > 0 && styles.loadItemDivider]}>
+                <View style={styles.loadDot} />
+                <View style={styles.loadMain}>
+                  <Text style={styles.loadAmt}>{formatCur(tx.amount)}</Text>
                   <Text style={styles.loadDt}>
-                    {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    {new Date(tx.date).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
                     {' · Manual'}
                   </Text>
                   {tx.notes ? <Text style={styles.loadNotes}>{tx.notes}</Text> : null}
                 </View>
+                <View style={styles.loadActions}>
+                  <PressScale
+                    onPress={() => {
+                      setEditing(tx);
+                      setEditAmt((tx.amount / 100).toString());
+                      setEditDt(new Date(tx.date).toISOString().slice(0, 10));
+                      setEditNote(tx.notes || '');
+                    }}
+                    scale={0.9}
+                    accessibilityLabel="Edit load"
+                  >
+                    <Ionicons name="create-outline" size={16} color={mc.textDim} />
+                  </PressScale>
+                  <PressScale
+                    onPress={() => handleDelete(tx.id)}
+                    scale={0.9}
+                    accessibilityLabel="Delete load"
+                  >
+                    <Ionicons name="trash-outline" size={16} color={mc.redSoft} />
+                  </PressScale>
+                </View>
               </View>
-              <View style={styles.loadActions}>
-                <TouchableOpacity style={styles.actBtn} onPress={() => {
-                  setEditing(tx); setEditAmt((tx.amount / 100).toString());
-                  setEditDt(new Date(tx.date).toISOString().slice(0, 10));
-                  setEditNote(tx.notes || '');
-                }}>
-                  <Ionicons name="create-outline" size={15} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actBtn} onPress={() => handleDelete(tx.id)}>
-                  <Ionicons name="trash-outline" size={15} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+            ))}
+          </Card>
         )}
-      </ScrollView>
+      </Rise>
 
       {/* Add Modal */}
-      <Modal visible={showAdd} transparent animationType="fade" onRequestClose={() => setShowAdd(false)}>
+      <Modal
+        visible={showAdd}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAdd(false)}
+      >
         <View style={styles.mOverlay}>
           <View style={styles.mCard}>
-            <Text style={styles.mTitle}>Log Wallet Load</Text>
+            <Text style={styles.mTitle}>Log wallet load</Text>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>AMOUNT (₹)</Text>
-              <TextInput style={styles.inp} value={loadAmt} onChangeText={setLoadAmt} keyboardType="decimal-pad" placeholder="40000" placeholderTextColor={colors.outline} autoFocus />
+              <TextInput
+                style={styles.inp}
+                value={loadAmt}
+                onChangeText={setLoadAmt}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={mc.textFaint}
+                autoFocus
+              />
             </View>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>DATE</Text>
-              <TextInput style={styles.inp} value={loadDt} onChangeText={setLoadDt} placeholder="YYYY-MM-DD" placeholderTextColor={colors.outline} />
+              <TextInput
+                style={styles.inp}
+                value={loadDt}
+                onChangeText={setLoadDt}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={mc.textFaint}
+              />
             </View>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>NOTES (OPTIONAL)</Text>
-              <TextInput style={styles.inp} value={loadNote} onChangeText={setLoadNote} placeholder="Payzapp load via HDFC Millennia" placeholderTextColor={colors.outline} />
+              <TextInput
+                style={styles.inp}
+                value={loadNote}
+                onChangeText={setLoadNote}
+                placeholder="Payzapp load via HDFC Millennia"
+                placeholderTextColor={mc.textFaint}
+              />
             </View>
             <View style={styles.mBtns}>
-              <TouchableOpacity style={styles.mCancel} onPress={() => setShowAdd(false)}><Text style={styles.mCancelTxt}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.mSave} onPress={handleAdd}><Text style={styles.mSaveTxt}>Add</Text></TouchableOpacity>
+              <PressScale onPress={() => setShowAdd(false)} scale={0.96}>
+                <Text style={styles.mCancelTxt}>Cancel</Text>
+              </PressScale>
+              <PressScale onPress={handleAdd} scale={0.96}>
+                <Text style={styles.mSaveTxt}>Add</Text>
+              </PressScale>
             </View>
           </View>
         </View>
       </Modal>
 
       {/* Edit Modal */}
-      <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
+      <Modal
+        visible={!!editing}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditing(null)}
+      >
         <View style={styles.mOverlay}>
           <View style={styles.mCard}>
-            <Text style={styles.mTitle}>Edit Wallet Load</Text>
+            <Text style={styles.mTitle}>Edit wallet load</Text>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>AMOUNT (₹)</Text>
-              <TextInput style={styles.inp} value={editAmt} onChangeText={setEditAmt} keyboardType="decimal-pad" placeholderTextColor={colors.outline} autoFocus />
+              <TextInput
+                style={styles.inp}
+                value={editAmt}
+                onChangeText={setEditAmt}
+                keyboardType="decimal-pad"
+                placeholderTextColor={mc.textFaint}
+                autoFocus
+              />
             </View>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>DATE</Text>
-              <TextInput style={styles.inp} value={editDt} onChangeText={setEditDt} placeholderTextColor={colors.outline} />
+              <TextInput
+                style={styles.inp}
+                value={editDt}
+                onChangeText={setEditDt}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={mc.textFaint}
+              />
             </View>
             <View style={styles.inpGrp}>
               <Text style={styles.inpLabel}>NOTES</Text>
-              <TextInput style={styles.inp} value={editNote} onChangeText={setEditNote} placeholderTextColor={colors.outline} />
+              <TextInput
+                style={styles.inp}
+                value={editNote}
+                onChangeText={setEditNote}
+                placeholderTextColor={mc.textFaint}
+              />
             </View>
             <View style={styles.mBtns}>
-              <TouchableOpacity style={styles.mCancel} onPress={() => setEditing(null)}><Text style={styles.mCancelTxt}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.mSave} onPress={handleEdit}><Text style={styles.mSaveTxt}>Save</Text></TouchableOpacity>
+              <PressScale onPress={() => setEditing(null)} scale={0.96}>
+                <Text style={styles.mCancelTxt}>Cancel</Text>
+              </PressScale>
+              <PressScale onPress={handleEdit} scale={0.96}>
+                <Text style={styles.mSaveTxt}>Save</Text>
+              </PressScale>
             </View>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
   appBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    height: 56, paddingHorizontal: spacing.containerPadding,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 52,
   },
-  backBtn: { padding: 6, borderRadius: rounded.full },
-  appBarTitle: { fontSize: 17, fontWeight: '700', color: colors.onSurface },
-  scroll: { padding: spacing.containerPadding, gap: 16, paddingBottom: 60 },
-  progressCard: {
-    backgroundColor: 'rgba(188,232,93,0.04)', borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: 16, gap: 10,
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: mc.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  progressTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  progressLabel: { fontSize: 11, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.5 },
-  progressVal: { fontSize: 24, fontWeight: '800', color: colors.chartreuse },
-  barBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: 8, borderRadius: 4, backgroundColor: colors.chartreuse },
-  progressBottom: { flexDirection: 'row', justifyContent: 'space-between' },
-  metaText: { fontSize: 11, color: colors.onSurfaceVariant },
-  cashbackText: { fontSize: 13, fontWeight: '700', color: colors.success },
+  appBarTitle: {
+    flex: 1,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  appBarSpacer: {
+    width: 38,
+  },
+
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  monthValue: {
+    fontSize: 34,
+    fontWeight: '500',
+    color: mc.text,
+    marginTop: 2,
+  },
+  metaText: {
+    fontSize: 13,
+    color: mc.textDim,
+    marginTop: 4,
+  },
+  walletIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: mc.violetDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chart: {
+    marginTop: 8,
+    alignSelf: 'stretch',
+  },
+  monthLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  monthLabel: {
+    fontSize: 11,
+    color: mc.textDim,
+  },
+
   addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.chartreuse,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: mc.red,
+    borderRadius: 26,
+    paddingVertical: 16,
   },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.textInverse },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
-  emptyWrap: { alignItems: 'center', paddingVertical: 24, gap: 6 },
-  emptyText: { fontSize: 12, color: colors.onSurfaceVariant },
-  emptySub: { fontSize: 11, color: colors.outline, textAlign: 'center' },
+  addBtnText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: mc.white,
+  },
+
+  sectionLabel: {
+    marginTop: 6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   loadItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  loadLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  loadDot: { width: 8, height: 8, borderRadius: 4 },
-  loadAmt: { fontSize: 14, fontWeight: '700', color: colors.onSurface },
-  loadDt: { fontSize: 11, color: colors.onSurfaceVariant, marginTop: 1 },
-  loadNotes: { fontSize: 10, color: colors.outline, marginTop: 1, fontStyle: 'italic' },
-  loadActions: { flexDirection: 'row', gap: 4 },
-  actBtn: { padding: 8, borderRadius: rounded.full },
-  mOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24 },
-  mCard: { backgroundColor: colors.surface, borderRadius: rounded.lg, padding: 24, gap: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  mTitle: { fontSize: 18, fontWeight: '700', color: colors.onSurface, textAlign: 'center' },
-  inpGrp: { gap: 6 },
-  inpLabel: { fontSize: 10, fontWeight: '600', color: colors.onSurfaceVariant, letterSpacing: 0.6 },
+  loadItemDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: mc.line,
+  },
+  loadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: mc.mint,
+  },
+  loadMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  loadAmt: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  loadDt: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  loadNotes: {
+    fontSize: 11,
+    color: mc.textFaint,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  loadActions: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: mc.text,
+    marginTop: 8,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 4,
+  },
+
+  mOverlay: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  mCard: {
+    backgroundColor: mc.card,
+    borderRadius: mr.card,
+    padding: 20,
+    gap: 12,
+  },
+  mTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: mc.text,
+  },
+  inpGrp: {
+    gap: 6,
+  },
+  inpLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: mc.textFaint,
+  },
   inp: {
-    backgroundColor: colors.surfaceContainer, borderRadius: rounded.DEFAULT,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, height: 44,
-    paddingHorizontal: 12, color: colors.onSurface, fontSize: 14, fontWeight: '500',
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: mc.text,
+    fontSize: 15,
   },
-  mBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  mCancel: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, alignItems: 'center' },
-  mCancelTxt: { fontSize: 14, color: colors.onSurfaceVariant, fontWeight: '600' },
-  mSave: { flex: 1, paddingVertical: 12, borderRadius: rounded.DEFAULT, backgroundColor: colors.primaryContainer, alignItems: 'center' },
-  mSaveTxt: { fontSize: 14, color: colors.textPrimary, fontWeight: '700' },
+  mBtns: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 18,
+    marginTop: 4,
+  },
+  mCancelTxt: {
+    fontSize: 14,
+    color: mc.textDim,
+  },
+  mSaveTxt: {
+    fontSize: 14,
+    color: mc.redSoft,
+    fontWeight: '600',
+  },
 });

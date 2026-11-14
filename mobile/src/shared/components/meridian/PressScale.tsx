@@ -9,6 +9,7 @@ import {
   Easing,
   Pressable,
   StyleSheet,
+  type GestureResponderEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -17,7 +18,7 @@ import useReducedMotion from './useReducedMotion';
 
 interface PressScaleProps {
   children: React.ReactNode;
-  onPress?: () => void;
+  onPress?: (event: GestureResponderEvent) => void;
   onLongPress?: () => void;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
