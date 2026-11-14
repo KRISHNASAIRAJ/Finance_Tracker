@@ -1418,3 +1418,51 @@ tests (28 suites) + 9 e2e.
   the split bar now measures its real pixel width.
 - Total: 285 unit tests (31 suites) + 9 e2e. Pushed as `42ba114` (CI run
   #101 in progress).
+
+## 34. The Meridian v2 UI reskin (s1–s32) + launch loading screen (v4, 2026-11-14)
+
+The whole app restyled to the flat Meridian v2 reference — visuals only, no
+data, state or navigation changes. Colour by meaning (red attention, amber
+near-limit, mint good/gain, sky bank money, violet sleep & investments).
+
+- **Theme tokens** — `mc` / `mr` / `mtx` / `mm` semantic tokens
+  (`shared/theme/meridian.ts`); tracend and oneplus repointed onto them.
+- **Component kit** — `shared/components/meridian/` (Card, Label, Chip,
+  ListRow, TopBar, BarChart, Ring, ProgressBar, SemicircleGauge, StackedShareBar,
+  TimelineItem, Screen with a `floating` overlay slot and forwardRef for
+  scroll-to, Fab, PressScale, Rise, EmptyState…). `react-native-svg` +
+  core `Animated` only — no new dependencies; every animation respects
+  reduce motion.
+- **16 first-pass screens** (Home, Finance, Garage, Tasks, Wealth, Drawer,
+  Service history, Fuel fills, Wallet loads, Fixed expenses, Lent and borrow,
+  Bank accounts, Cards, Monthly spend, Sleep, Habit tracker) + bottom-nav
+  pill and side drawer (DAILY/GROW/SHOP).
+- **16 second-pass screens** (#5f643c5) — All transactions (s18: search,
+  category chips, month summary + budget pill, day groups), task details
+  (s19) and edit task (s20), add lent/borrow and edit-balance sheets (s21,
+  s23), card detail (s22), expense distribution (s24: donut + tap-to-filter
+  rows), balance summary (s25: allocation bar + banks/lent/cards trio),
+  notifications (s26: TODAY/EARLIER sections), log fuel fill (s27) and log
+  service (s28), portfolio breakdown (s29: holdings with pick-to-scroll
+  donut), loans & FDs (s30), utilities menu (s31: semantic 4-col grid +
+  v2 sync card), buy list (s32: completion ring hero, collapsible
+  COMPLETED). Vehicle Spend uses the service-history layout (s7).
+- **Fixes while restyling**: week bars and category donut render final
+  state before animating; wallet loads excluded from every spend total
+  (week chart, month bars, category bars, all transaction totals);
+  UTF-8/mojibake cleanup (`Â·`, `â€”`); RECENT TRANSACTIONS grouped by day
+  with day totals; Floating "+" buttons for new task and new expense
+  (pinned above the tab bar, via the Screen `floating` layer); inline
+  bar-chart bars grow from the baseline; budget gauge value centered in
+  the arc; CC utilization bar only shows when card limits are set.
+- **Launch loading screen** (`shared/components/LoadingScreen.tsx`) —
+  `#0A0A0C` canvas; red half-circle sun rising behind a white horizon
+  with a white meridian line and two grey reflection lines; the line
+  draws top→bottom (0.7s), horizon expands from center (0.6s), sun rises
+  (0.9s), "MERIDIAN" fades up with letter-spacing 16→7 (0.9s), reflections
+  fade in, then a looping 3dp red indeterminate bar + "Getting things
+  ready" until the app is ready. Minimum display 1.8s; reduce motion
+  jumps to the final frame. Android native splash background matched to
+  `#0A0A0C`.
+- Verification: tsc clean, ESLint 0 errors, 281 unit tests green.
+
