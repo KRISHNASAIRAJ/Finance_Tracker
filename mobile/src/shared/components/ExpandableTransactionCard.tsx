@@ -29,6 +29,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '../theme/colors';
 import { rounded } from '../theme/spacing';
+import { mc } from '../theme/meridian';
 import CategoryIcon from '../CategoryIcon';
 import { getCategoryColor } from '../categoryMap';
 
@@ -252,10 +253,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   actionEdit: {
-    backgroundColor: '#3a4fc9',
+    backgroundColor: mc.sky,
   },
   actionDelete: {
-    backgroundColor: '#c0392b',
+    backgroundColor: mc.red,
   },
   actionLabel: {
     color: '#fff',
