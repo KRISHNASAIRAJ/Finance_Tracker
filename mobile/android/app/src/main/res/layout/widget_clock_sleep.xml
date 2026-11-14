@@ -2,18 +2,6 @@
 <!--
   ClockSleepWidget — 2x2 home-screen widget (OnePlus OxygenOS: black, white,
   the OnePlus red as the accent).
-
-  A live clock (TextClock keeps itself up to date) with the last night of
-  sleep underneath: the red block holds the duration + the sleep score as one line
-  in the raised island on the right, the sleep-stage chart (DEEP / LIGHT / AWAKE) centred in the
-  middle and the bed/wake times right under it. Under it the stats row:
-  the alarm, the battery and the temperature (value + caption).
-
-  Everything is scaled to a 2x2 cell (~110dp): the type is small but the
-  spacing is even and nothing overlaps — the date has its own row, the clock
-  its own row, the chart sits inside the red block with the lane labels on the
-  left and the bars to their right, and the stats row is split by a 1dp
-  divider.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clock_sleep_container"
@@ -23,8 +11,7 @@
     android:orientation="vertical"
     android:padding="6dp">
 
-    <!-- Date — the provider writes it so the day digits can be coloured
-         (the first digit red, the second white) -->
+    <!-- Date -->
     <TextView
         android:id="@+id/clock_sleep_date"
         android:layout_width="match_parent"
@@ -38,8 +25,7 @@
         android:textColor="@color/oxygen_muted"
         android:textSize="12sp" />
 
-    <!-- Clock — the hours in the OnePlus red, the minutes in white, then the
-         seconds and the AM/PM on the time's baseline -->
+    <!-- Clock -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -117,10 +103,10 @@
         android:layout_marginTop="2dp"
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="6dp"
-        android:paddingEnd="6dp">
+        android:paddingEnd="6dp"
+        android:paddingBottom="4dp">
 
-        <!-- The island (top right): the duration (bold) over the score,
-             left-aligned inside the raised bump (the bump is 92dp, this view is 82dp) -->
+        <!-- The island (top right): duration over score -->
         <TextView
             android:id="@+id/clock_sleep_duration"
             android:layout_width="60dp"
@@ -134,10 +120,11 @@
             android:includeFontPadding="false"
             android:maxLines="2"
             android:text="—"
-            android:textColor="@color/oxygen_white"
+            android:textColor="@color/oxygen_ink"
             android:textSize="8sp" />
 
-        <!-- The SLEEP caption — in the cut-out of the block (top left) -->
+        <!-- The SLEEP caption — sits in the black cut-out above the red body,
+             so it stays a light grey on black (never ink on black). -->
         <TextView
             android:id="@+id/clock_sleep_label"
             android:layout_width="wrap_content"
@@ -148,7 +135,7 @@
             android:includeFontPadding="false"
             android:letterSpacing="0.1"
             android:text="SLEEP"
-            android:textColor="@color/oxygen_white"
+            android:textColor="@color/oxygen_muted"
             android:textSize="6sp"
             android:textStyle="bold" />
 
@@ -164,7 +151,7 @@
             <!-- DEEP -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="9dp"
+                android:layout_height="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -174,7 +161,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="DEEP"
-                    android:textColor="@color/oxygen_white"
+                    android:textColor="@color/oxygen_ink"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -189,7 +176,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -201,7 +187,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -213,7 +198,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -225,7 +209,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -236,7 +219,7 @@
             <!-- LIGHT -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="10dp"
+                android:layout_height="9dp"
                 android:layout_marginTop="1dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
@@ -247,7 +230,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="LIGHT"
-                    android:textColor="@color/oxygen_white"
+                    android:textColor="@color/oxygen_ink"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -262,7 +245,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -274,7 +256,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -286,7 +267,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -298,7 +278,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -309,7 +288,7 @@
             <!-- AWAKE -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="10dp"
+                android:layout_height="9dp"
                 android:layout_marginTop="1dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
@@ -320,7 +299,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
                     android:text="AWAKE"
-                    android:textColor="@color/oxygen_white"
+                    android:textColor="@color/oxygen_ink"
                     android:textSize="5sp" />
 
                 <RelativeLayout
@@ -329,7 +308,6 @@
                     android:layout_height="5dp"
                     android:layout_weight="1">
 
-                    <!-- The dotted line (black at 40 % over the red) -->
                     <TextView
                         android:id="@+id/clock_sleep_awake_dots"
                         android:layout_width="match_parent"
@@ -345,7 +323,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -357,7 +334,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -369,7 +345,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -381,7 +356,6 @@
                         android:layout_width="match_parent"
                         android:layout_height="5dp"
                         android:layout_alignParentTop="true"
-                        android:layout_marginTop="0dp"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="0"
@@ -390,17 +364,17 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- The bed and the wake time -->
+        <!-- Bed and wake times positioned cleanly inside the bottom -->
         <TextView
             android:id="@+id/clock_sleep_bed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@id/clock_sleep_chart"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="@color/oxygen_white"
+            android:textColor="@color/oxygen_ink"
             android:textSize="5.5sp" />
 
         <TextView
@@ -409,16 +383,15 @@
             android:layout_height="wrap_content"
             android:layout_below="@id/clock_sleep_chart"
             android:layout_alignParentEnd="true"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="@color/oxygen_white"
+            android:textColor="@color/oxygen_ink"
             android:textSize="5.5sp" />
     </RelativeLayout>
 
-    <!-- The stats row: the alarm, the battery and the temperature —
-         the value on top, a grey caption underneath -->
+    <!-- The stats row (Alarm, Batt, Temp) -->
     <LinearLayout
         android:id="@+id/clock_sleep_stats"
         android:layout_width="match_parent"
@@ -426,11 +399,7 @@
         android:layout_marginTop="2dp"
         android:orientation="horizontal">
 
-        <!-- ALARM: next alarm time in bold red. The provider sets the text
-             (for example 6:30 am) from AlarmManager.getNextAlarmClock(). When no
-             alarm is set it writes two dashes and switches the colour to the grey
-             label colour. It is refreshed by ACTION_NEXT_ALARM_CLOCK_CHANGED, so
-             it needs no per-minute polling. -->
+        <!-- ALARM -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
