@@ -11,6 +11,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import DrawerMenu from './src/shared/components/DrawerMenu';
+import LoadingScreen from './src/shared/components/LoadingScreen';
 import { navigationTheme } from './src/shared/theme/colors';
 import RestorePrompt from './src/shared/components/RestorePrompt';
 import AuthGate from './src/shared/components/AuthGate';
@@ -310,6 +311,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             <RestorePrompt />
             <RootNavigator />
             <DrawerMenu />
+            {/* Launch loading overlay — brand mark + wordmark, then fades out */}
+            <LoadingScreen />
           </NavigationContainer>
         </SafeAreaProvider>
       </AuthGate>
