@@ -380,9 +380,11 @@ export default function MainHomeScreen() {
           </TouchableOpacity>
         </Rise>
 
-        {/* Sleep */}
-        <Rise index={2} style={styles.rightCell}>
+        {/* Right column: sleep on top, due today directly beneath it */}
+        <View style={styles.rightColumn}>
+        <Rise index={2} style={styles.rightFill}>
           <TouchableOpacity
+            style={styles.fillTap}
             activeOpacity={0.92}
             onPress={() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })}
           >
@@ -407,8 +409,9 @@ export default function MainHomeScreen() {
         </Rise>
 
         {/* Due today */}
-        <Rise index={3} style={styles.rightCell}>
+        <Rise index={3} style={styles.rightFill}>
           <TouchableOpacity
+            style={styles.fillTap}
             activeOpacity={0.92}
             onPress={() => navigation.navigate('MainTabs', { screen: 'TasksTab', params: { screen: 'TasksDashboard' } })}
           >
@@ -432,6 +435,7 @@ export default function MainHomeScreen() {
             </Card>
           </TouchableOpacity>
         </Rise>
+        </View>
       </View>
 
       {/* Today's quote */}
@@ -560,14 +564,20 @@ const styles = StyleSheet.create({
 
   grid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
   habitsCell: {
     width: '48%',
   },
-  rightCell: {
+  rightColumn: {
     width: '48%',
+    gap: 10,
+  },
+  rightFill: {
+    flex: 1,
+  },
+  fillTap: {
+    flex: 1,
   },
   habitsCard: {
     flex: 1,
@@ -653,12 +663,12 @@ const styles = StyleSheet.create({
     color: mc.textDim,
   },
   cardBar: {
-    marginTop: 10,
+    marginTop: 'auto',
   },
   footRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: 'auto',
   },
   footText: {
     fontSize: 11,
