@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
+import { mc } from '../shared/theme/meridian';
 import { useFinanceStore } from '../modules/finance/store';
 import { GarageSyncInitializer } from '../modules/garage/hooks/useGarageSync';
 import AppSyncInitializer from '../services/AppSyncInitializer';
@@ -361,39 +362,36 @@ function TabNavigator() {
           }
 
           return (
-            <View style={{ width: 56, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-              {focused && (
-                <LinearGradient
-                  colors={['rgba(123,142,255,0.35)', 'rgba(74,92,200,0.15)']}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18, width: 56, height: 36 }]}
-                />
-              )}
-              <Ionicons name={iconName} size={size} color={focused ? '#ffffff' : color} />
+            <View
+              style={[
+                styles.tabIcon,
+                focused && { backgroundColor: mc.redDim },
+              ]}
+            >
+              <Ionicons name={iconName} size={21} color={focused ? mc.redSoft : color} />
             </View>
           );
           },
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.outline,
+          tabBarActiveTintColor: mc.redSoft,
+          tabBarInactiveTintColor: mc.textFaint,
           tabBarStyle: showTabBar
             ? {
                 position: 'absolute',
-                left: 12,
-                right: 12,
-                bottom: 10,
-                height: 68,
-                paddingBottom: 8,
-                paddingTop: 8,
-                borderRadius: 28,
-                backgroundColor: 'rgba(15, 15, 20, 0.82)',
-                borderTopColor: 'rgba(255, 255, 255, 0.12)',
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderColor: 'rgba(255, 255, 255, 0.12)',
-                shadowColor: '#4a5cc8',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.3,
-                shadowRadius: 18,
-                elevation: 12,
+                left: 14,
+                right: 14,
+                bottom: 12,
+                height: 66,
+                paddingBottom: 6,
+                paddingTop: 6,
+                borderRadius: 30,
+                backgroundColor: mc.card,
+                borderTopWidth: 0,
+                borderWidth: 0,
+                shadowColor: '#000000',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.35,
+                shadowRadius: 16,
+                elevation: 10,
               }
             : { display: 'none' },
           tabBarLabelStyle: {
@@ -433,6 +431,16 @@ function TabNavigator() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIcon: {
+    width: 44,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default function RootNavigator() {
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);

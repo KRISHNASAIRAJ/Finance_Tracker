@@ -23,10 +23,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { tc } from '../theme/tracend';
+import { mc } from '../theme/meridian';
 import { useDrawerStore } from '../useDrawerStore';
 import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
@@ -44,6 +43,15 @@ type Item = {
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   danger?: boolean;
+  /** The icon colour. */
+  color: string;
+  /** The icon tile background. */
+  bg: string;
+};
+
+type Group = {
+  title: string | null;
+  items: Item[];
 };
 
 const TAB_NAMES = new Set(['MainHome', 'FinanceHome', 'GarageDashboard', 'TasksDashboard', 'InvestmentsDashboard']);
@@ -235,7 +243,8 @@ export default function DrawerMenu() {
         else snap(false);
       },
       onPanResponderTerminate: () => {
-        if (!isOpenRef.current) snap(false);
+        if (isOpenRef.current) return;
+        snap(false);
       },
     })
   ).current;
@@ -244,11 +253,13 @@ export default function DrawerMenu() {
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => g.dx < 0 && Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderMove: (_e, g) => {
+        if (isOpenRef.current) return;
         const p = Math.max(0, Math.min(1, 1 + g.dx / DRAWER_W));
         progress.setValue(p);
         dragX.setValue(0);
       },
       onPanResponderRelease: (_e, g) => {
+        if (isOpenRef.current) return;
         if (g.dx < -DRAWER_W * 0.28) snap(false);
         else snap(true);
       },
@@ -263,38 +274,138 @@ export default function DrawerMenu() {
 
   const signOutWithConfirm = () => {
     close();
-    setTimeout(() => signOut(), 120);
+    setTimeout(signOut, 120);
   };
 
-  // Flat nav — every module in one list, mirroring the web sidebar 1:1.
-  // Habits / Finance / Garage / Tasks / Wealth are reachable from the bottom
-  // tab bar, so they are not repeated in the drawer.
-  const navItems: Item[] = [
-    { id: 'home', label: 'Home', icon: 'home-outline', onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'HomeTab', params: { screen: 'MainHome' } })) },
-    { id: 'meals', label: 'Meals', icon: 'restaurant-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MealLogger' })) },
-    { id: 'sleep', label: 'Sleep', icon: 'moon-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })) },
-    { id: 'career', label: 'Career', icon: 'briefcase-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerTracker' })) },
-    { id: 'goals', label: 'Career Goals', icon: 'flag-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerGoals' })) },
-    { id: 'diary', label: 'Diary', icon: 'journal-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'WeeklyDiary' })) },
-    { id: 'buylist', label: 'Buy List', icon: 'cart-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'BuyList' })) },
-    { id: 'offers', label: 'Offers', icon: 'pricetags-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'Offers' })) },
-    { id: 'notes', label: 'Notes', icon: 'document-text-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })) },
-    { id: 'people', label: 'Keep in Touch', icon: 'people-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'People' })) },
-  ];
+  // Flat nav — every module in one list, grouped the way the reference
+  // design groups it. Habits / Finance / Garage / Tasks / Wealth are
+  // reachable from the bottom tab bar, so they are not repeated here.
+  const groups: Group[] = useMemo(() => {
+    const daily: Item[] = [
+      {
+        id: 'home',
+        label: 'Home',
+        icon: 'home-outline',
+        color: mc.white,
+        bg: mc.red,
+        onPress: () => go(() => navigation.navigate('MainTabs', { screen: 'HomeTab', params: { screen: 'MainHome' } })),
+      },
+      {
+        id: 'meals',
+        label: 'Meals',
+        icon: 'restaurant-outline',
+        color: mc.amber,
+        bg: mc.amberDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MealLogger' })),
+      },
+      {
+        id: 'sleep',
+        label: 'Sleep',
+        icon: 'moon-outline',
+        color: mc.violet,
+        bg: mc.violetDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })),
+      },
+      {
+        id: 'diary',
+        label: 'Diary',
+        icon: 'journal-outline',
+        color: mc.sky,
+        bg: mc.skyDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'WeeklyDiary' })),
+      },
+      {
+        id: 'notes',
+        label: 'Notes',
+        icon: 'document-text-outline',
+        color: mc.mint,
+        bg: mc.mintDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })),
+      },
+    ];
 
-  const systemItems: Item[] = [
-    { id: 'settings', label: 'Settings & Sync', icon: 'settings-outline', onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MoreMenu' })) },
-    ...(user
-      ? [{ id: 'logout', label: 'Logout', icon: 'power-outline' as const, danger: true, onPress: signOutWithConfirm }]
-      : []),
-  ];
+    const grow: Item[] = [
+      {
+        id: 'career',
+        label: 'Career',
+        icon: 'briefcase-outline',
+        color: mc.sky,
+        bg: mc.skyDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerTracker' })),
+      },
+      {
+        id: 'goals',
+        label: 'Career goals',
+        icon: 'flag-outline',
+        color: mc.redSoft,
+        bg: mc.redDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'CareerGoals' })),
+      },
+      {
+        id: 'people',
+        label: 'Keep in touch',
+        icon: 'people-outline',
+        color: mc.violet,
+        bg: mc.violetDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'People' })),
+      },
+    ];
 
-  const rows = useMemo(() => [
-    ...navItems.map((it) => ({ ...it, group: 'primary' as const })),
-    ...systemItems.map((it) => ({ ...it, group: 'system' as const })),
-  ], []);
+    const shop: Item[] = [
+      {
+        id: 'buylist',
+        label: 'Buy list',
+        icon: 'cart-outline',
+        color: mc.amber,
+        bg: mc.amberDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'BuyList' })),
+      },
+      {
+        id: 'offers',
+        label: 'Offers',
+        icon: 'pricetags-outline',
+        color: mc.mint,
+        bg: mc.mintDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'Offers' })),
+      },
+    ];
 
-  const indexOf = (id: string) => rows.findIndex((r) => r.id === id);
+    const system: Item[] = [
+      {
+        id: 'settings',
+        label: 'Settings and sync',
+        icon: 'settings-outline',
+        color: mc.textDim,
+        bg: mc.raised,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'MoreMenu' })),
+      },
+      ...(user
+        ? [
+            {
+              id: 'logout',
+              label: 'Logout',
+              icon: 'power-outline' as const,
+              danger: true,
+              color: mc.redSoft,
+              bg: mc.redDim,
+              onPress: signOutWithConfirm,
+            },
+          ]
+        : []),
+    ];
+
+    return [
+      { title: 'DAILY', items: daily },
+      { title: 'GROW', items: grow },
+      { title: 'SHOP', items: shop },
+      { title: null, items: system },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, user]);
+
+  // Flatten for the stagger index.
+  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const indexOf = (id: string) => flat.findIndex((r) => r.id === id);
 
   const renderRow = (item: Item, i: number) => {
     const isActive = item.id === activeId && !item.danger;
@@ -309,24 +420,19 @@ export default function DrawerMenu() {
           onPress={item.onPress}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
-          <View style={[styles.rowIcon, item.danger && { backgroundColor: `${tc.attention}18` }]}>
-            <Ionicons
-              name={item.icon}
-              size={19}
-              color={item.danger ? tc.attention : isActive ? tc.action : 'rgba(255,255,255,0.65)'}
-            />
+          <View style={[styles.rowIcon, { backgroundColor: item.bg }]}>
+            <Ionicons name={item.icon} size={18} color={item.color} />
           </View>
           <Text
             style={[
               styles.rowLabel,
-              item.danger && { color: tc.attention },
+              item.danger && { color: mc.redSoft },
               isActive && styles.rowLabelActive,
             ]}
             numberOfLines={1}
           >
             {item.label}
           </Text>
-          {isActive && <View style={styles.rowActiveDot} />}
         </TouchableOpacity>
       </Animated.View>
     );
@@ -349,15 +455,7 @@ export default function DrawerMenu() {
         </TouchableOpacity>
 
         <Animated.View style={[styles.panel, { transform: [{ translateX }] }]} {...panelResponder.panHandlers}>
-          <LinearGradient
-            colors={['#1a1440', '#101018', '#0A0A10']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.panelGlow}
-            pointerEvents="none"
-          />
-
-          {/* Header — compact brand row + account status */}
+          {/* Header — brand mark + account status */}
           <View style={[styles.panelHeader, { paddingTop: insets.top + 16 }]}>
             <View style={styles.brandMark}>
               <Text style={styles.brandMarkText}>M</Text>
@@ -367,12 +465,12 @@ export default function DrawerMenu() {
               <View style={styles.headerStatusRow}>
                 <View style={[styles.statusDot, user ? styles.statusOnline : undefined]} />
                 <Text style={styles.headerSub} numberOfLines={1}>
-                  {user?.email ? user.email.split('@')[0] : 'Guest'} · {user ? 'synced' : 'offline'}
+                  {user ? 'Synced just now' : 'Offline'}
                 </Text>
               </View>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={close} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={18} color={tc.textMuted} />
+              <Ionicons name="close" size={18} color={mc.textDim} />
             </TouchableOpacity>
           </View>
 
@@ -381,38 +479,24 @@ export default function DrawerMenu() {
             contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
           >
-            {rows.map((r) => {
-              const i = indexOf(r.id);
-              if (r.group === 'system' && r.id === systemItems[0].id) {
-                return (
-                  <React.Fragment key={r.id}>
-                    <Animated.View
-                      key="divider-b"
-                      style={[styles.divider, { opacity: rowOpacity(rows.length - 1) }]}
-                    />
-                    <Animated.Text
-                      style={[styles.sectionLabel, { opacity: rowOpacity(i) }]}
-                    >
-                      SYSTEM
-                    </Animated.Text>
-                    {renderRow(r, i)}
-                  </React.Fragment>
-                );
-              }
-              return renderRow(r, i);
-            })}
+            {groups.map((group, gi) => (
+              <React.Fragment key={group.title ?? `sys-${gi}`}>
+                {group.title ? (
+                  <Animated.Text style={[styles.sectionLabel, { opacity: rowOpacity(indexOf(group.items[0].id)) }]}>
+                    {group.title}
+                  </Animated.Text>
+                ) : (
+                  <Animated.View style={[styles.divider, { opacity: rowOpacity(indexOf(group.items[0].id)) }]} />
+                )}
+                {group.items.map((it) => renderRow(it, indexOf(it.id)))}
+              </React.Fragment>
+            ))}
           </Animated.ScrollView>
 
           <Animated.View
-            style={[styles.panelFooter, { opacity: rowOpacity(rows.length), paddingBottom: insets.bottom + 10 }]}
+            style={[styles.panelFooter, { opacity: rowOpacity(flat.length), paddingBottom: insets.bottom + 10 }]}
           >
-            <LinearGradient
-              colors={['#8b95ff', '#5ee6ff']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.footerBrandBar}
-            />
-            <Text style={styles.footerText}>MERIDIAN · v4</Text>
+            <Text style={styles.footerText}>MERIDIAN · V4</Text>
           </Animated.View>
         </Animated.View>
       </View>
@@ -434,7 +518,7 @@ const styles = StyleSheet.create({
     zIndex: 60,
   },
   backdrop: {
-    backgroundColor: 'rgba(0, 0, 0, 0.68)',
+    backgroundColor: mc.overlay,
   },
   panel: {
     position: 'absolute',
@@ -442,21 +526,14 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_W,
-    backgroundColor: '#0A0A10',
+    backgroundColor: mc.canvas,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255,255,255,0.07)',
+    borderRightColor: mc.line,
     shadowColor: '#000000',
     shadowOffset: { width: 12, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 24,
     elevation: 24,
-  },
-  panelGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   panelHeader: {
     flexDirection: 'row',
@@ -464,94 +541,83 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingHorizontal: 18,
     paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
   },
   brandMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: mc.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandMarkText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0A0A10',
+    fontSize: 20,
+    fontWeight: '500',
+    color: mc.white,
   },
   brandName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: tc.textPrimary,
-    letterSpacing: -0.2,
+    fontSize: 19,
+    fontWeight: '500',
+    color: mc.text,
   },
   headerTextWrap: { flex: 1 },
   headerStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 2,
+    marginTop: 3,
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: mc.textFaint,
   },
   statusOnline: {
-    backgroundColor: tc.stable,
+    backgroundColor: mc.mint,
   },
   headerSub: {
-    fontSize: 11,
-    color: tc.textMuted,
+    fontSize: 12,
+    color: mc.mint,
   },
   closeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: mc.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scrollFlex: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 10,
-    paddingTop: 10,
+    paddingTop: 6,
   },
   sectionLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 2.2,
-    marginTop: 18,
-    marginBottom: 2,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: mc.textDim,
+    fontWeight: '500',
+    marginTop: 14,
+    marginBottom: 4,
     marginLeft: 14,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 8,
+    backgroundColor: mc.line,
+    marginTop: 12,
     marginHorizontal: 14,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    position: 'relative',
-    overflow: 'hidden',
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    borderRadius: 18,
   },
   rowActive: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-  },
-  rowActiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: mc.redDim,
   },
   rowIcon: {
     width: 36,
@@ -559,36 +625,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   rowLabel: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    color: mc.text,
   },
   rowLabelActive: {
-    fontWeight: '600',
-    color: tc.textPrimary,
+    color: mc.redSoft,
+    fontWeight: '500',
   },
   panelFooter: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0A0A10',
     paddingHorizontal: 20,
     paddingTop: 12,
     alignItems: 'center',
-    gap: 6,
-  },
-  footerBrandBar: {
-    width: 44,
-    height: 3,
-    borderRadius: 2,
   },
   footerText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.25)',
-    letterSpacing: 2,
+    fontSize: 11,
+    letterSpacing: 3,
+    color: mc.textGhost,
   },
 });
