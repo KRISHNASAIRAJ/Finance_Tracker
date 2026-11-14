@@ -400,32 +400,14 @@ class ClockSleepWidget : AppWidgetProvider() {
         val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
         val dayText = day.toString()
 
+        // The whole date is red.
         val text = SpannableString("$weekday $dayText $month")
-        val start = weekday.length + 1
-        if (dayText.length > 1) {
-            // The first digit of a double-digit day is red.
-            text.setSpan(
-                ForegroundColorSpan(Color.parseColor("#E8002A")),
-                start,
-                start + 1,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            // The second digit is white.
-            text.setSpan(
-                ForegroundColorSpan(Color.parseColor("#FFFFFF")),
-                start + 1,
-                start + 2,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        } else {
-            // A single-digit day is white.
-            text.setSpan(
-                ForegroundColorSpan(Color.parseColor("#FFFFFF")),
-                start,
-                start + 1,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
+        text.setSpan(
+            ForegroundColorSpan(RED),
+            0,
+            text.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
         return text
     }
 

@@ -22,7 +22,7 @@
         android:includeFontPadding="false"
         android:maxLines="1"
         android:text=""
-        android:textColor="@color/oxygen_muted"
+        android:textColor="@color/oxygen_red"
         android:textSize="12sp" />
 
     <!-- Clock -->
