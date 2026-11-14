@@ -88,6 +88,23 @@ LogBox.ignoreLogs([
 // code importing it from App).
 export { navigationRef };
 
+/**
+ * The launch loading overlay must never take the app down with it — if it
+ * throws on some device, we render nothing rather than crash the root.
+ */
+class LoadingBoundary extends React.Component<
+  React.PropsWithChildren<object>,
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 export default function App() {
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
@@ -312,7 +329,9 @@ if (data.screen === 'TaskDetail' && data.taskId) {
             <RootNavigator />
             <DrawerMenu />
             {/* Launch loading overlay — brand mark + wordmark, then fades out */}
-            <LoadingScreen />
+            <LoadingBoundary>
+              <LoadingScreen />
+            </LoadingBoundary>
           </NavigationContainer>
         </SafeAreaProvider>
       </AuthGate>

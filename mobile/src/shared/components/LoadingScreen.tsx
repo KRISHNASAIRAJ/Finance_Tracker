@@ -19,20 +19,21 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Line, Rect } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, Line, Rect } from 'react-native-svg';
 
 import { mc } from '../theme/meridian';
 import useReducedMotion from './meridian/useReducedMotion';
 
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
-const AnimatedG = Animated.createAnimatedComponent(G);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
 const HORIZON_Y = 92;
 const MERIDIAN_TOP = 8;
 const MERIDIAN_BOTTOM = 118;
 const HORIZON_WIDTH = 172;
+const SUN_CY_START = HORIZON_Y + 44;
 
 export default function LoadingScreen() {
   const reduced = useReducedMotion();
@@ -79,21 +80,21 @@ export default function LoadingScreen() {
         toValue: 1,
         duration: 700,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
+        useNativeDriver: false, // SVG attribute — JS driver
       }),
       Animated.timing(horizon, {
         toValue: 1,
         duration: 600,
         delay: 550,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
+        useNativeDriver: false, // SVG attribute — JS driver
       }),
       Animated.timing(sun, {
         toValue: 1,
         duration: 900,
         delay: 1050,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
+        useNativeDriver: false, // SVG attribute — JS driver
       }),
       Animated.timing(word, {
         toValue: 1,
@@ -107,14 +108,14 @@ export default function LoadingScreen() {
         duration: 400,
         delay: 2450,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false, // SVG attribute — JS driver
       }),
       Animated.timing(loaderFade, {
         toValue: 1,
         duration: 300,
         delay: 2850,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: true, // plain RN view — native driver OK
       }),
     ]).start();
 
@@ -123,7 +124,7 @@ export default function LoadingScreen() {
         toValue: 1,
         duration: 1150,
         easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: true, // plain RN view — native driver OK
       })
     );
     loop.start();
@@ -138,7 +139,7 @@ export default function LoadingScreen() {
       toValue: 0,
       duration: 320,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true, // plain RN view — native driver OK
     }).start(({ finished }) => {
       if (finished) setGone(true);
     });
@@ -158,9 +159,10 @@ export default function LoadingScreen() {
     inputRange: [0, 1],
     outputRange: [100, 100 - HORIZON_WIDTH / 2],
   });
-  const sunTranslate = sun.interpolate({
+  // The sun rises by changing only its center-Y (a numeric attribute).
+  const sunCy = sun.interpolate({
     inputRange: [0, 1],
-    outputRange: ['translate(0, 44)', 'translate(0, 0)'],
+    outputRange: [SUN_CY_START, HORIZON_Y],
   });
   const wordOpacity = word.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
   const wordTranslateY = word.interpolate({ inputRange: [0, 1], outputRange: [10, 0] });
@@ -188,27 +190,29 @@ export default function LoadingScreen() {
         </Defs>
 
         {/* Sun — clipped to the region above the horizon so it rises from behind it */}
-        <G clipPath="url(#aboveHorizon)">
-          <AnimatedG transform={sunTranslate as any}>
-            <Circle cx={100} cy={HORIZON_Y} r={32} fill={mc.red} />
-          </AnimatedG>
-        </G>
+        <AnimatedCircle
+          cx={100}
+          cy={sunCy as any}
+          r={32}
+          fill={mc.red}
+          clipPath="url(#aboveHorizon)"
+        />
 
         {/* Meridian line draws top → bottom */}
         <AnimatedLine
           x1={100}
           y1={MERIDIAN_TOP}
           x2={100}
-          y2={meridianY2}
+          y2={meridianY2 as any}
           stroke={mc.white}
           strokeWidth={2.4}
         />
 
         {/* Horizon expands from the center */}
         <AnimatedRect
-          x={horizonX}
+          x={horizonX as any}
           y={HORIZON_Y - 1.25}
-          width={horizonWidth}
+          width={horizonWidth as any}
           height={2.5}
           rx={1.25}
           fill={mc.white}
@@ -222,7 +226,7 @@ export default function LoadingScreen() {
           height={3}
           rx={1.5}
           fill="#55555C"
-          opacity={reflectionOpacity}
+          opacity={reflectionOpacity as any}
         />
         <AnimatedRect
           x={78}
@@ -231,7 +235,7 @@ export default function LoadingScreen() {
           height={3}
           rx={1.5}
           fill="#55555C"
-          opacity={reflectionOpacity}
+          opacity={reflectionOpacity as any}
         />
       </Svg>
 

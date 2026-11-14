@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="160dp"
+    android:viewportWidth="200"
+    android:viewportHeight="160">
+
+    <!-- Red half-circle sun sitting on the horizon line (y=92) -->
+    <path
+        android:fillColor="#EB0028"
+        android:pathData="M 68,92 A 32,32 0 0 1 132,92 Z" />
+
+    <!-- White horizon line -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 14,90.75 L 186,90.75 L 186,93.25 L 14,93.25 Z" />
+
+    <!-- White vertical meridian line crossing the sun -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 98.8,8 L 101.2,8 L 101.2,118 L 98.8,118 Z" />
+
+    <!-- Two grey reflection lines below the horizon -->
+    <path
+        android:fillColor="#55555C"
+        android:pathData="M 65,105 L 135,105 L 135,108 L 65,108 Z" />
+    <path
+        android:fillColor="#55555C"
+        android:pathData="M 78,115 L 122,115 L 122,118 L 78,118 Z" />
+</vector>
