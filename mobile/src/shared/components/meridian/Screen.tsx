@@ -28,6 +28,8 @@ interface ScreenProps {
   /** Forwarded to the ScrollView. */
   onScroll?: any;
   scrollEventThrottle?: number;
+  /** Overlay layer rendered above the scroll content (e.g. a FAB). */
+  floating?: React.ReactNode;
 }
 
 export default function Screen({
@@ -38,6 +40,7 @@ export default function Screen({
   style,
   onScroll,
   scrollEventThrottle = 16,
+  floating,
 }: ScreenProps) {
   const pad = {
     paddingHorizontal: 18,
@@ -49,6 +52,7 @@ export default function Screen({
     return (
       <View style={[styles.root, style]}>
         <View style={[styles.body, contentStyle]}>{children}</View>
+        {floating}
       </View>
     );
   }
@@ -64,6 +68,7 @@ export default function Screen({
       >
         {children}
       </ScrollView>
+      {floating}
     </View>
   );
 }

@@ -5,13 +5,11 @@
  * budget, a daily-spend bar chart, the category limits and the month's
  * transactions.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
-  TouchableOpacity,
   Modal,
   TextInput,
   Alert,
@@ -164,7 +162,22 @@ export default function MonthlySpendScreen() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   return (
-    <Screen bottomInset={110}>
+    <Screen
+      bottomInset={110}
+      floating={
+        /* Floating action button — stays pinned to the screen, above the scroll content */
+        <Rise index={5}>
+          <PressScale
+            onPress={() => navigation.navigate('AddExpense')}
+            scale={0.95}
+            style={styles.fab}
+            accessibilityLabel="Add expense"
+          >
+            <Ionicons name="add" size={26} color={mc.white} />
+          </PressScale>
+        </Rise>
+      }
+    >
       {/* Header */}
       <Rise index={0}>
         <View style={styles.appBar}>
@@ -453,18 +466,6 @@ export default function MonthlySpendScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* FAB */}
-      <Rise index={5}>
-        <PressScale
-          onPress={() => navigation.navigate('AddExpense')}
-          scale={0.95}
-          style={styles.fab}
-          accessibilityLabel="Add expense"
-        >
-          <Ionicons name="add" size={26} color={mc.white} />
-        </PressScale>
-      </Rise>
     </Screen>
   );
 }
@@ -665,7 +666,7 @@ const styles = StyleSheet.create({
 
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 32,
     right: 18,
     width: 56,
     height: 56,
