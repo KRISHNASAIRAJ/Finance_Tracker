@@ -352,9 +352,24 @@ async function doPull(userId: string) {
       const existingIds = new Set(sleepStore.getState().entries.map((e: any) => e.id));
       const localEntries = sleepStore.getState().entries as any[];
       const newEntries: any[] = [];
+      // Live rows (hourly backup of the running night, id `live_<date>`) are
+      // refreshed in place, not skipped as "already present" — otherwise the
+      // log would freeze at the hour they were first pulled.
+      const liveRefresh = new Map<string, { startTime: string; endTime: string; interruptions: number; notes: string; source: string }>();
       for (const r of sleepData as Array<Record<string, unknown>>) {
         const id = r.id as string;
-        if (existingIds.has(id)) continue;
+        if (existingIds.has(id)) {
+          if (id.startsWith('live_')) {
+            liveRefresh.set(id, {
+              startTime: r.start_time as string,
+              endTime: r.end_time as string,
+              interruptions: (r.interruptions as number) ?? 0,
+              notes: (r.notes as string) ?? 'Auto-detected (live)',
+              source: (r.source as string) ?? 'auto-motion',
+            });
+          }
+          continue;
+        }
         if (pendingIds.has(`sleep_logs|${id}`)) continue;
         // One NIGHT = one record: a cloud row for a night we already have is
         // a duplicate, not a new night.
@@ -374,6 +389,13 @@ async function doPull(userId: string) {
           notes: (r.notes as string) ?? '',
           source: (r.source as string) ?? 'manual',
         });
+      }
+      if (liveRefresh.size > 0) {
+        const refreshed = (sleepStore.getState().entries as any[]).map((e: any) => {
+          const r = liveRefresh.get(e.id);
+          return r ? { ...e, ...r } : e;
+        });
+        sleepStore.setState({ entries: refreshed });
       }
       if (newEntries.length > 0) {
         const merged = [...newEntries, ...sleepStore.getState().entries];

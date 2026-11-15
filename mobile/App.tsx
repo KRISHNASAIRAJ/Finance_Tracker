@@ -21,6 +21,7 @@ import { scheduleAllReminders, requestNotificationPermission } from './src/servi
 import { setupNotificationHandler } from './src/services/pushNotifications';
 import { AuthProvider } from './src/services/AuthProvider';
 import { registerSyncTask } from './src/services/syncScheduler';
+import { registerSleepLiveSync, triggerSleepLiveSync } from './src/services/sleepLiveSync';
 import { processSyncQueue } from './src/services/syncQueue';
 import { promptBatteryOptimization } from './src/services/batteryOptimization';
 import { pushStatsWidget } from './src/services/statsWidget';
@@ -113,6 +114,8 @@ export default function App() {
     registerBackupTask();
     scheduleNextBackup();
     registerSyncTask();
+    registerSleepLiveSync();
+    triggerSleepLiveSync();
     seedGarageData();
     seedFixedExpenseFixes();
     seedCardAmcFixes();
@@ -315,6 +318,8 @@ if (data.screen === 'TaskDetail' && data.taskId) {
         // The morning check: a night that ended while the app was away is
         // auto-saved now (no-op when it was already).
         autoSaveLastNight().catch(() => {});
+        // An hourly cloud backup of the in-progress night — refreshed here too.
+        triggerSleepLiveSync();
       }
       if (nextState === 'background') {
         processSyncQueue()

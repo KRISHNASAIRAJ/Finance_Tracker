@@ -324,16 +324,25 @@ class SleepMotionService : Service(), SensorEventListener {
         val stillForMs = if (lastMovementAt <= 0L) Long.MAX_VALUE else now - lastMovementAt
 
         if (movement > threshold) {
-            // Movement after a long stillness inside the night = the user woke
-            // up. Report the session as a brief banner over the status bar.
-            val stillSince = SleepMotionStore.stillSince(this)
-            if (sleepSessionStart > 0L && stillSince > sleepSessionStart) {
-                val sleptMs = stillSince - sleepSessionStart
-                if (sleptMs >= MIN_SLEEP_MS && isInNightWindow(localMinutesOfDay(now))) {
+            val minuteOfDay = localMinutesOfDay(now)
+            val today = localDateKey(now)
+            val inWakeWindow = minuteOfDay >= config.wakeStartMin && minuteOfDay <= config.wakeEndMin
+            // A movement inside the wake window, after a real night of
+            // stillness = the user is up for good. The "you slept X h Y m"
+            // banner fires ONCE per day — never on a 2 AM roll-over and never
+            // twice in the same morning.
+            if (sleepSessionStart > 0L) {
+                val sleptMs = now - sleepSessionStart
+                val alreadyPosted = SleepMotionStore.detectedDate(this) == today
+                if (sleptMs >= MIN_SLEEP_MS && inWakeWindow && !alreadyPosted && isInNightWindow(minuteOfDay)) {
+                    SleepMotionStore.setDetectedDate(this, today)
                     postSleepDetected(sleptMs)
                 }
             }
-            sleepSessionStart = 0L
+            // Movement never ends the tracked night: the session start is kept
+            // for the whole night, the stillness streak resets (that is what
+            // STILL FOR measures), and the timeline records the interruption —
+            // the JS inference splits interruptions from the buckets.
             SleepMotionStore.setLastMovementAt(this, now)
             SleepMotionStore.setStillSince(this, 0L)
         } else if (SleepMotionStore.stillSince(this) <= 0L) {

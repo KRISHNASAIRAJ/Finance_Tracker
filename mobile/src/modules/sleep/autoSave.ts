@@ -61,7 +61,24 @@ export async function autoSaveLastNight(
       endTime: new Date(inferred.wakeTime).toISOString(),
     };
     const existing = state.entries.find((e) => isSameNight(e, candidate));
-    if (existing) return existing.id;
+    if (existing) {
+      // A row that started as the hourly live backup becomes the final record
+      // — same id, full times, one row per night, no duplicate.
+      if (String(existing.id).startsWith('live_')) {
+        state.editEntry(
+          existing.id,
+          {
+            startTime: candidate.startTime,
+            endTime: candidate.endTime,
+            interruptions: inferred.interruptions,
+            notes: 'Detected automatically (motion sensor)',
+            source: 'auto-motion',
+          },
+          userId,
+        );
+      }
+      return existing.id;
+    }
 
     return state.addEntry(
       {

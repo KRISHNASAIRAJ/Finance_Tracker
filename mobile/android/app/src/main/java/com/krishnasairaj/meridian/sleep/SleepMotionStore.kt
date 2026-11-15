@@ -37,6 +37,8 @@ object SleepMotionStore {
     private const val KEY_ALARM_DATE = "alarm_date"
     private const val KEY_ALARM_FIRED = "alarm_fired"
     private const val KEY_SNOOZE_UNTIL = "snooze_until"
+    /** The night the "you slept X" banner was already posted (once per day). */
+    private const val KEY_DETECTED_DATE = "detected_date"
 
     /** Keep at most 36h of motion history (covers a night plus a day of slack). */
     private const val RETENTION_MIN = 36 * 60
@@ -140,5 +142,11 @@ object SleepMotionStore {
 
     fun setSnoozeUntil(ctx: Context, ts: Long) {
         prefs(ctx).edit().putLong(KEY_SNOOZE_UNTIL, ts).apply()
+    }
+
+    fun detectedDate(ctx: Context): String = prefs(ctx).getString(KEY_DETECTED_DATE, "") ?: ""
+
+    fun setDetectedDate(ctx: Context, date: String) {
+        prefs(ctx).edit().putString(KEY_DETECTED_DATE, date).apply()
     }
 }

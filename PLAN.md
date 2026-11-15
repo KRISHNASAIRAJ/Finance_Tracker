@@ -187,6 +187,41 @@
       notification (or schedule it via relaunch) deep-linking into Weekly
       review; Set as goals → tasks created.
 
+### Batch 15 — sleep tracker: hourly cloud backup + no mid-night resets (2026-11-15, unpushed)
+
+- [x] **The night no longer restarts on movement** — `SleepMotionService.handleMovement`
+      used to zero `sleepSessionStart` on *any* movement sample (any roll-over
+      re-based the "slept X h Y m" accounting and made JS-side inference feel
+      like a fresh session). The session start is now kept for the whole night;
+      the stillness streak still resets on movement (that is what STILL FOR
+      means) and the timeline records the interruption — the JS inference
+      splits interruptions from the buckets (≤5 min = interruption, 5–10 min =
+      ambiguous, >10 min = night ended).
+- [x] **The "good morning" banner fires once per day** (persisted
+      `detected_date`) and **only inside the wake window** — a 2 AM roll-over
+      can't post it and it can't fire twice in one morning.
+- [x] **Hourly cloud backup of the in-progress night** — new
+      `services/sleepLiveSync.ts`: a background-fetch task
+      (`meridian-sleep-live-sync`, `minimumInterval: 3600`) upserts a stable
+      live row into `sleep_logs` (id `live_<yyyy-mm-dd>`, source `auto-motion`)
+      from the recorded timeline every hour (and on every app open/foreground),
+      so the cloud/web always sees the running night. Stale live rows are pruned
+      once a final entry exists for the same night. **Honest cadence caveat:**
+      Android treats `minimumInterval` as a floor — real cadence can stretch
+      (Doze); the launch-time and foreground pushes keep it fresh whenever the
+      user opens the app.
+- [x] **One row per night end-to-end** — the final `autoSave` promotes the live
+      row (`live_` prefix → same id, final times, final note) instead of creating
+      a duplicate; the cloud pull in `usePersonalSync` refreshes live rows in
+      place (start/end/interruptions) instead of skipping them; the
+      one-night-one-record guard covers everything else.
+- [x] Tests: sleep suites green (79) — tsc / ESLint / unit 327 / e2e 9. Kotlin
+      `:app:compileDebugKotlin` green. NOT yet on device.
+- [ ] On device: sleep tonight, move/roll normally — next morning the entry
+      should exist with the full night length and interruptions counted; check
+      the web shows the same row (live backup worked mid-night); the banner
+      shows once.
+
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /
