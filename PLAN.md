@@ -271,6 +271,24 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 20 — auto-motion delete root cause + pill overflow fix (2026-11-15)
+
+- [x] **Auto-detected sleep logs re-created themselves after deletion.**
+      `SleepDashboardScreen.refreshAuto()` (runs on screen open + every 30 s)
+      auto-saved a settled motion-detected night whenever no matching entry
+      existed — the exact night the user had just deleted (the motion buckets
+      still describe it, for ~18 h). It now checks the range tombstone before
+      saving; a manual "Save" tap can still re-create deliberately.
+      (Manual logs never resurrected: they are never auto-created.)
+- [x] **Red-pill text overlap** — content stacked ~80 dp of pill children
+      into the ~73 dp 2x2 space (island 30 + chart 42 + bed/wake 8), so the
+      lanes collided with the bed/wake line. Tightened inside the pill
+      only: island marginTop 3→1dp + paddingStart 12→8dp, pill gains
+      paddingTop=2dp, chart marginTop 2→1dp, lane rows 12→**9dp**, gaps
+      3→2dp, bed/wake marginTop=1dp. Clock/date/stats row unchanged.
+- [x] tsc ✓, ESLint ✓ (0 errors), 333/333 unit ✓, e2e 9/9 ✓,
+      `:app:processDebugResources` ✓ (layout valid). NOT yet device-verified.
+
 ### Batch 19 — widget text shrink + sleep-delete root-cause fix (2026-11-15)
 
 - [x] **Widget sleep-block text sizes reduced** (reported overlap): island

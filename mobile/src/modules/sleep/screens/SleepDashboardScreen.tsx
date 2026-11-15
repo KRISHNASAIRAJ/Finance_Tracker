@@ -52,6 +52,7 @@ import {
   type InferredSleep,
 } from '../sleepInference';
 import { isSameNight } from '../sleepNights';
+import { isSleepNightRangeDeleted } from '../deletedNights';
 import { scheduleAllReminders } from '../../../services/notificationService';
 import { supabase } from '../../../services/supabaseClient';
 import { MoreStackParamList } from '../../../navigation/RootNavigator';
@@ -224,6 +225,13 @@ export default function SleepDashboardScreen() {
     // A night with an open question (a 5–10 min gap) waits for the user.
     const settled = Date.now() - inferred.wakeTime > 5 * 60000;
     if (autoConfig.autoSave && settled && !already && !inferred.pendingGap) {
+      // The user deleted this night — the motion buckets still describe it,
+      // but nothing automatic may bring it back. (A manual tap on "Save"
+      // is a deliberate re-create and stays allowed.)
+      if (await isSleepNightRangeDeleted(inferred.bedTime, inferred.wakeTime)) {
+        setAutoSaved(true);
+        return;
+      }
       addEntry(
         {
           startTime: new Date(inferred.bedTime).toISOString(),
