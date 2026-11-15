@@ -222,6 +222,34 @@
       the web shows the same row (live backup worked mid-night); the banner
       shows once.
 
+### Batch 16 — widget chart redraw: one Canvas bitmap (2026-11-15, unpushed)
+
+- [x] **Drawing method changed** — the sleep stage chart is now drawn into
+      ONE Canvas bitmap at render time and set via `setImageViewBitmap` on
+      `ImageView#clock_sleep_chart_image` (≤ 600 x 200 px, ARGB_8888, inside
+      the RemoteViews binder budget). The 12 padding-ProgressBar slots and
+      the 4-segment cap are gone — exact rounded shapes, unlimited segments.
+- [x] Tracks 6dp rounded (black 16%), AWAKE dotted line (black 40%, 2dp dots
+      / 5dp gap), bars 6dp fully rounded, min 2dp wide, DEEP `#5A0012`,
+      LIGHT `#FFC2CC`, AWAKE `#FFFFFF` — drawn in px, clamped to the night,
+      empty stage = track only, one-stage-night = full-lane bar.
+- [x] Lane labels → **6sp**, letterSpacing 0.11em, `#FFE3E8` (DEEP / LIGHT /
+      AWAKE in their own 30dp column). Bed/wake under the chart → **5sp**,
+      `#FFE3E8`. SLEEP caption grey `#8A8A8A`, spacing 0.15em. Stats-row
+      labels letterSpacing 0.17em.
+- [x] Tab: duration bold ink **`#1A0006`**, "Score NN" **`#3A0010`** (colored
+      spans). Card border → `#2A2A2A` (1dp).
+- [x] Empty night: tracks drawn + centered **"No sleep data"** caption (6sp,
+      `#FFE3E8`); bed/wake and the score line hidden. No data invented.
+- [x] Data mapping (display only): start % / end % clamped 0..100 in JS
+      (`readSegments`) and again natively; `__DEV__` segment log in
+      `computeStageSegments` (stage + start/end %) for verification.
+- [x] Kotlin compile ✓, resources link ✓, tsc ✓, ESLint ✓, sleep/widget
+      suites ✓ (119). NOT yet on device — nothing pushed.
+- [ ] On device: all three lanes readable (Deep usually empty — 20-min
+      `DEEP_RUN_MIN` unchanged by design); "No sleep data" caption on a
+      cleared log; tab fillet; labels at 6sp.
+
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /

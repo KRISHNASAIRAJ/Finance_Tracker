@@ -177,6 +177,18 @@ export function computeStageSegments(
   );
   const out: SleepStageSegments = { deep: [], light: [], awake: [] };
   for (const s of segments) out[s.stage].push([s.start, s.len]);
+  if (__DEV__) {
+    // Verification for the widget chart — stage, start %, end % of the night.
+    // eslint-disable-next-line no-console
+    console.log(
+      '[sleepWidget] segments:',
+      segments.map((s) => ({
+        stage: s.stage,
+        start: Math.round(s.start * 1000) / 10,
+        end: Math.round((s.start + s.len) * 1000) / 10,
+      }))
+    );
+  }
   return out;
 }
 

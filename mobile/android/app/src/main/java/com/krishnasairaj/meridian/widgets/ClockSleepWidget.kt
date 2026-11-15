@@ -6,7 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.BatteryManager
@@ -55,8 +58,19 @@ class ClockSleepWidget : AppWidgetProvider() {
         /** A native reading older than this is never shown. */
         private const val WEATHER_NATIVE_MAX_AGE_MS = 12L * 60 * 60_000L
 
-        /** Root padding + pill padding + the lane label, both sides (dp). */
-        private const val TRACK_INSET_DP = 44
+        /** The lane rows inside the chart bitmap (dp): top of DEEP, LIGHT, AWAKE. */
+        private val LANE_TOP_DP = floatArrayOf(0f, 15f, 30f)
+        private const val LANE_ROW_DP = 12f
+        private const val CHART_HEIGHT_DP = 42f
+        /** The 30dp lane-label column on the left of the chart. */
+        private const val LABEL_COL_DP = 30f
+
+        /** Tracks: black at 16% over the red block; AWAKE dots: black 40%. */
+        private val TRACK_COLOR = Color.parseColor("#29000000")
+        private val AWAKE_DOT_COLOR = Color.parseColor("#66000000")
+        private val DEEP_COLOR = Color.parseColor("#5A0012")
+        private val LIGHT_COLOR = Color.parseColor("#FFC2CC")
+        private val AWAKE_COLOR = Color.parseColor("#FFFFFF")
 
         private const val NO_VALUE = "—"
         /** Shown until the realtime weather lands. */
@@ -67,26 +81,6 @@ class ClockSleepWidget : AppWidgetProvider() {
 
         /** The OnePlus red. */
         private val RED = Color.parseColor("#E8002A")
-
-        /** The bars of the three lanes (four slots each). */
-        private val DEEP_IDS = intArrayOf(
-            R.id.clock_sleep_deep_1,
-            R.id.clock_sleep_deep_2,
-            R.id.clock_sleep_deep_3,
-            R.id.clock_sleep_deep_4
-        )
-        private val LIGHT_IDS = intArrayOf(
-            R.id.clock_sleep_light_1,
-            R.id.clock_sleep_light_2,
-            R.id.clock_sleep_light_3,
-            R.id.clock_sleep_light_4
-        )
-        private val AWAKE_IDS = intArrayOf(
-            R.id.clock_sleep_awake_1,
-            R.id.clock_sleep_awake_2,
-            R.id.clock_sleep_awake_3,
-            R.id.clock_sleep_awake_4
-        )
 
         private val WEEKDAYS = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
         private val MONTHS = arrayOf(
@@ -242,6 +236,7 @@ class ClockSleepWidget : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
 
         var duration = NO_VALUE
+        var hasSleep = false
         var scoreValue = 0
         var bedLabel = ""
         var wakeLabel = ""
@@ -255,6 +250,7 @@ class ClockSleepWidget : AppWidgetProvider() {
             try {
                 val o = JSONObject(json)
                 if (o.optBoolean("hasSleep", false)) {
+                    hasSleep = true
                     duration = formatDuration(o.optLong("durationMin", 0L))
                 }
                 scoreValue = o.optInt("score", 0)
@@ -329,13 +325,20 @@ class ClockSleepWidget : AppWidgetProvider() {
         // is the fresher one.
         views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
 
-        // The stage chart — the bars are drawn by padding a full-width progress
-        // bar, so the segment lands exactly where it should.
-        val track = trackWidthPx(context, mgr, widgetId)
-        val minBarPx = (2 * context.resources.displayMetrics.density).toInt()
-        bindSegments(views, deep, DEEP_IDS, track, minBarPx)
-        bindSegments(views, light, LIGHT_IDS, track, minBarPx)
-        bindSegments(views, awake, AWAKE_IDS, track, minBarPx)
+        // The stage chart — tracks, bars and the AWAKE dots are drawn into
+        // one Canvas bitmap at render time (exact rounded shapes, unlimited
+        // segments) and set on the chart ImageView.
+        val chart = renderChartBitmap(
+            context,
+            chartWidthPx(context, mgr, widgetId),
+            deep, light, awake,
+        )
+        views.setImageViewBitmap(R.id.clock_sleep_chart_image, chart)
+        // Empty night: tracks plus the "No sleep data" caption; hide the
+        // bed/wake times and the score line.
+        views.setViewVisibility(R.id.clock_sleep_empty, if (hasSleep) View.GONE else View.VISIBLE)
+        views.setViewVisibility(R.id.clock_sleep_bed, if (hasSleep) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.clock_sleep_wake, if (hasSleep) View.VISIBLE else View.GONE)
 
         // Tapping the widget opens the device's own clock app (the red sleep
         // bar included — the whole widget is one target). When the phone has no
@@ -357,45 +360,105 @@ class ClockSleepWidget : AppWidgetProvider() {
         return views
     }
 
-    /** Read the stage segments of a lane: [start, length] of the night. */
+    /**
+     * Read the stage segments of a lane: [start, length] of the night,
+     * both fractions clamped into 0..1 (display only — nothing is invented).
+     */
     private fun readSegments(array: JSONArray?, out: MutableList<FloatArray>) {
         if (array == null) return
         for (i in 0 until array.length()) {
             val pair = array.optJSONArray(i) ?: continue
-            val start = pair.optDouble(0, 0.0).toFloat()
+            val start = pair.optDouble(0, 0.0).toFloat().coerceIn(0f, 1f)
             val len = pair.optDouble(1, 0.0).toFloat()
             if (len <= 0f) continue
-            out.add(floatArrayOf(start, len))
+            // start % and end %, clamped to the night
+            val end = (start + len).coerceIn(0f, 1f)
+            out.add(floatArrayOf(start, end - start))
         }
     }
 
+    /** Width available for the lane artwork, in pixels. */
+    private fun chartWidthPx(
+        context: Context,
+        mgr: AppWidgetManager,
+        widgetId: Int,
+    ): Int {
+        val options = mgr.getAppWidgetOptions(widgetId)
+        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110).toFloat()
+        val density = context.resources.displayMetrics.density
+        // Root padding (6 + 6) and the 30dp lane-label column are ours to subtract.
+        return ((widthDp - 12f - LABEL_COL_DP).coerceAtLeast(40f) * density).toInt()
+    }
+
     /**
-     * Draw the bars of one lane — a segment is positioned by padding a
-     * full-width progress bar (the same trick the REM timeline used).
+     * Draw the tracks, bars and the AWAKE dots into one bitmap and set it on
+     * the chart ImageView (exact rounded shapes; unlimited segments).
+     *
+     * Lane rows are 12 dp high with a 6 dp bar centred (rows at 0 / 15 / 30 dp).
+     * The bitmap stays under 600 x 200 px to fit the RemoteViews binder budget.
      */
-    private fun bindSegments(
-        views: RemoteViews,
-        segments: List<FloatArray>,
-        ids: IntArray,
-        track: Int,
-        minBarPx: Int,
-    ) {
-        for (index in ids.indices) {
-            val id = ids[index]
-            val segment = segments.getOrNull(index)
-            if (segment == null) {
-                views.setViewVisibility(id, View.GONE)
-                continue
+    private fun renderChartBitmap(
+        context: Context,
+        widthPx: Int,
+        deep: List<FloatArray>,
+        light: List<FloatArray>,
+        awake: List<FloatArray>,
+    ): Bitmap {
+        val density = context.resources.displayMetrics.density
+        val w = widthPx.coerceAtLeast(40).coerceAtMost(600)
+        val h = (CHART_HEIGHT_DP * density).toInt().coerceIn(96, 200)
+        val u = h / CHART_HEIGHT_DP // px per dp inside the bitmap
+        val barH = 6f * u
+        val radius = 3f * u
+        val minBarPx = (2f * density).coerceAtMost(w.toFloat())
+
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = TRACK_COLOR }
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AWAKE_DOT_COLOR }
+        val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        for (lane in 0..2) {
+            val rowTop = LANE_TOP_DP[lane] * u
+            val barTop = rowTop + (LANE_ROW_DP * u - barH) / 2f
+            // Every lane gets its visible rounded track.
+            canvas.drawRoundRect(0f, barTop, w.toFloat(), barTop + barH, radius, radius, trackPaint)
+            // The AWAKE lane also shows its dotted timeline behind the bars.
+            if (lane == 2) {
+                val dotH = 2f * u
+                val dotTop = barTop + (barH - dotH) / 2f
+                val dash = 2f * u
+                val gap = 5f * u
+                var x = 2f * u
+                while (x + dash <= w.toFloat()) {
+                    canvas.drawRoundRect(x, dotTop, x + dash, dotTop + dotH, dotH / 2f, dotH / 2f, dotPaint)
+                    x += dash + gap
+                }
             }
-            views.setViewVisibility(id, View.VISIBLE)
-            val from = (segment[0].coerceIn(0f, 1f) * track).toInt()
-            val to = ((segment[0] + segment[1]).coerceIn(0f, 1f) * track).toInt()
-            // Every bar is at least minBarPx — a 30-second wake-up still draws.
-            val width = (to - from).coerceAtLeast(minBarPx)
-            val rightPad = (track - width - from).coerceAtLeast(0)
-            views.setViewPadding(id, from, 0, rightPad, 0)
-            views.setProgressBar(id, 100, 100, false)
+            val segments = when (lane) {
+                0 -> deep
+                1 -> light
+                else -> awake
+            }
+            barPaint.color = when (lane) {
+                0 -> DEEP_COLOR
+                1 -> LIGHT_COLOR
+                else -> AWAKE_COLOR
+            }
+            for (s in segments) {
+                val from = s[0].coerceIn(0f, 1f)
+                val to = (s[0] + s[1]).coerceIn(0f, 1f)
+                if (to <= from) continue
+                var x = from * w
+                var barW = to * w - x
+                if (barW < minBarPx) barW = minBarPx // min 2dp — a 30-second wake-up still draws
+                if (x + barW > w) barW = w - x
+                if (barW <= 0f) continue
+                val rr = minOf(radius, barW / 2f)
+                canvas.drawRoundRect(x, barTop, x + barW, barTop + barH, rr, rr, barPaint)
+            }
         }
+        return bmp
     }
 
     /** The next system alarm, formatted for the ALARM cell; null when none. */
@@ -434,30 +497,22 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
     }
 
-    /** Width of the stage track in pixels. */
-    private fun trackWidthPx(
-        context: Context,
-        mgr: AppWidgetManager,
-        widgetId: Int
-    ): Int {
-        val options = mgr.getAppWidgetOptions(widgetId)
-        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
-        val density = context.resources.displayMetrics.density
-        return ((widthDp - TRACK_INSET_DP).coerceAtLeast(40) * density).toInt()
-    }
-
     /**
-     * The duration (bold) over the sleep score, left-aligned inside the
-     * raised island — the reference look.
+     * The duration (bold, ink #1A0006) over the sleep score (#3A0010),
+     * left-aligned inside the raised island — the reference look.
      */
     private fun combinedDurationAndScore(duration: String, scoreValue: Int): CharSequence {
         if (duration == NO_VALUE || scoreValue <= 0) return duration
+        val durationInk = Color.parseColor("#1A0006")
+        val scoreInk = Color.parseColor("#3A0010")
         val line1 = duration
         val line2 = "Score $scoreValue"
         val sb = SpannableStringBuilder("$line1\n$line2")
         sb.setSpan(StyleSpan(Typeface.BOLD), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.setSpan(AbsoluteSizeSpan(10, true), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(ForegroundColorSpan(durationInk), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
         sb.setSpan(AbsoluteSizeSpan(6, true), line1.length + 1, sb.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(ForegroundColorSpan(scoreInk), line1.length + 1, sb.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
         return sb
     }
 
