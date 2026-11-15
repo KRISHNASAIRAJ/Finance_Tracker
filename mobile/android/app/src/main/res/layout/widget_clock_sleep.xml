@@ -2,6 +2,20 @@
 <!--
   ClockSleepWidget — 2x2 home-screen widget (OnePlus OxygenOS: black, white,
   the OnePlus red as the accent).
+
+  Structure (top to bottom, everything in fixed dp/sp so the content always
+  fits the 2x2 box — nothing may overflow onto the stats row):
+
+    date row        11sp
+    clock row       22sp
+    red pill        weight=1 — the SLEEP block:
+                      - raised tab top-right (fixed 30dp tall):
+                          duration  12sp bold ink #1A0006
+                          score row "Score 55" 5sp #3A0010 + 40dp x 2dp track
+                      - "SLEEP" caption 5sp grey in the black notch, left
+                      - DEEP / LIGHT / AWAKE lanes (fixed rows) below the tab
+                      - bed/wake times 5sp pale pink #FFD6DE inside the bottom
+    stats row       ALARM (red) | BATT (white) | TEMP (white)
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/clock_sleep_container"
@@ -9,7 +23,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_clock_sleep_bg"
     android:orientation="vertical"
-    android:padding="6dp">
+    android:padding="5dp">
 
     <!-- Date -->
     <TextView
@@ -23,7 +37,7 @@
         android:maxLines="1"
         android:text=""
         android:textColor="@color/oxygen_muted"
-        android:textSize="12sp" />
+        android:textSize="10sp" />
 
     <!-- Clock -->
     <LinearLayout
@@ -43,7 +57,7 @@
             android:letterSpacing="-0.03"
             android:maxLines="1"
             android:textColor="@color/oxygen_red"
-            android:textSize="23sp" />
+            android:textSize="22sp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -52,7 +66,7 @@
             android:includeFontPadding="false"
             android:text=":"
             android:textColor="@color/oxygen_white"
-            android:textSize="23sp" />
+            android:textSize="22sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_minutes"
@@ -65,7 +79,7 @@
             android:letterSpacing="-0.03"
             android:maxLines="1"
             android:textColor="@color/oxygen_white"
-            android:textSize="23sp" />
+            android:textSize="22sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_seconds"
@@ -78,7 +92,7 @@
             android:includeFontPadding="false"
             android:maxLines="1"
             android:textColor="@color/oxygen_faint"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
 
         <TextClock
             android:id="@+id/clock_sleep_period"
@@ -91,7 +105,7 @@
             android:includeFontPadding="false"
             android:maxLines="1"
             android:textColor="@color/oxygen_muted"
-            android:textSize="11sp" />
+            android:textSize="10sp" />
     </LinearLayout>
 
     <!-- The red SLEEP block -->
@@ -100,50 +114,71 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="3dp"
         android:background="@drawable/widget_sleep_pill"
         android:paddingStart="6dp"
-        android:paddingTop="2dp"
+        android:paddingTop="1dp"
         android:paddingEnd="6dp"
-        android:paddingBottom="4dp">
+        android:paddingBottom="2dp">
 
-        <!-- The island (top right): duration over score, plus the score line -->
+        <!-- The raised tab (top right): duration over the score row -->
         <LinearLayout
             android:id="@+id/clock_sleep_island"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
             android:layout_alignParentTop="true"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:orientation="vertical"
-            android:paddingStart="8dp">
+            android:paddingEnd="2dp">
 
             <TextView
                 android:id="@+id/clock_sleep_duration"
-                android:layout_width="60dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="start"
+                android:layout_gravity="end"
                 android:fontFamily="sans-serif-medium"
                 android:includeFontPadding="false"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:text="—"
                 android:textColor="#1A0006"
-                android:textSize="8sp" />
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
-            <!-- The score line: 2dp, black at 18% track, #1A0006 fill -->
-            <ProgressBar
-                android:id="@+id/clock_sleep_score"
-                style="@android:style/Widget.ProgressBar.Horizontal"
-                android:layout_width="44dp"
-                android:layout_height="2dp"
+            <!-- The score row: "Score 55" + a 2dp black-ink track -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
                 android:layout_marginTop="2dp"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_sleep_score_track" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/clock_sleep_score_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:text="Score"
+                    android:textColor="#3A0010"
+                    android:textSize="5sp" />
+
+                <ProgressBar
+                    android:id="@+id/clock_sleep_score"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="38dp"
+                    android:layout_height="2dp"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="3dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_sleep_score_track" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- The SLEEP caption — sits in the black cut-out above the red body,
-             so it stays a light grey on black (never ink on black). -->
+        <!-- The SLEEP caption — sits in the black notch above the red body -->
         <TextView
             android:id="@+id/clock_sleep_label"
             android:layout_width="wrap_content"
@@ -154,19 +189,21 @@
             android:includeFontPadding="false"
             android:letterSpacing="0.15"
             android:text="SLEEP"
-            android:textColor="#8A8A8A"
+            android:textColor="#A8A8A8"
             android:textSize="5sp"
             android:textStyle="bold" />
 
-        <!-- The stage chart - tracks and dotted AWAKE timeline are drawable
+        <!-- The stage chart — tracks and dotted AWAKE timeline are drawable
              backgrounds; the bars are horizontal ProgressBars positioned by
-             padding, so the RemoteViews payload stays tiny (no bitmaps). -->
+             padding, so the RemoteViews payload stays tiny (no bitmaps).
+             Fixed 30dp marginTop keeps the lanes directly under the tab,
+             fully inside the red body. -->
         <RelativeLayout
             android:id="@+id/clock_sleep_chart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_island"
-            android:layout_marginTop="1dp">
+            android:layout_alignParentStart="true"
+            android:layout_marginTop="30dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -176,7 +213,7 @@
                 <!-- DEEP -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="9dp"
+                    android:layout_height="8dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -246,8 +283,8 @@
                 <!-- LIGHT -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="9dp"
-                    android:layout_marginTop="2dp"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="1dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -317,8 +354,8 @@
                 <!-- AWAKE -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="9dp"
-                    android:layout_marginTop="2dp"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="1dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -408,17 +445,17 @@
                 android:textSize="5sp"
                 android:visibility="gone" />
         </RelativeLayout>
-        <!-- Bed and wake times positioned cleanly inside the bottom -->
+
+        <!-- Bed and wake times directly below the AWAKE lane (the reference look) -->
         <TextView
             android:id="@+id/clock_sleep_bed"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_below="@id/clock_sleep_chart"
             android:layout_marginTop="1dp"
-            android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="#FFE3E8"
+            android:textColor="#FFD6DE"
             android:textSize="5sp" />
 
         <TextView
@@ -428,10 +465,9 @@
             android:layout_below="@id/clock_sleep_chart"
             android:layout_alignParentEnd="true"
             android:layout_marginTop="1dp"
-            android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
             android:text=""
-            android:textColor="#FFE3E8"
+            android:textColor="#FFD6DE"
             android:textSize="5sp" />
     </RelativeLayout>
 
@@ -440,7 +476,7 @@
         android:id="@+id/clock_sleep_stats"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:orientation="horizontal">
 
         <!-- ALARM -->
@@ -479,7 +515,7 @@
 
         <TextView
             android:layout_width="1dp"
-            android:layout_height="16dp"
+            android:layout_height="14dp"
             android:layout_gravity="center_vertical"
             android:background="@color/oxygen_divider" />
 
@@ -518,7 +554,7 @@
 
         <TextView
             android:layout_width="1dp"
-            android:layout_height="16dp"
+            android:layout_height="14dp"
             android:layout_gravity="center_vertical"
             android:background="@color/oxygen_divider" />
 

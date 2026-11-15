@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The red sleep block: a rounded body with the raised island tab on the
-     top right, merged into a single red mass.
+     top right, merged into a single red mass (the reference look).
 
      Geometry:
-       - the body starts at 20dp and the tab is 26dp tall, so they overlap by
+       - the body starts at 24dp and the tab is 30dp tall, so they overlap by
          6dp and no seam can appear between them;
-       - the tab is a full pill (13dp radius on a 26dp height), so its left
+       - the tab is a full pill (15dp radius on a 30dp height), so its left
          edge sweeps inward as the concave scoop;
        - the body keeps a rounded TOP-LEFT corner, but a square TOP-RIGHT one,
          so the right edge of the red mass stays straight down to the bottom;
        - a black 8dp notch, with its top-left corner rounded (radius 8dp),
          carves the concave fillet where the tab meets the body's top edge —
-         the arc runs from the body's top line (y=20dp) up to the tab's left
-         edge (y=12dp) with an 8dp radius. -->
+         the arc runs from the body's top line (y=24dp) up to the tab's left
+         edge (y=18dp) with an 8dp radius. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Body: rounded top-left and both bottom corners, square top-right -->
     <item
         android:bottom="0dp"
         android:left="0dp"
         android:right="0dp"
-        android:top="20dp">
+        android:top="24dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
             <corners
@@ -29,21 +29,21 @@
                 android:bottomRightRadius="12dp" />
         </shape>
     </item>
-    <!-- The raised island tab: fully curved pill shape (radius 13dp for 26dp height) -->
+    <!-- The raised island tab: fully curved pill shape (15dp radius on 30dp height) -->
     <item
         android:gravity="top|right"
-        android:width="62dp"
-        android:height="26dp">
+        android:width="88dp"
+        android:height="30dp">
         <shape android:shape="rectangle">
             <solid android:color="@color/oxygen_red" />
-            <corners android:radius="13dp" />
+            <corners android:radius="15dp" />
         </shape>
     </item>
     <!-- The concave tab fillet — the black carve between the tab and the body -->
     <item
         android:gravity="top|right"
-        android:top="12dp"
-        android:right="54dp"
+        android:top="18dp"
+        android:right="80dp"
         android:width="8dp"
         android:height="8dp">
         <shape android:shape="rectangle">

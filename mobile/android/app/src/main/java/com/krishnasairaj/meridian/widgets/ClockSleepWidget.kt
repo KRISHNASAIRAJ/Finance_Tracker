@@ -7,15 +7,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.BatteryManager
 import android.text.SpannableString
 import android.text.Spanned
-import android.text.SpannableStringBuilder
-import android.text.style.AbsoluteSizeSpan
 import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
@@ -296,10 +292,17 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
-        views.setTextViewText(R.id.clock_sleep_duration, combinedDurationAndScore(duration, scoreValue))
+        // The duration lives on ONE line inside the raised tab (the design
+        // look); the score sits right below it as "Score 55" + the thin track.
+        views.setTextViewText(R.id.clock_sleep_duration, duration)
         // The score line only makes sense next to a real night.
-        views.setViewVisibility(R.id.clock_sleep_score, if (duration == NO_VALUE || scoreValue <= 0) View.GONE else View.VISIBLE)
-        views.setProgressBar(R.id.clock_sleep_score, 100, scoreValue.coerceIn(0, 100), false)
+        val scoreVisible = duration != NO_VALUE && scoreValue > 0
+        views.setViewVisibility(R.id.clock_sleep_score, if (scoreVisible) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.clock_sleep_score_label, if (scoreVisible) View.VISIBLE else View.GONE)
+        if (scoreVisible) {
+            views.setTextViewText(R.id.clock_sleep_score_label, "Score $scoreValue")
+            views.setProgressBar(R.id.clock_sleep_score, 100, scoreValue.coerceIn(0, 100), false)
+        }
         views.setTextViewText(R.id.clock_sleep_date, dateText())
         views.setTextViewText(R.id.clock_sleep_bed, bedLabel)
         views.setTextViewText(R.id.clock_sleep_wake, wakeLabel)
@@ -495,25 +498,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         } catch (e: Exception) {
             -1
         }
-    }
-
-    /**
-     * The duration (bold, ink #1A0006) over the sleep score (#3A0010),
-     * left-aligned inside the raised island — the reference look.
-     */
-    private fun combinedDurationAndScore(duration: String, scoreValue: Int): CharSequence {
-        if (duration == NO_VALUE || scoreValue <= 0) return duration
-        val durationInk = Color.parseColor("#1A0006")
-        val scoreInk = Color.parseColor("#3A0010")
-        val line1 = duration
-        val line2 = "Score $scoreValue"
-        val sb = SpannableStringBuilder("$line1\n$line2")
-        sb.setSpan(StyleSpan(Typeface.BOLD), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(AbsoluteSizeSpan(8, true), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(ForegroundColorSpan(durationInk), 0, line1.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(AbsoluteSizeSpan(5, true), line1.length + 1, sb.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(ForegroundColorSpan(scoreInk), line1.length + 1, sb.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return sb
     }
 
     /** 522 minutes → "8H 42M". */
