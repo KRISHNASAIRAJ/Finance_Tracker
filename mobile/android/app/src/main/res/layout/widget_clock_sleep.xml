@@ -154,7 +154,7 @@
             android:letterSpacing="0.15"
             android:text="SLEEP"
             android:textColor="#8A8A8A"
-            android:textSize="6sp"
+            android:textSize="5sp"
             android:textStyle="bold" />
 
         <!-- The stage chart - tracks and dotted AWAKE timeline are drawable
@@ -187,7 +187,7 @@
                         android:letterSpacing="0.11"
                         android:text="DEEP"
                         android:textColor="#FFE3E8"
-                        android:textSize="6sp" />
+                        android:textSize="5sp" />
 
                     <RelativeLayout
                         android:id="@+id/clock_sleep_deep_track"
@@ -258,7 +258,7 @@
                         android:letterSpacing="0.11"
                         android:text="LIGHT"
                         android:textColor="#FFE3E8"
-                        android:textSize="6sp" />
+                        android:textSize="5sp" />
 
                     <RelativeLayout
                         android:id="@+id/clock_sleep_light_track"
@@ -329,7 +329,7 @@
                         android:letterSpacing="0.11"
                         android:text="AWAKE"
                         android:textColor="#FFE3E8"
-                        android:textSize="6sp" />
+                        android:textSize="5sp" />
 
                     <RelativeLayout
                         android:id="@+id/clock_sleep_awake_track"
@@ -404,7 +404,7 @@
                 android:letterSpacing="0.11"
                 android:text="No sleep data"
                 android:textColor="#FFE3E8"
-                android:textSize="6sp"
+                android:textSize="5sp"
                 android:visibility="gone" />
         </RelativeLayout>
         <!-- Bed and wake times positioned cleanly inside the bottom -->

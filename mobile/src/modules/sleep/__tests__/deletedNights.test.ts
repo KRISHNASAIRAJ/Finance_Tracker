@@ -40,6 +40,7 @@ import { DEFAULT_SLEEP_MOTION_CONFIG } from '../sleepMotion';
 import {
   tombstoneDeletedNight,
   isSleepNightDeleted,
+  isSleepNightRangeDeleted,
   nightDayKeyOf,
 } from '../deletedNights';
 
@@ -71,6 +72,16 @@ describe('deletedNights tombstones', () => {
   it('nightDayKeyOf uses the local bedtime day', () => {
     const key = nightDayKeyOf(new Date(2026, 10, 14, 23, 30).toISOString());
     expect(key).toMatch(/^2026-11-1[45]$/); // timezone-safe: allow either edge
+  });
+
+  it('isSleepNightRangeDeleted matches either day of the night', async () => {
+    const bed = new Date(2026, 10, 14, 23, 30);
+    const wake = new Date(2026, 10, 15, 7, 0);
+    await tombstoneDeletedNight(nightDayKeyOf(wake.toISOString()));
+    expect(await isSleepNightRangeDeleted(bed.toISOString(), wake.toISOString())).toBe(true);
+    expect(await isSleepNightRangeDeleted(new Date(2026, 10, 16, 23, 30).toISOString(), new Date(2026, 10, 17, 7, 0).toISOString())).toBe(false);
+    // and with only a start time
+    expect(await isSleepNightRangeDeleted(new Date(2026, 10, 16, 23, 30).toISOString())).toBe(false);
   });
 
   it('autoSave does not resurrect a tombstoned night', async () => {
@@ -122,8 +133,11 @@ describe('deletedNights tombstones', () => {
 
     useSleepStore.getState().deleteEntry('test-entry');
     expect(useSleepStore.getState().entries).toHaveLength(0);
-    // The tombstone write is fire-and-forget in deleteEntry — let it flush.
-    await new Promise((resolve) => setImmediate(resolve));
+    // The tombstone write is fire-and-forget in deleteEntry — flush it.
+    for (let i = 0; i < 5; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     expect(await isSleepNightDeleted(localDayKey(bed))).toBe(true);
   });
 });

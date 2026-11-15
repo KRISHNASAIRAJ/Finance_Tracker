@@ -8,8 +8,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_SLEEP_MOTION_CONFIG, type SleepMotionConfig } from './sleepMotion';
 import { dedupeEntries, findSameNight } from './sleepNights';
-import { localDayKey } from '../finance/financeFormat';
-import { tombstoneDeletedNight } from './deletedNights';
+import { tombstoneDeletedNightRange } from './deletedNights';
 
 export interface SleepEntry {
   id: string;
@@ -170,8 +169,10 @@ export const useSleepStore = create<SleepState>()(
         set((s) => ({ entries: s.entries.filter((e) => e.id !== id) }));
         // Never resurrect the night: the auto-save, the hourly live backup and
         // the cloud pull all check this tombstone before re-creating it.
+        // Nights can straddle midnight — tombstone both local days in ONE
+        // write (two independent writes race and one clobbers the other).
         if (target?.startTime) {
-          tombstoneDeletedNight(localDayKey(new Date(target.startTime))).catch(() => {});
+          tombstoneDeletedNightRange(target.startTime, target.endTime).catch(() => {});
         }
         enq('sleep_logs', 'delete', { id, user_id: userId || null });
         // Best-effort: drop the cloud row right now (by id) so a relaunch

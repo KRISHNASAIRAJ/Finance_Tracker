@@ -19,8 +19,7 @@ import {
 } from './sleepMotion';
 import { inferSleepSession, motionThreshold, movingSecondsThreshold } from './sleepInference';
 import { isSameNight } from './sleepNights';
-import { localDayKey } from '../finance/financeFormat';
-import { isSleepNightDeleted } from './deletedNights';
+import { isSleepNightRangeDeleted } from './deletedNights';
 import { useSleepStore } from './store';
 
 /** A sleep session shorter than this is never accepted as sleep. */
@@ -54,7 +53,7 @@ export async function autoSaveLastNight(
     });
     if (!inferred) return null;
     // The user deleted this night — nothing automatic may bring it back.
-    if (await isSleepNightDeleted(localDayKey(new Date(inferred.bedTime)))) return null;
+    if (await isSleepNightRangeDeleted(inferred.bedTime, inferred.wakeTime)) return null;
     // The night may still be running — never auto-save before it settled.
     if (now - inferred.wakeTime < SETTLE_MS) return null;
     // A 5–10 minute gap needs the user's answer first.

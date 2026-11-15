@@ -271,6 +271,29 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 19 — widget text shrink + sleep-delete root-cause fix (2026-11-15)
+
+- [x] **Widget sleep-block text sizes reduced** (reported overlap): island
+      duration span 10sp → **8sp bold**, score span 6sp → **5sp**, SLEEP
+      caption 6sp → **5sp** (#8A8A8A, 0.15em), lane labels 6sp → **5sp**
+      (#FFE3E8, 0.11em), empty-state caption 6sp → **5sp**. Bed/wake 5sp and
+      stats row unchanged.
+- [x] **Root-cause: the sleep cloud pull was silently dead since Batch 17.**
+      `usePersonalSync` required `../finance/financeFormat` — a path that
+      does not exist from `modules/personal/hooks/` (it is
+      `../../finance/financeFormat`). The require threw into the surrounding
+      try/catch and the whole SLEEP block (re-add, live-refresh, tombstone
+      guard) silently no-oped on device, so the pull could never heal local
+      state — and the tombstones never ran. Fixed; unused require removed.
+- [x] **Tombstones now cover the night's full local-day range** (bed day +
+      wake day, written in ONE read-modify-write — two independent writes
+      race and one clobbers the other). autoSave, live push, and the cloud
+      pull check the range; the pull skips rows whose wake day was
+      tombstoned even if the bed day differs (night straddling midnight).
+- [x] Tests: new range-tombstone test (bed/wake day match, unrelated night
+      rejected); deleteEntry flush test made deterministic. **333/333 unit**,
+      e2e 9/9, tsc/ESLint clean, Kotlin + resources compile ✓.
+
 ### Batch 18 — widget fallback rewrite (2026-11-15)
 
 - [x] **Bitmap path REMOVED.** "An error occurred while loading widget"
