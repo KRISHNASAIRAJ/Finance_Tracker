@@ -9,7 +9,8 @@
  *   minutes stage → the 60 ticks, 6° apart (1-minute precision)
  *
  * The centre shows the whole time — tap the hour or the minute to edit
- * that unit (it turns red), with an AM / PM pair underneath.
+ * that unit (it turns red), with the AM / PM pills directly under the
+ * HOUR text and nowhere else.
  */
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -54,6 +55,15 @@ interface ClockFaceProps {
   /** The dial size in dp. */
   size?: number;
 }
+
+/**
+ * The bounding box (in dp, from the dial centre) of the centre readout:
+ * the hour text with the AM / PM pills under it, the colon, the minute
+ * text. The dial must NOT claim touches that land inside it — those
+ * belong to the Pressables (switching to the hour / minute unit and
+ * toggling AM / PM). Outside of it the dial is fully draggable.
+ */
+const CENTER_ZONE = { halfWidth: 82, halfHeight: 36 };
 
 const DEFAULT_SIZE = 264;
 
@@ -134,8 +144,17 @@ export default function ClockFace({
       PanResponder.create({
         // Tapping the dial claims the touch (so a tap sets the value under
         // the finger). The centre readout and the AM / PM pills are
-        // Pressables rendered above the dial — they win their own touches.
-        onStartShouldSetPanResponder: () => true,
+        // Pressables rendered above the dial — and the dial refuses to
+        // claim touches that land on the centre zone, so the Pressables
+        // always win: tapping the hour text edits the hour (the hour
+        // hand only moves), the minute text edits the minute (the
+        // minute hand only moves), and the pills toggle AM / PM.
+        onStartShouldSetPanResponder: (e) => {
+          const cx = size / 2;
+          const cy = size / 2;
+          const { locationX: x, locationY: y } = e.nativeEvent;
+          return Math.abs(x - cx) >= CENTER_ZONE.halfWidth || Math.abs(y - cy) >= CENTER_ZONE.halfHeight;
+        },
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (e) => {
           // Remember where the finger landed — only a gesture that never
@@ -161,7 +180,7 @@ export default function ClockFace({
           grantPos.current = null;
         },
       }),
-    [applyAt, onSelectMode]
+    [applyAt, onSelectMode, size]
   );
 
   // --- the dial ------------------------------------------------------------
@@ -298,20 +317,39 @@ export default function ClockFace({
       />
 
       {/* The centre readout — content-sized so the dial stays draggable.
-          Tapping the hour or the minute picks that unit to edit. */}
+          Tapping the hour or the minute picks that unit to edit. The
+          AM / PM pills live directly under the HOUR text. */}
       <View style={styles.center} pointerEvents="box-none">
         <View style={styles.readoutRow}>
-          <Pressable
-            onPress={() => onSelectMode('hours')}
-            hitSlop={{ top: 10, bottom: 10, left: 12, right: 6 }}
-            accessibilityRole="button"
-            accessibilityLabel="Edit hour"
-            accessibilityState={{ selected: mode === 'hours' }}
-          >
-            <Text style={[styles.time, mode === 'hours' ? styles.unitActive : styles.unitIdle]}>
-              {hourLabel}
-            </Text>
-          </Pressable>
+          {/* The hour column: the hour text on top, AM / PM right under it */}
+          <View style={styles.hourColumn}>
+            <Pressable
+              onPress={() => onSelectMode('hours')}
+              hitSlop={{ top: 10, bottom: 2, left: 12, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="Edit hour"
+              accessibilityState={{ selected: mode === 'hours' }}
+            >
+              <Text style={[styles.time, mode === 'hours' ? styles.unitActive : styles.unitIdle]}>
+                {hourLabel}
+              </Text>
+            </Pressable>
+            <View style={styles.periodRow}>
+              {(['AM', 'PM'] as const).map((p) => (
+                <Pressable
+                  key={p}
+                  onPress={() => onSetPeriod(p)}
+                  hitSlop={{ top: 6, bottom: 8, left: 4, right: 4 }}
+                  style={[styles.periodPill, period === p && styles.periodPillOn]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${p}m`}
+                  accessibilityState={{ selected: period === p }}
+                >
+                  <Text style={[styles.periodText, period === p && styles.periodTextOn]}>{p}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
           <Text style={[styles.time, styles.colon]}>:</Text>
           <Pressable
             onPress={() => onSelectMode('minutes')}
@@ -324,20 +362,6 @@ export default function ClockFace({
               {minuteLabel}
             </Text>
           </Pressable>
-        </View>
-        <View style={styles.periodRow}>
-          {(['AM', 'PM'] as const).map((p) => (
-            <Pressable
-              key={p}
-              onPress={() => onSetPeriod(p)}
-              style={[styles.periodPill, period === p && styles.periodPillOn]}
-              accessibilityRole="button"
-              accessibilityLabel={`${p}m`}
-              accessibilityState={{ selected: period === p }}
-            >
-              <Text style={[styles.periodText, period === p && styles.periodTextOn]}>{p}</Text>
-            </Pressable>
-          ))}
         </View>
       </View>
     </View>
@@ -356,10 +380,14 @@ const styles = StyleSheet.create({
   },
   readoutRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  hourColumn: {
     alignItems: 'center',
   },
   time: {
     fontSize: 30,
+    lineHeight: 38,
     fontWeight: '700',
     letterSpacing: -1,
   },
@@ -374,14 +402,14 @@ const styles = StyleSheet.create({
   },
   periodRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 1,
   },
   periodPill: {
-    minWidth: 38,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    minWidth: 34,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 9,
     borderWidth: 1,
     borderColor: op.hairline,
     alignItems: 'center',
@@ -392,9 +420,9 @@ const styles = StyleSheet.create({
     borderColor: op.red,
   },
   periodText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
     color: op.muted,
   },
   periodTextOn: {

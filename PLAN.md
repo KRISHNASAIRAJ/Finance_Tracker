@@ -271,6 +271,52 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 23 — time picker popup: AM/PM finally tappable, moved under the HOUR text (2026-11-15)
+
+- [x] `ClockFace.tsx`: the dial's PanResponder no longer claims touches that
+      land on the centre readout zone (bounding box `CENTER_ZONE`, 82dp x
+      36dp from the centre) — the hour text, minute text and the AM / PM
+      pills now reliably receive their taps instead of the dial.
+      - Tapping the hour text edits the hour — the dial only moves the hour
+        hand (minutes stay untouched); tapping the minute text edits the
+        minute — only the minute hand moves. The active unit turns red.
+      - The AM / PM pills live directly **under the hour text** (the hour
+        column), not centred under the whole readout — tapping a pill flips
+        the period and only re-anchors the hour (+/-12h).
+      - Pills got slightly larger tap targets; the readout row aligns the
+        big line (lineHeight 38) so the colon and minute text sit flush
+        with the hour text.
+      - The centre zone replaces the previous "Pressables always win"
+        assumption, which evidently did not hold up on device.
+- [x] Tests: no unit coverage for this UI (no component tests existed) —
+      tsc clean, ESLint 0 problems, 337/337 unit, e2e 9/9.
+- [ ] Device verification needed: open any time picker (Sleep → night
+      window, Tasks → reminder, Expense) and tap AM / PM under the hour.
+
+### Batch 22 — Clock+Sleep widget: pill rebuilt to the design reference (2026-11-15)
+
+- [x] **Pill content fits the 2x2 box.** Root cause of the half-clipped
+      `7H 45M` / `Score 50` and the missing AWAKE lane + bed/wake times: the
+      combined two-line island text and the chart overflowed the red tab,
+      so the dark-ink glyphs landed on black and the overflow rows were
+      pushed under the stats row.
+      - The island is now: duration on ONE line (12sp bold, `#1A0006`) with
+        a `Score 55` row directly below (5sp `#3A0010` + the 2dp ink track)
+        — matches the design reference exactly.
+      - Fixed geometry everywhere: root padding 5dp, date 10sp, clock 22sp,
+        tab 88dp x 30dp (15dp radius), chart starts at a fixed 30dp from the
+        pill top, lane rows 8dp, bed/wake (5sp `#FFD6DE`) directly below the
+        AWAKE lane. Nothing can overflow onto the stats row any more.
+      - SLEEP caption sits in the black notch (5sp `#A8A8A8`), aligned to
+        the tab's vertical centre.
+      - `combinedDurationAndScore` removed; score label + track are their
+        own views (hidden when there is no real night).
+- [x] `widget_sleep_pill.xml`: tab grew to 88dp x 30dp (body top 24dp,
+      fillet at 18dp) — the raised-tab silhouette from the reference.
+- [x] `:app:processDebugResources` + `:app:compileDebugKotlin` ✓.
+- [ ] Device verification needed: install APK, compare against the
+      reference image side by side.
+
 ### Batch 21 — sleep inference: mid-night phone use no longer ends the night (2026-11-15)
 
 - [x] **Tier 1 — gap rules reworked in `sleepInference.ts`.**
