@@ -271,6 +271,43 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 21 — sleep inference: mid-night phone use no longer ends the night (2026-11-15)
+
+- [x] **Tier 1 — gap rules reworked in `sleepInference.ts`.**
+      - A still run shorter than `MIN_SLEEP_RUN_MIN` (20 min) is a rest, not
+        sleep — it no longer pulls the bedtime earlier (a phone resting at
+        23:00 before the user fell asleep is never counted).
+      - The wake time is now the last awake gap that starts at/after the
+        wake window (the wake-up), or the end of the block / wake-window end
+        otherwise. The `endingGap` rule that truncated the night at the
+        first gap > 10 min anywhere is REMOVED — a 10-minute phone check at
+        02:00 no longer ends the sleep.
+      - Still runs are merged across interruptions of up to
+        `MAX_MIDNIGHT_INTERRUPTION_MIN` (120 min) — a 45-minute phone use no
+        longer splits the night and drops the second half. A longer gap is a
+        real get-up and splits the block (the longer half wins).
+      - Interruptions now count every pre-wake-window gap of up to 5 min,
+        and every longer gap up to the cap (a long scroll is an interruption;
+        the night continues). A gap at/after the wake window is the wake-up
+        and never a counted interruption. A 5–10-minute pre-wake gap still
+        asks the user in the morning (unchanged).
+      - `isAwakeSample`/`isStillSample` centralise the awake/still rule;
+        `currentStillness` and the stage lanes share it.
+- [x] **Tier 2 — screen-on counter in the native tracker.**
+      `SleepMotionService` checks `PowerManager.isInteractive` per sample
+      and stores `screenOnSeconds` per minute bucket (`o`) alongside the
+      sustained-movement counter (`s`); it is persisted and exposed through
+      `SleepMotionModule.getBuckets`. JS buckets carry `o` (undefined for old
+      buckets). A minute with the screen interactive is **definitely awake**,
+      overriding the motion threshold — a perfectly still phone being scrolled
+      still counts as awake. `isAwakeMinute` (DEEP/LIGHT/AWAKE lanes) uses
+      the same rule so the chart agrees.
+- [x] Tests: new cases — >10-min gap (long interruption), 45-min gap,
+      >120-min cap split, pre-sleep rest not counted as bedtime, screen-on
+      minutes as definite wake-ups. 337/337 unit, e2e 9/9, Kotlin compile ✓,
+      tsc/ESLint clean.
+- [ ] Device verification needed: install APK, re-test mid-night phone use.
+
 ### Batch 20 — auto-motion delete root cause + pill overflow fix (2026-11-15)
 
 - [x] **Auto-detected sleep logs re-created themselves after deletion.**

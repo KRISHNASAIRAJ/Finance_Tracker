@@ -126,7 +126,8 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
 
     /**
      * The motion timeline: one entry per minute
-     * { m: epochMinute, v: peak movement, s: seconds of sustained movement }.
+     * { m: epochMinute, v: peak movement, s: seconds of sustained movement,
+     *   o: seconds the screen was interactive }.
      */
     @ReactMethod
     fun getBuckets(promise: Promise) {
@@ -138,6 +139,7 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
                 item.putDouble("m", b.minute.toDouble())
                 item.putDouble("v", b.value.toDouble())
                 item.putInt("s", b.movingSeconds)
+                item.putInt("o", b.screenOnSeconds)
                 arr.pushMap(item)
             }
             promise.resolve(arr)

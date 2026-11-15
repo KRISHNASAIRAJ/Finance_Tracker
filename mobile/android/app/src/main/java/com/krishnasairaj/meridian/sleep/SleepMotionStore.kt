@@ -13,8 +13,11 @@ import kotlin.math.max
  * @param movingSeconds seconds of *sustained* movement inside that minute.
  *                 -1 means "unknown" (a bucket recorded before the second
  *                 counter existed) — the peak value is then used on its own.
+ * @param screenOnSeconds seconds the screen was interactive during that minute.
+ *                 -1 means "unknown" (a bucket recorded before the counter existed)
+ *                 — the motion rules are then used on their own.
  */
-data class MotionBucket(val minute: Long, val value: Float, val movingSeconds: Int = -1)
+data class MotionBucket(val minute: Long, val value: Float, val movingSeconds: Int = -1, val screenOnSeconds: Int = -1)
 
 /**
  * SleepMotionStore — SharedPreferences persistence for the automatic sleep
@@ -71,7 +74,10 @@ object SleepMotionStore {
                 // "s" is the sustained-movement counter; older buckets do not
                 // have it (-1 = unknown).
                 val s = if (o.has("s")) o.optInt("s", 0) else -1
-                if (m > 0L) out.add(MotionBucket(m, v.toFloat(), s))
+                // "o" is the screen-on counter; older buckets do not have it
+                // (-1 = unknown).
+                val screen = if (o.has("o")) o.optInt("o", 0) else -1
+                if (m > 0L) out.add(MotionBucket(m, v.toFloat(), s, screen))
             }
         } catch (e: Exception) {
             return mutableListOf()
@@ -89,6 +95,7 @@ object SleepMotionStore {
             o.put("m", b.minute)
             o.put("v", b.value.toDouble())
             o.put("s", max(b.movingSeconds, 0))
+            o.put("o", max(b.screenOnSeconds, 0))
             arr.put(o)
         }
         prefs(ctx).edit().putString(KEY_BUCKETS, arr.toString()).apply()

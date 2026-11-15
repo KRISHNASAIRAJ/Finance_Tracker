@@ -290,30 +290,46 @@ class SleepMotionService : Service(), SensorEventListener {
     }
 
     /**
-     * Keep one bucket per minute holding the peak movement of that minute and
-     * the number of seconds of *sustained* movement inside it.
+     * Keep one bucket per minute holding the peak movement of that minute, the
+     * number of seconds of *sustained* movement inside it, and the number of
+     * seconds the screen was interactive.
      *
-     * The second counter is what makes the tracker work with the phone under a
-     * pillow: a single bump (the mattress settling) is a short spike, while a
-     * real wake-up keeps moving for several seconds.
+     * The sustained counter is what makes the tracker work with the phone under
+     * a pillow: a single bump (the mattress settling) is a short spike, while a
+     * real wake-up keeps moving for several seconds. The screen-on counter is
+     * what makes a *still* phone unambiguous: the user can scroll for ten
+     * minutes without ever moving it, and the minute is still "awake".
      */
     private fun recordBucket(now: Long, movement: Float) {
         val minute = now / 60000L
         val sampleSeconds = (SAMPLE_PERIOD_US / 1_000_000L).toInt().coerceAtLeast(1)
         val moving = if (movement > config.threshold()) sampleSeconds else 0
+        val screenOn = if (isScreenInteractive()) sampleSeconds else 0
         val last = buckets.lastOrNull()
         if (last == null || last.minute != minute) {
-            buckets.add(MotionBucket(minute, movement, moving))
+            buckets.add(MotionBucket(minute, movement, moving, screenOn))
         } else {
             buckets.removeAt(buckets.size - 1)
             val knownSeconds = if (last.movingSeconds < 0) 0 else last.movingSeconds
+            val knownScreen = if (last.screenOnSeconds < 0) 0 else last.screenOnSeconds
             buckets.add(
                 MotionBucket(
                     minute,
                     max(last.value, movement),
-                    min(60, knownSeconds + moving)
+                    min(60, knownSeconds + moving),
+                    min(60, knownScreen + screenOn)
                 )
             )
+        }
+    }
+
+    /** Is the screen interactive right now? A plain screen check — no permission needed. */
+    private fun isScreenInteractive(): Boolean {
+        return try {
+            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            pm.isInteractive
+        } catch (e: Exception) {
+            false
         }
     }
 

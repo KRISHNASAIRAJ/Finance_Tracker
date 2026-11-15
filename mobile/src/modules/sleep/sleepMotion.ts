@@ -67,6 +67,12 @@ export interface MotionBucket {
    * bucket recorded before the counter existed.
    */
   s?: number;
+  /**
+   * Seconds the screen was interactive inside that minute — a minute with the
+   * screen on is definitely awake, whatever the accelerometer said. `undefined`
+   * = an old bucket recorded before the counter existed.
+   */
+  o?: number;
 }
 
 export const DEFAULT_SLEEP_MOTION_CONFIG: SleepMotionConfig = {
@@ -215,7 +221,14 @@ export async function getMotionBuckets(): Promise<MotionBucket[]> {
       .map((b) => ({
         m: Number(b?.m) || 0,
         v: Number(b?.v) || 0,
-        s: typeof b?.s === 'number' && Number.isFinite(b.s) ? b.s : undefined,
+        s:
+          typeof b?.s === 'number' && Number.isFinite(b.s) && b.s >= 0
+            ? b.s
+            : undefined,
+        o:
+          typeof b?.o === 'number' && Number.isFinite(b.o) && b.o >= 0
+            ? b.o
+            : undefined,
       }))
       .filter((b) => b.m > 0);
   } catch {

@@ -2,30 +2,41 @@
  * sleepInference — turns the accelerometer timeline into a sleep session.
  *
  * The native tracker records one bucket per minute with the peak movement it
- * saw (m/s^2) **and** the number of seconds of *sustained* movement inside
- * that minute. A phone lying still on the mattress produces near-zero values,
- * so "still minutes" = sleep and "moving minutes" = awake.
+ * saw (m/s^2), the number of seconds of *sustained* movement inside that
+ * minute and the number of seconds the screen was interactive. A phone lying
+ * still on the mattress produces near-zero values, so "still minutes" = sleep
+ * and "moving minutes" = awake. A minute with the screen on is awake no
+ * matter what — a phone can sit perfectly still while the user scrolls.
  *
  * The sustained-movement counter is what makes the tracker work with the
  * phone under a pillow: a single bump (the mattress settling) is a short
  * spike, while a real wake-up keeps moving for several seconds.
+ *
+ * Bedtime: the start of the FIRST still run of at least {@link MIN_SLEEP_RUN_MIN}
+ * minutes — a short stretch of stillness before the real sleep (the user
+ * resting with the phone at their side, the screen off) is never counted as
+ * sleep.
+ *
+ * Wake time: the last awake gap that starts at or after the wake window.
+ * Any gap BEFORE the wake window keeps the night going — a 10-minute phone
+ * check at 2 AM is one interruption, not the end of sleep. A gap longer than
+ * {@link MAX_MIDNIGHT_INTERRUPTION_MIN} anywhere in the night is a real get-up
+ * and splits it — the longer half is reported as the sleep.
  *
  * Interruption rules:
  *  - an awake gap of up to 5 minutes is a normal interruption (a quick phone
  *    check) — the night continues and the gap is counted
  *  - an awake gap of 5–10 minutes is ambiguous: in the morning the user is
  *    asked whether it was a long interruption or the end of the sleep
- *  - an awake gap of more than 10 minutes means the sleep ended there
+ *  - an awake gap of more than 10 minutes and at most
+ *    {@link MAX_MIDNIGHT_INTERRUPTION_MIN} minutes (before the wake window)
+ *    is a long interruption — the night continues and the gap is counted
+ *  - an awake gap starting at or after the wake window is the wake-up — the
+ *    night ends there
  *
  * Everything in this file is pure so it can be unit tested without a phone.
  */
 import type { MotionBucket, SleepSensitivity } from './sleepMotion';
-
-/**
- * Awake gaps shorter than this (turning over, a trip to the bathroom) keep the
- * night in one sleep block.
- */
-const MERGE_GAP_MIN = 30;
 
 /**
  * An awake gap of up to this many minutes is a normal interruption — the
@@ -38,6 +49,21 @@ export const INTERRUPTION_MAX_MIN = 5;
  * needs the user's answer in the morning.
  */
 export const AMBIGUOUS_GAP_MAX_MIN = 10;
+
+/**
+ * A still run shorter than this is a rest, not sleep — the phone lying still
+ * while the user watches TV, reads or sits up awake. Only runs of at least
+ * this length count as sleep when the bedtime is chosen.
+ */
+export const MIN_SLEEP_RUN_MIN = 20;
+
+/**
+ * An awake gap that starts BEFORE the wake window is at most this many
+ * minutes and still counts as a long interruption — the night continues and
+ * the gap is counted. A gap longer than this is a real get-up: the sleep
+ * ends there. (A gap at or after the wake window always ends the night.)
+ */
+export const MAX_MIDNIGHT_INTERRUPTION_MIN = 120;
 
 /**
  * A minute only counts as awake when the movement was sustained for at least
@@ -70,6 +96,16 @@ export interface SleepInferenceOptions {
   wakeStartMin?: number;
   /** Wake window end (minutes from local midnight). */
   wakeEndMin?: number;
+  /**
+   * Minimum length of a still run to count as sleep when the bedtime is
+   * chosen. Defaults to {@link MIN_SLEEP_RUN_MIN}.
+   */
+  minRunMin?: number;
+  /**
+   * Longest awake gap that starts BEFORE the wake window and still counts as
+   * a long interruption. Defaults to {@link MAX_MIDNIGHT_INTERRUPTION_MIN}.
+   */
+  maxMidnightInterruptionMin?: number;
 }
 
 /** A wake gap the user still has to classify in the morning. */
@@ -151,25 +187,56 @@ export function inNightWindow(minute: number, startMin: number, endMin: number):
   return m >= s || m <= e;
 }
 
-/** One minute of motion: the peak value plus the sustained-movement seconds. */
-interface MinuteSample {
+/** One minute of motion: peak + sustained-movement seconds + screen-on seconds. */
+export interface SleepMinuteSample {
   peak: number;
   /** Seconds of sustained movement; undefined = legacy bucket (no counter). */
   moving?: number;
+  /** Seconds the screen was interactive; undefined = legacy bucket (no counter). */
+  screen?: number;
+}
+
+/**
+ * Is this minute awake? The screen signal is absolute — a minute with the
+ * screen interactive is a wake-up no matter what the accelerometer said (the
+ * phone can lie perfectly still while the user scrolls).
+ */
+export function isAwakeSample(
+  sample: SleepMinuteSample | undefined,
+  threshold: number,
+  movingLimit: number
+): boolean {
+  if (!sample) return false;
+  if (typeof sample.screen === 'number' && Number.isFinite(sample.screen)) {
+    if (sample.screen > 0) return true;
+  }
+  if (sample.moving !== undefined) return sample.moving >= movingLimit;
+  return sample.peak >= threshold;
+}
+
+/** Is this minute still (asleep or at least not moving / not using the phone)? */
+export function isStillSample(
+  sample: SleepMinuteSample | undefined,
+  threshold: number,
+  movingLimit: number
+): boolean {
+  return !isAwakeSample(sample, threshold, movingLimit);
 }
 
 /** bucket minute → sample. */
-function toSampleMap(buckets: MotionBucket[]): Map<number, MinuteSample> {
-  const map = new Map<number, MinuteSample>();
+function toSampleMap(buckets: MotionBucket[]): Map<number, SleepMinuteSample> {
+  const map = new Map<number, SleepMinuteSample>();
   for (const b of buckets || []) {
     const minute = Math.floor(Number(b?.m));
     const peak = Number(b?.v);
     if (!Number.isFinite(minute) || !Number.isFinite(peak) || minute <= 0) continue;
     const moving =
       typeof b?.s === 'number' && Number.isFinite(b.s) ? b.s : undefined;
+    const screen =
+      typeof b?.o === 'number' && Number.isFinite(b.o) ? b.o : undefined;
     const prev = map.get(minute);
     if (!prev) {
-      map.set(minute, { peak, moving });
+      map.set(minute, { peak, moving, screen });
     } else {
       const mergedMoving =
         prev.moving === undefined
@@ -177,7 +244,13 @@ function toSampleMap(buckets: MotionBucket[]): Map<number, MinuteSample> {
           : moving === undefined
             ? prev.moving
             : Math.max(prev.moving, moving);
-      map.set(minute, { peak: Math.max(prev.peak, peak), moving: mergedMoving });
+      const mergedScreen =
+        prev.screen === undefined
+          ? screen
+          : screen === undefined
+            ? prev.screen
+            : Math.max(prev.screen, screen);
+      map.set(minute, { peak: Math.max(prev.peak, peak), moving: mergedMoving, screen: mergedScreen });
     }
   }
   return map;
@@ -227,15 +300,17 @@ function absoluteMinuteFor(blockStart: number, blockEnd: number, targetMin: numb
  *
  * Model:
  *  - every minute is "still" (phone on the mattress) or "awake" (it moved for
- *    long enough)
- *  - still stretches separated by a short awake gap belong to the same sleep
- *    block
+ *    long enough, or the screen was on)
+ *  - still stretches separated by a gap of at most MAX_MIDNIGHT_INTERRUPTION_MIN
+ *    minutes belong to the same sleep block
  *  - the sleep block with the most still minutes inside the night window wins
- *  - the bedtime is the moment the phone was put down (the last movement
- *    right before the block), the wake time the moment it was picked up
- *  - awake gaps inside the session are interruptions (up to 5 min), ambiguous
- *    (5–10 min — the user is asked in the morning) or the end of the sleep
- *    (more than 10 min)
+ *  - the bedtime is the start of the FIRST still run of at least
+ *    MIN_SLEEP_RUN_MIN minutes (the moment the phone was really put down)
+ *  - the wake time is the last awake gap at or after the wake window, or the
+ *    end of the block when the phone never moved again
+ *  - awake gaps inside the session are interruptions (up to 5 min, or a long
+ *    scroll of up to the cap), ambiguous (5–10 min — the user is asked in the
+ *    morning) or, starting at the wake window, the wake-up itself
  *
  * Returns null when there is no long enough stillness inside the night window.
  */
@@ -253,16 +328,15 @@ export function inferSleepSession(
 
   const threshold = options.threshold;
   const movingLimit = options.movingSeconds ?? MOVING_SECONDS_AWAKE;
+  const minRunMin = options.minRunMin ?? MIN_SLEEP_RUN_MIN;
+  const maxInterruption = options.maxMidnightInterruptionMin ?? MAX_MIDNIGHT_INTERRUPTION_MIN;
 
   const isStill = (minute: number): boolean => {
     const s = samples.get(minute);
     // A minute without samples means the tracker was off — treat it as still
     // so a restart does not cut the night in half.
     if (!s) return true;
-    // A bucket with the sustained-movement counter decides on that counter:
-    // a single bump under a pillow is not a wake-up.
-    if (s.moving !== undefined) return s.moving < movingLimit;
-    return s.peak < threshold;
+    return isStillSample(s, threshold, movingLimit);
   };
 
   // --- split the timeline into still runs --------------------------------
@@ -284,7 +358,7 @@ export function inferSleepSession(
   }
   if (runs.length === 0) return null;
 
-  // --- merge runs separated by a short awake gap --------------------------
+  // --- merge runs separated by an interruption that fits the night --------
   interface Block {
     start: number;
     end: number;
@@ -298,7 +372,11 @@ export function inferSleepSession(
     const prev = blocks[blocks.length - 1];
     if (prev) {
       const gap = run.start - prev.end - 1;
-      if (gap < MERGE_GAP_MIN) {
+      // Any gap of up to `maxInterruption` (default 120 minutes) — a phone
+      // check, a bathroom trip, a long scroll — keeps the night in one block.
+      // A longer gap is a real get-up: the night splits there and the longer
+      // half is reported as the sleep.
+      if (gap <= maxInterruption) {
         prev.end = run.end;
         prev.runs.push(run);
         if (run.end - run.start > prev.core.end - prev.core.start) prev.core = run;
@@ -344,27 +422,35 @@ export function inferSleepSession(
     g = e + 1;
   }
 
-  // A gap of more than 10 minutes means the sleep ended there.
-  const endingGap = gaps.find((x) => x.minutes > AMBIGUOUS_GAP_MAX_MIN) || null;
-  // A gap of 5–10 minutes is ambiguous — the user answers in the morning.
+  // The wake window — a movement from this minute on is "the user got up for
+  // good", an earlier movement is a short interruption (the phone was checked).
+  const wakeStartMin = options.wakeStartMin ?? ((options.sleepEndMin - 60 + 1440) % 1440);
+  const wakeEndMin = options.wakeEndMin ?? (options.sleepEndMin % 1440);
+
+  // A gap of 5–10 minutes that starts BEFORE the wake window is ambiguous —
+  // the user answers in the morning. (A gap at or after the wake window is
+  // simply the wake-up and is never asked about.)
   const ambiguousGap =
     gaps.find(
-      (x) => x.minutes > INTERRUPTION_MAX_MIN && x.minutes <= AMBIGUOUS_GAP_MAX_MIN
+      (x) =>
+        x.minutes > INTERRUPTION_MAX_MIN &&
+        x.minutes <= AMBIGUOUS_GAP_MAX_MIN &&
+        !inOrAfterWakeStart(minuteOfDay(x.start * 60000), wakeStartMin, wakeEndMin)
     ) || null;
 
   // --- clip the block to the night window ---------------------------------
-  let bedMin = best.start;
+  // The bedtime is the start of the FIRST still run of at least
+  // MIN_SLEEP_RUN_MIN minutes — a short stretch of stillness before the real
+  // sleep (the user resting with the phone at their side, screen off) is a
+  // rest, not sleep, and never shifts the bedtime earlier.
+  const firstSubstantial = best.runs.find((r) => r.end - r.start + 1 >= minRunMin);
+  let bedMin = (firstSubstantial ?? best.runs[0]).start;
   while (
     bedMin <= best.end &&
     !inNightWindow(minuteOfDay(bedMin * 60000), options.sleepStartMin, options.sleepEndMin)
   ) {
     bedMin++;
   }
-
-  // The wake window — a movement from this minute on is "the user got up for
-  // good", an earlier movement is a short interruption (the phone was checked).
-  const wakeStartMin = options.wakeStartMin ?? ((options.sleepEndMin - 60 + 1440) % 1440);
-  const wakeEndMin = options.wakeEndMin ?? (options.sleepEndMin % 1440);
 
   // --- bedtime: the moment the phone was put down -----------------------
   const bedtimeCandidate = (from: number): number => {
@@ -377,13 +463,10 @@ export function inferSleepSession(
 
   let bedEvent = bedtimeCandidate(bedMin);
 
-  // --- wake time: the moment the user picked the phone up for good ---------
+  // --- wake time: the last movement at or after the wake window start -----
   const lastGap = gaps.length > 0 ? gaps[gaps.length - 1] : null;
   let wakeEvent: number;
-  if (endingGap && endingGap.start > bedEvent) {
-    // A long awake gap (> 10 min) — the sleep ended right there.
-    wakeEvent = endingGap.start;
-  } else if (
+  if (
     lastGap &&
     inOrAfterWakeStart(minuteOfDay(lastGap.start * 60000), wakeStartMin, wakeEndMin)
   ) {
@@ -416,11 +499,20 @@ export function inferSleepSession(
   const durationMin = Math.round((wakeTime - bedTime) / 60000);
   if (durationMin < options.minSessionMin) return null;
 
-  // --- interruptions: the awake gaps of up to 5 minutes inside the night --
+  // --- interruptions: the awake gaps inside the night -----------------------
+  // A gap at or after the wake window is the wake-up, not an interruption. A
+  // gap of up to 5 minutes, or a longer gap of up to the cap (a phone check, a
+  // long scroll — the night goes on), counts as an interruption. A 5–10
+  // minute gap stays pending the user's answer and is counted on resolve.
   let interruptions = 0;
   for (const gap of gaps) {
     if (gap.start < bedMin || gap.end > wakeMin) continue;
-    if (gap.minutes <= INTERRUPTION_MAX_MIN) interruptions++;
+    if (inOrAfterWakeStart(minuteOfDay(gap.start * 60000), wakeStartMin, wakeEndMin)) continue;
+    if (gap.minutes <= INTERRUPTION_MAX_MIN) {
+      interruptions += 1;
+    } else if (gap.minutes > AMBIGUOUS_GAP_MAX_MIN && gap.minutes <= maxInterruption) {
+      interruptions += 1;
+    }
   }
 
   const pendingGap: PendingGap | null =
@@ -494,8 +586,7 @@ export function currentStillness(
   const isStill = (minute: number): boolean => {
     const s = samples.get(minute);
     if (!s) return true;
-    if (s.moving !== undefined) return s.moving < movingLimit;
-    return s.peak < threshold;
+    return isStillSample(s, threshold, movingLimit);
   };
   const minutes = Array.from(samples.keys()).sort((a, b) => a - b);
   const last = minutes[minutes.length - 1];

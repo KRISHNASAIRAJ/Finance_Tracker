@@ -8,6 +8,8 @@
  * is).
  *
  * The rules:
+ *   - a minute with the screen interactive is **AWAKE** (a still phone can still
+ *     be in use)
  *   - a minute with sustained movement is **AWAKE**
  *   - a run of still minutes of at least {@link DEEP_RUN_MIN} is **DEEP**
  *   - any other still run is **LIGHT**
@@ -40,6 +42,9 @@ export interface StageOptions {
 
 /** Is this minute awake? */
 export function isAwakeMinute(bucket: MotionBucket, options: StageOptions): boolean {
+  // A minute with the screen interactive is awake — the phone can lie perfectly
+  // still while the user scrolls.
+  if (typeof bucket.o === 'number' && Number.isFinite(bucket.o) && bucket.o > 0) return true;
   // The sustained counter is the reliable rule; the old buckets (s = -1) fall
   // back to the peak movement.
   if (typeof bucket.s === 'number' && bucket.s >= 0) {

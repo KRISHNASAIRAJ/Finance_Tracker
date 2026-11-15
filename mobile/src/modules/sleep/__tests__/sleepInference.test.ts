@@ -226,7 +226,9 @@ describe('inferSleepSession', () => {
     expect(result!.pendingGap!.startMs).toBe(at(2, 0, 1).getTime());
   });
 
-  it('ends the night at a gap of more than 10 minutes', () => {
+  it('keeps the night going at a gap of more than 10 minutes (long interruption)', () => {
+    // A twelve-minute phone check at 02:00 — the user went back to bed at
+    // 02:12 and slept until the wake window. The night must not end there.
     const buckets = buildMovingBuckets(
       at(22, 0),
       600,
@@ -235,7 +237,60 @@ describe('inferSleepSession', () => {
     const result = inferSleepSession(buckets, OPTIONS);
     expect(result).not.toBeNull();
     expect(result!.pendingGap).toBeNull();
-    expect(result!.wakeTime).toBe(at(2, 0, 1).getTime());
+    expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
+    expect(result!.interruptions).toBe(1);
+  });
+
+  it('keeps the night going at a 45 minute mid-night wake-up', () => {
+    // 02:00–02:45 awake, back to sleep until the wake window.
+    const buckets = buildMovingBuckets(
+      at(22, 0),
+      600,
+      Array.from({ length: 45 }, (_, i) => 240 + i)
+    );
+    const result = inferSleepSession(buckets, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.pendingGap).toBeNull();
+    expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
+    expect(result!.interruptions).toBe(1);
+  });
+
+  it('ends the night at a gap longer than the interruption cap', () => {
+    // Awake from 02:00 to 05:00 — a real get-up, not a phone check.
+    const buckets = buildMovingBuckets(
+      at(22, 0),
+      600,
+      Array.from({ length: 180 }, (_, i) => 240 + i)
+    );
+    const result = inferSleepSession(buckets, OPTIONS);
+    expect(result).not.toBeNull();
+    // The night that is reported is the stretch before the long get-up.
+    expect(result!.bedTime).toBe(at(22, 0).getTime());
+    expect(result!.wakeTime).toBe(at(1, 59, 1).getTime());
+  });
+
+  it('does not count a short rest before the real sleep as bedtime', () => {
+    // 22:55–23:09 still (resting with the phone, screen off), 23:10 moving,
+    // then asleep until 07:00, phone picked up at 07:00.
+    const start = at(22, 55);
+    const awake = [15, 16, 17, 490, 491, 492];
+    const buckets = buildMovingBuckets(start, 495, awake);
+    const result = inferSleepSession(buckets, OPTIONS);
+    expect(result).not.toBeNull();
+    expect(result!.bedTime).toBe(at(23, 12).getTime());
+  });
+
+  it('treats a minute with the screen interactive as awake, even without movement', () => {
+    // 22:00 → 08:00. The phone never moves, but the screen is on at 02:00–02:12.
+    const buckets = buildMovingBuckets(at(22, 0), 600, []);
+    for (let i = 240; i <= 251; i += 1) {
+      buckets[i] = { ...buckets[i], o: 60 };
+    }
+    const result = inferSleepSession(buckets, OPTIONS);
+    expect(result).not.toBeNull();
+    // A screen-on stretch is a wake-up; the night continues afterwards.
+    expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
+    expect(result!.interruptions).toBe(1);
   });
 });
 
