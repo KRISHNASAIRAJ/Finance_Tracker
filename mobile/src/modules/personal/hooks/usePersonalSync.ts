@@ -348,6 +348,8 @@ async function doPull(userId: string) {
     try {
       const { useSleepStore } = require("../../sleep/store");
       const { isSameNight } = require("../../sleep/sleepNights");
+      const { isSleepNightDeleted } = require("../../sleep/deletedNights");
+      const { localDayKey } = require("../finance/financeFormat");
       const sleepStore = useSleepStore;
       const existingIds = new Set(sleepStore.getState().entries.map((e: any) => e.id));
       const localEntries = sleepStore.getState().entries as any[];
@@ -358,6 +360,8 @@ async function doPull(userId: string) {
       const liveRefresh = new Map<string, { startTime: string; endTime: string; interruptions: number; notes: string; source: string }>();
       for (const r of sleepData as Array<Record<string, unknown>>) {
         const id = r.id as string;
+        // The user deleted this night — never re-add or refresh it.
+        if (await isSleepNightDeleted(localDayKey(new Date(r.start_time as string)))) continue;
         if (existingIds.has(id)) {
           if (id.startsWith('live_')) {
             liveRefresh.set(id, {

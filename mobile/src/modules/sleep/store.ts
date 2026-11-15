@@ -8,6 +8,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_SLEEP_MOTION_CONFIG, type SleepMotionConfig } from './sleepMotion';
 import { dedupeEntries, findSameNight } from './sleepNights';
+import { localDayKey } from '../finance/financeFormat';
+import { tombstoneDeletedNight } from './deletedNights';
 
 export interface SleepEntry {
   id: string;
@@ -164,7 +166,13 @@ export const useSleepStore = create<SleepState>()(
       },
 
       deleteEntry: (id, userId) => {
+        const target = get().entries.find((e) => e.id === id);
         set((s) => ({ entries: s.entries.filter((e) => e.id !== id) }));
+        // Never resurrect the night: the auto-save, the hourly live backup and
+        // the cloud pull all check this tombstone before re-creating it.
+        if (target?.startTime) {
+          tombstoneDeletedNight(localDayKey(new Date(target.startTime))).catch(() => {});
+        }
         enq('sleep_logs', 'delete', { id, user_id: userId || null });
         refreshWidget();
       },

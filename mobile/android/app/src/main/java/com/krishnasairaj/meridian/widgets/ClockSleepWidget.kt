@@ -395,7 +395,9 @@ class ClockSleepWidget : AppWidgetProvider() {
      * the chart ImageView (exact rounded shapes; unlimited segments).
      *
      * Lane rows are 12 dp high with a 6 dp bar centred (rows at 0 / 15 / 30 dp).
-     * The bitmap stays under 600 x 200 px to fit the RemoteViews binder budget.
+     * The bitmap is capped at about 320 x 112 px — RemoteViews bitmaps ride
+     * inside the widget-update transaction and big payloads make launchers
+     * show "an error occurred while loading widget".
      */
     private fun renderChartBitmap(
         context: Context,
@@ -405,12 +407,15 @@ class ClockSleepWidget : AppWidgetProvider() {
         awake: List<FloatArray>,
     ): Bitmap {
         val density = context.resources.displayMetrics.density
-        val w = widthPx.coerceAtLeast(40).coerceAtMost(600)
-        val h = (CHART_HEIGHT_DP * density).toInt().coerceIn(96, 200)
+        // The bitmap rides inside the RemoteViews transaction; OnePlus-style
+        // launchers reject the whole widget once the payload gets big, so the
+        // artwork is capped at ~320 x 112 px (~143 KB ARGB_8888).
+        val w = widthPx.coerceAtLeast(40).coerceAtMost(320)
+        val h = (CHART_HEIGHT_DP * density).toInt().coerceIn(64, 112)
         val u = h / CHART_HEIGHT_DP // px per dp inside the bitmap
         val barH = 6f * u
         val radius = 3f * u
-        val minBarPx = (2f * density).coerceAtMost(w.toFloat())
+        val minBarPx = 2f * u // min 2dp — a 30-second wake-up still draws
 
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)

@@ -250,6 +250,27 @@
       `DEEP_RUN_MIN` unchanged by design); "No sleep data" caption on a
       cleared log; tab fillet; labels at 6sp.
 
+### Batch 17 — sleep delete resurrection fix + widget payload shrink (2026-11-15)
+
+- [x] **Sleep logs could not be deleted — they came back.** Root cause: on
+      every app open/foreground the auto-save re-created the night from the
+      surviving motion buckets, and the hourly live backup re-pushed
+      `live_<day>` to `sleep_logs` — both after an explicit delete.
+- [x] **Tombstone list** (`modules/sleep/deletedNights.ts`): deleting an
+      entry stores the night's local day key in AsyncStorage
+      (`meridian-sleep-deleted-nights`, capped at 90). The auto-save, the
+      live backup (which also best-effort deletes the cloud `live_` row) and
+      the cloud pull (no re-add, no live-refresh) all check it.
+- [x] **Widget "an error occurred while loading widget"** — the rendered
+      chart bitmap was ~175–480 KB and OnePlus-style launchers reject the
+      whole RemoteViews payload past a few hundred KB. Bitmap now capped at
+      ~320 x 112 px (~143 KB) with bar geometry derived from `u` so the
+      2 dp minimum holds at any size. On-device check needed; if it still
+      errors, remove + re-add the widget instance once.
+- [x] Tests: new `deletedNights.test.ts` (tombstone round-trip, 90-cap,
+      auto-save skip, store tombstones on delete) — **332 unit green**,
+      e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
+
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /

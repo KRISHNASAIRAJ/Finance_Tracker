@@ -25,6 +25,7 @@ import {
   movingSecondsThreshold,
 } from '../modules/sleep/sleepInference';
 import { isSameNight } from '../modules/sleep/sleepNights';
+import { isSleepNightDeleted } from '../modules/sleep/deletedNights';
 import { localDayKey } from '../modules/finance/financeFormat';
 import { supabase } from './supabaseClient';
 
@@ -101,6 +102,15 @@ export async function pushLiveNight(now: number = Date.now()): Promise<LiveSyncR
     if (!user) return 'unauthenticated';
     const dayKey = localDayKey(new Date(night.startMs));
     const id = LIVE_ID(dayKey);
+    // The user deleted this night — keep the cloud live row gone for good.
+    if (await isSleepNightDeleted(dayKey)) {
+      try {
+        await supabase.from('sleep_logs').delete().eq('id', id).eq('user_id', user.id);
+      } catch {
+        /* best-effort */
+      }
+      return 'none';
+    }
     const { error } = await supabase.from('sleep_logs').upsert(
       {
         id,
