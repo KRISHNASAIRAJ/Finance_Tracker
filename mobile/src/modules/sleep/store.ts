@@ -174,6 +174,19 @@ export const useSleepStore = create<SleepState>()(
           tombstoneDeletedNight(localDayKey(new Date(target.startTime))).catch(() => {});
         }
         enq('sleep_logs', 'delete', { id, user_id: userId || null });
+        // Best-effort: drop the cloud row right now (by id) so a relaunch
+        // before the queue flushes cannot resurrect it. The queued delete
+        // above stays as the offline path; this is exactly the row the
+        // user deleted, nothing else.
+        try {
+          const { supabase } = require('../../services/supabaseClient');
+          supabase
+            .from('sleep_logs')
+            .delete()
+            .eq('id', id)
+            .then(() => {})
+            .catch(() => {});
+        } catch (_e) { /* offline — the queue handles it */ }
         refreshWidget();
       },
 

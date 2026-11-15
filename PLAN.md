@@ -271,6 +271,29 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 18 — widget fallback rewrite (2026-11-15)
+
+- [x] **Bitmap path REMOVED.** "An error occurred while loading widget"
+      persisted on device through the 600x200 -> 320x112 cap, so the chart no
+      longer rides the RemoteViews transaction at all. Tracks and the AWAKE
+      dotted timeline are drawable backgrounds again; the bars are horizontal
+      `ProgressBar`s positioned by padding (the spec's sanctioned fallback) —
+      the payload stays integers and strings.
+- [x] Bars capped at **4 per lane** (spec fallback). Lanes with more segments
+      are merged closest-gap-neighbours-first until 4 remain — display-only
+      union of ranges, no data invented. Empty lanes still draw the track.
+- [x] Kept from Batch 16/17: 6sp labels (#FFE3E8, 0.11em), bed/wake 5sp
+      #FFE3E8, SLEEP #8A8A8A 0.15em, stats labels 0.17em, tab duration
+      `#1A0006` bold / Score `#3A0010`, card border `#2A2A2A`, "No sleep
+      data" caption + empty-state hiding, segment end clamping.
+- [x] **Delete strengthening:** `deleteEntry` now also best-effort deletes
+      the cloud row immediately by id (the queued delete stays as the
+      offline path). Tombstones + the live-sync/auto-save/pull guards from
+      Batch 17 remain. On-device check still required: with v4 code the
+      entry must vanish instantly and stay gone.
+- [x] Kotlin + resources compile green, tsc ✓, ESLint ✓, sleep suites ✓,
+      332 unit ✓, e2e 9/9 ✓. **Not yet device-verified.**
+
 ### Batch 3 — shipped (CI run #85 green, 2026-11-12)
 
 - [x] **Keep in touch (people)** — a per-person cadence list (Weekly / Monthly /

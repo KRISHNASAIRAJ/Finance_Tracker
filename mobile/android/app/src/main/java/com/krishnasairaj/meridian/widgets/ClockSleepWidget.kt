@@ -6,10 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.BatteryManager
@@ -58,19 +55,30 @@ class ClockSleepWidget : AppWidgetProvider() {
         /** A native reading older than this is never shown. */
         private const val WEATHER_NATIVE_MAX_AGE_MS = 12L * 60 * 60_000L
 
-        /** The lane rows inside the chart bitmap (dp): top of DEEP, LIGHT, AWAKE. */
-        private val LANE_TOP_DP = floatArrayOf(0f, 15f, 30f)
-        private const val LANE_ROW_DP = 12f
-        private const val CHART_HEIGHT_DP = 42f
-        /** The 30dp lane-label column on the left of the chart. */
-        private const val LABEL_COL_DP = 30f
+        // The stage chart is drawn with padding-ProgressBars only (the RemoteViews
+        // payload stays tiny — no bitmaps). Root padding + the lane label, both
+        // sides, in dp — matches the label column the tracks replace.
+        private const val TRACK_INSET_DP = 44
 
-        /** Tracks: black at 16% over the red block; AWAKE dots: black 40%. */
-        private val TRACK_COLOR = Color.parseColor("#29000000")
-        private val AWAKE_DOT_COLOR = Color.parseColor("#66000000")
-        private val DEEP_COLOR = Color.parseColor("#5A0012")
-        private val LIGHT_COLOR = Color.parseColor("#FFC2CC")
-        private val AWAKE_COLOR = Color.parseColor("#FFFFFF")
+        /** The bars of the three lanes (four slots each). */
+        private val DEEP_IDS = intArrayOf(
+            R.id.clock_sleep_deep_1,
+            R.id.clock_sleep_deep_2,
+            R.id.clock_sleep_deep_3,
+            R.id.clock_sleep_deep_4
+        )
+        private val LIGHT_IDS = intArrayOf(
+            R.id.clock_sleep_light_1,
+            R.id.clock_sleep_light_2,
+            R.id.clock_sleep_light_3,
+            R.id.clock_sleep_light_4
+        )
+        private val AWAKE_IDS = intArrayOf(
+            R.id.clock_sleep_awake_1,
+            R.id.clock_sleep_awake_2,
+            R.id.clock_sleep_awake_3,
+            R.id.clock_sleep_awake_4
+        )
 
         private const val NO_VALUE = "—"
         /** Shown until the realtime weather lands. */
@@ -325,15 +333,15 @@ class ClockSleepWidget : AppWidgetProvider() {
         // is the fresher one.
         views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
 
-        // The stage chart — tracks, bars and the AWAKE dots are drawn into
-        // one Canvas bitmap at render time (exact rounded shapes, unlimited
-        // segments) and set on the chart ImageView.
-        val chart = renderChartBitmap(
-            context,
-            chartWidthPx(context, mgr, widgetId),
-            deep, light, awake,
-        )
-        views.setImageViewBitmap(R.id.clock_sleep_chart_image, chart)
+        // The stage chart — tracks and the AWAKE dots are drawable backgrounds;
+        // the bars are horizontal ProgressBars positioned by padding, so the
+        // RemoteViews payload stays tiny. More than four segments in a lane are
+        // merged (display only — no data is invented).
+        val track = trackWidthPx(context, mgr, widgetId)
+        val minBarPx = (2 * context.resources.displayMetrics.density).toInt()
+        bindSegments(views, deep, DEEP_IDS, track, minBarPx)
+        bindSegments(views, light, LIGHT_IDS, track, minBarPx)
+        bindSegments(views, awake, AWAKE_IDS, track, minBarPx)
         // Empty night: tracks plus the "No sleep data" caption; hide the
         // bed/wake times and the score line.
         views.setViewVisibility(R.id.clock_sleep_empty, if (hasSleep) View.GONE else View.VISIBLE)
@@ -377,93 +385,80 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
     }
 
-    /** Width available for the lane artwork, in pixels. */
-    private fun chartWidthPx(
+    /** Width of the stage track in pixels. */
+    private fun trackWidthPx(
         context: Context,
         mgr: AppWidgetManager,
-        widgetId: Int,
+        widgetId: Int
     ): Int {
         val options = mgr.getAppWidgetOptions(widgetId)
-        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110).toFloat()
+        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
         val density = context.resources.displayMetrics.density
-        // Root padding (6 + 6) and the 30dp lane-label column are ours to subtract.
-        return ((widthDp - 12f - LABEL_COL_DP).coerceAtLeast(40f) * density).toInt()
+        return ((widthDp - TRACK_INSET_DP).coerceAtLeast(40) * density).toInt()
     }
 
     /**
-     * Draw the tracks, bars and the AWAKE dots into one bitmap and set it on
-     * the chart ImageView (exact rounded shapes; unlimited segments).
+     * Merge the night fractions until at most [limit] bars remain.
      *
-     * Lane rows are 12 dp high with a 6 dp bar centred (rows at 0 / 15 / 30 dp).
-     * The bitmap is capped at about 320 x 112 px — RemoteViews bitmaps ride
-     * inside the widget-update transaction and big payloads make launchers
-     * show "an error occurred while loading widget".
+     * The chart slots are four ProgressBars per lane, so a night with more
+     * segments is coalesced — closest-gap neighbours first — keeping the
+     * timeline overview. Merging never invents data; it only unions ranges.
      */
-    private fun renderChartBitmap(
-        context: Context,
-        widthPx: Int,
-        deep: List<FloatArray>,
-        light: List<FloatArray>,
-        awake: List<FloatArray>,
-    ): Bitmap {
-        val density = context.resources.displayMetrics.density
-        // The bitmap rides inside the RemoteViews transaction; OnePlus-style
-        // launchers reject the whole widget once the payload gets big, so the
-        // artwork is capped at ~320 x 112 px (~143 KB ARGB_8888).
-        val w = widthPx.coerceAtLeast(40).coerceAtMost(320)
-        val h = (CHART_HEIGHT_DP * density).toInt().coerceIn(64, 112)
-        val u = h / CHART_HEIGHT_DP // px per dp inside the bitmap
-        val barH = 6f * u
-        val radius = 3f * u
-        val minBarPx = 2f * u // min 2dp — a 30-second wake-up still draws
-
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = TRACK_COLOR }
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AWAKE_DOT_COLOR }
-        val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-
-        for (lane in 0..2) {
-            val rowTop = LANE_TOP_DP[lane] * u
-            val barTop = rowTop + (LANE_ROW_DP * u - barH) / 2f
-            // Every lane gets its visible rounded track.
-            canvas.drawRoundRect(0f, barTop, w.toFloat(), barTop + barH, radius, radius, trackPaint)
-            // The AWAKE lane also shows its dotted timeline behind the bars.
-            if (lane == 2) {
-                val dotH = 2f * u
-                val dotTop = barTop + (barH - dotH) / 2f
-                val dash = 2f * u
-                val gap = 5f * u
-                var x = 2f * u
-                while (x + dash <= w.toFloat()) {
-                    canvas.drawRoundRect(x, dotTop, x + dash, dotTop + dotH, dotH / 2f, dotH / 2f, dotPaint)
-                    x += dash + gap
-                }
-            }
-            val segments = when (lane) {
-                0 -> deep
-                1 -> light
-                else -> awake
-            }
-            barPaint.color = when (lane) {
-                0 -> DEEP_COLOR
-                1 -> LIGHT_COLOR
-                else -> AWAKE_COLOR
-            }
-            for (s in segments) {
+    private fun mergeToLimit(segments: List<FloatArray>, limit: Int): List<Pair<Float, Float>> {
+        val bars = segments
+            .mapNotNull { s ->
                 val from = s[0].coerceIn(0f, 1f)
                 val to = (s[0] + s[1]).coerceIn(0f, 1f)
-                if (to <= from) continue
-                var x = from * w
-                var barW = to * w - x
-                if (barW < minBarPx) barW = minBarPx // min 2dp — a 30-second wake-up still draws
-                if (x + barW > w) barW = w - x
-                if (barW <= 0f) continue
-                val rr = minOf(radius, barW / 2f)
-                canvas.drawRoundRect(x, barTop, x + barW, barTop + barH, rr, rr, barPaint)
+                if (to > from) Pair(from, to) else null
             }
+            .sortedBy { it.first }
+            .toMutableList()
+        while (bars.size > limit) {
+            var bestIdx = 0
+            var bestGap = Float.MAX_VALUE
+            for (i in 0 until bars.size - 1) {
+                val gap = bars[i + 1].first - bars[i].second
+                if (gap < bestGap) {
+                    bestGap = gap
+                    bestIdx = i
+                }
+            }
+            val a = bars[bestIdx]
+            val b = bars[bestIdx + 1]
+            bars[bestIdx] = Pair(a.first, b.second)
+            bars.removeAt(bestIdx + 1)
         }
-        return bmp
+        return bars
+    }
+
+    /**
+     * Draw the bars of one lane — a segment is positioned by padding a
+     * full-width progress bar (the same trick the REM timeline used).
+     */
+    private fun bindSegments(
+        views: RemoteViews,
+        segments: List<FloatArray>,
+        ids: IntArray,
+        track: Int,
+        minBarPx: Int,
+    ) {
+        val bars = mergeToLimit(segments, ids.size)
+        for (index in ids.indices) {
+            val id = ids[index]
+            val seg = bars.getOrNull(index)
+            if (seg == null) {
+                views.setViewVisibility(id, View.GONE)
+                continue
+            }
+            views.setViewVisibility(id, View.VISIBLE)
+            val from = (seg.first.coerceIn(0f, 1f) * track).toInt()
+            val to = (seg.second.coerceIn(0f, 1f) * track).toInt()
+            // Every bar is at least minBarPx — a 30-second wake-up still draws.
+            val width = (to - from).coerceAtLeast(minBarPx)
+            val rightPad = (track - width - from).coerceAtLeast(0)
+            views.setViewPadding(id, from, 0, rightPad, 0)
+            views.setProgressBar(id, 100, 100, false)
+        }
     }
 
     /** The next system alarm, formatted for the ALARM cell; null when none. */
