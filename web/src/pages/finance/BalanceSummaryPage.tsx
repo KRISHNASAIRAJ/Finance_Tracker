@@ -71,7 +71,7 @@ export function BalanceSummaryPage() {
         <Card className="p-5 lg:col-span-3 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-white/50">Net worth</p>
-            <p className={`mt-1 text-4xl font-bold tracking-tight tnum ${netWorth >= 0 ? 'text-white' : 'text-[#FF887D]'}`}>
+            <p className={`mt-1 text-4xl font-bold tracking-tight tnum ${netWorth >= 0 ? 'text-white' : 'text-[#FF4D66]'}`}>
               {paiseToRupees(netWorth)}
             </p>
           </div>
@@ -94,19 +94,19 @@ export function BalanceSummaryPage() {
           </Card>
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Wallets</p>
-            <p className="mt-1 text-2xl font-bold text-[#59D6C7] tnum">{paiseToRupees(walletTotal)}</p>
+            <p className="mt-1 text-2xl font-bold text-[#3EE6B0] tnum">{paiseToRupees(walletTotal)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Card outstanding</p>
-            <p className="mt-1 text-2xl font-bold text-[#FF887D] tnum">{paiseToRupees(totalOutstanding)}</p>
+            <p className="mt-1 text-2xl font-bold text-[#FF4D66] tnum">{paiseToRupees(totalOutstanding)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Lent out</p>
-            <p className="mt-1 text-2xl font-bold text-[#59D6C7] tnum">{paiseToRupees(lentOut)}</p>
+            <p className="mt-1 text-2xl font-bold text-[#3EE6B0] tnum">{paiseToRupees(lentOut)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-medium text-white/50">Borrowed</p>
-            <p className="mt-1 text-2xl font-bold text-[#E2A45C] tnum">{paiseToRupees(borrowedOut)}</p>
+            <p className="mt-1 text-2xl font-bold text-[#FFB547] tnum">{paiseToRupees(borrowedOut)}</p>
           </Card>
         </div>
       )}
@@ -214,7 +214,7 @@ export function BalanceSummaryPage() {
                     <p className="text-sm text-white/80">{c.name}</p>
                     <p className="text-xs text-white/40">•••• {c.ending_with}</p>
                   </div>
-                  <p className="text-sm font-semibold text-[#FF887D] tnum">{paiseToRupees(outstanding)}</p>
+                  <p className="text-sm font-semibold text-[#FF4D66] tnum">{paiseToRupees(outstanding)}</p>
                 </div>
               )
             })}

@@ -168,7 +168,7 @@ export function GarageReportsPage() {
                 <TrendLine
                   data={odometerData}
                   height={180}
-                  color="#BCE85D"
+                  color="#4DA3FF"
                   formatter={(v) => `${formatNumber(v, 0)} km`}
                 />
               </CardBody>

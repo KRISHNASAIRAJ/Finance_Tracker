@@ -72,7 +72,7 @@ export function StatCard({
     compact ? 'text-2xl' : 'text-3xl'
   )
   return (
-    <div className={cn('rounded-2xl border border-white/10 bg-[#101010]', compact ? 'p-4' : 'p-5')}>
+    <div className={cn('rounded-2xl border border-line bg-surface', compact ? 'p-4' : 'p-5')}>
       <p className="text-xs font-medium text-white/50">{label}</p>
       {typeof value === 'number' ? (
         <AnimatedNumber
@@ -89,7 +89,7 @@ export function StatCard({
       {(change || changeLabel) && (
         <p className="mt-1 text-xs text-white/40">
           {change && (
-            <span className={change.startsWith('+') ? 'text-[#59D6C7]' : change.startsWith('-') ? 'text-[#FF887D]' : undefined}>
+            <span className={change.startsWith('+') ? 'text-[#3EE6B0]' : change.startsWith('-') ? 'text-[#FF4D66]' : undefined}>
               {change}
             </span>
           )}

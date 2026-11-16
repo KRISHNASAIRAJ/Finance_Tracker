@@ -213,7 +213,7 @@ export function HabitsPage() {
                       </span>
                       <Pencil className="h-3 w-3 shrink-0 text-white/0 transition-colors group-hover:text-white/30" />
                       {streak >= 3 && (
-                        <span className="flex items-center gap-1 rounded-full bg-[#FF887D]/15 px-2 py-0.5 text-[11px] font-semibold text-[#FF887D]">
+                        <span className="flex items-center gap-1 rounded-full bg-[#FF4D66]/15 px-2 py-0.5 text-[11px] font-semibold text-[#FF4D66]">
                           <Flame className="h-3 w-3" /> {streak}
                         </span>
                       )}

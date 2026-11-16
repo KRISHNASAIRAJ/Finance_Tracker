@@ -153,7 +153,7 @@ export function NotesPage() {
               {openFolder === f.name ? (
                 <FolderOpen className="h-4 w-4 text-[#9BA5FF]" />
               ) : (
-                <Folder className={cn('h-4 w-4', f.name === DELETED ? 'text-white/30' : 'text-[#59D6C7]')} />
+                <Folder className={cn('h-4 w-4', f.name === DELETED ? 'text-white/30' : 'text-[#3EE6B0]')} />
               )}
               <span className="flex-1 truncate">{f.name}</span>
               <span className="text-xs text-white/30 tnum">{f.count}</span>
@@ -204,13 +204,13 @@ export function NotesPage() {
                   <div className="mt-1.5 flex gap-2">
                     <span
                       onClick={(e) => { e.stopPropagation(); restore(n) }}
-                      className="flex items-center gap-1 rounded-md bg-[#59D6C7]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#59D6C7] hover:bg-[#59D6C7]/20"
+                      className="flex items-center gap-1 rounded-md bg-[#3EE6B0]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#3EE6B0] hover:bg-[#3EE6B0]/20"
                     >
                       <Undo2 className="h-3 w-3" /> Recover
                     </span>
                     <span
                       onClick={(e) => { e.stopPropagation(); purge(n) }}
-                      className="flex items-center gap-1 rounded-md bg-[#FF887D]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF887D] hover:bg-[#FF887D]/20"
+                      className="flex items-center gap-1 rounded-md bg-[#FF4D66]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF4D66] hover:bg-[#FF4D66]/20"
                     >
                       <Trash2 className="h-3 w-3" /> Delete forever
                     </span>
@@ -225,7 +225,7 @@ export function NotesPage() {
                     </span>
                     <span
                       onClick={(e) => { e.stopPropagation(); trash(n) }}
-                      className="flex items-center gap-1 rounded-md bg-[#FF887D]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF887D] hover:bg-[#FF887D]/20"
+                      className="flex items-center gap-1 rounded-md bg-[#FF4D66]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF4D66] hover:bg-[#FF4D66]/20"
                     >
                       <Trash2 className="h-3 w-3" /> Delete
                     </span>
@@ -249,11 +249,11 @@ export function NotesPage() {
                     </button>
                   )}
                   {current.deleted_at ? (
-                    <button onClick={() => restore(current)} className="flex items-center gap-1 text-xs text-[#59D6C7] hover:underline">
+                    <button onClick={() => restore(current)} className="flex items-center gap-1 text-xs text-[#3EE6B0] hover:underline">
                       <Undo2 className="h-3.5 w-3.5" /> Recover
                     </button>
                   ) : (
-                    <button onClick={() => trash(current)} className="text-white/40 hover:text-[#FF887D]">
+                    <button onClick={() => trash(current)} className="text-white/40 hover:text-[#FF4D66]">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}

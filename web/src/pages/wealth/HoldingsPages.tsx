@@ -26,8 +26,8 @@ const TYPE_OPTIONS = [
 
 const TYPE_COLORS: Record<HoldingType, string> = {
   equity: '#9BA5FF',
-  mf: '#59D6C7',
-  etf: '#E2A45C',
+  mf: '#3EE6B0',
+  etf: '#FFB547',
   other: '#a78bfa',
 }
 
@@ -124,7 +124,7 @@ export function HoldingsListPage() {
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-sm font-semibold text-white tnum">{paiseToRupees(value)}</p>
-                  <p className={`text-xs font-medium ${pnlPct >= 0 ? 'text-[#59D6C7]' : 'text-[#FF887D]'}`}>
+                  <p className={`text-xs font-medium ${pnlPct >= 0 ? 'text-[#3EE6B0]' : 'text-[#FF4D66]'}`}>
                     {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(1)}%
                   </p>
                 </div>
@@ -137,7 +137,7 @@ export function HoldingsListPage() {
                   </Link>
                   <button
                     onClick={() => setDeleting(h.id)}
-                    className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]"
+                    className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

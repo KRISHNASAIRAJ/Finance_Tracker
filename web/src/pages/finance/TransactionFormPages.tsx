@@ -150,7 +150,7 @@ function TransactionForm({ id }: { id?: string }) {
           <div className="flex flex-wrap gap-2">
             {amount && (
               <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
-                <Check className="h-3 w-3 text-[#59D6C7]" /> ₹{amount}
+                <Check className="h-3 w-3 text-[#3EE6B0]" /> ₹{amount}
               </span>
             )}
             <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
@@ -230,7 +230,7 @@ function TransactionForm({ id }: { id?: string }) {
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {error && <p className="text-sm text-[#FF887D]">{error}</p>}
+        {error && <p className="text-sm text-[#FF4D66]">{error}</p>}
 
         <div className="flex gap-3">
           <Button type="submit" className="flex-1" loading={saving}>

@@ -134,7 +134,7 @@ export function OffersPage() {
                   Min ₹{(offer.min_spend_paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </span>
               ) : null}
-              <span className={cn('rounded-md px-2 py-0.5', urgent ? 'bg-[#FF887D]/15 font-semibold text-[#FF887D]' : 'bg-white/5')}>
+              <span className={cn('rounded-md px-2 py-0.5', urgent ? 'bg-[#FF4D66]/15 font-semibold text-[#FF4D66]' : 'bg-white/5')}>
                 {isExpired
                   ? `Expired ${fmtDate(offer.expires_on)}`
                   : days === 0
@@ -155,7 +155,7 @@ export function OffersPage() {
             <button onClick={() => openEdit(offer)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
               <Pencil className="h-3.5 w-3.5" />
             </button>
-            <button onClick={() => setDeleting(offer.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+            <button onClick={() => setDeleting(offer.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>

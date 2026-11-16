@@ -45,7 +45,7 @@ export function ContactPage() {
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9BA5FF]/60 invalid:border-[#FF887D]/60"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9BA5FF]/60 invalid:border-[#FF4D66]/60"
             placeholder="Your name"
           />
         </div>
@@ -71,7 +71,7 @@ export function ContactPage() {
           />
         </div>
         {error && (
-          <p role="alert" className="rounded-lg bg-[#FF887D]/10 px-3 py-2 text-xs font-medium text-[#FF887D]">
+          <p role="alert" className="rounded-lg bg-[#FF4D66]/10 px-3 py-2 text-xs font-medium text-[#FF4D66]">
             {error}
           </p>
         )}

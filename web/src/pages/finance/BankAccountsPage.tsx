@@ -130,7 +130,7 @@ export function BankAccountsPage() {
                   <button onClick={() => openEdit(a.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => setDeleting(a.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                  <button onClick={() => setDeleting(a.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -144,7 +144,7 @@ export function BankAccountsPage() {
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-[#59D6C7]" />
+            <Wallet className="h-4 w-4 text-[#3EE6B0]" />
             <p className="text-sm font-semibold text-white">Wallets</p>
           </div>
           <p className="text-xs text-white/40">{paiseToRupees(walletTotal)} total</p>

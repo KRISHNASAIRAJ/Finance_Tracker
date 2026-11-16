@@ -102,7 +102,7 @@ export function GarageDashboardPage() {
   const spendDonut = useMemo(() => {
     const data = [
       { name: 'Fuel', value: totalFuelSpend, color: '#9BA5FF' },
-      { name: 'Maintenance', value: totalMaintenanceSpend, color: '#E2A45C' },
+      { name: 'Maintenance', value: totalMaintenanceSpend, color: '#FFB547' },
     ]
     return data.filter((d) => d.value > 0)
   }, [totalFuelSpend, totalMaintenanceSpend])
@@ -261,7 +261,7 @@ export function GarageDashboardPage() {
                   <TrendArea
                     data={mileageTrend}
                     height={170}
-                    color="#59D6C7"
+                    color="#3EE6B0"
                     formatter={(v) => `${v} km/l`}
                   />
                 ) : (
@@ -419,7 +419,7 @@ export function GarageDashboardPage() {
                   <button onClick={() => openEditVehicle(v)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => setDeleting(v)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                  <button onClick={() => setDeleting(v)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>

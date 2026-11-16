@@ -9,7 +9,7 @@ export function ThankYouPage() {
         path="/thank-you"
         noIndex
       />
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#59D6C7] to-[#9BA5FF]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3EE6B0] to-[#9BA5FF]">
         <svg className="h-8 w-8 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
           <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

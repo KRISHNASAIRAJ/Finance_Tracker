@@ -9,7 +9,7 @@ import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../compone
 import { formatNumber, paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { allocCategoryOf } from './WealthDashboardPage'
 
-const ALLOC_COLORS = ['#9BA5FF', '#59D6C7', '#BCE85D', '#E2A45C', '#FF887D', '#a78bfa']
+const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa']
 
 export function AllocationDetailPage() {
   const { cat } = useParams()
@@ -81,7 +81,7 @@ export function AllocationDetailPage() {
               label="Total P&L"
               value={`${totalPnL >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(totalPnL))}`}
               change={`${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%`}
-              color={totalPnL >= 0 ? '#59D6C7' : '#FF887D'}
+              color={totalPnL >= 0 ? '#3EE6B0' : '#FF4D66'}
             />
           </div>
 

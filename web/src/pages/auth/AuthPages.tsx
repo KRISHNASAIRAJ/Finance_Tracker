@@ -10,7 +10,7 @@ import { SEO } from '../../components/SEO'
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#0A0A0C] px-4">
       <div className="w-full max-w-sm fade-up">
         <div className="mb-8 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white">
@@ -76,7 +76,7 @@ export function LoginPage() {
           required
           autoComplete="current-password"
         />
-        {error && <p className="text-sm text-[#FF887D]">{error}</p>}
+        {error && <p className="text-sm text-[#FF4D66]">{error}</p>}
         <Button type="submit" className="w-full" loading={loading}>
           Sign in
         </Button>
@@ -144,8 +144,8 @@ export function SignupPage() {
           minLength={6}
           autoComplete="new-password"
         />
-        {error && <p className="text-sm text-[#FF887D]">{error}</p>}
-        {message && <p className="text-sm text-[#59D6C7]">{message}</p>}
+        {error && <p className="text-sm text-[#FF4D66]">{error}</p>}
+        {message && <p className="text-sm text-[#3EE6B0]">{message}</p>}
         <Button type="submit" className="w-full" loading={loading}>
           Sign up
         </Button>
@@ -198,8 +198,8 @@ export function ForgotPasswordPage() {
           placeholder="you@example.com"
           required
         />
-        {error && <p className="text-sm text-[#FF887D]">{error}</p>}
-        {message && <p className="text-sm text-[#59D6C7]">{message}</p>}
+        {error && <p className="text-sm text-[#FF4D66]">{error}</p>}
+        {message && <p className="text-sm text-[#3EE6B0]">{message}</p>}
         <Button type="submit" className="w-full" loading={loading}>
           Send reset link
         </Button>

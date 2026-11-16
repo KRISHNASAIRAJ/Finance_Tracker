@@ -24,7 +24,7 @@ import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../../lib/forma
 import { toast } from '../../components/ui/Toast'
 import type { Holding } from '../../types'
 
-const ALLOC_COLORS = ['#9BA5FF', '#59D6C7', '#BCE85D', '#E2A45C', '#FF887D', '#a78bfa']
+const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa']
 
 /** Known allocation categories — mirrors mobile/src/modules/equity/store.ts. */
 const ALLOC_CATEGORIES = ['Equity', 'Mutual Funds', 'ETF', 'Gold', 'Realty', 'Other']
@@ -173,7 +173,7 @@ export function WealthDashboardPage() {
           <Button size="sm" variant="secondary" className="gap-1.5">
             <Wallet className="h-4 w-4" /> Loans & FDs
             {(loans ?? []).length + (fds ?? []).length > 0 && (
-              <span className="rounded-full bg-[#FF887D]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF887D]">
+              <span className="rounded-full bg-[#FF4D66]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#FF4D66]">
                 {(loans ?? []).length + (fds ?? []).length}
               </span>
             )}
@@ -213,8 +213,8 @@ export function WealthDashboardPage() {
           </div>
           <div className="relative mt-5 flex flex-wrap items-center gap-6 border-t border-white/10 pt-5">
             <div className="flex items-center gap-2">
-              <span className="text-[#59D6C7]">▲</span>
-              <p className="text-sm font-semibold text-[#59D6C7] tnum">+{paiseToRupees(portfolioValue)}</p>
+              <span className="text-[#3EE6B0]">▲</span>
+              <p className="text-sm font-semibold text-[#3EE6B0] tnum">+{paiseToRupees(portfolioValue)}</p>
               <p className="text-[11px] text-white/40">Investments</p>
             </div>
             <div className="flex items-center gap-2">
@@ -227,8 +227,8 @@ export function WealthDashboardPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[#FF887D]">▼</span>
-              <p className="text-sm font-semibold text-[#FF887D] tnum">
+              <span className="text-[#FF4D66]">▼</span>
+              <p className="text-sm font-semibold text-[#FF4D66] tnum">
                 {totalLoans > 0 ? `−${paiseToRupees(totalLoans)}` : '₹0.00'}
               </p>
               <p className="text-[11px] text-white/40">
@@ -259,14 +259,14 @@ export function WealthDashboardPage() {
                 ? `Equity ${pnlSplit.equity >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(pnlSplit.equity))} · MF ${pnlSplit.mf >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(pnlSplit.mf))}`
                 : undefined
             }
-            color={todayPnL >= 0 ? '#59D6C7' : '#FF887D'}
+            color={todayPnL >= 0 ? '#3EE6B0' : '#FF4D66'}
           />
           <StatCard label="Total cost" value={paiseToRupees(totalCost)} />
           <StatCard
             label="Total return"
             value={`${totalReturn >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(totalReturn))}`}
             change={`${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}%`}
-            color={totalReturn >= 0 ? '#59D6C7' : '#FF887D'}
+            color={totalReturn >= 0 ? '#3EE6B0' : '#FF4D66'}
           />
         </div>
       )}
@@ -357,10 +357,10 @@ export function WealthDashboardPage() {
                 {(loans ?? []).map((l) => (
                   <div key={l.id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FF887D]" />
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#FF4D66]" />
                       <span className="truncate text-white/70">{l.name}</span>
                     </span>
-                    <span className="font-semibold text-[#FF887D] tnum">−{paiseToRupees(l.amount)}</span>
+                    <span className="font-semibold text-[#FF4D66] tnum">−{paiseToRupees(l.amount)}</span>
                   </div>
                 ))}
               </div>

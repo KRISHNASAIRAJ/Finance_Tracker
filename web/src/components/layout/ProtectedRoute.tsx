@@ -11,7 +11,7 @@ export function ProtectedRoute() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0C]">
         <LoadingSpinner />
       </div>
     )
@@ -28,7 +28,7 @@ export function PublicOnlyRoute() {
   const { user, loading } = useAuth()
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0C]">
         <LoadingSpinner />
       </div>
     )

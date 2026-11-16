@@ -19,7 +19,7 @@ import {
 } from 'recharts'
 
 const tooltipStyle = {
-  backgroundColor: '#1A1A1A',
+  backgroundColor: '#1B1B20',
   border: '1px solid rgba(255,255,255,0.12)',
   borderRadius: '12px',
   fontSize: '12px',
@@ -62,7 +62,7 @@ export function TrendArea({
   data,
   xKey = 'label',
   yKey = 'value',
-  color = '#59D6C7',
+  color = '#3EE6B0',
   height = 120,
   formatter,
 }: {
@@ -211,7 +211,7 @@ export function TrendLine({
           stroke={color}
           strokeWidth={2}
           dot={{ r: 3, fill: color, strokeWidth: 0 }}
-          activeDot={{ r: 5, fill: color, stroke: '#101010', strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: color, stroke: '#131316', strokeWidth: 2 }}
           animationDuration={900}
           animationEasing="ease-out"
         />

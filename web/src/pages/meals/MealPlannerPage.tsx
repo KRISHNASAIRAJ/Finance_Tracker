@@ -244,7 +244,7 @@ export function MealPlannerPage() {
                               <button
                                 onClick={() => clearSlot(item)}
                                 title="Clear slot"
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-white/40 opacity-0 transition-all hover:text-[#FF887D] group-hover:opacity-100"
+                                className="flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-white/40 opacity-0 transition-all hover:text-[#FF4D66] group-hover:opacity-100"
                               >
                                 <X className="h-3 w-3" />
                               </button>

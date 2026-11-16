@@ -217,7 +217,7 @@ export function MealLoggerPage() {
         }
       />
 
-      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#101010] p-3">
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#131316] p-3">
         <button onClick={() => shiftDate(-1)} className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white">
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -241,7 +241,7 @@ export function MealLoggerPage() {
                 <div key={key}>
                   <div className="flex items-baseline justify-between">
                     <span className="text-xs text-white/50">{label}</span>
-                    <span className={`text-sm font-bold tnum ${over ? 'text-[#FF887D]' : 'text-[#59D6C7]'}`}>{Math.round(done)}</span>
+                    <span className={`text-sm font-bold tnum ${over ? 'text-[#FF4D66]' : 'text-[#3EE6B0]'}`}>{Math.round(done)}</span>
                   </div>
                   <input
                     type="number"
@@ -252,7 +252,7 @@ export function MealLoggerPage() {
                   />
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
                     <div
-                      className={`h-full rounded-full ${over ? 'bg-[#FF887D]' : 'bg-[#59D6C7]'}`}
+                      className={`h-full rounded-full ${over ? 'bg-[#FF4D66]' : 'bg-[#3EE6B0]'}`}
                       style={{ width: `${Math.min(100, (done / (target || 1)) * 100)}%` }}
                     />
                   </div>
@@ -294,7 +294,7 @@ export function MealLoggerPage() {
                               <p className="text-xs font-medium text-white/85">{parsed.map((i) => i.name).join(', ')}</p>
                               {l.notes && <p className="mt-0.5 text-[11px] text-white/40">{l.notes}</p>}
                             </div>
-                            <button onClick={() => doDelete(l.id)} className="shrink-0 rounded-lg p-1.5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-[#FF887D]">
+                            <button onClick={() => doDelete(l.id)} className="shrink-0 rounded-lg p-1.5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-[#FF4D66]">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -348,7 +348,7 @@ export function MealLoggerPage() {
                   <div key={i} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs">
                     <span className="flex-1 text-white/80">{it.name}{it.quantity ? ` (${it.quantity})` : ''}</span>
                     <span className="text-white/40 tnum">{it.calories} kcal</span>
-                    <button onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))} className="rounded p-1 text-white/30 hover:text-[#FF887D]">
+                    <button onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))} className="rounded p-1 text-white/30 hover:text-[#FF4D66]">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>

@@ -112,7 +112,7 @@ export function AllTransactionsPage() {
                     <p className="text-sm font-medium text-white/90">{t.category}</p>
                     <p className="text-xs text-white/40">{formatDate(t.date)}{t.notes ? ` · ${t.notes}` : ''}</p>
                   </div>
-                  <span className={`text-sm font-semibold tnum ${isOut ? 'text-white' : 'text-[#59D6C7]'}`}>
+                  <span className={`text-sm font-semibold tnum ${isOut ? 'text-white' : 'text-[#3EE6B0]'}`}>
                     {isOut ? '−' : '+'}
                     {paiseToRupees(t.amount)}
                   </span>
@@ -122,7 +122,7 @@ export function AllTransactionsPage() {
                     </Link>
                     <button
                       onClick={() => setDeleteId(t.id)}
-                      className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]"
+                      className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

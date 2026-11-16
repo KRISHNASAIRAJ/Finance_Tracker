@@ -67,12 +67,12 @@ export function PortfolioHistoryPage() {
             <StatCard
               label="Latest day change"
               value={`${(latest?.day_change ?? 0) >= 0 ? '+' : '−'}${paiseToRupees(Math.abs(latest?.day_change ?? 0))}`}
-              color={(latest?.day_change ?? 0) >= 0 ? '#59D6C7' : '#FF887D'}
+              color={(latest?.day_change ?? 0) >= 0 ? '#3EE6B0' : '#FF4D66'}
             />
             <StatCard
               label="Latest day change %"
               value={formatPct(latest?.day_change_pct ?? 0)}
-              color={(latest?.day_change_pct ?? 0) >= 0 ? '#59D6C7' : '#FF887D'}
+              color={(latest?.day_change_pct ?? 0) >= 0 ? '#3EE6B0' : '#FF4D66'}
             />
           </div>
 
@@ -92,7 +92,7 @@ export function PortfolioHistoryPage() {
                     <p className="text-sm text-white/80">{formatDate(s.date)}</p>
                     <p className="text-xs text-white/35">
                       {s.day_change != null && (
-                        <span className={s.day_change >= 0 ? 'text-[#59D6C7]' : 'text-[#FF887D]'}>
+                        <span className={s.day_change >= 0 ? 'text-[#3EE6B0]' : 'text-[#FF4D66]'}>
                           {s.day_change >= 0 ? '+' : '−'}{paiseToRupees(Math.abs(s.day_change))}
                         </span>
                       )}
@@ -102,7 +102,7 @@ export function PortfolioHistoryPage() {
                   <p className="text-sm font-semibold text-white tnum">{paiseToRupees(s.total_value)}</p>
                   <button
                     onClick={() => setDeleting(s.date)}
-                    className="rounded-lg p-1.5 text-white/30 opacity-0 transition-opacity hover:bg-white/10 hover:text-[#FF887D] group-hover:opacity-100"
+                    className="rounded-lg p-1.5 text-white/30 opacity-0 transition-opacity hover:bg-white/10 hover:text-[#FF4D66] group-hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

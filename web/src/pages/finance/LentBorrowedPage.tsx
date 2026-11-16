@@ -21,9 +21,9 @@ import type { Receivable } from '../../types'
 type Tab = 'all' | 'lent' | 'borrowed'
 
 const STATUS_COLORS: Record<string, string> = {
-  paid: '#59D6C7',
-  partial: '#E2A45C',
-  pending: '#FF887D',
+  paid: '#3EE6B0',
+  partial: '#FFB547',
+  pending: '#FF4D66',
 }
 
 export function LentBorrowedPage() {
@@ -173,7 +173,7 @@ export function LentBorrowedPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-white/90">{r.person_name}</p>
-                      <Badge color={r.type === 'lent' ? '#9BA5FF' : '#E2A45C'}>
+                      <Badge color={r.type === 'lent' ? '#9BA5FF' : '#FFB547'}>
                         {r.type === 'lent' ? 'Lent' : 'Borrowed'}
                       </Badge>
                       <Badge color={STATUS_COLORS[r.status ?? 'pending']}>
@@ -189,14 +189,14 @@ export function LentBorrowedPage() {
                   </span>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {!isPaid && (
-                      <button onClick={() => handleMarkPaid(r.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#59D6C7]">
+                      <button onClick={() => handleMarkPaid(r.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#3EE6B0]">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button onClick={() => openEdit(r.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setDeleting(r.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                    <button onClick={() => setDeleting(r.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>

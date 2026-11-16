@@ -114,8 +114,8 @@ export function MonthlySpendPage() {
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard label="Total spend" value={paiseToRupees(spend)} />
-            <StatCard label="Income" value={paiseToRupees(income)} color="#59D6C7" />
-            <StatCard label="Net" value={paiseToRupees(net)} color={net >= 0 ? '#59D6C7' : '#FF887D'} />
+            <StatCard label="Income" value={paiseToRupees(income)} color="#3EE6B0" />
+            <StatCard label="Net" value={paiseToRupees(net)} color={net >= 0 ? '#3EE6B0' : '#FF4D66'} />
             <StatCard label="Avg per day" value={paiseToRupees(avgPerDay)} />
           </div>
 

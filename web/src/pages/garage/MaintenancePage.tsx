@@ -124,7 +124,7 @@ export function MaintenancePage() {
                     <Link to={`/garage/maintenance/${m.id}/edit`} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                       <Pencil className="h-3.5 w-3.5" />
                     </Link>
-                    <button onClick={() => setDeleting(m.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                    <button onClick={() => setDeleting(m.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>

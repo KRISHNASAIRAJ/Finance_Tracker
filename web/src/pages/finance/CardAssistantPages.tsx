@@ -86,7 +86,7 @@ function ChatPanel({ cardId, onBack }: { cardId: string; onBack?: () => void }) 
                 className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                   m.role === 'user'
                     ? 'bg-white/10 text-white'
-                    : 'border border-white/10 bg-[#1A1A1A] text-white/90'
+                    : 'border border-white/10 bg-[#1B1B20] text-white/90'
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap">{m.content}</p>
@@ -98,7 +98,7 @@ function ChatPanel({ cardId, onBack }: { cardId: string; onBack?: () => void }) 
           ))}
           {askCard.isPending && (
             <div className="flex justify-start">
-              <div className="rounded-2xl border border-white/10 bg-[#1A1A1A] px-4 py-3">
+              <div className="rounded-2xl border border-white/10 bg-[#1B1B20] px-4 py-3">
                 <div className="flex gap-1.5">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-white/30" style={{ animationDelay: '0ms' }} />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-white/30" style={{ animationDelay: '150ms' }} />

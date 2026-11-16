@@ -59,7 +59,7 @@ export function LoansPage() {
   const renderEntry = (entry: Entry, kind: 'loan' | 'fd') => {
     const isFD = kind === 'fd'
     const Icon = isFD ? Lock : Wallet
-    const accent = isFD ? '#4FDBCC' : '#FF887D'
+    const accent = isFD ? '#4FDBCC' : '#FF4D66'
     return (
       <Card key={entry.id} className="group p-5">
         <div className="flex items-center justify-between gap-4">
@@ -98,7 +98,7 @@ export function LoansPage() {
               </button>
               <button
                 onClick={() => setDeleting(entry)}
-                className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]"
+                className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -132,7 +132,7 @@ export function LoansPage() {
 
       {/* Loans section */}
       <div className="flex items-center gap-2 pt-1">
-        <Wallet className="h-4 w-4 text-[#FF887D]" />
+        <Wallet className="h-4 w-4 text-[#FF4D66]" />
         <h2 className="text-xs font-semibold uppercase tracking-widest text-white/40">Loans</h2>
       </div>
       {isLoading ? (
@@ -236,7 +236,7 @@ function AdjustLoanModal({ loan, onClose }: { loan: Loan | null; onClose: () => 
             onClick={() => setSign('minus')}
             className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
               sign === 'minus'
-                ? 'border-[#FF887D] bg-[#FF887D]/10 text-white'
+                ? 'border-[#FF4D66] bg-[#FF4D66]/10 text-white'
                 : 'border-white/10 text-white/50 hover:bg-white/5'
             }`}
           >

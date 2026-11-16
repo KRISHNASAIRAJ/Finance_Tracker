@@ -69,7 +69,7 @@ export function GoalsTrackerPage() {
               <p className="text-xs font-semibold text-white tnum">{pct}%</p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full bg-[#59D6C7] transition-all" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-[#3EE6B0] transition-all" style={{ width: `${pct}%` }} />
             </div>
           </div>
           <div className="text-right">
@@ -88,11 +88,11 @@ export function GoalsTrackerPage() {
         <div className="space-y-3">
           {(goals ?? []).map((g) => (
             <Card key={g.id} className="group flex items-center gap-3 p-4">
-              <button onClick={() => toggle(g.id, g.is_completed)} className="shrink-0 text-white/40 transition-colors hover:text-[#59D6C7]">
-                {g.is_completed ? <CheckCircle2 className="h-5 w-5 text-[#59D6C7]" /> : <Circle className="h-5 w-5" />}
+              <button onClick={() => toggle(g.id, g.is_completed)} className="shrink-0 text-white/40 transition-colors hover:text-[#3EE6B0]">
+                {g.is_completed ? <CheckCircle2 className="h-5 w-5 text-[#3EE6B0]" /> : <Circle className="h-5 w-5" />}
               </button>
               <p className={`flex-1 text-sm ${g.is_completed ? 'text-white/35 line-through' : 'text-white/85'}`}>{g.title}</p>
-              <button onClick={() => setDeleting(g.id)} className="shrink-0 rounded-lg p-1.5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-[#FF887D]">
+              <button onClick={() => setDeleting(g.id)} className="shrink-0 rounded-lg p-1.5 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10 hover:text-[#FF4D66]">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </Card>

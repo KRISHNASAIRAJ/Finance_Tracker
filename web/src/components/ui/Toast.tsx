@@ -51,10 +51,10 @@ export function ToastHost() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 24, scale: 0.96 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white shadow-2xl"
+            className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#1B1B20] px-4 py-3 text-sm text-white shadow-2xl"
           >
-            {t.kind === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#59D6C7]" />}
-            {t.kind === 'error' && <XCircle className="h-4 w-4 shrink-0 text-[#FF887D]" />}
+            {t.kind === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#3EE6B0]" />}
+            {t.kind === 'error' && <XCircle className="h-4 w-4 shrink-0 text-[#FF4D66]" />}
             {t.kind === 'info' && <Info className="h-4 w-4 shrink-0 text-[#9BA5FF]" />}
             <span>{t.message}</span>
           </motion.div>

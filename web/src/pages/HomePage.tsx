@@ -331,10 +331,10 @@ export function HomePage() {
 
       {/* AI finance note + stress + principles carousel */}
       <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1 border-[#E2A45C]/20">
+        <Card className="lg:col-span-1 border-[#FFB547]/20">
           <div className="space-y-3 px-5 py-5">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E2A45C]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FFB547]">
                 ✨ Money note · AI
               </p>
               <button
@@ -372,10 +372,10 @@ export function HomePage() {
           </div>
         </Card>
 
-        <Card className="lg:col-span-1 border-[#59D6C7]/20 bg-gradient-to-br from-[#59D6C7]/6 to-transparent">
+        <Card className="lg:col-span-1 border-[#3EE6B0]/20 bg-gradient-to-br from-[#3EE6B0]/6 to-transparent">
           <div className="flex h-full flex-col justify-between gap-4 px-5 py-5">
             <div>
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#59D6C7]">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#3EE6B0]">
                 Growth principles
               </p>
               <div key={principleIndex} className="animate-[fadeIn_0.4s_ease]">
@@ -388,7 +388,7 @@ export function HomePage() {
                 <span
                   key={i}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === principleIndex ? 'w-5 bg-[#59D6C7]' : 'w-1.5 bg-white/15'
+                    i === principleIndex ? 'w-5 bg-[#3EE6B0]' : 'w-1.5 bg-white/15'
                   }`}
                 />
               ))}
@@ -416,7 +416,7 @@ export function HomePage() {
           label="Net Worth"
           value={netWorth}
           format={paiseToRupeesCompact}
-          color={netWorth >= 0 ? '#59D6C7' : '#FF887D'}
+          color={netWorth >= 0 ? '#3EE6B0' : '#FF4D66'}
         />
       </motion.div>
 
@@ -471,9 +471,9 @@ export function HomePage() {
                   className="flex items-center gap-3 border-b border-white/5 py-2.5 last:border-0"
                 >
                   {r.type === 'lent' ? (
-                    <ArrowUpRight className="h-4 w-4 text-[#59D6C7]" />
+                    <ArrowUpRight className="h-4 w-4 text-[#3EE6B0]" />
                   ) : (
-                    <ArrowDownLeft className="h-4 w-4 text-[#FF887D]" />
+                    <ArrowDownLeft className="h-4 w-4 text-[#FF4D66]" />
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-white/80">{r.person_name}</p>
@@ -504,7 +504,7 @@ export function HomePage() {
                   <AnimatedNumber
                     value={monthIncome}
                     format={paiseToRupeesCompact}
-                    className="mt-1 text-lg font-semibold text-[#59D6C7] tnum"
+                    className="mt-1 text-lg font-semibold text-[#3EE6B0] tnum"
                   />
                 </div>
               </div>
@@ -526,7 +526,7 @@ export function HomePage() {
                 <AnimatedNumber
                   value={income30}
                   format={paiseToRupeesCompact}
-                  className="text-sm font-semibold text-[#59D6C7] tnum"
+                  className="text-sm font-semibold text-[#3EE6B0] tnum"
                 />
               </div>
             </div>
@@ -540,7 +540,7 @@ export function HomePage() {
                   value={netWorth}
                   format={paiseToRupees}
                   className="mt-1 text-3xl font-bold tracking-tight tnum"
-                  style={{ color: netWorth >= 0 ? '#59D6C7' : '#FF887D' }}
+                  style={{ color: netWorth >= 0 ? '#3EE6B0' : '#FF4D66' }}
                 />
               </div>
               <Link
@@ -578,7 +578,7 @@ export function HomePage() {
                     <p className="truncate text-sm text-white/80">{t.category}</p>
                     <p className="text-xs text-white/35">{formatDate(t.date)}</p>
                   </div>
-                  <span className={`text-sm font-medium tnum ${isOut ? 'text-white' : 'text-[#59D6C7]'}`}>
+                  <span className={`text-sm font-medium tnum ${isOut ? 'text-white' : 'text-[#3EE6B0]'}`}>
                     {isOut ? '−' : '+'}
                     {paiseToRupees(t.amount)}
                   </span>

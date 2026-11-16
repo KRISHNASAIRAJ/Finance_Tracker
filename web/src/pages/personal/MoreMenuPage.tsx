@@ -25,7 +25,7 @@ export function MoreMenuPage() {
             key={to}
             to={to}
             className={cn(
-              'group rounded-2xl border border-white/10 bg-[#101010] p-5',
+              'group rounded-2xl border border-white/10 bg-[#131316] p-5',
               'transition-colors hover:border-white/25'
             )}
           >

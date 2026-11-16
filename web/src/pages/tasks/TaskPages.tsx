@@ -21,10 +21,10 @@ import { uid } from '../../lib/utils'
 import type { Subtask, Task } from '../../types'
 
 const PRIORITY_COLORS: Record<Task['priority'], string> = {
-  urgent: '#FF887D',
-  high: '#FF887D',
-  medium: '#E2A45C',
-  low: '#59D6C7',
+  urgent: '#FF4D66',
+  high: '#FF4D66',
+  medium: '#FFB547',
+  low: '#3EE6B0',
 }
 
 const PRIORITIES = [
@@ -168,7 +168,7 @@ export function TaskDetailPage() {
                     aria-label={s.completed ? 'Mark incomplete' : 'Mark complete'}
                     className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                       s.completed
-                        ? 'border-[#59D6C7] bg-[#59D6C7]/20 text-[#59D6C7]'
+                        ? 'border-[#3EE6B0] bg-[#3EE6B0]/20 text-[#3EE6B0]'
                         : 'border-white/25 text-transparent hover:border-white/50'
                     }`}
                   >
@@ -368,7 +368,7 @@ function TaskForm({ id }: { id?: string }) {
               />
               <button
                 onClick={() => removeSubtask(i)}
-                className="rounded-lg p-2 text-white/30 transition-colors hover:bg-white/10 hover:text-[#FF887D]"
+                className="rounded-lg p-2 text-white/30 transition-colors hover:bg-white/10 hover:text-[#FF4D66]"
                 aria-label="Remove subtask"
               >
                 <Trash2 className="h-4 w-4" />

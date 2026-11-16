@@ -14,9 +14,9 @@ import { toast } from '../../components/ui/Toast'
 import type { CareerEventType } from '../../types'
 
 const TYPE_META: Record<CareerEventType, { label: string; color: string; icon: typeof ArrowUp }> = {
-  up: { label: 'Up', color: '#59D6C7', icon: ArrowUp },
-  down: { label: 'Down', color: '#FF887D', icon: ArrowDown },
-  balance: { label: 'Balance', color: '#E2A45C', icon: Minus },
+  up: { label: 'Up', color: '#3EE6B0', icon: ArrowUp },
+  down: { label: 'Down', color: '#FF4D66', icon: ArrowDown },
+  balance: { label: 'Balance', color: '#FFB547', icon: Minus },
 }
 
 export function CareerTrackerPage() {
@@ -51,9 +51,9 @@ export function CareerTrackerPage() {
       />
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Ups" value={String(ups)} color="#59D6C7" />
-        <StatCard label="Downs" value={String(downs)} color="#FF887D" />
-        <StatCard label="Balance" value={String(balance)} color="#E2A45C" />
+        <StatCard label="Ups" value={String(ups)} color="#3EE6B0" />
+        <StatCard label="Downs" value={String(downs)} color="#FF4D66" />
+        <StatCard label="Balance" value={String(balance)} color="#FFB547" />
       </div>
 
       {isLoading ? (
@@ -87,7 +87,7 @@ export function CareerTrackerPage() {
                     <Link to={`/career/${e.id}/edit`} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                       <Pencil className="h-3.5 w-3.5" />
                     </Link>
-                    <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                    <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>

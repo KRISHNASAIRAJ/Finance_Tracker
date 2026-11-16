@@ -178,17 +178,17 @@ export function SleepTrackerPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">7-night avg</p>
-          <p className={`mt-1 text-xl font-bold tnum ${(avg ?? 0) >= 7 ? 'text-[#59D6C7]' : 'text-[#FF887D]'}`}>
+          <p className={`mt-1 text-xl font-bold tnum ${(avg ?? 0) >= 7 ? 'text-[#3EE6B0]' : 'text-[#FF4D66]'}`}>
             {avg !== null ? formatDuration(avg) : '—'}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">Best (7n)</p>
-          <p className="mt-1 text-xl font-bold text-[#59D6C7] tnum">{best !== null ? formatDuration(best) : '—'}</p>
+          <p className="mt-1 text-xl font-bold text-[#3EE6B0] tnum">{best !== null ? formatDuration(best) : '—'}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">Shortest (7n)</p>
-          <p className="mt-1 text-xl font-bold text-[#FF887D] tnum">{worst !== null ? formatDuration(worst) : '—'}</p>
+          <p className="mt-1 text-xl font-bold text-[#FF4D66] tnum">{worst !== null ? formatDuration(worst) : '—'}</p>
         </Card>
       </div>
 
@@ -251,7 +251,7 @@ export function SleepTrackerPage() {
                       <td className="px-5 py-3 text-white/50">
                         {new Date(e.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} → {new Date(e.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className={`px-5 py-3 font-bold tnum ${dur < 6 ? 'text-[#FF887D]' : dur >= 7 ? 'text-[#59D6C7]' : 'text-white'}`}>
+                      <td className={`px-5 py-3 font-bold tnum ${dur < 6 ? 'text-[#FF4D66]' : dur >= 7 ? 'text-[#3EE6B0]' : 'text-white'}`}>
                         {formatDuration(dur)}
                       </td>
                       <td className="px-5 py-3 text-white/50">{e.quality ? `${e.quality}/5` : '—'}</td>
@@ -261,7 +261,7 @@ export function SleepTrackerPage() {
                           <button onClick={() => openEdit(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                          <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>

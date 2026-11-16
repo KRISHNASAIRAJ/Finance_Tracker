@@ -130,7 +130,7 @@ export function CreditCardsPage() {
                       {limit && limit > 0 && (
                         <div className="mt-2 flex items-center gap-2">
                           <div className="h-1.5 flex-1 rounded-full bg-white/10">
-                            <div className="h-1.5 rounded-full" style={{ width: `${usagePct}%`, backgroundColor: usagePct > 80 ? '#FF887D' : '#9BA5FF' }} />
+                            <div className="h-1.5 rounded-full" style={{ width: `${usagePct}%`, backgroundColor: usagePct > 80 ? '#FF4D66' : '#9BA5FF' }} />
                           </div>
                           <span className="text-[11px] text-white/40">{usagePct}% used</span>
                         </div>
@@ -305,7 +305,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Paid</p>
-          <p className="mt-1 text-2xl font-bold text-[#59D6C7]">{paiseToRupees(paidAmount)}</p>
+          <p className="mt-1 text-2xl font-bold text-[#3EE6B0]">{paiseToRupees(paidAmount)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Reward points</p>
@@ -318,7 +318,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Due date</p>
-          <p className={`mt-1 text-lg font-bold ${dueSoon ? 'text-[#FF887D]' : 'text-white'}`}>{card.due_date ? formatDate(card.due_date) : '—'}</p>
+          <p className={`mt-1 text-lg font-bold ${dueSoon ? 'text-[#FF4D66]' : 'text-white'}`}>{card.due_date ? formatDate(card.due_date) : '—'}</p>
         </Card>
       </div>
 
@@ -326,7 +326,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50 mb-2">Credit utilization</p>
           <div className="h-2 rounded-full bg-white/10">
-            <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (outstanding / card.card_limit) * 100)}%`, backgroundColor: outstanding > card.card_limit * 0.8 ? '#FF887D' : '#9BA5FF' }} />
+            <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (outstanding / card.card_limit) * 100)}%`, backgroundColor: outstanding > card.card_limit * 0.8 ? '#FF4D66' : '#9BA5FF' }} />
           </div>
           <p className="mt-1 text-xs text-white/40">{paiseToRupees(outstanding)} of {paiseToRupees(card.card_limit)}</p>
         </Card>

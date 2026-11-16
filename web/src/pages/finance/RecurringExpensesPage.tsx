@@ -78,7 +78,7 @@ export function RecurringExpensesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-white tnum">{paiseToRupees(f.amount)}</p>
-                      <p className={`text-[11px] ${paidThisMonth.has(f.id) ? 'text-[#59D6C7]' : 'text-white/30'}`}>
+                      <p className={`text-[11px] ${paidThisMonth.has(f.id) ? 'text-[#3EE6B0]' : 'text-white/30'}`}>
                         {paidThisMonth.has(f.id) ? 'Paid' : 'Unpaid'}
                       </p>
                     </div>
@@ -138,7 +138,7 @@ export function RecurringExpensesPage() {
                             <Icon className="h-3 w-3 shrink-0 text-white/30" />
                             <span className="flex-1 text-sm text-white/80">{b.name}</span>
                             <span className="text-sm font-medium text-white tnum">{paiseToRupeesCompact(b.amount)}</span>
-                            {paid && <span className="text-[10px] text-[#59D6C7]">Paid</span>}
+                            {paid && <span className="text-[10px] text-[#3EE6B0]">Paid</span>}
                           </div>
                         )
                       })}

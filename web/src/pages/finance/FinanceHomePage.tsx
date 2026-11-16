@@ -178,12 +178,12 @@ export function FinanceHomePage() {
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">This month income</p>
-          <p className="mt-1 text-2xl font-bold text-[#59D6C7]">{paiseToRupeesCompact(monthIncome)}</p>
+          <p className="mt-1 text-2xl font-bold text-[#3EE6B0]">{paiseToRupeesCompact(monthIncome)}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Budget</p>
           <p className="mt-1 text-2xl font-bold text-white">{paiseToRupeesCompact(budget)}</p>
-          <p className={`mt-0.5 text-xs ${budgetRemaining >= 0 ? 'text-[#59D6C7]' : 'text-[#FF887D]'}`}>
+          <p className={`mt-0.5 text-xs ${budgetRemaining >= 0 ? 'text-[#3EE6B0]' : 'text-[#FF4D66]'}`}>
             {budgetRemaining >= 0 ? `${paiseToRupeesCompact(budgetRemaining)} left` : `${paiseToRupeesCompact(-budgetRemaining)} over`}
           </p>
         </Card>
@@ -238,7 +238,7 @@ export function FinanceHomePage() {
                 <p className="text-sm text-white/80">{t.category}</p>
                 <p className="text-xs text-white/35">{formatDate(t.date)}</p>
               </div>
-              <span className={`text-sm font-medium tnum ${t.type === 'income' ? 'text-[#59D6C7]' : 'text-white'}`}>
+              <span className={`text-sm font-medium tnum ${t.type === 'income' ? 'text-[#3EE6B0]' : 'text-white'}`}>
                 {t.type === 'income' ? '+' : '−'}{paiseToRupees(t.amount)}
               </span>
             </div>
@@ -275,7 +275,7 @@ export function FinanceHomePage() {
                       {paiseToRupeesCompact(row.used)} / {paiseToRupeesCompact(row.limit)} this month
                     </p>
                   </div>
-                  <span className={`text-xs font-medium tnum ${row.over ? 'text-[#FF887D]' : 'text-white/60'}`}>
+                  <span className={`text-xs font-medium tnum ${row.over ? 'text-[#FF4D66]' : 'text-white/60'}`}>
                     {row.over ? 'Over limit' : `${Math.round(row.pct)}%`}
                   </span>
                   <button
@@ -287,7 +287,7 @@ export function FinanceHomePage() {
                   </button>
                   <button
                     onClick={() => deleteBudget.mutate(row.category)}
-                    className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-[#FF887D]"
+                    className="rounded-lg p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-[#FF4D66]"
                     aria-label={`Delete ${row.category} limit`}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -298,7 +298,7 @@ export function FinanceHomePage() {
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${row.pct}%`,
-                      backgroundColor: row.over ? '#FF887D' : cat.color,
+                      backgroundColor: row.over ? '#FF4D66' : cat.color,
                     }}
                   />
                 </div>

@@ -160,14 +160,14 @@ export function FixedExpensesPage() {
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {!paid && (
-                      <button onClick={() => handleMarkPaid(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#59D6C7]" title="Mark paid">
+                      <button onClick={() => handleMarkPaid(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#3EE6B0]" title="Mark paid">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </button>
                     )}
                     <button onClick={() => openEdit(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                    <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -176,7 +176,7 @@ export function FixedExpensesPage() {
                   <p className="text-xl font-bold text-white tnum">{paiseToRupees(e.amount)}</p>
                   <p className="text-[11px] text-white/40">
                     {paid ? (
-                      <span className="flex items-center gap-1 text-[#59D6C7]">
+                      <span className="flex items-center gap-1 text-[#3EE6B0]">
                         <CheckCircle2 className="h-3 w-3" /> Paid this month
                       </span>
                     ) : (

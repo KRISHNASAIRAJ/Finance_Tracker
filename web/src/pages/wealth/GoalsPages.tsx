@@ -19,9 +19,9 @@ import { toast } from '../../components/ui/Toast'
 import type { InvestmentGoal } from '../../types'
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low: '#59D6C7',
-  medium: '#E2A45C',
-  high: '#FF887D',
+  low: '#3EE6B0',
+  medium: '#FFB547',
+  high: '#FF4D66',
 }
 
 const PRIORITY_OPTIONS = [
@@ -91,11 +91,11 @@ export function GoalsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-white/85">{g.goal_name}</p>
                       {g.priority && <Badge color={PRIORITY_COLORS[g.priority]}>{g.priority}</Badge>}
-                      {achieved && <Badge color="#59D6C7">Achieved</Badge>}
+                      {achieved && <Badge color="#3EE6B0">Achieved</Badge>}
                     </div>
                     <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
                       <div
-                        className={`h-full rounded-full transition-all ${achieved ? 'bg-[#59D6C7]' : 'bg-[#9BA5FF]'}`}
+                        className={`h-full rounded-full transition-all ${achieved ? 'bg-[#3EE6B0]' : 'bg-[#9BA5FF]'}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -115,7 +115,7 @@ export function GoalsPage() {
                       </Link>
                       <button
                         onClick={() => setDeleting(g.id)}
-                        className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]"
+                        className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

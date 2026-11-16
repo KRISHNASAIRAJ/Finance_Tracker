@@ -142,13 +142,13 @@ export function FinanceReportsPage() {
                     <span className="text-sm text-white/50">No spend last month to compare</span>
                   ) : pctChange <= 0 ? (
                     <>
-                      <TrendingDown className="h-4 w-4 text-[#59D6C7]" />
-                      <span className="text-sm text-[#59D6C7]">{formatPct(pctChange)} vs last month</span>
+                      <TrendingDown className="h-4 w-4 text-[#3EE6B0]" />
+                      <span className="text-sm text-[#3EE6B0]">{formatPct(pctChange)} vs last month</span>
                     </>
                   ) : (
                     <>
-                      <TrendingUp className="h-4 w-4 text-[#FF887D]" />
-                      <span className="text-sm text-[#FF887D]">{formatPct(pctChange)} vs last month</span>
+                      <TrendingUp className="h-4 w-4 text-[#FF4D66]" />
+                      <span className="text-sm text-[#FF4D66]">{formatPct(pctChange)} vs last month</span>
                     </>
                   )}
                 </div>
@@ -184,13 +184,13 @@ export function FinanceReportsPage() {
                       <div key={c.name} className="flex items-center gap-3">
                         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                         <span className="flex-1 text-sm text-white/70">{c.name}</span>
-                        <span className="text-sm font-semibold text-[#59D6C7] tnum">{paiseToRupees(c.value)}</span>
+                        <span className="text-sm font-semibold text-[#3EE6B0] tnum">{paiseToRupees(c.value)}</span>
                       </div>
                     ))}
                     <div className="border-t border-white/10 pt-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-white/50">Total income</span>
-                        <span className="text-sm font-bold text-[#59D6C7] tnum">{paiseToRupees(income)}</span>
+                        <span className="text-sm font-bold text-[#3EE6B0] tnum">{paiseToRupees(income)}</span>
                       </div>
                     </div>
                   </div>
@@ -234,7 +234,7 @@ export function FinanceReportsPage() {
                       <p className="text-sm text-white/80">{r.person_name}</p>
                       <p className="text-xs text-white/40">{r.type === 'lent' ? 'Lent' : 'Borrowed'}{r.due_date ? ` · due ${r.due_date.slice(0, 10)}` : ''}</p>
                     </div>
-                    <span className={`text-sm font-semibold tnum ${r.type === 'lent' ? 'text-[#59D6C7]' : 'text-[#FF887D]'}`}>
+                    <span className={`text-sm font-semibold tnum ${r.type === 'lent' ? 'text-[#3EE6B0]' : 'text-[#FF4D66]'}`}>
                       {paiseToRupees(r.amount - (r.paid_amount ?? 0))}
                     </span>
                   </div>

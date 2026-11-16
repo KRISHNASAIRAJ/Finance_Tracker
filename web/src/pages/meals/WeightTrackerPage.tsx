@@ -95,24 +95,24 @@ export function WeightTrackerPage() {
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">Change</p>
-          <p className={`mt-1 text-xl font-bold tnum ${changeSinceFirst > 0 ? 'text-[#FF887D]' : changeSinceFirst < 0 ? 'text-[#59D6C7]' : 'text-white'}`}>
+          <p className={`mt-1 text-xl font-bold tnum ${changeSinceFirst > 0 ? 'text-[#FF4D66]' : changeSinceFirst < 0 ? 'text-[#3EE6B0]' : 'text-white'}`}>
             {latest ? `${changeSinceFirst > 0 ? '+' : ''}${formatNumber(changeSinceFirst)}` : '—'}
           </p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">Min</p>
-          <p className="mt-1 text-xl font-bold text-[#59D6C7] tnum">{minEntry ? formatNumber(minEntry.weight_kg) : '—'}</p>
+          <p className="mt-1 text-xl font-bold text-[#3EE6B0] tnum">{minEntry ? formatNumber(minEntry.weight_kg) : '—'}</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs font-medium text-white/50">Max</p>
-          <p className="mt-1 text-xl font-bold text-[#FF887D] tnum">{maxEntry ? formatNumber(maxEntry.weight_kg) : '—'}</p>
+          <p className="mt-1 text-xl font-bold text-[#FF4D66] tnum">{maxEntry ? formatNumber(maxEntry.weight_kg) : '—'}</p>
         </Card>
       </div>
 
       {chartData.length > 1 && (
         <Card>
           <CardBody>
-            <TrendLine data={chartData} color="#59D6C7" height={180} formatter={(v) => `${v} kg`} />
+            <TrendLine data={chartData} color="#3EE6B0" height={180} formatter={(v) => `${v} kg`} />
           </CardBody>
         </Card>
       )}
@@ -146,7 +146,7 @@ export function WeightTrackerPage() {
                         <button onClick={() => openEdit(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-white">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]">
+                        <button onClick={() => setDeleting(e.id)} className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>

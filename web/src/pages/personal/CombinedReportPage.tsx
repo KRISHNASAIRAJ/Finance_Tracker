@@ -13,7 +13,7 @@ import { getCategory, getCategoryIcon } from '../../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { istMonthKey } from '../../lib/istDate'
 
-const ALLOC_COLORS = ['#9BA5FF', '#59D6C7', '#BCE85D', '#E2A45C', '#FF887D', '#a78bfa', '#5ee6ff', '#f472b6', '#22d3ee']
+const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa', '#5ee6ff', '#f472b6', '#22d3ee']
 
 export function CombinedReportPage() {
   const { user } = useAuth()
@@ -75,7 +75,7 @@ export function CombinedReportPage() {
       if (value > 0) items.push({ name, value, color: ALLOC_COLORS[idx++ % ALLOC_COLORS.length] })
     }
     if (totalBalance > 0) items.push({ name: 'Bank Balance', value: totalBalance, color: ALLOC_COLORS[idx++ % ALLOC_COLORS.length] })
-    if (totalCardOutstanding > 0) items.push({ name: 'Card Debt', value: totalCardOutstanding, color: '#FF887D' })
+    if (totalCardOutstanding > 0) items.push({ name: 'Card Debt', value: totalCardOutstanding, color: '#FF4D66' })
     return items
   }, [holdings, totalBalance, totalCardOutstanding])
 
@@ -97,7 +97,7 @@ export function CombinedReportPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Card className="p-5 lg:col-span-2">
               <p className="text-xs font-medium text-white/50">Net Worth</p>
-              <p className="mt-1 text-3xl font-bold tracking-tight tnum" style={{ color: netWorth >= 0 ? '#59D6C7' : '#FF887D' }}>
+              <p className="mt-1 text-3xl font-bold tracking-tight tnum" style={{ color: netWorth >= 0 ? '#3EE6B0' : '#FF4D66' }}>
                 {paiseToRupees(netWorth)}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-white/50">
@@ -121,13 +121,13 @@ export function CombinedReportPage() {
             </Card>
             <Card className="p-5">
               <p className="text-xs font-medium text-white/50">Month Income</p>
-              <p className="mt-1 text-2xl font-bold text-[#59D6C7] tnum">
+              <p className="mt-1 text-2xl font-bold text-[#3EE6B0] tnum">
                 {paiseToRupeesCompact(monthIncome)}
               </p>
             </Card>
             <Card className="p-5">
               <p className="text-xs font-medium text-white/50">Garage Spend</p>
-              <p className="mt-1 text-2xl font-bold text-[#E2A45C] tnum">
+              <p className="mt-1 text-2xl font-bold text-[#FFB547] tnum">
                 {paiseToRupeesCompact(monthGarage)}
               </p>
             </Card>
@@ -185,7 +185,7 @@ export function CombinedReportPage() {
                         <p className="truncate text-sm text-white/80">{t.category}</p>
                         <p className="text-xs text-white/35">{formatDate(t.date)}</p>
                       </div>
-                      <span className={`text-sm font-medium tnum ${t.type === 'income' ? 'text-[#59D6C7]' : 'text-white'}`}>
+                      <span className={`text-sm font-medium tnum ${t.type === 'income' ? 'text-[#3EE6B0]' : 'text-white'}`}>
                         {t.type === 'income' ? '+' : '−'}{paiseToRupees(t.amount)}
                       </span>
                     </div>

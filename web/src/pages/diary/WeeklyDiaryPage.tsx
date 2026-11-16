@@ -46,7 +46,7 @@ export function WeeklyDiaryPage() {
     <div className="fade-up space-y-5">
       <PageHeader title="Weekly Diary" subtitle="Write a note for each week of the year" />
 
-      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#101010] p-3">
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#131316] p-3">
         <button onClick={() => shiftWeek(-1)} className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white">
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -103,7 +103,7 @@ function DiaryEditor({ initialContent, onSave, saving }: { initialContent: strin
         className="min-h-[280px] w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-white placeholder:text-white/30 focus:border-white/35 focus:outline-none focus:ring-2 focus:ring-white/10"
       />
       <div className="mt-4 flex items-center justify-end gap-3">
-        {saved && <span className="text-xs text-[#59D6C7]">Saved</span>}
+        {saved && <span className="text-xs text-[#3EE6B0]">Saved</span>}
         <Button onClick={save} loading={saving} className="gap-1.5">
           <Save className="h-4 w-4" /> Save
         </Button>

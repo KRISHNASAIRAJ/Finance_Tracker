@@ -45,7 +45,7 @@ export function Modal({
           />
           <motion.div
             className={cn(
-              'relative w-full rounded-2xl border border-white/10 bg-[#101010] shadow-2xl',
+              'relative w-full rounded-2xl border border-white/10 bg-[#131316] shadow-2xl',
               wide ? 'max-w-2xl' : 'max-w-md'
             )}
             initial={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -114,7 +114,7 @@ export function ConfirmDialog({
             disabled={loading}
             className={
               danger
-                ? 'h-10 rounded-xl bg-[#FF887D]/15 px-4 text-sm font-medium text-[#FF887D] transition-colors hover:bg-[#FF887D]/25 disabled:opacity-50'
+                ? 'h-10 rounded-xl bg-[#FF4D66]/15 px-4 text-sm font-medium text-[#FF4D66] transition-colors hover:bg-[#FF4D66]/25 disabled:opacity-50'
                 : 'h-10 rounded-xl bg-white px-4 text-sm font-medium text-black transition-colors hover:bg-white/85 disabled:opacity-50'
             }
           >

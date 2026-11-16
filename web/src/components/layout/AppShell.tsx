@@ -52,7 +52,7 @@ export function AppShell() {
   useLocalAnalytics()
   const title = TITLES[location.pathname] ?? 'Meridian'
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-[#0A0A0C]">
       <SEO
         title={title}
         description={DESCRIPTIONS[location.pathname] ?? 'Personal life tracker — finance, habits, sleep, wealth, and more.'}
