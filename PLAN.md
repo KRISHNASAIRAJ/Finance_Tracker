@@ -271,6 +271,86 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 26 - widget: single-bitmap SLEEP block per GEOMETRY.md (2026-11-16)
+
+- [x] PLAN MODE findings: the XML pill (separate tab layer-list + weighted
+      ProgressBar lanes + sp-based text) could not match GEOMETRY.md:
+      tab too narrow, body top-right squared by hand, 6dp tracks/bars,
+      awake lane clipped to 4 bars, sp text broken by the device font
+      scale, BED/WAKE invented lane rows, score as a 2dp ProgressBar.
+- [x] New `SleepBlockRenderer.kt` (widgets package) draws the WHOLE block
+      into one Bitmap: silhouette path with the raised tab (starts x=152,
+      width 140, protrudes 34, flush right edge, concave fillet), SLEEP
+      caption, duration + Score row (track + fill = score %), lane labels
+      (#FFE3E8), tracks (black 16%), dotted awake line (black 40%, round
+      dots every 5 units), plump 10-unit bars (#5A0012 / #FFC2CC / #FFFFFF,
+      min width 5), bed/wake times on one baseline (#FFE3E8). Uniform
+      scale s = widthPx / 292. No-data night renders the chart with an
+      empty tab (duration em-dash) and NO score row (score = -1 hides it);
+      no data is invented.
+- [x] Layout: the RelativeLayout pill and ALL its children (tab, SLEEP
+      caption, chart RelativeLayout, 12 lane ProgressBars, score
+      ProgressBar, BED/WAKE rows, no-sleep caption) replaced by a
+      three-child horizontal row: empty weighted LinearLayout spacers
+      7.1 / 85.8 / 7.1 around `ImageView#clock_sleep_block` (0dp width,
+      wrap_content, adjustViewBounds, fitCenter) - per GEOMETRY.md
+      placement. (`View`/`Space` are rejected by the RemoteViewLayout
+      lint check, hence empty weighted LinearLayouts.)
+- [x] Kotlin: `setImageViewBitmap` with width = 85.9% of the widget's
+      declared width (OPTION_APPWIDGET_MIN_WIDTH x display density).
+      Stage segments mapped 0..1 fractions to percent-of-night Segs
+      (start*100, end*100), drawn unmerged. Removed trackWidthPx /
+      mergeToLimit / bindSegments and the four-slot id arrays; unused
+      drawables deleted (widget_sleep_pill, widget_sleep_score_track,
+      widget_sleep_lane_track, widget_sleep_*_bar, widget_sleep_awake_dots,
+      widget_sleep_dots, widget_sleep_rem_bar). Kept widget_sleep_stats_*
+      (separate sleep-only widget) and widget_clock_sleep_bg.
+- [x] docs/design/ created: GEOMETRY.md, SleepBlockRenderer.kt,
+      widget_polished_design.svg. (expected_sleep_block_preview.png is
+      an inline chat attachment; could not be materialised as a file -
+      drop it into docs/design/ if you want it tracked.)
+- [x] :app:assembleDebug OK; :app:lintDebug OK (0 errors; the
+      NestedWeights/UselessLeaf warnings are inherent to the
+      GEOMETRY.md-prescribed three-child row).
+- [ ] Device verification on the phone (install app-debug.apk, widget
+      redraw): tab about half the block width protruding about a quarter
+      of the body height, flush right edge; smooth concave fillet on the
+      tab's left; tracks visible in all three lanes, bars plump pills;
+      LIGHT lane reads pale pink (not hairlines); labels same pale pink
+      as the times and noticeably larger; NO stray vertical lines inside
+      any lane.
+- NOTE: Batch 25's working-tree changes (uncommitted) are superseded in
+      this rework; drawable widget_sleep_pill.xml is deleted. Also note:
+      widget_clock_sleep.xml was accidentally truncated to 0 bytes by a
+      botched sed run mid-session and rewritten from the in-session read
+      plus the new design; the XML block (date/clock/stats rows) is
+      unchanged in content, only re-encoded clean UTF-8 and re-commented
+      (the old file carried U+FFFD replacement chars).
+
+### Batch 25 - widget: fill the red bar perfectly; flat bottom-right of the pill (2026-11-16)
+
+- [x] The red pill no longer has a dead gap at the bottom (the area under
+      the wake time used to be empty). The DEEP / LIGHT / AWAKE rows and
+      the BED / WAKE rows now live in ONE vertically-stretched column
+      (`weight=1`, `minHeight=10dp` each) inside the pill — the five rows
+      share the pill's full height equally at any 2x2 cell size / font
+      scale, so the bar is always perfectly filled.
+      - BED and WAKE are now lane-style rows (30dp label column like
+        DEEP/LIGHT/AWAKE, pale-pink #FFD6DE, value next to the label),
+        not loose bottom-pinned text.
+      - The empty-state "No sleep data" caption still overlays the column.
+- [x] Kotlin: visibility toggles now target the BED/WAKE *rows*
+      (`clock_sleep_bed_row` / `clock_sleep_wake_row`) instead of the time
+      TextViews alone; the chart RelativeLayout fills the pill between the
+      island and the bottom padding.
+- [x] The bottom-right corner of the red pill is FLAT now — body
+      `bottomRightRadius` 12dp → 0dp, and the raised tab's bottom-right
+      corner → 0dp (left side stays 15dp-rounded for the concave scoop).
+      The outer right edge of the red mass runs perfectly straight down
+      and joins flatly with whatever is flush with it.
+- [ ] Device verification: pill filled with BED/WAKE rows at the bottom,
+      no empty gap; right edge straight; 2x2 height still intact.
+
 ### Batch 24 — time picker hands/AM-PM round two; widget bed/wake fix (2026-11-16)
 
 - [x] `ClockFace.tsx`: when the hour is being edited (hours mode) the HOUR

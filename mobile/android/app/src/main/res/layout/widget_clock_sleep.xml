@@ -1,20 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ClockSleepWidget � 2x2 home-screen widget (OnePlus OxygenOS: black, white,
+  ClockSleepWidget: 2x2 home-screen widget (OnePlus OxygenOS: black, white,
   the OnePlus red as the accent).
 
   Structure (top to bottom, everything in fixed dp/sp so the content always
-  fits the 2x2 box � nothing may overflow onto the stats row):
+  fits the 2x2 box; nothing may overflow onto the stats row):
 
     date row        9sp
     clock row       19sp
-    red pill        weight=1 � the SLEEP block:
-                      - raised tab top-right (fixed 30dp tall):
-                          duration  12sp bold ink #1A0006
-                          score row "Score 55" 5sp #3A0010 + 40dp x 2dp track
-                      - "SLEEP" caption 5sp grey in the black notch, left
-                      - DEEP / LIGHT / AWAKE lanes (fixed rows) below the tab
-                      - bed/wake times 5sp pale pink #FFD6DE inside the bottom
+    red pill        weight=1: the SLEEP block, rendered as ONE bitmap by
+                    SleepBlockRenderer (draws silhouette + tab, SLEEP caption,
+                    duration + Score row, lane labels/tracks/bars, dotted
+                    awake line, bed/wake times). Three-child row:
+                    spacer 7.1 / ImageView 85.8 / spacer 7.1 (GEOMETRY.md).
     stats row       ALARM (red) | BATT (white) | TEMP (white)
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -108,368 +106,38 @@
             android:textSize="10sp" />
     </LinearLayout>
 
-    <!-- The red SLEEP block -->
-    <RelativeLayout
+    <!-- The red SLEEP block: ONE bitmap from SleepBlockRenderer, 292x132 design
+         units scaled by the block width. Hosted by a three-child horizontal
+         row: spacer 7.1 / ImageView 85.8 / spacer 7.1 (GEOMETRY.md placement).
+         The row keeps layout_weight=1 with center_vertical so the stats row
+         stays pinned to the bottom at any widget height. -->
+    <LinearLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="2dp"
-        android:background="@drawable/widget_sleep_pill"
-        android:paddingStart="6dp"
-        android:paddingTop="0dp"
-        android:paddingEnd="6dp"
-        android:paddingBottom="1dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <!-- The raised tab (top right): duration over the score row -->
         <LinearLayout
-            android:id="@+id/clock_sleep_island"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="7.1" />
+
+        <ImageView
+            android:id="@+id/clock_sleep_block"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginTop="2dp"
-            android:orientation="vertical"
-            android:paddingEnd="2dp">
+            android:layout_weight="85.8"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:contentDescription="Sleep stages" />
 
-            <TextView
-                android:id="@+id/clock_sleep_duration"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:fontFamily="sans-serif-medium"
-                android:includeFontPadding="false"
-                android:maxLines="1"
-                android:text="�"
-                android:textColor="#1A0006"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <!-- The score row: "Score 55" + a 2dp black-ink track -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginTop="1dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/clock_sleep_score_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text="Score"
-                    android:textColor="#3A0010"
-                    android:textSize="5sp" />
-
-                <ProgressBar
-                    android:id="@+id/clock_sleep_score"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="38dp"
-                    android:layout_height="2dp"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginStart="3dp"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_sleep_score_track" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- The SLEEP caption � sits in the black notch above the red body -->
-        <TextView
-            android:id="@+id/clock_sleep_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginTop="12dp"
-            android:includeFontPadding="false"
-            android:letterSpacing="0.15"
-            android:text="SLEEP"
-            android:textColor="#A8A8A8"
-            android:textSize="5sp"
-            android:textStyle="bold" />
-
-        <!-- The stage chart � tracks and dotted AWAKE timeline are drawable
-             backgrounds; the bars are horizontal ProgressBars positioned by
-             padding, so the RemoteViews payload stays tiny (no bitmaps).
-             Fixed 30dp marginTop keeps the lanes directly under the tab,
-             fully inside the red body. -->
-        <RelativeLayout
-            android:id="@+id/clock_sleep_chart"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_marginTop="26dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <!-- DEEP -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="7dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="30dp"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:includeFontPadding="false"
-                        android:letterSpacing="0.11"
-                        android:text="DEEP"
-                        android:textColor="#FFE3E8"
-                        android:textSize="5sp" />
-
-                    <RelativeLayout
-                        android:id="@+id/clock_sleep_deep_track"
-                        android:layout_width="0dp"
-                        android:layout_height="6dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/widget_sleep_lane_track">
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_deep_1"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_deep_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_deep_2"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_deep_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_deep_3"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_deep_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_deep_4"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_deep_bar" />
-                    </RelativeLayout>
-                </LinearLayout>
-
-                <!-- LIGHT -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="7dp"
-                    android:layout_marginTop="1dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="30dp"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:includeFontPadding="false"
-                        android:letterSpacing="0.11"
-                        android:text="LIGHT"
-                        android:textColor="#FFE3E8"
-                        android:textSize="5sp" />
-
-                    <RelativeLayout
-                        android:id="@+id/clock_sleep_light_track"
-                        android:layout_width="0dp"
-                        android:layout_height="6dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/widget_sleep_lane_track">
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_light_1"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_light_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_light_2"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_light_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_light_3"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_light_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_light_4"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_light_bar" />
-                    </RelativeLayout>
-                </LinearLayout>
-
-                <!-- AWAKE -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="7dp"
-                    android:layout_marginTop="1dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="30dp"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:includeFontPadding="false"
-                        android:letterSpacing="0.11"
-                        android:text="AWAKE"
-                        android:textColor="#FFE3E8"
-                        android:textSize="5sp" />
-
-                    <RelativeLayout
-                        android:id="@+id/clock_sleep_awake_track"
-                        android:layout_width="0dp"
-                        android:layout_height="6dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/widget_sleep_lane_track">
-
-                        <TextView
-                            android:id="@+id/clock_sleep_awake_dots"
-                            android:layout_width="match_parent"
-                            android:layout_height="2dp"
-                            android:layout_centerVertical="true"
-                            android:background="@drawable/widget_sleep_awake_dots"
-                            android:text="" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_awake_1"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_awake_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_awake_2"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_awake_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_awake_3"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_awake_bar" />
-
-                        <ProgressBar
-                            android:id="@+id/clock_sleep_awake_4"
-                            style="@android:style/Widget.ProgressBar.Horizontal"
-                            android:layout_width="match_parent"
-                            android:layout_height="6dp"
-                            android:layout_alignParentTop="true"
-                            android:indeterminate="false"
-                            android:max="100"
-                            android:progress="0"
-                            android:progressDrawable="@drawable/widget_sleep_awake_bar" />
-                    </RelativeLayout>
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- No night in the log yet -->
-            <TextView
-                android:id="@+id/clock_sleep_empty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:letterSpacing="0.11"
-                android:text="No sleep data"
-                android:textColor="#FFE3E8"
-                android:textSize="5sp"
-                android:visibility="gone" />
-        </RelativeLayout>
-
-        <!-- Bed and wake times directly below the AWAKE lane (the reference look) -->
-        <TextView
-            android:id="@+id/clock_sleep_bed"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_chart"
-            android:layout_marginTop="1dp"
-            android:includeFontPadding="false"
-            android:text=""
-            android:textColor="#FFD6DE"
-            android:textSize="5sp" />
-
-        <TextView
-            android:id="@+id/clock_sleep_wake"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/clock_sleep_chart"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="1dp"
-            android:includeFontPadding="false"
-            android:text=""
-            android:textColor="#FFD6DE"
-            android:textSize="5sp" />
-    </RelativeLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="7.1" />
+    </LinearLayout>
 
     <!-- The stats row (Alarm, Batt, Temp) -->
     <LinearLayout
@@ -534,7 +202,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:includeFontPadding="false"
                 android:maxLines="1"
-                android:text="�"
+                android:text="--"
                 android:textColor="@color/oxygen_white"
                 android:textSize="9sp" />
 
@@ -573,7 +241,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:includeFontPadding="false"
                 android:maxLines="1"
-                android:text="�"
+                android:text="--"
                 android:textColor="@color/oxygen_white"
                 android:textSize="9sp" />
 

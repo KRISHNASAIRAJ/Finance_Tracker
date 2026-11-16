@@ -12,7 +12,6 @@ import android.os.BatteryManager
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.view.View
 import android.widget.RemoteViews
 import com.krishnasairaj.meridian.MainActivity
 import com.krishnasairaj.meridian.R
@@ -28,6 +27,8 @@ import org.json.JSONObject
  * sleep data (the duration, the score, the DEEP / LIGHT / AWAKE stage chart,
  * the bed and wake times) is pushed from JS through ClockSleepWidgetBridge and
  * cached in SharedPreferences, so it survives widget redraws and process death.
+ * The sleep block itself (silhouette, tab, lanes, times) is drawn into a
+ * single Bitmap by SleepBlockRenderer — see docs/design/GEOMETRY.md.
  *
  * The stats row under the red block shows the next alarm, the battery and the
  * temperature.
@@ -50,31 +51,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         private const val WEATHER_MIN_FETCH_MS = 20L * 60_000L
         /** A native reading older than this is never shown. */
         private const val WEATHER_NATIVE_MAX_AGE_MS = 12L * 60 * 60_000L
-
-        // The stage chart is drawn with padding-ProgressBars only (the RemoteViews
-        // payload stays tiny — no bitmaps). Root padding + the lane label, both
-        // sides, in dp — matches the label column the tracks replace.
-        private const val TRACK_INSET_DP = 44
-
-        /** The bars of the three lanes (four slots each). */
-        private val DEEP_IDS = intArrayOf(
-            R.id.clock_sleep_deep_1,
-            R.id.clock_sleep_deep_2,
-            R.id.clock_sleep_deep_3,
-            R.id.clock_sleep_deep_4
-        )
-        private val LIGHT_IDS = intArrayOf(
-            R.id.clock_sleep_light_1,
-            R.id.clock_sleep_light_2,
-            R.id.clock_sleep_light_3,
-            R.id.clock_sleep_light_4
-        )
-        private val AWAKE_IDS = intArrayOf(
-            R.id.clock_sleep_awake_1,
-            R.id.clock_sleep_awake_2,
-            R.id.clock_sleep_awake_3,
-            R.id.clock_sleep_awake_4
-        )
 
         private const val NO_VALUE = "—"
         /** Shown until the realtime weather lands. */
@@ -227,7 +203,9 @@ class ClockSleepWidget : AppWidgetProvider() {
     /** A minimal widget that only shows the clock (used when rendering fails). */
     private fun fallbackViews(context: Context): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_clock_sleep)
-        views.setTextViewText(R.id.clock_sleep_duration, NO_VALUE)
+        // The SLEEP block stays blank (no bitmap pushed — the ImageView draws
+        // nothing); the date and the clock still render.
+        views.setTextViewText(R.id.clock_sleep_date, dateText())
         return views
     }
 
@@ -246,9 +224,9 @@ class ClockSleepWidget : AppWidgetProvider() {
         var wakeLabel = ""
         var alarmLabel = ""
         var tempC = DEFAULT_TEMP_C
-        val deep = mutableListOf<FloatArray>()
-        val light = mutableListOf<FloatArray>()
-        val awake = mutableListOf<FloatArray>()
+        val deep = mutableListOf<Seg>()
+        val light = mutableListOf<Seg>()
+        val awake = mutableListOf<Seg>()
 
         if (!json.isNullOrEmpty()) {
             try {
@@ -292,20 +270,12 @@ class ClockSleepWidget : AppWidgetProvider() {
             }
         }
 
-        // The duration lives on ONE line inside the raised tab (the design
-        // look); the score sits right below it as "Score 55" + the thin track.
-        views.setTextViewText(R.id.clock_sleep_duration, duration)
-        // The score line only makes sense next to a real night.
-        val scoreVisible = duration != NO_VALUE && scoreValue > 0
-        views.setViewVisibility(R.id.clock_sleep_score, if (scoreVisible) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.clock_sleep_score_label, if (scoreVisible) View.VISIBLE else View.GONE)
-        if (scoreVisible) {
-            views.setTextViewText(R.id.clock_sleep_score_label, "Score $scoreValue")
-            views.setProgressBar(R.id.clock_sleep_score, 100, scoreValue.coerceIn(0, 100), false)
-        }
+        // The duration, the tab fillet, the lanes and the bed/wake times are
+        // ALL inside the bitmap drawn by SleepBlockRenderer (see below).
+        // A real score only exists when the night does and Meridian produced
+        // one; otherwise the renderer draws the lane chart with no score row.
+        val scoreValueOrHide = if (hasSleep && scoreValue > 0) scoreValue else -1
         views.setTextViewText(R.id.clock_sleep_date, dateText())
-        views.setTextViewText(R.id.clock_sleep_bed, bedLabel)
-        views.setTextViewText(R.id.clock_sleep_wake, wakeLabel)
 
         // The alarm — the real system next alarm (fresh on every redraw),
         // falling back to the JS-pushed Meridian wake window, else "--".
@@ -336,20 +306,24 @@ class ClockSleepWidget : AppWidgetProvider() {
         // is the fresher one.
         views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
 
-        // The stage chart — tracks and the AWAKE dots are drawable backgrounds;
-        // the bars are horizontal ProgressBars positioned by padding, so the
-        // RemoteViews payload stays tiny. More than four segments in a lane are
-        // merged (display only — no data is invented).
-        val track = trackWidthPx(context, mgr, widgetId)
-        val minBarPx = (2 * context.resources.displayMetrics.density).toInt()
-        bindSegments(views, deep, DEEP_IDS, track, minBarPx)
-        bindSegments(views, light, LIGHT_IDS, track, minBarPx)
-        bindSegments(views, awake, AWAKE_IDS, track, minBarPx)
-        // Empty night: tracks plus the "No sleep data" caption; hide the
-        // bed/wake times and the score line.
-        views.setViewVisibility(R.id.clock_sleep_empty, if (hasSleep) View.GONE else View.VISIBLE)
-        views.setViewVisibility(R.id.clock_sleep_bed, if (hasSleep) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.clock_sleep_wake, if (hasSleep) View.VISIBLE else View.GONE)
+        // The SLEEP block — one Bitmap drawn to GEOMETRY.md (silhouette, tab,
+        // duration, Score row, lanes, dotted awake line, bed/wake times).
+        // Stage segments are mapped straight from the night fractions to
+        // percent-of-night values — every real segment is drawn, nothing is
+        // merged away and nothing is invented.
+        val block = SleepBlockRenderer.render(
+            blockWidthPx(context, mgr, widgetId),
+            SleepBlockData(
+                duration = duration,
+                score = scoreValueOrHide,
+                bed = bedLabel,
+                wake = wakeLabel,
+                deep = deep,
+                light = light,
+                awake = awake
+            )
+        )
+        views.setImageViewBitmap(R.id.clock_sleep_block, block)
 
         // Tapping the widget opens the device's own clock app (the red sleep
         // bar included — the whole widget is one target). When the phone has no
@@ -367,29 +341,36 @@ class ClockSleepWidget : AppWidgetProvider() {
         }
         views.setOnClickPendingIntent(R.id.clock_sleep_container, clockPending)
         views.setOnClickPendingIntent(R.id.clock_sleep_pill, clockPending)
+        views.setOnClickPendingIntent(R.id.clock_sleep_block, clockPending)
 
         return views
     }
 
     /**
-     * Read the stage segments of a lane: [start, length] of the night,
-     * both fractions clamped into 0..1 (display only — nothing is invented).
+     * Read the stage segments of a lane as percent-of-night values (0..100).
+     * The payload carries [start, length] fractions clamped into 0..1;
+     * they are mapped straight through to Segs -- display only, nothing is
+     * invented and no segments are merged.
      */
-    private fun readSegments(array: JSONArray?, out: MutableList<FloatArray>) {
+    private fun readSegments(array: JSONArray?, out: MutableList<Seg>) {
         if (array == null) return
         for (i in 0 until array.length()) {
             val pair = array.optJSONArray(i) ?: continue
             val start = pair.optDouble(0, 0.0).toFloat().coerceIn(0f, 1f)
             val len = pair.optDouble(1, 0.0).toFloat()
             if (len <= 0f) continue
-            // start % and end %, clamped to the night
             val end = (start + len).coerceIn(0f, 1f)
-            out.add(floatArrayOf(start, end - start))
+            if (end <= start) continue
+            out.add(Seg(start * 100f, end * 100f))
         }
     }
 
-    /** Width of the stage track in pixels. */
-    private fun trackWidthPx(
+    /**
+     * Width of the SLEEP block bitmap in pixels: 85.9% of the widget's
+     * declared width (OPTION_APPWIDGET_MIN_WIDTH). The bitmap keeps the
+     * 292:132 aspect ratio, so this is the only size needed.
+     */
+    private fun blockWidthPx(
         context: Context,
         mgr: AppWidgetManager,
         widgetId: Int
@@ -397,73 +378,8 @@ class ClockSleepWidget : AppWidgetProvider() {
         val options = mgr.getAppWidgetOptions(widgetId)
         val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 110)
         val density = context.resources.displayMetrics.density
-        return ((widthDp - TRACK_INSET_DP).coerceAtLeast(40) * density).toInt()
+        return (widthDp * density * 0.859f).toInt().coerceAtLeast(80)
     }
-
-    /**
-     * Merge the night fractions until at most [limit] bars remain.
-     *
-     * The chart slots are four ProgressBars per lane, so a night with more
-     * segments is coalesced — closest-gap neighbours first — keeping the
-     * timeline overview. Merging never invents data; it only unions ranges.
-     */
-    private fun mergeToLimit(segments: List<FloatArray>, limit: Int): List<Pair<Float, Float>> {
-        val bars = segments
-            .mapNotNull { s ->
-                val from = s[0].coerceIn(0f, 1f)
-                val to = (s[0] + s[1]).coerceIn(0f, 1f)
-                if (to > from) Pair(from, to) else null
-            }
-            .sortedBy { it.first }
-            .toMutableList()
-        while (bars.size > limit) {
-            var bestIdx = 0
-            var bestGap = Float.MAX_VALUE
-            for (i in 0 until bars.size - 1) {
-                val gap = bars[i + 1].first - bars[i].second
-                if (gap < bestGap) {
-                    bestGap = gap
-                    bestIdx = i
-                }
-            }
-            val a = bars[bestIdx]
-            val b = bars[bestIdx + 1]
-            bars[bestIdx] = Pair(a.first, b.second)
-            bars.removeAt(bestIdx + 1)
-        }
-        return bars
-    }
-
-    /**
-     * Draw the bars of one lane — a segment is positioned by padding a
-     * full-width progress bar (the same trick the REM timeline used).
-     */
-    private fun bindSegments(
-        views: RemoteViews,
-        segments: List<FloatArray>,
-        ids: IntArray,
-        track: Int,
-        minBarPx: Int,
-    ) {
-        val bars = mergeToLimit(segments, ids.size)
-        for (index in ids.indices) {
-            val id = ids[index]
-            val seg = bars.getOrNull(index)
-            if (seg == null) {
-                views.setViewVisibility(id, View.GONE)
-                continue
-            }
-            views.setViewVisibility(id, View.VISIBLE)
-            val from = (seg.first.coerceIn(0f, 1f) * track).toInt()
-            val to = (seg.second.coerceIn(0f, 1f) * track).toInt()
-            // Every bar is at least minBarPx — a 30-second wake-up still draws.
-            val width = (to - from).coerceAtLeast(minBarPx)
-            val rightPad = (track - width - from).coerceAtLeast(0)
-            views.setViewPadding(id, from, 0, rightPad, 0)
-            views.setProgressBar(id, 100, 100, false)
-        }
-    }
-
     /** The next system alarm, formatted for the ALARM cell; null when none. */
     private fun nextAlarmLabel(context: Context): String? {
         return try {
