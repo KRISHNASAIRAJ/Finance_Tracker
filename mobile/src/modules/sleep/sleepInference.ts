@@ -106,6 +106,13 @@ export interface SleepInferenceOptions {
    * a long interruption. Defaults to {@link MAX_MIDNIGHT_INTERRUPTION_MIN}.
    */
   maxMidnightInterruptionMin?: number;
+  /**
+   * Bedtime the user confirmed with "Going to bed" (epoch ms). When present,
+   * it anchors the session's start (so an early bedtime is logged exactly) and
+   * lets buckets from that moment join the night even when they fall outside
+   * the configured window. 0 / absent = infer bedtime from motion only.
+   */
+  manualBedtimeMs?: number;
 }
 
 /** A wake gap the user still has to classify in the morning. */
@@ -592,11 +599,34 @@ export function inferSleepSession(
   buckets: MotionBucket[],
   options: SleepInferenceOptions
 ): InferredSleep | null {
+  // A confirmed "Going to bed" time is the single source of truth for the
+  // bedtime. It also lets minutes that fell outside the configured window
+  // (e.g. a 20:00 bedtime with a 21:30 window) join that night instead of being
+  // discarded as "daytime".
+  const manualMs =
+    options.manualBedtimeMs && options.manualBedtimeMs > 0 ? options.manualBedtimeMs : 0;
+  const manualBedMin = manualMs ? Math.floor(manualMs / 60000) : 0;
+  const manualMaxMin = manualBedMin + 16 * 60; // bound the override to one night
+  let manualKey: number | null = null;
+  if (manualBedMin) {
+    const d = new Date(manualMs);
+    const dayIndex =
+      Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+    manualKey =
+      nightKeyForMinute(manualBedMin, options.sleepStartMin, options.sleepEndMin) ??
+      // An early bedtime (before the window opens) still belongs to that
+      // calendar evening; a post-midnight one belongs to the previous evening.
+      (minuteOfDay(manualMs) >= 12 * 60 ? dayIndex : dayIndex - 1);
+  }
+
   const byNight = new Map<number, MotionBucket[]>();
   for (const b of buckets || []) {
     const minute = Math.floor(Number(b?.m));
     if (!Number.isFinite(minute) || minute <= 0) continue;
-    const key = nightKeyForMinute(minute, options.sleepStartMin, options.sleepEndMin);
+    const key =
+      manualKey !== null && minute >= manualBedMin && minute <= manualMaxMin
+        ? manualKey
+        : nightKeyForMinute(minute, options.sleepStartMin, options.sleepEndMin);
     if (key === null) continue; // daytime — never part of a sleep session
     const list = byNight.get(key);
     if (list) list.push(b);
@@ -618,7 +648,16 @@ export function inferSleepSession(
       0
     ).getTime();
     const maxBedMin = Math.floor((start + (lenMin * 60000 * 2) / 3) / 60000);
-    const result = inferSingleNight(byNight.get(key)!, options, maxBedMin);
+    let result = inferSingleNight(byNight.get(key)!, options, maxBedMin);
+    // Motion only sees the phone being put down; the user's tap is earlier and
+    // exact. Anchor to it when it precedes the inferred bedtime, provided the
+    // resulting night is still a plausible length.
+    if (result && manualMs && key === manualKey && manualMs < result.bedTime) {
+      const span = result.wakeTime - manualMs;
+      if (span > 0 && span <= 16 * 3600_000) {
+        result = { ...result, bedTime: manualMs, durationMin: Math.round(span / 60000) };
+      }
+    }
     if (result) return result;
   }
   return null;

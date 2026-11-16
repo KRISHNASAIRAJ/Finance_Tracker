@@ -128,10 +128,15 @@ class SleepMotionService : Service(), SensorEventListener {
         // Android gives a foreground service ~5s to show its notification —
         // always do that first, even when we are about to stop again.
         startInForeground()
-        if (!config.enabled) {
+        // A confirmed "Going to bed" starts tracking for that night even if the
+        // Automatic-tracking toggle is off — the tap itself is the opt-in.
+        if (!config.enabled && config.manualBedtimeMs <= 0L) {
             stopTracking()
             return START_NOT_STICKY
         }
+        // The morning banner / alarm should measure from the time the user
+        // actually went to bed, not from the first still sample of the service.
+        if (config.manualBedtimeMs > 0L) sleepSessionStart = config.manualBedtimeMs
         // NIGHT ONLY: outside the night window the tracker does not run at all
         // — no service, no "Sleep tracking" notification, no battery drain.
         // It is armed to start when the window opens.
@@ -485,6 +490,12 @@ class SleepMotionService : Service(), SensorEventListener {
      * night.
      */
     private fun endOfNight() {
+        // A confirmed bedtime only applies to its own night — clear it so the
+        // clean night-only window rule takes over again tomorrow.
+        if (config.manualBedtimeMs > 0L) {
+            config = config.copy(manualBedtimeMs = 0L)
+            SleepMotionStore.saveConfig(this, config)
+        }
         stopTracking()
         try {
             // A new session → the "tracking is on" banner may show again.

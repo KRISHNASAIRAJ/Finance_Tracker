@@ -77,6 +77,9 @@ export async function collectLiveNight(now: number = Date.now()): Promise<LiveNi
       minSessionMin: 30, // partial nights are worth backing up
       wakeStartMin: cfg.wakeStartMin,
       wakeEndMin: cfg.wakeEndMin,
+      // Honour an explicit "Going to bed" time so the live row starts where the
+      // user actually went to bed, not at the first motion sample in the window.
+      manualBedtimeMs: cfg.manualBedtimeMs,
     });
     const lastBucketEnd = (recent[recent.length - 1].m + 1) * 60000;
     const startMs = inferred?.bedTime ?? recent[0].m * 60000;

@@ -39,7 +39,14 @@ data class SleepMotionConfig(
      * logs the night and the widget already shows the result, so the banner is
      * an optional, silent notification rather than a heads-up popup.
      */
-    val morningBanner: Boolean = false
+    val morningBanner: Boolean = false,
+    /**
+     * Bedtime the user explicitly confirmed with "Going to bed" (epoch ms).
+     * 0 = none. When set, the tracker starts immediately and keeps running from
+     * this moment even if it is earlier than the configured night window, and
+     * JS uses it as the sleep session's bed time.
+     */
+    val manualBedtimeMs: Long = 0L
 ) {
 
     /**
@@ -72,6 +79,7 @@ data class SleepMotionConfig(
         o.put("snoozeMin", snoozeMin)
         o.put("autoSave", autoSave)
         o.put("morningBanner", morningBanner)
+        o.put("manualBedtimeMs", manualBedtimeMs)
         return o.toString()
     }
 
@@ -98,7 +106,8 @@ data class SleepMotionConfig(
                     alarmDurationMin = o.optInt("alarmDurationMin", 2),
                     snoozeMin = o.optInt("snoozeMin", 9),
                     autoSave = o.optBoolean("autoSave", true),
-                    morningBanner = o.optBoolean("morningBanner", false)
+                    morningBanner = o.optBoolean("morningBanner", false),
+                    manualBedtimeMs = o.optLong("manualBedtimeMs", 0L)
                 )
             } catch (e: Exception) {
                 SleepMotionConfig()
@@ -120,7 +129,8 @@ data class SleepMotionConfig(
                 alarmDurationMin = mapInt(map, "alarmDurationMin", d.alarmDurationMin),
                 snoozeMin = mapInt(map, "snoozeMin", d.snoozeMin),
                 autoSave = mapBool(map, "autoSave", d.autoSave),
-                morningBanner = mapBool(map, "morningBanner", d.morningBanner)
+                morningBanner = mapBool(map, "morningBanner", d.morningBanner),
+                manualBedtimeMs = mapLong(map, "manualBedtimeMs", d.manualBedtimeMs)
             )
         }
 
@@ -143,6 +153,14 @@ data class SleepMotionConfig(
         private fun mapStr(map: ReadableMap, key: String, fallback: String): String {
             return try {
                 if (!map.hasKey(key) || map.isNull(key)) fallback else (map.getString(key) ?: fallback)
+            } catch (e: Exception) {
+                fallback
+            }
+        }
+
+        private fun mapLong(map: ReadableMap, key: String, fallback: Long): Long {
+            return try {
+                if (!map.hasKey(key) || map.isNull(key)) fallback else map.getDouble(key).toLong()
             } catch (e: Exception) {
                 fallback
             }

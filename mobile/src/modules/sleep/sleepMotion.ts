@@ -39,6 +39,8 @@ export interface SleepMotionConfig {
   autoSave: boolean;
   /** Show the optional "you slept X" morning notification. Off by default. */
   morningBanner: boolean;
+  /** Bedtime confirmed by "Going to bed" (epoch ms). 0 = none. */
+  manualBedtimeMs: number;
 }
 
 export interface SleepMotionStatus {
@@ -90,12 +92,15 @@ export const DEFAULT_SLEEP_MOTION_CONFIG: SleepMotionConfig = {
   snoozeMin: 9,
   autoSave: true,
   morningBanner: false,
+  manualBedtimeMs: 0,
 };
 
 const SleepMotionModule = NativeModules.SleepMotion as
   | {
       isAvailable: () => Promise<boolean>;
       start: (config: SleepMotionConfig) => Promise<boolean>;
+      startAt: (bedtimeMs: number, config: SleepMotionConfig) => Promise<boolean>;
+      endManualNight: () => Promise<boolean>;
       stop: () => Promise<boolean>;
       setConfig: (config: SleepMotionConfig) => Promise<boolean>;
       getStatus: () => Promise<SleepMotionStatus>;
@@ -164,6 +169,35 @@ export async function startMotionTracking(
   if (!SleepMotionModule) return false;
   try {
     await SleepMotionModule.start(withDefaults(config));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * "Going to bed" was tapped: start tracking from that exact moment, even when
+ * it is earlier than the configured night window (e.g. 20:00 vs a 21:30 window).
+ * The bedtime is passed to native and used as the session's start by inference.
+ */
+export async function startMotionTrackingAt(
+  bedtimeMs: number,
+  config?: Partial<SleepMotionConfig> | null
+): Promise<boolean> {
+  if (!SleepMotionModule) return false;
+  try {
+    await SleepMotionModule.startAt(bedtimeMs, withDefaults(config));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** "Good morning" / cancelled bedtime: end the manual night. */
+export async function endManualSleepNight(): Promise<boolean> {
+  if (!SleepMotionModule) return false;
+  try {
+    await SleepMotionModule.endManualNight();
     return true;
   } catch {
     return false;

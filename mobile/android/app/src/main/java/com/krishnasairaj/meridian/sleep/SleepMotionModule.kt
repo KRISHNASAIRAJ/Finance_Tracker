@@ -34,7 +34,11 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun start(config: ReadableMap?, promise: Promise) {
         try {
-            val cfg = SleepMotionConfig.fromMap(config).copy(enabled = true)
+            val current = SleepMotionStore.loadConfig(reactApplicationContext)
+            val cfg = SleepMotionConfig.fromMap(config).copy(
+                enabled = true,
+                manualBedtimeMs = current.manualBedtimeMs
+            )
             SleepMotionStore.saveConfig(reactApplicationContext, cfg)
             // NIGHT ONLY: during the day the tracker waits for tonight — the
             // service is never started, so there is no notification all day.
@@ -63,11 +67,59 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * "Going to bed" was tapped at `bedtimeMs`: begin tracking immediately,
+     * even if that is earlier than the configured night window. The bedtime is
+     * remembered so JS can use it as the sleep session's start and so the night
+     * is not confined to the 21:30 window that was never actually used.
+     */
+    @ReactMethod
+    fun startAt(bedtimeMs: Double, config: ReadableMap?, promise: Promise) {
+        try {
+            val ctx = reactApplicationContext
+            val cfg = SleepMotionConfig.fromMap(config).copy(manualBedtimeMs = bedtimeMs.toLong())
+            SleepMotionStore.saveConfig(ctx, cfg)
+            // We are starting now — the scheduled "window opens" alarm is moot.
+            SleepMotionScheduler.cancelStart(ctx)
+            startTrackerService()
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("E_START_AT_FAILED", e.message ?: "start at failed", e)
+        }
+    }
+
+    /**
+     * "Good morning" (or a cancelled bedtime): end the manual night. Clears the
+     * bedtime override, stops the sensor and re-arms the passive nightly start
+     * if the user still has Automatic tracking enabled.
+     */
+    @ReactMethod
+    fun endManualNight(promise: Promise) {
+        try {
+            val ctx = reactApplicationContext
+            val cleared = SleepMotionStore.loadConfig(ctx).copy(manualBedtimeMs = 0L)
+            SleepMotionStore.saveConfig(ctx, cleared)
+            try {
+                ctx.stopService(Intent(ctx, SleepMotionService::class.java))
+            } catch (e: Exception) {
+                /* ignore */
+            }
+            if (cleared.enabled) SleepMotionScheduler.scheduleStart(ctx, cleared)
+            else SleepMotionScheduler.cancelStart(ctx)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("E_END_NIGHT_FAILED", e.message ?: "end night failed", e)
+        }
+    }
+
     /** Stop the tracker (the settings are kept). */
     @ReactMethod
     fun stop(promise: Promise) {
         try {
-            val cfg = SleepMotionStore.loadConfig(reactApplicationContext).copy(enabled = false)
+            val cfg = SleepMotionStore.loadConfig(reactApplicationContext).copy(
+                enabled = false,
+                manualBedtimeMs = 0L
+            )
             SleepMotionStore.saveConfig(reactApplicationContext, cfg)
             // The pending "start tonight" alarm goes away too.
             SleepMotionScheduler.cancelStart(reactApplicationContext)
@@ -90,8 +142,13 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         try {
             val current = SleepMotionStore.loadConfig(reactApplicationContext)
             val incoming = SleepMotionConfig.fromMap(config)
-            // Only the enabled flag is owned by the service lifecycle.
-            val merged = incoming.copy(enabled = current.enabled)
+            // Only the enabled flag and an in-progress manual bedtime are owned
+            // by the service lifecycle — a settings change must not clear a
+            // night that is already underway.
+            val merged = incoming.copy(
+                enabled = current.enabled,
+                manualBedtimeMs = current.manualBedtimeMs
+            )
             SleepMotionStore.saveConfig(reactApplicationContext, merged)
             // A new night window → re-arm the start (the old alarm would fire
             // at the wrong time).
@@ -183,6 +240,8 @@ class SleepMotionModule(reactContext: ReactApplicationContext) :
         map.putInt("alarmDurationMin", config.alarmDurationMin)
         map.putInt("snoozeMin", config.snoozeMin)
         map.putBoolean("autoSave", config.autoSave)
+        map.putBoolean("morningBanner", config.morningBanner)
+        map.putDouble("manualBedtimeMs", config.manualBedtimeMs.toDouble())
         return map
     }
 }

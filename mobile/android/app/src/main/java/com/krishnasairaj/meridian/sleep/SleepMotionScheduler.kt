@@ -41,9 +41,36 @@ object SleepMotionScheduler {
         return if (s < e) m >= s && m <= e else m >= s || m <= e
     }
 
+    /**
+     * The "Going to bed" override. When the user explicitly confirms bedtime,
+     * tracking must begin at that moment — even if it is earlier than the
+     * configured night window (e.g. bed at 20:00, window opens 21:30).
+     *
+     * The override lasts until the window closes the following morning. That
+     * cap is important: it stops a manual night from recording the whole next
+     * day as "sleep" and lets the clean night-only rule resume afterwards.
+     */
+    fun manualBedtimeActive(config: SleepMotionConfig, ts: Long = System.currentTimeMillis()): Boolean {
+        val bed = config.manualBedtimeMs
+        if (bed <= 0L || ts < bed - 60_000L) return false
+        return ts <= windowEndAfter(config, bed)
+    }
+
+    /** The first configured window-end (e.g. 09:30) at or after `bedtime`. */
+    private fun windowEndAfter(config: SleepMotionConfig, bedtime: Long): Long {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = bedtime
+        cal.set(Calendar.HOUR_OF_DAY, (config.sleepEndMin / 60).coerceIn(0, 23))
+        cal.set(Calendar.MINUTE, (config.sleepEndMin % 60).coerceIn(0, 59))
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        if (cal.timeInMillis < bedtime) cal.add(Calendar.DAY_OF_YEAR, 1)
+        return cal.timeInMillis
+    }
+
     /** Is the tracker allowed to run right now? */
     fun isTrackingTime(config: SleepMotionConfig, ts: Long = System.currentTimeMillis()): Boolean =
-        isInNightWindow(config, minutesOfDay(ts))
+        manualBedtimeActive(config, ts) || isInNightWindow(config, minutesOfDay(ts))
 
     /**
      * The minutes until the night window opens — 0 when it is already open.

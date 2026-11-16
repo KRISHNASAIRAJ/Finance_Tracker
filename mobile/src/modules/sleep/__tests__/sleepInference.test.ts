@@ -398,3 +398,35 @@ describe('night grouping (daytime must never become sleep)', () => {
     expect(result!.durationMin).toBe(8 * 60 - 1);
   });
 });
+
+/** "Going to bed" must start tracking — and the logged night — at the tap. */
+describe('manual bedtime anchor (Going to bed)', () => {
+  it('anchors bedtime to the tap even before the night window opens', () => {
+    // Bed at 20:00 (window opens 21:30), phone put down at 20:30, up at 07:00.
+    // Without the anchor the bedtime would be pushed to 21:30 by the window
+    // clipping and the first 90 minutes would be lost.
+    const bedMs = at(20, 0).getTime();
+    const buckets = buildBuckets(at(20, 30), 631); // 20:30 → 07:00, all still
+    const result = inferSleepSession(buckets, { ...REAL_WINDOW, manualBedtimeMs: bedMs });
+    expect(result).not.toBeNull();
+    expect(result!.bedTime).toBe(bedMs);
+    expect(result!.wakeTime).toBe(at(7, 0, 1).getTime()); // 07:00 the next day
+    expect(result!.durationMin).toBe(11 * 60);
+  });
+
+  it('does not extend an implausible span just because a bedtime was tapped', () => {
+    // A confirmed bedtime at 08:32 with the phone still until 22:31 is still a
+    // nonsensical ~14 h "sleep" — the motion-derived night must fail first, so
+    // the anchor can never resurrect the old bug.
+    const buckets = buildBuckets(at(8, 32), 840);
+    expect(
+      inferSleepSession(buckets, { ...REAL_WINDOW, manualBedtimeMs: at(8, 32).getTime() })
+    ).toBeNull();
+  });
+
+  it('keeps inferring a bedtime from motion when no bedtime was tapped', () => {
+    const buckets = buildBuckets(at(23, 0, -1), 480); // 23:00 → 06:59
+    const result = inferSleepSession(buckets, REAL_WINDOW);
+    expect(result!.bedTime).toBe(at(23, 0, -1).getTime());
+  });
+});

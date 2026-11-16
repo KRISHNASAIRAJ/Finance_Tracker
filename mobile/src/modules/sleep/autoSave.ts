@@ -50,6 +50,9 @@ export async function autoSaveLastNight(
       minSessionMin: MIN_SESSION_MIN,
       wakeStartMin: cfg.wakeStartMin,
       wakeEndMin: cfg.wakeEndMin,
+      // A "Going to bed" tap is the exact bedtime — use it instead of the
+      // first motion sample so an early night is logged from the tap time.
+      manualBedtimeMs: cfg.manualBedtimeMs,
     });
     if (!inferred) return null;
     // The user deleted this night — nothing automatic may bring it back.

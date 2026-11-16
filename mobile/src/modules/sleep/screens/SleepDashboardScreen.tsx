@@ -34,6 +34,8 @@ import {
   isSleepMotionAvailable,
   isTrackingTime,
   startMotionTracking,
+  startMotionTrackingAt,
+  endManualSleepNight,
   stopMotionTracking,
   setMotionConfig,
   getMotionStatus,
@@ -179,6 +181,13 @@ export default function SleepDashboardScreen() {
         const local = await AsyncStorage.getItem(STORAGE_KEY);
         if (local) {
           setPendingBedtime(local);
+          // Re-arm tracking for a night still in progress after a restart —
+          // the foreground service may have been killed with the app. Ignore a
+          // stale bedtime so an old night never starts tracking again.
+          const ms = new Date(local).getTime();
+          if (autoAvailable && Number.isFinite(ms) && Date.now() - ms < 16 * 3600 * 1000) {
+            startMotionTrackingAt(ms, autoConfig);
+          }
         }
       } catch {
         /* best-effort restore */
@@ -192,6 +201,27 @@ export default function SleepDashboardScreen() {
   const savePendingBedtime = (iso: string | null) => {
     setPendingBedtime(iso);
     AsyncStorage.setItem(STORAGE_KEY, iso ?? '').catch(() => {});
+  };
+
+  /**
+   * Remember the exact tap time AND make the native tracker start from it —
+   * even when that is earlier than the configured night window or the automatic
+   * tracking toggle is off. This is what connects the manual "Going to bed"
+   * flow to automatic tracking.
+   */
+  const beginManualNight = (bedtimeMs: number) => {
+    savePendingBedtime(new Date(bedtimeMs).toISOString());
+    // Keep the anchor in the store too, so background auto-save and the hourly
+    // live backup use the tapped bedtime even when this screen is not mounted.
+    setAutoConfig({ manualBedtimeMs: bedtimeMs });
+    if (autoAvailable) startMotionTrackingAt(bedtimeMs, autoConfig);
+  };
+
+  /** Clear the in-progress night and stop the manual tracking override. */
+  const finishManualNight = () => {
+    savePendingBedtime(null);
+    setAutoConfig({ manualBedtimeMs: 0 });
+    if (autoAvailable) endManualSleepNight();
   };
 
   // --- automatic (accelerometer) sleep tracking -----------------------------
@@ -215,6 +245,9 @@ export default function SleepDashboardScreen() {
       // a short interruption.
       wakeStartMin: autoConfig.wakeStartMin,
       wakeEndMin: autoConfig.wakeEndMin,
+      // Honour the exact "Going to bed" time so a night started before the
+      // configured window is detected from the moment the user got in bed.
+      manualBedtimeMs: pendingBedtime ? new Date(pendingBedtime).getTime() : 0,
     });
     // Never re-ask about a gap already answered, and never ask about a night
     // that ended long ago. Inference is pure, so without this the same old gap
@@ -264,7 +297,7 @@ export default function SleepDashboardScreen() {
       );
       setAutoSaved(true);
     }
-  }, [autoConfig, entries, addEntry, user?.id, resolvedGapKeys]);
+  }, [autoConfig, entries, addEntry, user?.id, resolvedGapKeys, pendingBedtime]);
 
   useEffect(() => {
     if (!autoAvailable) return;
@@ -289,7 +322,10 @@ export default function SleepDashboardScreen() {
     if (!isSleepMotionAvailable()) return;
     const status = await getMotionStatus();
     if (status) setAutoStatus(status);
-    if (!autoConfig.enabled || !isTrackingTime(autoConfig)) return;
+    // A confirmed "Going to bed" keeps the tracker alive even before the
+    // window opens / with the toggle off, so heal it in that case too.
+    const manualActive = !!status?.config.manualBedtimeMs && status.config.manualBedtimeMs > 0;
+    if ((!autoConfig.enabled && !manualActive) || (!isTrackingTime(autoConfig) && !manualActive)) return;
     if (!status || status.running) return;
     const now = Date.now();
     if (now - lastRestartRef.current < 60000) return;
@@ -497,17 +533,18 @@ export default function SleepDashboardScreen() {
   const targetY = CHART_H - padY - ((7.5 - minD) / rangeD) * (CHART_H - 2 * padY);
 
   const tapBed = () => {
+    const start = () => beginManualNight(Date.now());
     if (pendingBedtime) {
       Alert.alert(
         'Overwrite bedtime?',
         `You already tapped "Going to bed" ${hoursAgo(pendingBedtime).toFixed(1)}h ago. Start over?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Restart', onPress: () => savePendingBedtime(new Date().toISOString()) },
+          { text: 'Restart', onPress: start },
         ]
       );
     } else {
-      savePendingBedtime(new Date().toISOString());
+      start();
     }
   };
 
@@ -526,7 +563,7 @@ export default function SleepDashboardScreen() {
       },
       user?.id
     );
-    savePendingBedtime(null);
+    finishManualNight();
   };
 
   const openAdd = () => {
@@ -912,7 +949,7 @@ export default function SleepDashboardScreen() {
                 <Text style={styles.bedBtnSub}>Tap when you wake up</Text>
               </View>
             </PressScale>
-            <PressScale onPress={() => savePendingBedtime(null)} scale={0.96} style={styles.cancelBed}>
+            <PressScale onPress={finishManualNight} scale={0.96} style={styles.cancelBed}>
               <Text style={styles.cancelBedText}>Cancel session</Text>
             </PressScale>
           </View>
