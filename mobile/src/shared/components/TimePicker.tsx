@@ -69,9 +69,31 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
             <View style={{ flex: 1 }}>
               <Text style={styles.headerLabel}>{mode === 'hours' ? 'HOUR' : 'MINUTE'}</Text>
               <View style={styles.headerValueRow}>
-                <Text style={styles.headerValue}>
-                  {hourLabel}:{String(minute).padStart(2, '0')}
-                </Text>
+                {/* Tapping a unit in the readout switches the dial mode:
+                    the hand you then drag is the unit you tapped. */}
+                <Pressable
+                  onPress={() => setMode('hours')}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 2 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit hours"
+                  accessibilityState={{ selected: mode === 'hours' }}
+                >
+                  <Text style={[styles.headerValue, mode === 'hours' && styles.headerValueActive]}>
+                    {hourLabel}
+                  </Text>
+                </Pressable>
+                <Text style={styles.headerValue}>:</Text>
+                <Pressable
+                  onPress={() => setMode('minutes')}
+                  hitSlop={{ top: 6, bottom: 6, left: 2, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit minutes"
+                  accessibilityState={{ selected: mode === 'minutes' }}
+                >
+                  <Text style={[styles.headerValue, mode === 'minutes' && styles.headerValueActive]}>
+                    {String(minute).padStart(2, '0')}
+                  </Text>
+                </Pressable>
                 {/* The AM/PM lives up here next to the time — tap to flip */}
                 <Pressable
                   style={styles.periodToggle}
@@ -99,12 +121,6 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
               onSelectMode={setMode}
             />
           </View>
-
-          <Text style={styles.hint}>
-            {mode === 'hours'
-              ? 'Tap the hour, then drag the dial — tap AM / PM above to switch.'
-              : 'Every minute counts — tap AM / PM above to switch.'}
-          </Text>
 
           <View style={styles.actions}>
             <Pressable style={[styles.actionBtn, styles.cancelBtn]} onPress={onClose}>
@@ -163,6 +179,9 @@ const styles = StyleSheet.create({
     color: op.white,
     letterSpacing: -0.5,
   },
+  headerValueActive: {
+    color: op.red,
+  },
   periodToggle: {
     paddingHorizontal: 9,
     paddingVertical: 3,
@@ -189,13 +208,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 4,
-  },
-  hint: {
-    fontSize: 11,
-    lineHeight: 16,
-    textAlign: 'center',
-    color: op.muted,
-    marginTop: 8,
     marginBottom: 14,
   },
   actions: {

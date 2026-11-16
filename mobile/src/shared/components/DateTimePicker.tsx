@@ -145,8 +145,32 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
             {tab === 'date' ? (
               <Text style={styles.summaryValue}>{dateLabel}</Text>
             ) : (
-              <Text style={styles.summaryValue}>
-                {hourLabel}:{String(minute).padStart(2, '0')}{' '}
+              <View style={styles.summaryTimeRow}>
+                {/* Tapping a unit in the readout switches the dial mode:
+                    the hand you then drag is the unit you tapped. */}
+                <Pressable
+                  onPress={() => setMode('hours')}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 2 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit hours"
+                  accessibilityState={{ selected: mode === 'hours' }}
+                >
+                  <Text style={[styles.summaryValue, mode === 'hours' && styles.summaryValueActive]}>
+                    {hourLabel}
+                  </Text>
+                </Pressable>
+                <Text style={styles.summaryValue}>:</Text>
+                <Pressable
+                  onPress={() => setMode('minutes')}
+                  hitSlop={{ top: 6, bottom: 6, left: 2, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit minutes"
+                  accessibilityState={{ selected: mode === 'minutes' }}
+                >
+                  <Text style={[styles.summaryValue, mode === 'minutes' && styles.summaryValueActive]}>
+                    {String(minute).padStart(2, '0')}
+                  </Text>
+                </Pressable>
                 {/* The AM/PM lives here next to the time — tap to flip */}
                 <Text
                   style={styles.summaryPeriod}
@@ -157,11 +181,8 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                 >
                   {periodFrom24(hours24)}
                 </Text>
-              </Text>
+              </View>
             )}
-            <Text style={styles.summaryHint}>
-              {tab === 'date' ? dateLabel : 'Tap AM / PM to switch'}
-            </Text>
           </View>
 
           {tab === 'date' ? (
@@ -312,22 +333,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 12,
   },
+  summaryTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   summaryValue: {
     fontSize: 22,
     fontWeight: '700',
     color: op.white,
     letterSpacing: -0.4,
   },
+  summaryValueActive: {
+    color: op.red,
+  },
   summaryPeriod: {
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1.2,
     color: op.red,
-  },
-  summaryHint: {
-    marginTop: 2,
-    fontSize: 12,
-    color: op.muted,
+    marginLeft: 6,
   },
   body: {
     paddingHorizontal: 14,

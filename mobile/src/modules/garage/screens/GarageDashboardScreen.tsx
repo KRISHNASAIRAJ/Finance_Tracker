@@ -112,14 +112,6 @@ export default function GarageDashboardScreen() {
     }
   }
 
-  // Latest Fill Mileage: average of the last 3 per-fill mileage values
-  const latestFillMileage = (() => {
-    if (perFillMileage.length === 0) return 'N/A';
-    const last3 = perFillMileage.slice(-3);
-    const avg = last3.reduce((sum, p) => sum + p.value, 0) / last3.length;
-    return avg.toFixed(1);
-  })();
-
   // Overall Mileage: total distance / total fuel across all fills
   const overallMileage = (() => {
     if (sortedForChart.length < 2) return 'N/A';
@@ -135,15 +127,22 @@ export default function GarageDashboardScreen() {
   const overallData = perFillMileage.length >= 2 ? perFillMileage : [];
   const chartEntries = chartView === 'latest' ? latestData : overallData;
   const chartData = chartEntries.map((p) => p.value);
+
+  // Latest-window average: the SAME fills the Latest-6 chart bars show, so
+  // the big readout, the right-side label and the chart's avg line always
+  // describe one consistent set (was avg-of-last-3, which contradicted the
+  // 6 bars and the "Latest 6" toggle).
+  const latestWindowAvg = latestData.length
+    ? (latestData.reduce((sum, p) => sum + p.value, 0) / latestData.length).toFixed(1)
+    : 'N/A';
   const activeIndex = selectedPointIndex !== null ? selectedPointIndex : chartData.length - 1;
   const latestMileageVal = chartData[activeIndex]?.toFixed(1) ?? 'N/A';
-  const displayMileage = chartView === 'overall' ? overallMileage : latestFillMileage;
-  const sampleCount = perFillMileage.slice(-3).length;
+  const displayMileage = chartView === 'overall' ? overallMileage : latestWindowAvg;
   const displayLabel = chartView === 'overall'
     ? 'OVERALL AVG MILEAGE'
-    : sampleCount <= 1
+    : latestData.length <= 1
       ? 'LATEST FILL MILEAGE'
-      : `LATEST ${sampleCount} FILLS AVG`;
+      : `LATEST ${latestData.length} FILLS AVG`;
 
   // The trend chip: last-3 average against the 3 before it.
   const trendPct = (() => {
@@ -346,69 +345,71 @@ export default function GarageDashboardScreen() {
         </Card>
       </Rise>
 
-      {/* Fuel / service / cost per km */}
+      {/* Fuel / service / cost per km — the WHOLE card is the tap target
+          and opens the respective list screen; only the "+ Add" quick
+          actions stay as separate inner buttons. */}
       <View style={styles.tileRow}>
         <Rise index={2} style={styles.tileCell}>
-          <Card style={styles.tileCard}>
-            <IconTile icon="water-outline" color={mc.sky} size={32} radius={11} />
-            <Text style={styles.tileValue}>{formatCurrency(monthlyFuelSpend)}</Text>
-            <Label small>FUEL</Label>
-            <PressScale
-              onPress={() => navigation.navigate('AllFuelFills')}
-              scale={0.95}
-              style={styles.tileAction}
-            >
+          <PressScale
+            onPress={() => navigation.navigate('AllFuelFills')}
+            scale={0.95}
+            accessibilityLabel="Open fuel fills"
+          >
+            <Card style={styles.tileCard}>
+              <IconTile icon="water-outline" color={mc.sky} size={32} radius={11} />
+              <Text style={styles.tileValue}>{formatCurrency(monthlyFuelSpend)}</Text>
+              <Label small>FUEL</Label>
               <Text style={[styles.tileActionText, { color: mc.sky }]}>View fills</Text>
-            </PressScale>
-            <PressScale
-              onPress={() => navigation.navigate('AddFuelFill')}
-              scale={0.95}
-              style={styles.tileAction}
-            >
-              <Text style={[styles.tileActionText, { color: mc.sky }]}>+ Add fill</Text>
-            </PressScale>
-          </Card>
+              <PressScale
+                onPress={() => navigation.navigate('AddFuelFill')}
+                scale={0.95}
+                style={styles.tileAction}
+              >
+                <Text style={[styles.tileActionText, { color: mc.sky }]}>+ Add fill</Text>
+              </PressScale>
+            </Card>
+          </PressScale>
         </Rise>
 
         <Rise index={3} style={styles.tileCell}>
-          <Card style={styles.tileCard}>
-            <IconTile icon="construct-outline" color={mc.violet} size={32} radius={11} />
-            <Text style={styles.tileValue}>{formatCurrency(totalMaintSpend)}</Text>
-            <Label small>SERVICE</Label>
-            <PressScale
-              onPress={() => navigation.navigate('AllMaintenance')}
-              scale={0.95}
-              style={styles.tileAction}
-            >
+          <PressScale
+            onPress={() => navigation.navigate('AllMaintenance')}
+            scale={0.95}
+            accessibilityLabel="Open service logs"
+          >
+            <Card style={styles.tileCard}>
+              <IconTile icon="construct-outline" color={mc.violet} size={32} radius={11} />
+              <Text style={styles.tileValue}>{formatCurrency(totalMaintSpend)}</Text>
+              <Label small>SERVICE</Label>
               <Text style={[styles.tileActionText, { color: mc.violet }]}>
                 {vehicleMaint.length} logs
               </Text>
-            </PressScale>
-            <PressScale
-              onPress={() => navigation.navigate('AddMaintenance', {})}
-              scale={0.95}
-              style={styles.tileAction}
-            >
-              <Text style={[styles.tileActionText, { color: mc.violet }]}>+ Add service</Text>
-            </PressScale>
-          </Card>
+              <PressScale
+                onPress={() => navigation.navigate('AddMaintenance', {})}
+                scale={0.95}
+                style={styles.tileAction}
+              >
+                <Text style={[styles.tileActionText, { color: mc.violet }]}>+ Add service</Text>
+              </PressScale>
+            </Card>
+          </PressScale>
         </Rise>
 
         <Rise index={4} style={styles.tileCell}>
-          <Card style={styles.tileCard}>
-            <IconTile icon="cash-outline" color={mc.amber} size={32} radius={11} />
-            <Text style={styles.tileValue}>
-              {costPerKm !== null ? `₹${costPerKm.toFixed(2)}` : '—'}
-            </Text>
-            <Label small>PER KM</Label>
-            <PressScale
-              onPress={() => navigation.navigate('VehicleSpend')}
-              scale={0.95}
-              style={styles.tileAction}
-            >
+          <PressScale
+            onPress={() => navigation.navigate('VehicleSpend')}
+            scale={0.95}
+            accessibilityLabel="Open cost breakdown"
+          >
+            <Card style={styles.tileCard}>
+              <IconTile icon="cash-outline" color={mc.amber} size={32} radius={11} />
+              <Text style={styles.tileValue}>
+                {costPerKm !== null ? `₹${costPerKm.toFixed(2)}` : '—'}
+              </Text>
+              <Label small>PER KM</Label>
               <Text style={[styles.tileActionText, { color: mc.amber }]}>Breakdown</Text>
-            </PressScale>
-          </Card>
+            </Card>
+          </PressScale>
         </Rise>
       </View>
 

@@ -271,6 +271,40 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 29 - garage UX + time picker: whole-card taps, consistent averages, combined breakdown, tappable digits (2026-11-16)
+
+- Garage dashboard FUEL / SERVICE / PER KM tiles: the WHOLE card is now
+  the tap target (opens AllFuelFills / AllMaintenance / VehicleSpend
+  respectively); only the "+ Add" quick actions stay as inner buttons.
+  Previously only the small action texts ("View fills", "7 logs",
+  "Breakdown") were pressable.
+- Efficiency card consistency: the big readout averaged the last 3
+  fills while the chart showed 6 bars (label "LATEST 3 FILLS AVG" vs
+  toggle "Latest 6" vs chart avg line - three numbers describing two
+  different sets). The big number and the label now describe the same
+  window the chart shows: avg of the 6 bars, "LATEST 6 FILLS AVG"
+  (real count when fewer). Overall view unchanged; trend chip
+  (last-3 vs prev-3) unchanged.
+- VehicleSpend (Breakdown) screen: was maintenance-only ("TOTAL
+  SERVICE SPEND") while the dashboard PER KM tile divides fuel +
+  service by km. Now TOTAL SPEND = fuel + service with a visible
+  split ("Rs X fuel + Rs Y service . N logs") and a per-km line
+  (same maths as the tile). VehicleReportsScreen already combined
+  both - unchanged.
+- TimePicker + DateTimePicker: tapping the hours or minutes digits in
+  the digital readout switches the dial mode, so the hand you drag is
+  the unit you tapped (active unit highlighted red). The hint text
+  under the clock ("Tap the hour, then drag the dial - tap AM / PM
+  above to switch." / "Tap AM / PM to switch") is removed; the
+  DateTimePicker hint also duplicated the date label. AM/PM chip
+  stays tappable.
+- [x] Typecheck + ESLint clean (0 errors, 6 pre-existing warnings).
+- [x] Local release build assembled (embedded JS bundle verified
+      contains the new strings) - the debug variant does NOT bundle
+      JS (debuggableVariants skips it); CI builds app-release.apk,
+      which is what the user installs.
+- Not pushed yet (user instruction: hold until they finish testing).
+
 ### Batch 28 - widget: block +20% area (94/3/3) and alarm cell shows "6:45 AM" (2026-11-16)
 
 - User asked for the whole red block 20% bigger, texts included; one

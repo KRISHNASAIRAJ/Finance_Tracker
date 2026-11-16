@@ -38,7 +38,7 @@ const SERVICE_TYPES = ['General Service', 'Insurance', 'Part Change', 'Tyre Chan
 
 export default function VehicleSpendScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { vehicles, maintenance, addMaintenanceLog } = useGarageStore();
+  const { vehicles, fills, maintenance, addMaintenanceLog } = useGarageStore();
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState('');
@@ -49,7 +49,22 @@ export default function VehicleSpendScreen() {
     .filter((m) => m.vehicle === selectedVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const totalSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
+  // Vehicle spend = BOTH running costs: fuel fills + maintenance logs.
+  // This matches the dashboard's PER KM tile (which divides fuel + service
+  // by km), so the tile and this breakdown screen always agree. Fuel is
+  // usually the largest running cost - leaving it out understated the
+  // total several-fold.
+  const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
+  const totalFuelSpend = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
+  const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
+  const totalSpend = totalFuelSpend + totalMaintSpend;
+
+  // Cost per km — the same maths as the dashboard tile: total spend over
+  // the odometer range actually covered.
+  const odoSorted = [...vehicleFills].sort((a, b) => a.odometer - b.odometer);
+  const totalKm =
+    odoSorted.length >= 2 ? odoSorted[odoSorted.length - 1].odometer - odoSorted[0].odometer : 0;
+  const costPerKm = totalKm > 0 ? totalSpend / 100 / totalKm : null;
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -143,11 +158,18 @@ export default function VehicleSpendScreen() {
         <Card>
           <View style={styles.spendRow}>
             <View style={styles.spendMain}>
-              <Label>TOTAL SERVICE SPEND</Label>
+              <Label>TOTAL SPEND</Label>
               <Text style={styles.spendValue}>{formatCurrency(totalSpend)}</Text>
               <Text style={styles.spendSub}>
-                {vehicleMaint.length} log{vehicleMaint.length !== 1 ? 's' : ''} for {selectedVehicle ?? 'vehicle'}
+                {formatCurrency(totalFuelSpend)} fuel + {formatCurrency(totalMaintSpend)}{' '}
+                service · {vehicleMaint.length} service log
+                {vehicleMaint.length !== 1 ? 's' : ''}
               </Text>
+              {costPerKm !== null ? (
+                <Text style={styles.spendSub}>
+                  ₹{costPerKm.toFixed(2)} per km · {totalKm.toLocaleString('en-IN')} km covered
+                </Text>
+              ) : null}
             </View>
             <PressScale
               onPress={() => setShowForm((v) => !v)}
