@@ -21,10 +21,10 @@ const TABS = ['Today', 'Upcoming', 'Completed', 'All'] as const
 type Tab = (typeof TABS)[number]
 
 const PRIORITY_COLORS: Record<Task['priority'], string> = {
-  urgent: '#FF887D',
-  high: '#FF887D',
-  medium: '#E2A45C',
-  low: '#59D6C7',
+  urgent: '#FF4D66',
+  high: '#FF4D66',
+  medium: '#FFB547',
+  low: '#3EE6B0',
 }
 
 const PRIORITY_ORDER: Record<Task['priority'], number> = {
@@ -137,7 +137,7 @@ export function TasksDashboardPage() {
           <button
             onClick={clearCompleted}
             disabled={purgeOld.isPending}
-            className="text-xs text-white/40 transition-colors hover:text-[#FF887D] disabled:opacity-50"
+            className="text-xs text-white/40 transition-colors hover:text-[#FF4D66] disabled:opacity-50"
           >
             Clear completed
           </button>
@@ -167,10 +167,11 @@ export function TasksDashboardPage() {
             <div key={t.id} className="group flex items-center gap-3 border-b border-white/5 px-5 py-3 last:border-0">
               <button
                 onClick={() => handleToggle(t)}
+                disabled={toggleTask.isPending && toggleTask.variables?.id === t.id}
                 aria-label={t.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors disabled:opacity-50 ${
                   t.is_completed
-                    ? 'border-[#59D6C7] bg-[#59D6C7]/20 text-[#59D6C7]'
+                    ? 'border-[#3EE6B0] bg-[#3EE6B0]/20 text-[#3EE6B0]'
                     : 'border-white/25 text-transparent hover:border-white/50'
                 }`}
               >
@@ -202,7 +203,7 @@ export function TasksDashboardPage() {
                 </button>
                 <button
                   onClick={() => setDeleting(t.id)}
-                  className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF887D]"
+                  className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#FF4D66]"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import type { Subtask, Task } from '../../types'
 import { uid } from '../../lib/utils'
+import { dedupeById, recurringInstanceId } from '../../lib/taskSync'
 
 export const taskKeys = {
   all: (userId: string) => ['tasks', userId] as const,
@@ -20,11 +21,12 @@ export function useTasks(userId: string) {
         .eq('user_id', userId)
         .order('due_date', { ascending: true })
       if (error) throw error
-      const tasks = (data ?? []) as Task[]
-      return tasks.map((t) => ({
-        ...t,
-        subtasks: parseSubtasks(t.subtasks),
-      }))
+      // Defensive de-dupe: a realtime echo or a retried insert can surface the
+      // same row twice. Key by primary id so a duplicate can never render as a
+      // second task. Insertion order from the query is preserved.
+      return dedupeById(
+        ((data ?? []) as Task[]).map((t) => ({ ...t, subtasks: parseSubtasks(t.subtasks) }))
+      )
     },
     enabled: !!userId,
   })
@@ -176,6 +178,7 @@ export function useToggleTask(userId: string) {
         const nextDate = getNextDueDate(task.due_date ?? now, task.recurrence)
         const resetSubtasks = (task.subtasks ?? []).map((s) => ({ ...s, completed: false }))
         await upsert.mutateAsync({
+          id: recurringInstanceId(task.id, nextDate),
           row: {
             title: task.title,
             description: task.description ?? null,
