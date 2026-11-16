@@ -1,8 +1,21 @@
 # Sleep block — live preview
 
-Renders the red SLEEP block from `geometry.json` in a plain HTML canvas and
-polls that file every 600 ms. Edit `geometry.json`, save, watch the render
-change — no Gradle, no APK, no device.
+Two pages, both render from `geometry.json` (poll every 600 ms — no reload)
+and share `sleep-block.js` (a canvas port of `SleepBlockRenderer.kt`):
+
+- **`/preview/preview.html`** — the SLEEP block alone, zoomed in (2–6x),
+  with an optional dashed-guide overlay aligned to every key y/x coordinate.
+- **`/preview/widget.html`** — the whole 2x2 widget card: black shell with the
+  22dp-radius hairline, live date (day in OnePlus red), live ticking clock
+  (hours red, minutes white, seconds + am/pm small), the full sleep block,
+  and the ALARM / BATT / TEMP footer with dividers. Backdrop can be toggled
+  between a teal wallpaper gradient and plain dark. Date and clock tick live;
+  ALARM/BATT/TEMP texts live in `geometry.json` (`widget.stats`) so you can
+  edit them. Design reference is the 340 x 316 canvas (matches
+  `docs/design/widget_polished_design.svg`).
+
+Edit `geometry.json`, save, watch the render change — no Gradle, no APK,
+no device.
 
 This is the **tuning ground**. `GEOMETRY.md` and
 `mobile/android/app/src/main/java/com/krishnasairaj/meridian/widgets/SleepBlockRenderer.kt`
@@ -51,6 +64,9 @@ Everything is in design units (canvas is `canvas.w` x `canvas.h` = 292 x 132).
 | You want to change…              | File / JSON path                                        |
 |----------------------------------|---------------------------------------------------------|
 | Whole look of the block          | `geometry.json` in this folder (all sections)           |
+| The full card (date/clock/stats) | `geometry.json` → `widget.*` (card, date, clock, block placement, stats) |
+| Block alone, 2–6x zoom           | `/preview/preview.html`                                 |
+| Full widget card                 | `/preview/widget.html`                                  |
 | Block width / height             | `canvas.w`, `canvas.h` (+ silhouette bottom values)     |
 | Tab size / fillet                | `silhouette.*`                                          |
 | Font sizes, baselines, colors    | `texts.*`                                               |

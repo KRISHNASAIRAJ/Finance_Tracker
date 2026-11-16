@@ -43,5 +43,24 @@
     "deep":  [ [10.6, 28.8], [51.4, 63.9], [76.9, 84.8] ],
     "light": [ [0, 8.2], [33.7, 51.4], [63.5, 77.4], [85.6, 100] ],
     "awake": [ [0, 21.2], [67.3, 70.2], [95.7, 98.6] ]
+  },
+  "widget": {
+    "_comment": "Full 2x2 card preview (widget.html). Design units, card 340 x 316 (matches the design reference). Date/clock are live; alarm/batt/temp are strings you can edit.",
+    "card": { "w": 340, "h": 316, "radius": 40, "bg": "#000000", "stroke": "#2A2A2A", "strokeWidth": 2, "inset": 1 },
+    "backdrop": "teal",
+    "date": { "y": 46, "size": 20, "weight": 500, "muted": "#9A9A9A", "day": "#E8002A" },
+    "clock": { "y": 98, "size": 54, "weight": 500, "hours": "#E8002A", "colonMinutes": "#FFFFFF",
+               "subSize": 20, "seconds": "#6A6A6A", "ampm": "#BDBDBD",
+               "gapBeforeSub": 8, "gapBetweenSub": 4 },
+    "block": { "x": 24, "y": 118 },
+    "stats": {
+      "valueSize": 19, "valueY": 284, "valueWeight": 500,
+      "labelSize": 9, "labelY": 300, "labelSpacing": 1.5, "labelWeight": 500,
+      "labelColor": "#8A8A8A", "alarmColor": "#E8002A", "valueColor": "#FFFFFF",
+      "dividerXs": [124, 216], "dividerY0": 264, "dividerY1": 298,
+      "dividerColor": "#2A2A2A", "dividerWidth": 1.5,
+      "alarmText": "Tue 6:45 am", "battText": "64%", "tempText": "24°",
+      "alarmX": 74, "battX": 170, "tempX": 262
+    }
   }
 }
