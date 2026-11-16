@@ -16,10 +16,10 @@ export function StickyMobileCTA() {
   if (user) return null
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0A0A10]/95 p-3 backdrop-blur-md lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0A0A0C]/95 p-3 backdrop-blur-md lg:hidden">
       <Link
         to="/login"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9BA5FF] to-[#5EE6FF] py-3 text-sm font-bold text-black active:opacity-90"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9B8CFF] to-[#4DA3FF] py-3 text-sm font-bold text-black active:opacity-90"
       >
         Open my tracker →
       </Link>

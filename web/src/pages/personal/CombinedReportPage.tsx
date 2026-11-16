@@ -13,7 +13,7 @@ import { getCategory, getCategoryIcon } from '../../lib/categoryMap'
 import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { istMonthKey } from '../../lib/istDate'
 
-const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa', '#5ee6ff', '#f472b6', '#22d3ee']
+const ALLOC_COLORS = ['#9B8CFF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#9B8CFF', '#4DA3FF', '#FF4D66', '#4DA3FF']
 
 export function CombinedReportPage() {
   const { user } = useAuth()

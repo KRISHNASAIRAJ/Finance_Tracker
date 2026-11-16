@@ -155,30 +155,38 @@ export function HabitsPage() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <>
-          {/* Today card */}
+          {/* TODAY — mirrors HabitTrackerScreen: Ring + checkbox rows */}
           <Card>
-            <CardBody className="space-y-4">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/40">
-                    Today · {dayPercent(ticked, habitList)}
-                  </p>
-                  <p className="mt-1 text-sm text-white/50">
+            <CardBody className="space-y-3">
+              <div className="flex items-center gap-3.5">
+                {/* Ring progress — mc.red, 56px, 7px stroke */}
+                <svg width="56" height="56" viewBox="0 0 56 56" className="shrink-0 -rotate-90" aria-hidden="true">
+                  <circle cx="28" cy="28" r="24.5" fill="none" stroke="#26262C" strokeWidth="7" />
+                  <circle
+                    cx="28" cy="28" r="24.5" fill="none" stroke="#EB0028" strokeWidth="7"
+                    strokeLinecap="round" strokeDasharray={2 * Math.PI * 24.5}
+                    strokeDashoffset={2 * Math.PI * 24.5 * (1 - dayProgress(ticked, habitList))}
+                    className="transition-all duration-500"
+                  />
+                </svg>
+                <div className="min-w-0 flex-1">
+                  <p className="app-label !text-[#FF4D66]">Today · {dayPercent(ticked, habitList)}</p>
+                  <p className="mt-1 text-[22px] font-medium text-[#F2F2F4]">
                     {ticked.length} of {habitList.length} done
                   </p>
+                  <p className="mt-0.5 text-xs text-text-dim">Long-press a habit to edit</p>
                 </div>
-                <span className="font-mono text-sm text-white/45">{progressBlocks(ticked, habitList)}</span>
+                <span className="font-mono text-sm text-text-dim">{progressBlocks(ticked, habitList)}</span>
               </div>
 
-              {/* progress bar */}
-              <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
+              <div className="h-2 overflow-hidden rounded-full bg-track">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#9BA5FF] to-[#5EE6FF] transition-all"
+                  className="h-full rounded-full bg-[#EB0028] transition-all"
                   style={{ width: `${Math.max(dayProgress(ticked, habitList) * 100, 3)}%` }}
                 />
               </div>
 
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-line">
                 {habitList.map((h, idx) => {
                   const done = ticked.includes(h.key)
                   const streak = habitStreak(h.key, (k) => byDay.get(k) ?? [])
@@ -192,13 +200,13 @@ export function HabitsPage() {
                       }}
                       onDoubleClick={() => openEdit(idx)}
                       title="Long-press (right-click) to edit"
-                      className="group flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-white/3"
+                      className="group flex w-full items-center gap-3 py-2.5 text-left transition-colors hover:bg-raised/40"
                     >
                       <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-all ${
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
                           done
-                            ? 'border-[#4FDBCC] bg-[#4FDBCC] text-[#0A0A10]'
-                            : 'border-white/25 bg-white/4'
+                            ? 'border-mint bg-mint text-[#0A0A0C]'
+                            : 'border-checkbox bg-transparent'
                         }`}
                       >
                         {done && (
@@ -208,12 +216,12 @@ export function HabitsPage() {
                         )}
                       </span>
                       <span className="text-base">{h.emoji}</span>
-                      <span className={`flex-1 text-sm ${done ? 'text-white/35 line-through' : 'text-white/85'}`}>
+                      <span className={`flex-1 text-[15px] ${done ? 'text-text-dim line-through' : 'text-[#F2F2F4]'}`}>
                         {h.label}
                       </span>
-                      <Pencil className="h-3 w-3 shrink-0 text-white/0 transition-colors group-hover:text-white/30" />
+                      <Pencil className="h-3 w-3 shrink-0 text-transparent transition-colors group-hover:text-text-faint" />
                       {streak >= 3 && (
-                        <span className="flex items-center gap-1 rounded-full bg-[#FF4D66]/15 px-2 py-0.5 text-[11px] font-semibold text-[#FF4D66]">
+                        <span className="flex items-center gap-1 rounded-tag bg-[#3A0A14] px-2 py-0.5 text-[12px] font-semibold text-[#FF4D66]">
                           <Flame className="h-3 w-3" /> {streak}
                         </span>
                       )}
@@ -237,8 +245,8 @@ export function HabitsPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <div className="text-center">
-                  <p className="text-sm font-bold text-white">{monthLabel(viewMonth)}</p>
-                  <p className="text-xs text-white/40">Monthly average {Math.round(monthAverage * 100)}%</p>
+                  <p className="text-[17px] font-medium text-[#F2F2F4]">{monthLabel(viewMonth)}</p>
+                  <p className="text-xs text-text-dim">Monthly average {Math.round(monthAverage * 100)}%</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -254,24 +262,19 @@ export function HabitsPage() {
                 </Button>
               </div>
 
-              <p className="font-mono text-xs text-white/40">
-                {'⬛'.repeat(Math.round(monthAverage * 10))}
-                {'⬜'.repeat(10 - Math.round(monthAverage * 10))} {Math.round(monthAverage * 100)}%
-              </p>
-
               <div className="overflow-x-auto pb-1">
                 <table className="border-separate border-spacing-[3px]">
                   <thead>
                     <tr>
                       <th className="w-8" />
-                      {monthDays.map((d, i) => (
+                      {monthDays.map((d) => (
                         <th
                           key={d}
-                          className={`w-6 text-[9px] font-semibold ${
-                            d === today ? 'text-[#5EE6FF]' : 'text-white/30'
+                          className={`w-[22px] text-[9px] font-semibold ${
+                            d === today ? 'rounded-md bg-[#3A0A14] text-[#FF4D66]' : 'text-text-dim'
                           }`}
                         >
-                          {String(i + 1).padStart(2, '0')}
+                          {String(Number(d.slice(-2))).padStart(2, '0')}
                         </th>
                       ))}
                     </tr>
@@ -279,17 +282,15 @@ export function HabitsPage() {
                   <tbody>
                     {habitList.map((h) => (
                       <tr key={h.key}>
-                        <td className="w-8 text-center text-sm">{h.emoji}</td>
+                        <td className="w-8 text-center text-[13px]">{h.emoji}</td>
                         {monthDays.map((d) => {
                           const done = (byDay.get(d) ?? []).includes(h.key)
                           return (
-                            <td key={d}>
+                            <td key={d} className={d === today ? 'rounded-md bg-[#3A0A14]' : ''}>
                               <div
-                                className={`h-4 w-4 rounded-[5px] border ${
-                                  done
-                                    ? 'border-[#4FDBCC]/60 bg-[#4FDBCC]/35'
-                                    : 'border-white/7 bg-white/5'
-                                } ${d === today ? 'ring-1 ring-[#5EE6FF]/50' : ''}`}
+                                className={`h-[22px] w-[22px] rounded-md ${
+                                  done ? 'bg-mint' : 'bg-raised'
+                                }`}
                               />
                             </td>
                           )

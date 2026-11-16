@@ -14,7 +14,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        'inline-flex items-center gap-1 rounded-tag px-2.5 py-0.5 text-[11px] font-medium',
         !color && 'bg-white/10 text-white/70',
         className
       )}
@@ -72,7 +72,7 @@ export function StatCard({
     compact ? 'text-2xl' : 'text-3xl'
   )
   return (
-    <div className={cn('rounded-2xl border border-line bg-surface', compact ? 'p-4' : 'p-5')}>
+    <div className={cn('rounded-card border border-line-soft bg-card', compact ? 'p-4' : 'p-5')}>
       <p className="text-xs font-medium text-white/50">{label}</p>
       {typeof value === 'number' ? (
         <AnimatedNumber

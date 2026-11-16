@@ -50,7 +50,7 @@ export function GarageReportsPage() {
 
   const splitData = [
     { name: 'Fuel', value: fuelSpend, color: getCategory('Fuel').color },
-    { name: 'Maintenance', value: maintenanceSpend, color: '#9BA5FF' },
+    { name: 'Maintenance', value: maintenanceSpend, color: '#9B8CFF' },
   ].filter((d) => d.value > 0)
 
   const activeMileageVehicle = mileageVehicle || (vehicles ?? [])[0]?.name || ''
@@ -153,10 +153,10 @@ export function GarageReportsPage() {
                     <select
                       value={activeMileageVehicle}
                       onChange={(e) => setMileageVehicle(e.target.value)}
-                      className="h-8 rounded-lg border border-white/10 bg-[#161616] px-2 text-xs text-white focus:outline-none"
+                      className="h-8 rounded-lg border border-white/10 bg-[#16161A] px-2 text-xs text-white focus:outline-none"
                     >
                       {(vehicles ?? []).map((v) => (
-                        <option key={v.id} value={v.name} className="bg-[#161616] text-white">
+                        <option key={v.id} value={v.name} className="bg-[#16161A] text-white">
                           {v.name}
                         </option>
                       ))}

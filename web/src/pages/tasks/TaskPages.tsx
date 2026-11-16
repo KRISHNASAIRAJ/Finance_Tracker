@@ -144,7 +144,7 @@ export function TaskDetailPage() {
           )}
 
           <div className="flex flex-wrap gap-2">
-            {task.due_date && <Badge color="#9BA5FF">Due {formatDateTime(task.due_date)}</Badge>}
+            {task.due_date && <Badge color="#9B8CFF">Due {formatDateTime(task.due_date)}</Badge>}
             <Badge color={PRIORITY_COLORS[task.priority]}>{task.priority} priority</Badge>
             <Badge>{task.recurrence && task.recurrence !== 'none' ? `Recurs ${task.recurrence}` : 'One-time'}</Badge>
           </div>

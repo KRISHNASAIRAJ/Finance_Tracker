@@ -267,7 +267,7 @@ export function HomePage() {
       <motion.div variants={riseItem} className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-2">
           <div className="space-y-2.5 px-5 pt-5 pb-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9BA5FF]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9B8CFF]">
               ☀️ Today's quote
             </p>
             <p className="text-lg font-semibold leading-relaxed text-white">"{quote.text}"</p>
@@ -287,7 +287,7 @@ export function HomePage() {
               <p className="text-3xl font-extrabold tracking-tight text-white tnum">{habitPct}%</p>
               <div className="h-2 overflow-hidden rounded-full bg-white/8">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#9BA5FF] to-[#5EE6FF]"
+                  className="h-full rounded-full bg-gradient-to-r from-[#9B8CFF] to-[#4DA3FF]"
                   style={{ width: `${Math.max(habitPct, 3)}%` }}
                 />
               </div>
@@ -410,7 +410,7 @@ export function HomePage() {
           label="Portfolio"
           value={portfolioValue}
           format={paiseToRupeesCompact}
-          color="#9BA5FF"
+          color="#9B8CFF"
         />
         <StatCard
           label="Net Worth"
@@ -509,7 +509,7 @@ export function HomePage() {
                 </div>
               </div>
               <div className="mt-4">
-                <TrendArea data={trend} height={110} color="#9BA5FF" formatter={paiseToRupeesCompact} />
+                <TrendArea data={trend} height={110} color="#9B8CFF" formatter={paiseToRupeesCompact} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-px border-t border-white/10">

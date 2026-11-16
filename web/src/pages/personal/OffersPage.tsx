@@ -121,7 +121,7 @@ export function OffersPage() {
             <div className="flex flex-wrap items-center gap-2">
               <p className={cn('text-sm font-semibold text-white', isExpired && 'line-through')}>{offer.title}</p>
               {offer.discount_value && (
-                <span className="rounded-full bg-[#9BA5FF] px-2.5 py-0.5 text-[11px] font-bold text-black">
+                <span className="rounded-full bg-[#9B8CFF] px-2.5 py-0.5 text-[11px] font-bold text-black">
                   {offer.discount_value}
                 </span>
               )}
@@ -145,7 +145,7 @@ export function OffersPage() {
               </span>
             </div>
             {offer.coupon_code && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#9BA5FF]/40 bg-[#9BA5FF]/10 px-2.5 py-1 text-xs font-bold tracking-wider text-[#9BA5FF]">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#9B8CFF]/40 bg-[#9B8CFF]/10 px-2.5 py-1 text-xs font-bold tracking-wider text-[#9B8CFF]">
                 <Ticket className="h-3.5 w-3.5" /> {offer.coupon_code}
               </span>
             )}

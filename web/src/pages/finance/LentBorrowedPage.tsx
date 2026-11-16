@@ -173,7 +173,7 @@ export function LentBorrowedPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-white/90">{r.person_name}</p>
-                      <Badge color={r.type === 'lent' ? '#9BA5FF' : '#FFB547'}>
+                      <Badge color={r.type === 'lent' ? '#9B8CFF' : '#FFB547'}>
                         {r.type === 'lent' ? 'Lent' : 'Borrowed'}
                       </Badge>
                       <Badge color={STATUS_COLORS[r.status ?? 'pending']}>

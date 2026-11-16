@@ -177,16 +177,16 @@ export function MealPlannerPage() {
                 key={dk}
                 className={
                   isToday
-                    ? 'border-[#9BA5FF]/45 bg-[#9BA5FF]/6'
+                    ? 'border-[#9B8CFF]/45 bg-[#9B8CFF]/6'
                     : isTomorrow
-                      ? 'border-[#4FDBCC]/35'
+                      ? 'border-[#3EE6B0]/35'
                       : ''
                 }
               >
                 <CardBody className="space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className={`text-sm font-bold ${isToday ? 'text-[#9BA5FF]' : 'text-white'}`}>
+                      <p className={`text-sm font-bold ${isToday ? 'text-[#9B8CFF]' : 'text-white'}`}>
                         {weekday}
                         {isToday && ' · TODAY'}
                         {isTomorrow && ' · TOMORROW'}
@@ -235,8 +235,8 @@ export function MealPlannerPage() {
                                 title={item.done ? 'Unmark' : 'Mark cooked + log'}
                                 className={`flex h-6 w-6 items-center justify-center rounded-full border transition-all ${
                                   item.done
-                                    ? 'border-[#4FDBCC] bg-[#4FDBCC] text-[#0A0A10]'
-                                    : 'border-[#4FDBCC]/60 text-[#4FDBCC] hover:bg-[#4FDBCC]/10'
+                                    ? 'border-[#3EE6B0] bg-[#3EE6B0] text-[#0A0A0C]'
+                                    : 'border-[#3EE6B0]/60 text-[#3EE6B0] hover:bg-[#3EE6B0]/10'
                                 }`}
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -280,7 +280,7 @@ export function MealPlannerPage() {
               <button
                 key={r.id}
                 onClick={() => pickRecipe(r.id, r.title)}
-                className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-left transition-colors hover:border-[#4FDBCC]/40 hover:bg-[#4FDBCC]/8"
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/3 px-3 py-2 text-left transition-colors hover:border-[#3EE6B0]/40 hover:bg-[#3EE6B0]/8"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white/90">{r.title}</p>
@@ -288,7 +288,7 @@ export function MealPlannerPage() {
                     {r.prep_time} · {r.calories}
                   </p>
                 </div>
-                <Plus className="h-4 w-4 shrink-0 text-[#4FDBCC]" />
+                <Plus className="h-4 w-4 shrink-0 text-[#3EE6B0]" />
               </button>
             ))}
             {filteredRecipes.length === 0 && (

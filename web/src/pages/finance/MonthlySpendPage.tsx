@@ -122,7 +122,7 @@ export function MonthlySpendPage() {
           <Card>
             <CardHeader title="Daily spend" subtitle={formatMonthKey(selectedMonth)} />
             <CardBody>
-              <TrendBars data={dailyData} height={200} color="#9BA5FF" formatter={paiseToRupeesCompact} />
+              <TrendBars data={dailyData} height={200} color="#9B8CFF" formatter={paiseToRupeesCompact} />
             </CardBody>
           </Card>
 

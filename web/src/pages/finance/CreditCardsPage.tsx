@@ -130,13 +130,13 @@ export function CreditCardsPage() {
                       {limit && limit > 0 && (
                         <div className="mt-2 flex items-center gap-2">
                           <div className="h-1.5 flex-1 rounded-full bg-white/10">
-                            <div className="h-1.5 rounded-full" style={{ width: `${usagePct}%`, backgroundColor: usagePct > 80 ? '#FF4D66' : '#9BA5FF' }} />
+                            <div className="h-1.5 rounded-full" style={{ width: `${usagePct}%`, backgroundColor: usagePct > 80 ? '#FF4D66' : '#9B8CFF' }} />
                           </div>
                           <span className="text-[11px] text-white/40">{usagePct}% used</span>
                         </div>
                       )}
                       {reward.points > 0 && (
-                        <p className="mt-2 text-[11px] font-medium text-[#FFD79A]">
+                        <p className="mt-2 text-[11px] font-medium text-[#FFB547]">
                           {reward.points.toLocaleString('en-IN')} pts · {paiseToRupees(reward.rewardPaise)}{' '}
                           {reward.rule.directCashback ? 'cashback' : 'rewards'} ({reward.rule.label})
                         </p>
@@ -309,7 +309,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         </Card>
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50">Reward points</p>
-          <p className="mt-1 text-2xl font-bold text-[#FFD79A]">{reward.points.toLocaleString('en-IN')}</p>
+          <p className="mt-1 text-2xl font-bold text-[#FFB547]">{reward.points.toLocaleString('en-IN')}</p>
           <p className="mt-0.5 text-[11px] text-white/40">
             {reward.rewardPaise > 0
               ? `${paiseToRupees(reward.rewardPaise)} ${reward.rule.directCashback ? 'cashback' : 'rewards'} · ${reward.rule.label}`
@@ -326,7 +326,7 @@ function CreditCardDetailInner({ cardId, userId }: { cardId?: string; userId: st
         <Card className="p-5">
           <p className="text-xs font-medium text-white/50 mb-2">Credit utilization</p>
           <div className="h-2 rounded-full bg-white/10">
-            <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (outstanding / card.card_limit) * 100)}%`, backgroundColor: outstanding > card.card_limit * 0.8 ? '#FF4D66' : '#9BA5FF' }} />
+            <div className="h-2 rounded-full" style={{ width: `${Math.min(100, (outstanding / card.card_limit) * 100)}%`, backgroundColor: outstanding > card.card_limit * 0.8 ? '#FF4D66' : '#9B8CFF' }} />
           </div>
           <p className="mt-1 text-xs text-white/40">{paiseToRupees(outstanding)} of {paiseToRupees(card.card_limit)}</p>
         </Card>

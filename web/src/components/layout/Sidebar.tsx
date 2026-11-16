@@ -36,14 +36,14 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-line bg-canvas max-lg:hidden">
+    <aside className="fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-line-soft bg-canvas max-lg:hidden">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 px-5">
-        <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-ink">
-          <span className="text-[10px] font-bold text-canvas">M</span>
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-canvas bg-tertiary" />
+        <div className="relative flex h-8 w-8 items-center justify-center rounded-tile bg-[#F2F2F4]">
+          <span className="text-[11px] font-bold text-[#0A0A0C]">M</span>
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-canvas bg-[#9B8CFF]" />
         </div>
-        <span className="text-sm font-semibold tracking-tight text-ink">Meridian</span>
+        <span className="text-[15px] font-medium tracking-tight text-[#F2F2F4]">Meridian</span>
       </div>
 
       {/* Nav */}
@@ -74,8 +74,8 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-line px-4 py-3">
-        <p className="section-label">Meridian · web</p>
+      <div className="border-t border-line-soft px-4 py-3">
+        <p className="app-label-sm">Meridian · web</p>
       </div>
     </aside>
   )

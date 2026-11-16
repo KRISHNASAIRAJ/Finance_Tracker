@@ -18,8 +18,8 @@ export function Card({
     <motion.div
       onClick={onClick}
       className={cn(
-        'rounded-2xl border border-line bg-surface',
-        interactive && 'cursor-pointer transition-colors hover:border-line-strong',
+        'rounded-card border border-line-soft bg-card',
+        interactive && 'cursor-pointer transition-colors hover:border-checkbox',
         className
       )}
       whileHover={interactive ? { y: -2 } : undefined}

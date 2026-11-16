@@ -24,7 +24,7 @@ import { formatDate, paiseToRupees, paiseToRupeesCompact } from '../../lib/forma
 import { toast } from '../../components/ui/Toast'
 import type { Holding } from '../../types'
 
-const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa']
+const ALLOC_COLORS = ['#9B8CFF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#9B8CFF']
 
 /** Known allocation categories — mirrors mobile/src/modules/equity/store.ts. */
 const ALLOC_CATEGORIES = ['Equity', 'Mutual Funds', 'ETF', 'Gold', 'Realty', 'Other']
@@ -194,7 +194,7 @@ export function WealthDashboardPage() {
       {isLoading ? (
         <Skeleton className="h-36 w-full" />
       ) : (
-        <Card className="relative overflow-hidden border-white/15 bg-[#101014] p-6">
+        <Card className="relative overflow-hidden border-white/15 bg-[#16161A] p-6">
           <div
             className="pointer-events-none absolute -top-24 -left-16 h-64 w-[420px] rounded-full opacity-70"
             style={{
@@ -218,8 +218,8 @@ export function WealthDashboardPage() {
               <p className="text-[11px] text-white/40">Investments</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[#9BA5FF]">▲</span>
-              <p className="text-sm font-semibold text-[#9BA5FF] tnum">+{paiseToRupees(totalFDs)}</p>
+              <span className="text-[#9B8CFF]">▲</span>
+              <p className="text-sm font-semibold text-[#9B8CFF] tnum">+{paiseToRupees(totalFDs)}</p>
               <p className="text-[11px] text-white/40">
                 {(fds ?? []).length > 0
                   ? `${fds?.length} FD${(fds ?? []).length > 1 ? 's' : ''}`
@@ -323,7 +323,7 @@ export function WealthDashboardPage() {
                       </div>
                       <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                         <div
-                          className="h-full rounded-full bg-[#9BA5FF] transition-all"
+                          className="h-full rounded-full bg-[#9B8CFF] transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -383,10 +383,10 @@ export function WealthDashboardPage() {
                 {(fds ?? []).map((f) => (
                   <div key={f.id} className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
-                      <Lock className="h-3 w-3 shrink-0 text-[#4FDBCC]" />
+                      <Lock className="h-3 w-3 shrink-0 text-[#3EE6B0]" />
                       <span className="truncate text-white/70">{f.name}</span>
                     </span>
-                    <span className="font-semibold text-[#4FDBCC] tnum">+{paiseToRupees(f.amount)}</span>
+                    <span className="font-semibold text-[#3EE6B0] tnum">+{paiseToRupees(f.amount)}</span>
                   </div>
                 ))}
               </div>

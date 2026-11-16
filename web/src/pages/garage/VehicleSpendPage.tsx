@@ -16,7 +16,7 @@ import {
   paiseToRupeesDetailed,
 } from '../../lib/format'
 
-const PALETTE = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#5EE6FF', '#D0BCFF', '#FFB2B9', '#FFB547', '#F472B6', '#38BDF8', '#A78BFA']
+const PALETTE = ['#9B8CFF', '#3EE6B0', '#4DA3FF', '#4DA3FF', '#9B8CFF', '#FF4D66', '#FFB547', '#FF4D66', '#4DA3FF', '#9B8CFF']
 
 export function VehicleSpendPage() {
   const { name } = useParams()

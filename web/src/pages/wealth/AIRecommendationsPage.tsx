@@ -24,7 +24,7 @@ export function AIRecommendationsPage() {
   return (
     <div className="fade-up mx-auto max-w-2xl space-y-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#131316] text-[#9BA5FF]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#131316] text-[#9B8CFF]">
           <Sparkles className="h-5 w-5" />
         </div>
         <PageHeader
@@ -42,9 +42,9 @@ export function AIRecommendationsPage() {
 
           {recommend.isPending && (
             <div className="flex items-center gap-2 py-4 text-sm text-white/50">
-              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9BA5FF]" />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9BA5FF]" style={{ animationDelay: '150ms' }} />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9BA5FF]" style={{ animationDelay: '300ms' }} />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9B8CFF]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9B8CFF]" style={{ animationDelay: '150ms' }} />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-[#9B8CFF]" style={{ animationDelay: '300ms' }} />
               <span className="ml-1">Analyzing your portfolio...</span>
             </div>
           )}

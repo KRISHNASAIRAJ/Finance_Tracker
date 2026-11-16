@@ -147,11 +147,11 @@ export function NotesPage() {
               onClick={() => { setOpenFolder(f.name); setSelected(null) }}
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors',
-                openFolder === f.name ? 'bg-[#9BA5FF]/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
+                openFolder === f.name ? 'bg-[#9B8CFF]/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
               )}
             >
               {openFolder === f.name ? (
-                <FolderOpen className="h-4 w-4 text-[#9BA5FF]" />
+                <FolderOpen className="h-4 w-4 text-[#9B8CFF]" />
               ) : (
                 <Folder className={cn('h-4 w-4', f.name === DELETED ? 'text-white/30' : 'text-[#3EE6B0]')} />
               )}
@@ -189,11 +189,11 @@ export function NotesPage() {
                 onClick={() => select(n)}
                 className={cn(
                   'w-full rounded-lg px-3 py-2.5 text-left transition-colors',
-                  selected === n.id ? 'bg-[#9BA5FF]/15' : 'hover:bg-white/5'
+                  selected === n.id ? 'bg-[#9B8CFF]/15' : 'hover:bg-white/5'
                 )}
               >
                 <div className="flex items-center gap-1.5">
-                  {n.pinned && <Pin className="h-3 w-3 shrink-0 text-[#FFD9A0]" />}
+                  {n.pinned && <Pin className="h-3 w-3 shrink-0 text-[#FFB547]" />}
                   <span className="flex-1 truncate text-sm font-semibold text-white/85">{n.title || 'New Note'}</span>
                   <span className="text-[10px] text-white/30">{timeLabel(n.updated_at ?? n.created_at)}</span>
                 </div>
@@ -244,8 +244,8 @@ export function NotesPage() {
                 <span className="text-xs text-white/35">{current.folder || 'Notes'}</span>
                 <div className="flex items-center gap-3">
                   {!current.deleted_at && (
-                    <button onClick={() => togglePin(current)} className="text-white/40 hover:text-[#FFD9A0]">
-                      <Pin className={cn('h-4 w-4', current.pinned && 'text-[#FFD9A0]')} />
+                    <button onClick={() => togglePin(current)} className="text-white/40 hover:text-[#FFB547]">
+                      <Pin className={cn('h-4 w-4', current.pinned && 'text-[#FFB547]')} />
                     </button>
                   )}
                   {current.deleted_at ? (

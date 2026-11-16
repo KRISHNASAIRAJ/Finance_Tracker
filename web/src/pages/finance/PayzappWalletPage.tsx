@@ -81,7 +81,7 @@ export function PayzappWalletPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="This month loads" value={paiseToRupees(monthTotal)} />
-        <StatCard label="Cashback estimate (1%)" value={paiseToRupees(cashback)} color="#9BA5FF" />
+        <StatCard label="Cashback estimate (1%)" value={paiseToRupees(cashback)} color="#9B8CFF" />
         <StatCard label="All-time loads" value={paiseToRupees(allTimeTotal)} />
         <StatCard label="Loads this month" value={String(monthLoads.length)} />
       </div>

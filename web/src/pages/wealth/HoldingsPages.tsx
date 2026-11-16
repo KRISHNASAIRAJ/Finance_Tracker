@@ -25,10 +25,10 @@ const TYPE_OPTIONS = [
 ]
 
 const TYPE_COLORS: Record<HoldingType, string> = {
-  equity: '#9BA5FF',
+  equity: '#9B8CFF',
   mf: '#3EE6B0',
   etf: '#FFB547',
-  other: '#a78bfa',
+  other: '#9B8CFF',
 }
 
 const ALLOC_CATEGORIES = ['Gold', 'Realty', 'Equity', 'Mutual Funds', 'ETF', 'Other']

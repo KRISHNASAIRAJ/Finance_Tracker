@@ -10,7 +10,7 @@ export function NotFoundPage() {
         noIndex
       />
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#9BA5FF] to-[#5EE6FF]">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#9B8CFF] to-[#4DA3FF]">
           <span className="text-2xl font-extrabold text-black">404</span>
         </div>
         <div className="space-y-2">

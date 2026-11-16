@@ -200,7 +200,7 @@ export function FinanceHomePage() {
         <Card className="lg:col-span-2">
           <CardHeader title="Monthly spend trend" />
           <CardBody>
-            <TrendArea data={trend} height={160} color="#9BA5FF" formatter={paiseToRupeesCompact} />
+            <TrendArea data={trend} height={160} color="#9B8CFF" formatter={paiseToRupeesCompact} />
           </CardBody>
         </Card>
         <Card>

@@ -45,7 +45,7 @@ export function ContactPage() {
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9BA5FF]/60 invalid:border-[#FF4D66]/60"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9B8CFF]/60 invalid:border-[#FF4D66]/60"
             placeholder="Your name"
           />
         </div>
@@ -56,7 +56,7 @@ export function ContactPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9BA5FF]/60"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9B8CFF]/60"
             placeholder="you@example.com"
           />
         </div>
@@ -66,7 +66,7 @@ export function ContactPage() {
             id="message"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            className="min-h-32 w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9BA5FF]/60"
+            className="min-h-32 w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#9B8CFF]/60"
             placeholder="What's on your mind?"
           />
         </div>

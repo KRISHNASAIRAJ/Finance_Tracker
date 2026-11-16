@@ -28,7 +28,7 @@ export function Topbar({ title }: { title?: string }) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-line bg-canvas px-6">
+    <header className="flex h-14 items-center justify-between border-b border-line-soft bg-canvas px-6">
       <div className="flex items-center gap-3">
         {isSubPage && (
           <motion.button
@@ -40,7 +40,7 @@ export function Topbar({ title }: { title?: string }) {
             <ArrowLeft className="h-4.5 w-4.5" />
           </motion.button>
         )}
-        <h1 className="text-base font-semibold text-ink">{title ?? 'Dashboard'}</h1>
+        <h1 className="text-[15px] font-medium text-[#F2F2F4]">{title ?? 'Dashboard'}</h1>
       </div>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/30">

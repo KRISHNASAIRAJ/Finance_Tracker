@@ -95,7 +95,7 @@ export function GoalsPage() {
                     </div>
                     <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
                       <div
-                        className={`h-full rounded-full transition-all ${achieved ? 'bg-[#3EE6B0]' : 'bg-[#9BA5FF]'}`}
+                        className={`h-full rounded-full transition-all ${achieved ? 'bg-[#3EE6B0]' : 'bg-[#9B8CFF]'}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>

@@ -29,7 +29,7 @@ export function MoreMenuPage() {
               'transition-colors hover:border-white/25'
             )}
           >
-            <Icon className="h-5 w-5 text-[#9BA5FF] transition-colors group-hover:text-white" />
+            <Icon className="h-5 w-5 text-[#9B8CFF] transition-colors group-hover:text-white" />
             <p className="mt-3 text-sm font-semibold text-white">{title}</p>
             <p className="mt-1 text-xs text-white/50">{subtitle}</p>
           </Link>

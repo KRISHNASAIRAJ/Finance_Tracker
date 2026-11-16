@@ -35,39 +35,39 @@ export interface Category {
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
-  { name: 'Food & Dining', icon: UtensilsCrossed, color: '#ffb2b9' },
-  { name: 'Grocery', icon: ShoppingBag, color: '#5ee6ff' },
-  { name: 'Fuel', icon: Fuel, color: '#ea6479' },
+  { name: 'Food & Dining', icon: UtensilsCrossed, color: '#FF4D66' },
+  { name: 'Grocery', icon: ShoppingBag, color: '#4DA3FF' },
+  { name: 'Fuel', icon: Fuel, color: '#FF4D66' },
   { name: 'Vehicle Maintenance', icon: Wrench, color: '#3EE6B0' },
-  { name: 'Travel', icon: Plane, color: '#d0bcff' },
-  { name: 'Shopping', icon: ShoppingBag, color: '#ffdadc' },
-  { name: 'Bills & Recharge', icon: Receipt, color: '#00cbe6' },
-  { name: 'Rent', icon: Home, color: '#38bdf8' },
-  { name: 'EMI', icon: Repeat, color: '#a78bfa' },
-  { name: 'Entertainment', icon: Tv, color: '#f472b6' },
-  { name: 'OTT', icon: Tv, color: '#e879f9' },
-  { name: 'Youtube Premium', icon: MonitorPlay, color: '#ef4444' },
-  { name: 'Education', icon: GraduationCap, color: '#22d3ee' },
-  { name: 'Medical', icon: Heart, color: '#ffb2b9' },
-  { name: 'Health & Wellness', icon: Heart, color: '#5ee6ff' },
-  { name: 'Insurance', icon: ShieldCheck, color: '#d0bcff' },
-  { name: 'SIP', icon: TrendingUp, color: '#00cbe6' },
-  { name: 'Equity Investment', icon: BarChart3, color: '#ea6479' },
-  { name: 'Card Annual Charges', icon: CreditCard, color: '#ffdadc' },
-  { name: 'Interest', icon: Calculator, color: '#ffb2b9' },
-  { name: 'Family', icon: Users, color: '#ea6479' },
-  { name: 'Friends', icon: Users, color: '#5ee6ff' },
-  { name: 'Cash Withdrawal', icon: Wallet, color: '#d0bcff' },
-  { name: 'Wallet Loads', icon: Wallet, color: '#00cbe6' },
-  { name: 'Professional Service', icon: Briefcase, color: '#ffdadc' },
-  { name: 'Others', icon: MoreHorizontal, color: '#a78bfa' },
+  { name: 'Travel', icon: Plane, color: '#9B8CFF' },
+  { name: 'Shopping', icon: ShoppingBag, color: '#FFD0D6' },
+  { name: 'Bills & Recharge', icon: Receipt, color: '#4DA3FF' },
+  { name: 'Rent', icon: Home, color: '#4DA3FF' },
+  { name: 'EMI', icon: Repeat, color: '#9B8CFF' },
+  { name: 'Entertainment', icon: Tv, color: '#FF4D66' },
+  { name: 'OTT', icon: Tv, color: '#9B8CFF' },
+  { name: 'Youtube Premium', icon: MonitorPlay, color: '#EB0028' },
+  { name: 'Education', icon: GraduationCap, color: '#4DA3FF' },
+  { name: 'Medical', icon: Heart, color: '#FF4D66' },
+  { name: 'Health & Wellness', icon: Heart, color: '#4DA3FF' },
+  { name: 'Insurance', icon: ShieldCheck, color: '#9B8CFF' },
+  { name: 'SIP', icon: TrendingUp, color: '#4DA3FF' },
+  { name: 'Equity Investment', icon: BarChart3, color: '#FF4D66' },
+  { name: 'Card Annual Charges', icon: CreditCard, color: '#FFD0D6' },
+  { name: 'Interest', icon: Calculator, color: '#FF4D66' },
+  { name: 'Family', icon: Users, color: '#FF4D66' },
+  { name: 'Friends', icon: Users, color: '#4DA3FF' },
+  { name: 'Cash Withdrawal', icon: Wallet, color: '#9B8CFF' },
+  { name: 'Wallet Loads', icon: Wallet, color: '#4DA3FF' },
+  { name: 'Professional Service', icon: Briefcase, color: '#FFD0D6' },
+  { name: 'Others', icon: MoreHorizontal, color: '#9B8CFF' },
 ]
 
 export const INCOME_CATEGORIES: Category[] = [
-  { name: 'Salary', icon: PiggyBank, color: '#5ee6ff' },
-  { name: 'Freelance', icon: Briefcase, color: '#ffb2b9' },
-  { name: 'Investment', icon: TrendingUp, color: '#00cbe6' },
-  { name: 'Others', icon: MoreHorizontal, color: '#d0bcff' },
+  { name: 'Salary', icon: PiggyBank, color: '#4DA3FF' },
+  { name: 'Freelance', icon: Briefcase, color: '#FF4D66' },
+  { name: 'Investment', icon: TrendingUp, color: '#4DA3FF' },
+  { name: 'Others', icon: MoreHorizontal, color: '#9B8CFF' },
 ]
 
 export function getCategory(name: string): Category {
@@ -75,7 +75,7 @@ export function getCategory(name: string): Category {
   const found = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].find(
     (c) => c.name.toLowerCase() === n
   )
-  return found ?? { name, icon: Receipt, color: '#a78bfa' }
+  return found ?? { name, icon: Receipt, color: '#9B8CFF' }
 }
 
 export function getCategoryColor(name: string): string {

@@ -94,7 +94,7 @@ export function DailyReportPage() {
     body.split('\n').map((l) => l.trim()).filter(Boolean).map((line, i) =>
       line.startsWith('- ') ? (
         <div key={i} className="flex items-start gap-2">
-          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#9BA5FF]" />
+          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#9B8CFF]" />
           <p className="text-sm text-white/75">{line.slice(2)}</p>
         </div>
       ) : (
@@ -121,7 +121,7 @@ export function DailyReportPage() {
             key={d}
             onClick={() => setSelectedDate(d)}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-              d === selectedDate ? 'bg-[#9BA5FF] text-black' : 'border border-white/10 text-white/60 hover:bg-white/5'
+              d === selectedDate ? 'bg-[#9B8CFF] text-black' : 'border border-white/10 text-white/60 hover:bg-white/5'
             }`}
           >
             {d === istToday() ? 'Today' : dateChipLabel(d)}
@@ -136,7 +136,7 @@ export function DailyReportPage() {
             key={m}
             onClick={() => setMode(m)}
             className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-              activeMode === m ? 'bg-[#9BA5FF]/15 text-[#9BA5FF]' : 'border border-white/10 text-white/50 hover:bg-white/5'
+              activeMode === m ? 'bg-[#9B8CFF]/15 text-[#9B8CFF]' : 'border border-white/10 text-white/50 hover:bg-white/5'
             }`}
           >
             {m === 'evening' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
@@ -153,7 +153,7 @@ export function DailyReportPage() {
       ) : active && active.content?.headline ? (
         <div className="space-y-4">
           <Card className="p-6">
-            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9BA5FF]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#9B8CFF]">
               {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', {
                 weekday: 'long',
                 day: 'numeric',
@@ -166,8 +166,8 @@ export function DailyReportPage() {
 
           {active.content.sections?.map((sec, i) => (
             <Card key={i} className="p-5">
-              <p className="text-xs font-bold tracking-wider text-[#9BA5FF]">{sec.title}</p>
-              <div className={`mt-2.5 space-y-1.5 ${sec.title === 'QUOTE' ? 'border-l-2 border-[#9BA5FF] pl-4' : ''}`}>
+              <p className="text-xs font-bold tracking-wider text-[#9B8CFF]">{sec.title}</p>
+              <div className={`mt-2.5 space-y-1.5 ${sec.title === 'QUOTE' ? 'border-l-2 border-[#9B8CFF] pl-4' : ''}`}>
                 {renderBody(sec.body)}
               </div>
             </Card>

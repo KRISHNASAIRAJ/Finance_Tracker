@@ -164,7 +164,7 @@ export function FinanceReportsPage() {
                     <div className="flex-1">
                       <p className="truncate text-sm text-white/70">{m.name}</p>
                       <div className="mt-1 h-1.5 rounded-full bg-white/10">
-                        <div className="h-1.5 rounded-full bg-[#9BA5FF]" style={{ width: `${Math.max(4, (m.value / (merchants[0]?.value ?? 1)) * 100)}%` }} />
+                        <div className="h-1.5 rounded-full bg-[#9B8CFF]" style={{ width: `${Math.max(4, (m.value / (merchants[0]?.value ?? 1)) * 100)}%` }} />
                       </div>
                     </div>
                     <span className="text-sm font-semibold text-white tnum">{paiseToRupees(m.value)}</span>

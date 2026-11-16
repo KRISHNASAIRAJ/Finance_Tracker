@@ -55,7 +55,7 @@ export function ToastHost() {
           >
             {t.kind === 'success' && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#3EE6B0]" />}
             {t.kind === 'error' && <XCircle className="h-4 w-4 shrink-0 text-[#FF4D66]" />}
-            {t.kind === 'info' && <Info className="h-4 w-4 shrink-0 text-[#9BA5FF]" />}
+            {t.kind === 'info' && <Info className="h-4 w-4 shrink-0 text-[#9B8CFF]" />}
             <span>{t.message}</span>
           </motion.div>
         ))}

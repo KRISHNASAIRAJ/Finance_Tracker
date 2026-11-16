@@ -11,7 +11,7 @@ This file is the reference for building pages in `web/`. Read it fully before wr
 
 - Background `#0A0A0C` (bg-black), cards `#131316` (bg-[#131316]) with `border border-white/10`, radius `rounded-2xl`.
 - Text: `text-white` primary, `text-white/50` secondary, `text-white/30` muted.
-- Semantic colors: positive/success `#3EE6B0`, negative/error `#FF4D66`, primary accent `#9BA5FF`, accent `#4DA3FF`, warn `#FFB547`.
+- Semantic colors: positive/success `#3EE6B0`, negative/error `#FF4D66`, primary accent `#9B8CFF`, accent `#4DA3FF`, warn `#FFB547`.
 - Data readouts: `tnum` class (tabular numbers), bold, `tracking-tight`.
 - Pages are wrapped in a root div with `className="fade-up space-y-5"`.
 - Header: `PageHeader` (title + subtitle + action). Buttons: `Button` from ui/Button.

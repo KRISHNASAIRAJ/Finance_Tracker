@@ -1,34 +1,73 @@
 @import "tailwindcss";
 
-/* ─── Meridian Web — Tracend design system ─────────────────────────────
-   Token values mirror mobile/src/shared/theme/tracend.ts exactly so the web
-   reads as the same product as the app: one near-black canvas, flat raised
-   surfaces, hairline borders and colour-by-meaning accents.               */
+/* ─── Meridian Web — OxygenOS-style Meridian v2 design tokens ────────────
+   EXACT port of mobile/src/shared/theme/meridian.ts (mc / mr / mtx).
+   Colour is used by MEANING, never by decoration:
+     red      → attention / overdue / destructive
+     amber    → near a limit / warning
+     mint     → good, done, gaining
+     sky      → bank money
+     violet   → sleep and investments
+   Keep this file in sync with the mobile theme — it is the single source of
+   truth for both platforms.                                                */
 @theme {
-  /* Canvas / surfaces */
+  /* Canvas & surfaces */
   --color-canvas: #0A0A0C;
-  --color-surface: #131316;
+  --color-void: #050506;
+  --color-card: #131316;
+  --color-card-alt: #16161A;
   --color-raised: #1B1B20;
-  --color-elevated: #202020;
-  --color-bright: #26262C;
+  --color-chip: #1B1B20;
+  --color-track: #26262C;
+  --color-bar-dim: #2A2A31;
+  --color-line: #1E1E22;
+  --color-line-soft: #26262C;
+  --color-checkbox: #3A3A42;
+  --color-red-lav: #FFD0D6;
+  --color-mint-text: #CFEFE4;
 
-  /* Text */
-  --color-ink: #F2F2F4;
+  /* Meaningful accents + their tints */
+  --color-red: #EB0028;
+  --color-red-soft: #FF4D66;
+  --color-red-dim: #3A0A14;
+  --color-red-tint: #1A0A0E;
+
+  --color-mint: #3EE6B0;
+  --color-mint-dim: #0E2A22;
+
+  --color-sky: #4DA3FF;
+  --color-sky-dim: #0E2038;
+
+  --color-amber: #FFB547;
+  --color-amber-dim: #3A2A0A;
+
+  --color-violet: #9B8CFF;
+  --color-violet-dim: #1E1A38;
+  --color-violet-tint: #17142B;
+
+  /* Type */
+  --color-text: #F2F2F4;
+  --color-text-dim: #8E8E96;
+  --color-text-faint: #6E6E76;
+  --color-text-ghost: #55555C;
+  --color-ink: #0A0A0C;
+  --color-white: #FFFFFF;
+
+  /* Radii — from mr in meridian.ts */
+  --radius-card: 26px;
+  --radius-row: 22px;
+  --radius-chip: 22px;
+  --radius-tag: 10px;
+  --radius-tile: 13px;
+  --radius-badge: 12px;
+  --radius-nav: 30px;
+
+  /* Back-compat aliases used by shared components */
+  --color-surface: #131316;
+  --color-line-strong: #3A3A42;
   --color-ink-dim: #8E8E96;
   --color-ink-muted: #6E6E76;
-
-  /* Meaningful accents */
-  --color-stable: #3EE6B0;   /* positive / success */
-  --color-attention: #FF4D66; /* negative / danger */
-  --color-amber: #FFB547;    /* warning */
-  --color-tertiary: #9B8CFF; /* violet accent */
-  --color-protein: #9BA5FF;
-  --color-chartreuse: #3EE6B0;
-  --color-cyan: #4DA3FF;
-
-  /* Lines */
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.18);
+  --color-tertiary: #9B8CFF;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
@@ -37,40 +76,44 @@
 html,
 body {
   background-color: var(--color-canvas);
-  color: var(--color-ink);
+  color: var(--color-text);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ─── Tracend primitives (port of shared styles in tracend.ts) ────────── */
+/* ─── Type scale — port of mtx in meridian.ts ──────────────────────────── */
 
-/* Uppercase instrument-label, e.g. "SPEND THIS MONTH" */
-.section-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+/* The all-caps instrument label used on every card */
+.app-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: var(--color-ink-dim);
+  color: var(--color-text-dim);
 }
-
-/* Large numeric readout */
-.data-xl {
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
+.app-label-sm {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+.app-title {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.app-hero {
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
-
-/* Hairline card border — mobile uses a single hairline, not a heavy stroke */
-.hairline {
-  border: 1px solid var(--color-line);
-}
-
-/* Glass Noir surface for chips / hero blocks */
-.glass {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid var(--color-line-strong);
+.app-value {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Scrollbar — subtle, dark */
@@ -82,11 +125,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--color-checkbox);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--color-text-faint);
 }
 
 /* Tabular numbers for money/stat readouts */

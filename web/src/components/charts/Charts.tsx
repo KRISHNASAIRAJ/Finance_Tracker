@@ -107,7 +107,7 @@ export function TrendBars({
   data,
   xKey = 'label',
   yKey = 'value',
-  color = '#9BA5FF',
+  color = '#9B8CFF',
   height = 160,
   formatter,
 }: {
@@ -187,7 +187,7 @@ export function TrendLine({
   data,
   xKey = 'label',
   yKey = 'value',
-  color = '#9BA5FF',
+  color = '#9B8CFF',
   height = 180,
   formatter,
 }: {

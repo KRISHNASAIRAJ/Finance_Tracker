@@ -79,7 +79,7 @@ export function PortfolioHistoryPage() {
           <Card>
             <CardHeader title="Portfolio value over time" />
             <CardBody>
-              <TrendLine data={chartData} color="#9BA5FF" height={220} formatter={paiseToRupees} />
+              <TrendLine data={chartData} color="#9B8CFF" height={220} formatter={paiseToRupees} />
             </CardBody>
           </Card>
 

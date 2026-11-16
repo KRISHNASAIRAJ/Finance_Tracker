@@ -65,7 +65,7 @@ export function PrivacyPage() {
           <h2 className="text-lg font-bold text-white">Contact</h2>
           <p>
             Questions about this policy? Reach out from the{' '}
-            <Link to="/contact" className="text-[#9BA5FF] hover:underline">contact page</Link>.
+            <Link to="/contact" className="text-[#9B8CFF] hover:underline">contact page</Link>.
           </p>
         </section>
       </div>

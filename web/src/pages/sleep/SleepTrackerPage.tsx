@@ -195,7 +195,7 @@ export function SleepTrackerPage() {
       {chartData.length > 1 && (
         <Card>
           <CardBody>
-            <TrendLine data={chartData} color="#7B8EFF" height={180} formatter={(v) => formatDuration(v)} />
+            <TrendLine data={chartData} color="#9B8CFF" height={180} formatter={(v) => formatDuration(v)} />
           </CardBody>
         </Card>
       )}
@@ -209,7 +209,7 @@ export function SleepTrackerPage() {
               <button
                 onClick={getInsight}
                 disabled={insight.isPending}
-                className="flex items-center gap-2 rounded-lg text-sm font-medium text-[#7B8EFF] hover:text-white transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg text-sm font-medium text-[#9B8CFF] hover:text-white transition-colors disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
                 {insight.isPending ? 'Thinking…' : 'Get AI sleep insight'}
@@ -246,7 +246,7 @@ export function SleepTrackerPage() {
                     <tr key={e.id} className="border-b border-white/5 last:border-0 group">
                       <td className="px-5 py-3 text-white/80">
                         {new Date(e.start_time).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                        {e.source?.startsWith('auto') && <span className="ml-2 rounded bg-[#7B8EFF]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#7B8EFF]">{e.source === 'auto-motion' ? 'motion' : 'auto'}</span>}
+                        {e.source?.startsWith('auto') && <span className="ml-2 rounded bg-[#9B8CFF]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#9B8CFF]">{e.source === 'auto-motion' ? 'motion' : 'auto'}</span>}
                       </td>
                       <td className="px-5 py-3 text-white/50">
                         {new Date(e.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} → {new Date(e.end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
@@ -299,7 +299,7 @@ export function SleepTrackerPage() {
                   onClick={() => setQuality(quality === String(q) ? '' : String(q))}
                   className={`h-9 w-9 rounded-lg border text-sm font-bold transition-colors ${
                     quality === String(q)
-                      ? 'border-[#7B8EFF] bg-[#7B8EFF]/20 text-white'
+                      ? 'border-[#9B8CFF] bg-[#9B8CFF]/20 text-white'
                       : 'border-white/10 text-white/40 hover:text-white'
                   }`}
                 >

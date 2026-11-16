@@ -73,14 +73,14 @@ export const Select = forwardRef<
         ref={ref}
         id={inputId}
         className={cn(
-          'h-10 w-full rounded-xl border border-white/10 bg-[#161616] px-3 text-sm text-white',
+          'h-10 w-full rounded-xl border border-white/10 bg-[#16161A] px-3 text-sm text-white',
           'focus:border-white/35 focus:outline-none focus:ring-2 focus:ring-white/10',
           className
         )}
         {...rest}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-[#161616] text-white">
+          <option key={o.value} value={o.value} className="bg-[#16161A] text-white">
             {o.label}
           </option>
         ))}

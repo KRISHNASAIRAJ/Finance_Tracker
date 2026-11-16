@@ -7,11 +7,11 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
 type Size = 'sm' | 'md' | 'lg' | 'icon'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-white text-black hover:bg-white/85',
-  secondary: 'bg-white/10 text-white hover:bg-white/15',
-  ghost: 'text-white/70 hover:bg-white/10 hover:text-white',
-  danger: 'bg-[#FF4D66]/15 text-[#FF4D66] hover:bg-[#FF4D66]/25 border border-[#FF4D66]/30',
-  outline: 'border border-white/20 text-white hover:bg-white/5',
+  primary: 'bg-[#F2F2F4] text-[#0A0A0C] hover:bg-[#F2F2F4]/85',
+  secondary: 'bg-raised text-[#F2F2F4] hover:bg-checkbox',
+  ghost: 'text-text-dim hover:bg-raised hover:text-[#F2F2F4]',
+  danger: 'bg-[#EB0028]/15 text-[#FF4D66] hover:bg-[#EB0028]/25 border border-[#EB0028]/30',
+  outline: 'border border-checkbox text-[#F2F2F4] hover:bg-raised',
 }
 
 const sizes: Record<Size, string> = {
@@ -44,8 +44,8 @@ export function Button({
   return (
     <motion.button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-50 disabled:pointer-events-none',
+        'inline-flex items-center justify-center gap-2 rounded-chip font-medium transition-colors',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9B8CFF]/40 disabled:opacity-50 disabled:pointer-events-none',
         variants[variant],
         sizes[size],
         className

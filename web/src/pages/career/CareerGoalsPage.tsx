@@ -106,9 +106,9 @@ export function CareerGoalsPage() {
       />
 
       {active && (
-        <Card className="border-[#9BA5FF]/30 bg-gradient-to-br from-[#9BA5FF]/10 to-transparent">
+        <Card className="border-[#9B8CFF]/30 bg-gradient-to-br from-[#9B8CFF]/10 to-transparent">
           <CardBody className="space-y-2">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9BA5FF]">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9B8CFF]">
               <Target className="h-3.5 w-3.5" /> Focus year
             </p>
             <p className="text-xl font-bold text-white">
@@ -130,7 +130,7 @@ export function CareerGoalsPage() {
               key={g.year}
               className={
                 isActive
-                  ? 'border-[#9BA5FF]/45 bg-[#9BA5FF]/6'
+                  ? 'border-[#9B8CFF]/45 bg-[#9B8CFF]/6'
                   : isPast
                     ? 'opacity-80'
                     : ''
@@ -151,17 +151,17 @@ export function CareerGoalsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-base font-bold text-white">
-                      <Flag className={`h-4 w-4 ${isActive ? 'text-[#9BA5FF]' : 'text-white/30'}`} />
+                      <Flag className={`h-4 w-4 ${isActive ? 'text-[#9B8CFF]' : 'text-white/30'}`} />
                       {g.emoji} {g.title}
                       <Pencil className="h-3 w-3 text-white/0 transition-colors group-hover:text-white/30" />
                     </p>
                     {isActive && (
-                      <p className="mt-0.5 text-[10px] font-extrabold tracking-[0.2em] text-[#9BA5FF]">
+                      <p className="mt-0.5 text-[10px] font-extrabold tracking-[0.2em] text-[#9B8CFF]">
                         THIS YEAR
                       </p>
                     )}
                     {isPast && (
-                      <p className="mt-0.5 text-[11px] text-[#4FDBCC]/70">Foundation laid 🌱</p>
+                      <p className="mt-0.5 text-[11px] text-[#3EE6B0]/70">Foundation laid 🌱</p>
                     )}
                   </div>
                 </div>
@@ -179,7 +179,7 @@ export function CareerGoalsPage() {
                     >
                       <span
                         className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                          isPast ? 'bg-[#4FDBCC]/70' : 'bg-white/20'
+                          isPast ? 'bg-[#3EE6B0]/70' : 'bg-white/20'
                         }`}
                       />
                       <span className={`flex-1 text-sm leading-relaxed ${isPast ? 'text-white/45' : 'text-white/85'}`}>
@@ -191,7 +191,7 @@ export function CareerGoalsPage() {
                   <li>
                     <button
                       onClick={() => setAdding({ year: g.year, text: '' })}
-                      className="flex items-center gap-1.5 pl-[18px] text-xs font-semibold text-[#9BA5FF]/80 hover:text-[#9BA5FF]"
+                      className="flex items-center gap-1.5 pl-[18px] text-xs font-semibold text-[#9B8CFF]/80 hover:text-[#9B8CFF]"
                     >
                       <Plus className="h-3.5 w-3.5" /> Add goal for {g.year}
                     </button>

@@ -45,7 +45,7 @@ export function Modal({
           />
           <motion.div
             className={cn(
-              'relative w-full rounded-2xl border border-white/10 bg-[#131316] shadow-2xl',
+              'relative w-full rounded-card border border-line-soft bg-card shadow-2xl',
               wide ? 'max-w-2xl' : 'max-w-md'
             )}
             initial={{ opacity: 0, y: 12, scale: 0.97 }}
@@ -68,7 +68,7 @@ export function Modal({
             </div>
             <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
             {footer && (
-              <div className="flex justify-end gap-3 border-t border-white/10 px-6 py-4">{footer}</div>
+              <div className="flex justify-end gap-3 border-t border-line-soft px-6 py-4">{footer}</div>
             )}
           </motion.div>
         </div>
@@ -105,7 +105,7 @@ export function ConfirmDialog({
         <>
           <button
             onClick={onClose}
-            className="h-10 rounded-xl border border-white/15 px-4 text-sm text-white/70 transition-colors hover:bg-white/5"
+            className="h-10 rounded-chip border border-checkbox px-4 text-sm text-text-dim transition-colors hover:bg-raised"
           >
             Cancel
           </button>
@@ -114,8 +114,8 @@ export function ConfirmDialog({
             disabled={loading}
             className={
               danger
-                ? 'h-10 rounded-xl bg-[#FF4D66]/15 px-4 text-sm font-medium text-[#FF4D66] transition-colors hover:bg-[#FF4D66]/25 disabled:opacity-50'
-                : 'h-10 rounded-xl bg-white px-4 text-sm font-medium text-black transition-colors hover:bg-white/85 disabled:opacity-50'
+                ? 'h-10 rounded-chip bg-[#EB0028]/15 px-4 text-sm font-medium text-[#FF4D66] transition-colors hover:bg-[#EB0028]/25 disabled:opacity-50'
+                : 'h-10 rounded-chip bg-[#F2F2F4] px-4 text-sm font-medium text-[#0A0A0C] transition-colors hover:bg-[#F2F2F4]/85 disabled:opacity-50'
             }
           >
             {confirmLabel}

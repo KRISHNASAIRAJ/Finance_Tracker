@@ -39,7 +39,7 @@ export function MealAISuggestionsPage() {
         title="AI Meal Suggestions"
         subtitle="Personalised meal ideas from the AI"
         action={
-          <span className="flex items-center gap-1.5 rounded-full bg-[#9BA5FF]/15 px-3 py-1.5 text-xs font-medium text-[#9BA5FF]">
+          <span className="flex items-center gap-1.5 rounded-full bg-[#9B8CFF]/15 px-3 py-1.5 text-xs font-medium text-[#9B8CFF]">
             <Sparkles className="h-3.5 w-3.5" /> AI powered
           </span>
         }

@@ -101,7 +101,7 @@ export function GarageDashboardPage() {
   // Fuel vs maintenance spend donut
   const spendDonut = useMemo(() => {
     const data = [
-      { name: 'Fuel', value: totalFuelSpend, color: '#9BA5FF' },
+      { name: 'Fuel', value: totalFuelSpend, color: '#9B8CFF' },
       { name: 'Maintenance', value: totalMaintenanceSpend, color: '#FFB547' },
     ]
     return data.filter((d) => d.value > 0)

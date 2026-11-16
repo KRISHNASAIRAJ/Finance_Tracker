@@ -34,13 +34,13 @@ export function CookieBanner() {
     <div
       role="dialog"
       aria-label="Cookie notice"
-      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-2xl rounded-2xl border border-white/12 bg-[#14141C]/95 p-4 shadow-2xl backdrop-blur-md sm:inset-x-6"
+      className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-2xl rounded-2xl border border-white/12 bg-[#16161A]/95 p-4 shadow-2xl backdrop-blur-md sm:inset-x-6"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <p className="flex-1 text-xs leading-relaxed text-white/60">
           Meridian uses no advertising or tracking cookies — only your sign-in session.
           We keep it that way.{' '}
-          <Link to="/privacy" className="text-[#9BA5FF] hover:underline">Privacy policy</Link>
+          <Link to="/privacy" className="text-[#9B8CFF] hover:underline">Privacy policy</Link>
         </p>
         <button
           onClick={accept}

@@ -190,7 +190,7 @@ export function TasksDashboardPage() {
                   )}
                   <Badge color={PRIORITY_COLORS[t.priority]}>{t.priority}</Badge>
                   {t.recurrence && t.recurrence !== 'none' && (
-                    <Badge color="#9BA5FF">{t.recurrence}</Badge>
+                    <Badge color="#9B8CFF">{t.recurrence}</Badge>
                   )}
                 </div>
               </button>

@@ -59,7 +59,7 @@ export function LoansPage() {
   const renderEntry = (entry: Entry, kind: 'loan' | 'fd') => {
     const isFD = kind === 'fd'
     const Icon = isFD ? Lock : Wallet
-    const accent = isFD ? '#4FDBCC' : '#FF4D66'
+    const accent = isFD ? '#3EE6B0' : '#FF4D66'
     return (
       <Card key={entry.id} className="group p-5">
         <div className="flex items-center justify-between gap-4">
@@ -84,7 +84,7 @@ export function LoansPage() {
               {!isFD && (
                 <button
                   onClick={() => setAdjusting(entry as Loan)}
-                  className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#9BA5FF]"
+                  className="rounded-lg p-1.5 text-white/30 hover:bg-white/10 hover:text-[#9B8CFF]"
                   title="Adjust outstanding"
                 >
                   <Calculator className="h-3.5 w-3.5" />
@@ -150,7 +150,7 @@ export function LoansPage() {
 
       {/* FDs section */}
       <div className="flex items-center gap-2 pt-3">
-        <Lock className="h-4 w-4 text-[#4FDBCC]" />
+        <Lock className="h-4 w-4 text-[#3EE6B0]" />
         <h2 className="text-xs font-semibold uppercase tracking-widest text-white/40">Fixed Deposits</h2>
       </div>
       {(fds ?? []).length === 0 ? (
@@ -247,7 +247,7 @@ function AdjustLoanModal({ loan, onClose }: { loan: Loan | null; onClose: () => 
             onClick={() => setSign('plus')}
             className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
               sign === 'plus'
-                ? 'border-[#4FDBCC] bg-[#4FDBCC]/10 text-white'
+                ? 'border-[#3EE6B0] bg-[#3EE6B0]/10 text-white'
                 : 'border-white/10 text-white/50 hover:bg-white/5'
             }`}
           >
@@ -369,7 +369,7 @@ function EntryModal({
         />
         <p className="text-xs text-white/35">
           Net wealth on the{' '}
-          <Link to="/wealth" className="text-[#9BA5FF] hover:underline">
+          <Link to="/wealth" className="text-[#9B8CFF] hover:underline">
             Wealth dashboard
           </Link>{' '}
           is calculated as Investments + FDs − Loans.

@@ -9,7 +9,7 @@ import { Badge, EmptyState, PageHeader, Skeleton, StatCard } from '../../compone
 import { formatNumber, paiseToRupees, paiseToRupeesCompact } from '../../lib/format'
 import { allocCategoryOf } from './WealthDashboardPage'
 
-const ALLOC_COLORS = ['#9BA5FF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#a78bfa']
+const ALLOC_COLORS = ['#9B8CFF', '#3EE6B0', '#4DA3FF', '#FFB547', '#FF4D66', '#9B8CFF']
 
 export function AllocationDetailPage() {
   const { cat } = useParams()
@@ -123,7 +123,7 @@ export function AllocationDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Badge color="#9BA5FF">{category}</Badge>
+            <Badge color="#9B8CFF">{category}</Badge>
             <Link to="/wealth/holdings/new" className="text-xs text-white/40 transition-colors hover:text-white">
               + Add holding to this category
             </Link>
