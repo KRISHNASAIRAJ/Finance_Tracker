@@ -42,12 +42,15 @@ interface SleepState {
   autoConfig: SleepMotionConfig;
   /** Latest session detected by the motion tracker (not saved yet). */
   autoSession: DetectedSleepSession | null;
+  /** Gap starts the user already answered — never ask about them again. */
+  resolvedGapKeys: string[];
   addEntry: (entry: Omit<SleepEntry, 'id'>, userId?: string) => string;
   editEntry: (id: string, data: Partial<SleepEntry>, userId?: string) => void;
   deleteEntry: (id: string, userId?: string) => void;
   setReminderTime: (time: { hour: number; minute: number } | null) => void;
   setAutoConfig: (patch: Partial<SleepMotionConfig>) => void;
   setAutoSession: (session: DetectedSleepSession | null) => void;
+  markGapResolved: (gapStartMs: number) => void;
 }
 
 function flush() {
@@ -100,6 +103,7 @@ export const useSleepStore = create<SleepState>()(
       reminderTime: null,
       autoConfig: { ...DEFAULT_SLEEP_MOTION_CONFIG },
       autoSession: null,
+      resolvedGapKeys: [],
       addEntry: (entry, userId) => {
         // Idempotency guard: one NIGHT = one record. The widget deep link, the
         // dashboard's SharedPreferences fallback and the motion tracker can all
@@ -203,6 +207,15 @@ export const useSleepStore = create<SleepState>()(
 
       setAutoSession: (session) => {
         set({ autoSession: session });
+      },
+
+      markGapResolved: (gapStartMs) => {
+        const key = String(gapStartMs);
+        set((s) =>
+          s.resolvedGapKeys.includes(key)
+            ? s
+            : { resolvedGapKeys: [...s.resolvedGapKeys, key] }
+        );
       },
     }),
     {

@@ -78,6 +78,13 @@ const STORAGE_KEY = 'meridian_sleep_pending_bedtime';
 /** A sleep session shorter than this is never accepted as sleep. */
 const MIN_SESSION_MIN = 120;
 
+/**
+ * A gap question is only useful the morning after the night ended. The tracker
+ * keeps 36 h of buckets, so without this an old night's gap can resurface days
+ * later and look like a question about last night.
+ */
+const GAP_PROMPT_MAX_AGE_MS = 18 * 60 * 60 * 1000;
+
 /** "22:30" → "10:30 PM" */
 function fmtClock(minutesFromMidnight: number): string {
   const total = ((minutesFromMidnight % 1440) + 1440) % 1440;
@@ -128,6 +135,8 @@ export default function SleepDashboardScreen() {
   // --- automatic (accelerometer) sleep tracking ---
   const autoConfig = useSleepStore((s) => s.autoConfig);
   const setAutoConfig = useSleepStore((s) => s.setAutoConfig);
+  const resolvedGapKeys = useSleepStore((s) => s.resolvedGapKeys);
+  const markGapResolved = useSleepStore((s) => s.markGapResolved);
   const [autoStatus, setAutoStatus] = useState<SleepMotionStatus | null>(null);
   const [autoBuckets, setAutoBuckets] = useState<MotionBucket[]>([]);
   const [autoSession, setAutoSession] = useState<InferredSleep | null>(null);
@@ -194,7 +203,7 @@ export default function SleepDashboardScreen() {
     if (status) setAutoStatus(status);
     const buckets = await getMotionBuckets();
     setAutoBuckets(buckets);
-    const inferred = inferSleepSession(buckets, {
+    const raw = inferSleepSession(buckets, {
       threshold: motionThreshold(autoConfig.sensitivity),
       // The phone can sit under a pillow — a minute only counts as awake when
       // the movement was sustained (see movingSecondsThreshold).
@@ -207,6 +216,15 @@ export default function SleepDashboardScreen() {
       wakeStartMin: autoConfig.wakeStartMin,
       wakeEndMin: autoConfig.wakeEndMin,
     });
+    // Never re-ask about a gap already answered, and never ask about a night
+    // that ended long ago. Inference is pure, so without this the same old gap
+    // comes back every 30 s and on every app open.
+    const staleGap =
+      !!raw?.pendingGap &&
+      (Date.now() - raw.wakeTime > GAP_PROMPT_MAX_AGE_MS ||
+        resolvedGapKeys.includes(String(raw.pendingGap.startMs)));
+    const inferred =
+      raw && raw.pendingGap && staleGap ? { ...raw, pendingGap: null } : raw;
     setAutoSession(inferred);
     if (!inferred) {
       setAutoSaved(false);
@@ -246,7 +264,7 @@ export default function SleepDashboardScreen() {
       );
       setAutoSaved(true);
     }
-  }, [autoConfig, entries, addEntry, user?.id]);
+  }, [autoConfig, entries, addEntry, user?.id, resolvedGapKeys]);
 
   useEffect(() => {
     if (!autoAvailable) return;
@@ -352,6 +370,7 @@ export default function SleepDashboardScreen() {
    */
   const resolveGap = (resolution: 'interruption' | 'ended', awakeMinutes?: number) => {
     if (!autoSession) return;
+    if (autoSession.pendingGap) markGapResolved(autoSession.pendingGap.startMs);
     const resolved = resolvePendingGap(autoSession, resolution, awakeMinutes);
     addEntry(
       {

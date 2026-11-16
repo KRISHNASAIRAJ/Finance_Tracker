@@ -9,6 +9,7 @@ import {
   inNightWindow,
   inOrAfterWakeStart,
   minuteOfDay,
+  nightKeyForMinute,
   currentStillness,
   resolvePendingGap,
   type SleepInferenceOptions,
@@ -349,5 +350,51 @@ describe('currentStillness', () => {
     const streak = currentStillness(buckets, 0.35);
     expect(streak).not.toBeNull();
     expect(streak!.minutes).toBe(60);
+  });
+});
+
+/** Production night window — the regression below happened with this one. */
+const REAL_WINDOW: SleepInferenceOptions = {
+  ...OPTIONS,
+  sleepStartMin: 21 * 60 + 30, // 21:30
+  sleepEndMin: 9 * 60 + 30, // 09:30
+};
+
+describe('night grouping (daytime must never become sleep)', () => {
+  it('assigns daytime buckets to no night and post-midnight ones to the previous night', () => {
+    expect(nightKeyForMinute(Math.floor(at(14, 0).getTime() / 60000), 21 * 60 + 30, 9 * 60 + 30)).toBeNull();
+    const evening = nightKeyForMinute(Math.floor(at(22, 0).getTime() / 60000), 21 * 60 + 30, 9 * 60 + 30);
+    const afterMidnight = nightKeyForMinute(Math.floor(at(2, 0, 1).getTime() / 60000), 21 * 60 + 30, 9 * 60 + 30);
+    expect(afterMidnight).toBe(evening);
+  });
+
+  it('rejects a long morning still stretch as a bed time', () => {
+    // 07:00–09:30 is 150 still minutes inside the window tail — long enough
+    // to pass the duration minimum, but it is not sleep onset.
+    const buckets = buildBuckets(at(7, 0), 150);
+    expect(inferSleepSession(buckets, REAL_WINDOW)).toBeNull();
+  });
+
+  it('rejects the 8:32 am → 10:31 pm "13h 59m" false session', () => {
+    // Phone left still on a desk from mid-morning until late evening. The old
+    // whole-buffer inference merged the night-window tail (08:32–09:30) with
+    // the next evening (21:30–22:31) into one fictitious ~14 h night.
+    const buckets = buildBuckets(at(8, 32), 840); // 08:32 → 22:31, all still
+    expect(inferSleepSession(buckets, REAL_WINDOW)).toBeNull();
+  });
+
+  it('still detects a real night when a still evening follows it', () => {
+    // Yesterday 23:00 → today 07:00 is a real night; today 21:30 → 22:31 is
+    // just the phone lying on the desk. The latest night yields no session, so
+    // inference must fall through to the real one instead of merging them.
+    const night = buildBuckets(at(23, 0, -1), 480); // 23:00 → 07:00
+    const evening = buildBuckets(at(21, 30), 62); // 21:30 → 22:31
+    const result = inferSleepSession([...evening, ...night], REAL_WINDOW);
+    expect(result).not.toBeNull();
+    // The last bucket is 06:59 (a 480-minute timeline from 23:00 ends there),
+    // so the night is 23:00 → 06:59, not 23:00 → 07:00.
+    expect(result!.bedTime).toBe(at(23, 0, -1).getTime());
+    expect(result!.wakeTime).toBe(at(6, 59).getTime());
+    expect(result!.durationMin).toBe(8 * 60 - 1);
   });
 });

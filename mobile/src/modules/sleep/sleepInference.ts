@@ -175,6 +175,33 @@ export function minuteOfDay(ts: number): number {
 }
 
 /**
+ * Which NIGHT does this bucket belong to? Identified by the local calendar date
+ * of that night's `sleepStart` (the evening it began). Minutes in the daytime
+ * gap between windows belong to no night and return null.
+ *
+ * A window that wraps midnight (21:30 → 09:30) means:
+ *   - 22:00 on 16 Nov → night of 16 Nov
+ *   - 02:00 on 17 Nov → night of 16 Nov (the same night)
+ *   - 14:00 on 17 Nov → daytime → no night
+ */
+export function nightKeyForMinute(
+  minute: number,
+  sleepStartMin: number,
+  sleepEndMin: number
+): number | null {
+  const ts = minute * 60000;
+  const d = new Date(ts);
+  const mod = ((minuteOfDay(ts) % 1440) + 1440) % 1440;
+  const start = ((sleepStartMin % 1440) + 1440) % 1440;
+  const end = ((sleepEndMin % 1440) + 1440) % 1440;
+  const dayIndex = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
+  if (start === end) return dayIndex; // "always" window — fall back to calendar day
+  if (mod >= start) return dayIndex;
+  if (mod <= end) return dayIndex - 1;
+  return null; // daytime — never sleep
+}
+
+/**
  * Is this minute-of-day inside the night window? The window may wrap midnight
  * (e.g. 21:00 → 12:00).
  */
@@ -296,7 +323,10 @@ function absoluteMinuteFor(blockStart: number, blockEnd: number, targetMin: numb
 }
 
 /**
- * Infer the last sleep session from the motion timeline.
+ * Infer one session from a timeline that is already confined to a SINGLE night
+ * window. Public callers use {@link inferSleepSession}, which groups the raw
+ * buckets into nights first — otherwise a still afternoon plus the next
+ * evening can be merged into one fictitious 14-hour "night".
  *
  * Model:
  *  - every minute is "still" (phone on the mattress) or "awake" (it moved for
@@ -314,9 +344,11 @@ function absoluteMinuteFor(blockStart: number, blockEnd: number, targetMin: numb
  *
  * Returns null when there is no long enough stillness inside the night window.
  */
-export function inferSleepSession(
+function inferSingleNight(
   buckets: MotionBucket[],
-  options: SleepInferenceOptions
+  options: SleepInferenceOptions,
+  /** Latest plausible bedtime (epoch minute) — two thirds into the window. */
+  maxBedMin: number = Number.POSITIVE_INFINITY
 ): InferredSleep | null {
   const samples = toSampleMap(buckets);
   if (samples.size === 0) return null;
@@ -490,9 +522,17 @@ export function inferSleepSession(
     const coreEvent = bedtimeCandidate(best.core.start);
     if (wakeEvent - coreEvent < wakeEvent - bedEvent) bedEvent = coreEvent;
   }
+  // Still implausible after the fallback: reject rather than report a fake
+  // 12+ hour "night" with a high confidence score.
+  if (wakeEvent - bedEvent > MAX_PLAUSIBLE_MIN) return null;
 
   const wakeMin = wakeEvent - 1;
   if (wakeMin < bedMin) return null;
+
+  // A "bedtime" in the morning tail of the window is a still desk/sofa
+  // stretch, not sleep onset. Bedtime must fall in the first two thirds of
+  // the night window (by 05:30 for the default 21:30–09:30 window).
+  if (bedEvent > maxBedMin) return null;
 
   const bedTime = bedEvent * 60000;
   const wakeTime = wakeEvent * 60000;
@@ -532,6 +572,56 @@ export function inferSleepSession(
   );
 
   return { bedTime, wakeTime, interruptions, durationMin, confidence, pendingGap };
+}
+
+/**
+ * Infer the most recent real night from the raw (up to 36 h) motion timeline.
+ *
+ * The tracker deliberately keeps more than one night of buckets so a restart
+ * cannot lose data. Inferring over that whole buffer was the bug that produced
+ * "8:32 am → 10:31 pm (13h 59m)": a still daytime stretch and the following
+ * evening were merged into one block because both touch the night window.
+ *
+ * Here each bucket is assigned to exactly one night (daytime buckets to none)
+ * and inference runs on one night at a time, newest first. The first night
+ * that yields a valid session is returned; a short still streak in the current
+ * night simply falls through to the previous one instead of becoming a fake
+ * 14-hour session.
+ */
+export function inferSleepSession(
+  buckets: MotionBucket[],
+  options: SleepInferenceOptions
+): InferredSleep | null {
+  const byNight = new Map<number, MotionBucket[]>();
+  for (const b of buckets || []) {
+    const minute = Math.floor(Number(b?.m));
+    if (!Number.isFinite(minute) || minute <= 0) continue;
+    const key = nightKeyForMinute(minute, options.sleepStartMin, options.sleepEndMin);
+    if (key === null) continue; // daytime — never part of a sleep session
+    const list = byNight.get(key);
+    if (list) list.push(b);
+    else byNight.set(key, [b]);
+  }
+  const keys = Array.from(byNight.keys()).sort((a, b) => b - a); // newest night first
+  const lenMin =
+    (((options.sleepEndMin - options.sleepStartMin) % 1440) + 1440) % 1440 || 1440;
+  for (const key of keys) {
+    // The night key is the local calendar date of its evening start.
+    const d = new Date(key * 86400000);
+    const start = new Date(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate(),
+      Math.floor(options.sleepStartMin / 60),
+      options.sleepStartMin % 60,
+      0,
+      0
+    ).getTime();
+    const maxBedMin = Math.floor((start + (lenMin * 60000 * 2) / 3) / 60000);
+    const result = inferSingleNight(byNight.get(key)!, options, maxBedMin);
+    if (result) return result;
+  }
+  return null;
 }
 
 /**
