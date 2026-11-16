@@ -80,13 +80,9 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
   const handleClockChange = (next: {
     hours24?: number;
     minute?: number;
-    period?: ClockPeriod;
   }) => {
     if (next.hours24 !== undefined) setHours24(next.hours24);
     if (next.minute !== undefined) setMinute(next.minute);
-    if (next.period !== undefined) {
-      setHours24(next.period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12);
-    }
     // The mode advance happens in the dial itself (a tap, not a drag).
   };
 
@@ -104,7 +100,6 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
   };
 
   const hourLabel = String(hour12From24(hours24) === 0 ? 12 : hour12From24(hours24));
-  const timeLabel = `${hourLabel}:${String(minute).padStart(2, '0')} ${periodFrom24(hours24)}`;
   const dateLabel = tempDate.toLocaleDateString('en-IN', {
     weekday: 'short',
     day: 'numeric',
@@ -147,9 +142,25 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
 
           {/* The summary */}
           <View style={styles.summary}>
-            <Text style={styles.summaryValue}>{tab === 'date' ? dateLabel : timeLabel}</Text>
+            {tab === 'date' ? (
+              <Text style={styles.summaryValue}>{dateLabel}</Text>
+            ) : (
+              <Text style={styles.summaryValue}>
+                {hourLabel}:{String(minute).padStart(2, '0')}{' '}
+                {/* The AM/PM lives here next to the time — tap to flip */}
+                <Text
+                  style={styles.summaryPeriod}
+                  onPress={() => applyPeriod(periodFrom24(hours24) === 'AM' ? 'PM' : 'AM')}
+                  suppressHighlighting
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle AM or PM"
+                >
+                  {periodFrom24(hours24)}
+                </Text>
+              </Text>
+            )}
             <Text style={styles.summaryHint}>
-              {tab === 'date' ? dateLabel : timeLabel}
+              {tab === 'date' ? dateLabel : 'Tap AM / PM to switch'}
             </Text>
           </View>
 
@@ -212,7 +223,6 @@ export default function DateTimePicker({ visible, selected, onSelect, onClose }:
                 mode={mode}
                 onChange={handleClockChange}
                 onSelectMode={setMode}
-                onSetPeriod={applyPeriod}
               />
             </View>
           )}
@@ -307,6 +317,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: op.white,
     letterSpacing: -0.4,
+  },
+  summaryPeriod: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: op.red,
   },
   summaryHint: {
     marginTop: 2,

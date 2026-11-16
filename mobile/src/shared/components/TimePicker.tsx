@@ -38,14 +38,9 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
   const handleChange = (next: {
     hours24?: number;
     minute?: number;
-    period?: ClockPeriod;
   }) => {
     if (next.hours24 !== undefined) setHours24(next.hours24);
     if (next.minute !== undefined) setMinute(next.minute);
-    if (next.period !== undefined) {
-      const h = next.period === 'PM' ? (hours24 % 12) + 12 : hours24 % 12;
-      setHours24(h);
-    }
     // The mode advance happens in the dial itself (a tap, not a drag).
   };
 
@@ -73,10 +68,22 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerLabel}>{mode === 'hours' ? 'HOUR' : 'MINUTE'}</Text>
-              <Text style={styles.headerValue}>
-                {hourLabel}:{String(minute).padStart(2, '0')}{' '}
-                <Text style={styles.headerPeriod}>{periodFrom24(hours24)}</Text>
-              </Text>
+              <View style={styles.headerValueRow}>
+                <Text style={styles.headerValue}>
+                  {hourLabel}:{String(minute).padStart(2, '0')}
+                </Text>
+                {/* The AM/PM lives up here next to the time — tap to flip */}
+                <Pressable
+                  style={styles.periodToggle}
+                  onPress={() => applyPeriod(periodFrom24(hours24) === 'AM' ? 'PM' : 'AM')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle AM or PM"
+                  accessibilityState={{ selected: periodFrom24(hours24) === 'PM' }}
+                >
+                  <Text style={styles.headerPeriod}>{periodFrom24(hours24)}</Text>
+                </Pressable>
+              </View>
             </View>
             <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={20} color={op.muted} />
@@ -90,14 +97,13 @@ export default function TimePicker({ visible, selected, onSelect, onClose }: Tim
               mode={mode}
               onChange={handleChange}
               onSelectMode={setMode}
-              onSetPeriod={applyPeriod}
             />
           </View>
 
           <Text style={styles.hint}>
             {mode === 'hours'
-              ? 'Tap the hour, then drag the dial to set it.'
-              : 'Tap the minute, then drag the dial — every minute counts.'}
+              ? 'Tap the hour, then drag the dial — tap AM / PM above to switch.'
+              : 'Every minute counts — tap AM / PM above to switch.'}
           </Text>
 
           <View style={styles.actions}>
@@ -145,17 +151,31 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     color: op.red,
   },
-  headerValue: {
+  headerValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
+    gap: 10,
+  },
+  headerValue: {
     fontSize: 24,
     fontWeight: '700',
     color: op.white,
     letterSpacing: -0.5,
   },
+  periodToggle: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: op.hairline,
+    backgroundColor: op.surface,
+  },
   headerPeriod: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: op.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: op.red,
   },
   closeBtn: {
     width: 32,

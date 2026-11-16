@@ -271,6 +271,37 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 24 — time picker hands/AM-PM round two; widget bed/wake fix (2026-11-16)
+
+- [x] `ClockFace.tsx`: when the hour is being edited (hours mode) the HOUR
+      hand now sits exactly on the number being tapped/dragged (snapped
+      to 30° steps). In minutes mode it shows the true clock offset
+      (hour + minute/60). Tapping the hour text only moves the hour
+      hand; tapping the minute text only moves the minute hand — the
+      two hands are fully independent.
+- [x] AM/PM moved OUT of the dial centre — the centre is back to just
+      the time (`HH:MM`), and the centre touch zone shrank with it
+      (52dp x 24dp). The period is edited in the popup header instead:
+      the small period chip next to the time flips AM <-> PM on tap
+      (`TimePicker.tsx` header, `DateTimePicker.tsx` time summary —
+      the "AM" you already see there is now tappable and red to signal
+      it). Both popups updated.
+- [x] Widget: removed the small black block on the red pill (the black
+      8dp fillet item in `widget_sleep_pill.xml`) — the concave scoop is
+      now formed naturally by the tab's rounded left cap over the body's
+      straight top edge. The Kotlin island is unchanged (single-line
+      duration + Score row).
+- [x] Widget: fixed the bed/wake labels being pushed onto the stats row
+      on 2x2 cells with large font scales — date 9sp, clock 19sp, pill
+      margin 2dp, chart starts at 26dp, lane rows 7dp, pill paddings
+      tighter, dividers 12dp.
+- [x] tsc clean · ESLint 0 problems · 337/337 unit · e2e 9/9 ·
+      native `processDebugResources` + `compileDebugKotlin` ✓.
+- [ ] Device verification: (a) toggle AM/PM in the popup header chip;
+      (b) hour edit — hand under the finger, minutes untouched, and
+      vice versa; (c) widget — no black block, wake/sleep times fully
+      visible inside the pill.
+
 ### Batch 23 — time picker popup: AM/PM finally tappable, moved under the HOUR text (2026-11-15)
 
 - [x] `ClockFace.tsx`: the dial's PanResponder no longer claims touches that

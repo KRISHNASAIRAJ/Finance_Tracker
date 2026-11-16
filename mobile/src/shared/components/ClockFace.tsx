@@ -8,9 +8,9 @@
  *   hours stage   → the 12 numbers, 30° apart
  *   minutes stage → the 60 ticks, 6° apart (1-minute precision)
  *
- * The centre shows the whole time — tap the hour or the minute to edit
- * that unit (it turns red), with the AM / PM pills directly under the
- * HOUR text and nowhere else.
+ * The centre shows the whole time — tap the hour or the minute to pick
+ * that unit (it turns red). AM / PM live in the popup header instead —
+ * tapping the period text there flips the period.
  */
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -50,20 +50,18 @@ interface ClockFaceProps {
   onChange: (next: { hours24?: number; minute?: number }) => void;
   /** Called when the user wants to edit the hours or the minutes. */
   onSelectMode: (mode: ClockMode) => void;
-  /** Called when the user picks AM or PM. */
-  onSetPeriod: (period: ClockPeriod) => void;
   /** The dial size in dp. */
   size?: number;
 }
 
 /**
- * The bounding box (in dp, from the dial centre) of the centre readout:
- * the hour text with the AM / PM pills under it, the colon, the minute
- * text. The dial must NOT claim touches that land inside it — those
- * belong to the Pressables (switching to the hour / minute unit and
- * toggling AM / PM). Outside of it the dial is fully draggable.
+ * The bounding box (in dp, from the dial centre) of the centre readout
+ * ("10:53" — hour text, colon, minute text). The dial must NOT claim
+ * touches that land inside it — those belong to the Pressables
+ * (switching to the hour / minute unit). Outside of it the dial is
+ * fully draggable.
  */
-const CENTER_ZONE = { halfWidth: 82, halfHeight: 36 };
+const CENTER_ZONE = { halfWidth: 52, halfHeight: 24 };
 
 const DEFAULT_SIZE = 264;
 
@@ -73,7 +71,6 @@ export default function ClockFace({
   mode,
   onChange,
   onSelectMode,
-  onSetPeriod,
   size = DEFAULT_SIZE,
 }: ClockFaceProps) {
   const radius = size / 2 - 10;
@@ -89,7 +86,13 @@ export default function ClockFace({
   const minuteRef = useRef(angleForMinutes(minute));
 
   useEffect(() => {
-    const targetHour = nearestEquivalent(angleForHourHand(hour12, minute), hourRef.current);
+    // In hours mode the hour hand sits exactly on the tapped number (it
+    // is being edited); in minutes mode it shows the true offset
+    // (hour + minute/60), like a real clock.
+    const targetHour = nearestEquivalent(
+      mode === 'hours' ? angleForHours(hour12) : angleForHourHand(hour12, minute),
+      hourRef.current
+    );
     hourRef.current = targetHour;
     Animated.timing(hourAnim, {
       toValue: targetHour,
@@ -106,7 +109,7 @@ export default function ClockFace({
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
-  }, [hour12, minute, hourAnim, minuteAnim]);
+  }, [hour12, minute, mode, hourAnim, minuteAnim]);
 
   // --- the drag ------------------------------------------------------------
   const modeRef = useRef(mode);
@@ -143,12 +146,12 @@ export default function ClockFace({
     () =>
       PanResponder.create({
         // Tapping the dial claims the touch (so a tap sets the value under
-        // the finger). The centre readout and the AM / PM pills are
-        // Pressables rendered above the dial — and the dial refuses to
-        // claim touches that land on the centre zone, so the Pressables
-        // always win: tapping the hour text edits the hour (the hour
-        // hand only moves), the minute text edits the minute (the
-        // minute hand only moves), and the pills toggle AM / PM.
+        // the finger). The centre readout is Pressables rendered above
+        // the dial — and the dial refuses to claim touches that land on
+        // the centre zone, so the Pressables always win: tapping the
+        // hour text edits the hour (the hour hand only moves) and the
+        // minute text edits the minute (the minute hand only moves).
+        // AM / PM tapping lives in the popup header, outside the dial.
         onStartShouldSetPanResponder: (e) => {
           const cx = size / 2;
           const cy = size / 2;
@@ -317,39 +320,21 @@ export default function ClockFace({
       />
 
       {/* The centre readout — content-sized so the dial stays draggable.
-          Tapping the hour or the minute picks that unit to edit. The
-          AM / PM pills live directly under the HOUR text. */}
+          Tapping the hour or the minute picks that unit to edit (the
+          active unit turns red). AM / PM live in the popup header. */}
       <View style={styles.center} pointerEvents="box-none">
         <View style={styles.readoutRow}>
-          {/* The hour column: the hour text on top, AM / PM right under it */}
-          <View style={styles.hourColumn}>
-            <Pressable
-              onPress={() => onSelectMode('hours')}
-              hitSlop={{ top: 10, bottom: 2, left: 12, right: 6 }}
-              accessibilityRole="button"
-              accessibilityLabel="Edit hour"
-              accessibilityState={{ selected: mode === 'hours' }}
-            >
-              <Text style={[styles.time, mode === 'hours' ? styles.unitActive : styles.unitIdle]}>
-                {hourLabel}
-              </Text>
-            </Pressable>
-            <View style={styles.periodRow}>
-              {(['AM', 'PM'] as const).map((p) => (
-                <Pressable
-                  key={p}
-                  onPress={() => onSetPeriod(p)}
-                  hitSlop={{ top: 6, bottom: 8, left: 4, right: 4 }}
-                  style={[styles.periodPill, period === p && styles.periodPillOn]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${p}m`}
-                  accessibilityState={{ selected: period === p }}
-                >
-                  <Text style={[styles.periodText, period === p && styles.periodTextOn]}>{p}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
+          <Pressable
+            onPress={() => onSelectMode('hours')}
+            hitSlop={{ top: 10, bottom: 10, left: 12, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Edit hour"
+            accessibilityState={{ selected: mode === 'hours' }}
+          >
+            <Text style={[styles.time, mode === 'hours' ? styles.unitActive : styles.unitIdle]}>
+              {hourLabel}
+            </Text>
+          </Pressable>
           <Text style={[styles.time, styles.colon]}>:</Text>
           <Pressable
             onPress={() => onSelectMode('minutes')}
@@ -380,9 +365,6 @@ const styles = StyleSheet.create({
   },
   readoutRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  hourColumn: {
     alignItems: 'center',
   },
   time: {
@@ -398,34 +380,6 @@ const styles = StyleSheet.create({
     color: op.white,
   },
   colon: {
-    color: op.white,
-  },
-  periodRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 1,
-  },
-  periodPill: {
-    minWidth: 34,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: op.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  periodPillOn: {
-    backgroundColor: op.red,
-    borderColor: op.red,
-  },
-  periodText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    color: op.muted,
-  },
-  periodTextOn: {
     color: op.white,
   },
 });
