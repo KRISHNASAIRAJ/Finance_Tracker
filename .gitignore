@@ -27,6 +27,12 @@ android/build/
 *.keystore
 !debug.keystore
 
+# Kotlin compiler session cache (regenerable)
+mobile/android/.kotlin/
+
+# Widget tuning comparison artifacts
+block_size_compare.png
+
 # iOS build artifacts
 ios/Pods/
 ios/build/
