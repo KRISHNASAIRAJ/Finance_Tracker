@@ -40,7 +40,7 @@ object SleepMotionStore {
     private const val KEY_ALARM_DATE = "alarm_date"
     private const val KEY_ALARM_FIRED = "alarm_fired"
     private const val KEY_SNOOZE_UNTIL = "snooze_until"
-    /** The night the "you slept X" banner was already posted (once per day). */
+    /** The bedtime night-key the optional "you slept X" banner was posted for. */
     private const val KEY_DETECTED_DATE = "detected_date"
 
     /** Keep at most 36h of motion history (covers a night plus a day of slack). */
@@ -153,7 +153,9 @@ object SleepMotionStore {
 
     fun detectedDate(ctx: Context): String = prefs(ctx).getString(KEY_DETECTED_DATE, "") ?: ""
 
-    fun setDetectedDate(ctx: Context, date: String) {
-        prefs(ctx).edit().putString(KEY_DETECTED_DATE, date).apply()
+    fun setDetectedDate(ctx: Context, nightKey: String) {
+        // Synchronous on purpose: if the process dies right after the banner is
+        // posted, the marker must already be on disk or the banner re-fires.
+        prefs(ctx).edit().putString(KEY_DETECTED_DATE, nightKey).commit()
     }
 }

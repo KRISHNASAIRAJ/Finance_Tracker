@@ -37,6 +37,8 @@ export interface SleepMotionConfig {
   snoozeMin: number;
   /** Save a detected session into the sleep log without asking. */
   autoSave: boolean;
+  /** Show the optional "you slept X" morning notification. Off by default. */
+  morningBanner: boolean;
 }
 
 export interface SleepMotionStatus {
@@ -87,6 +89,7 @@ export const DEFAULT_SLEEP_MOTION_CONFIG: SleepMotionConfig = {
   alarmDurationMin: 2,
   snoozeMin: 9,
   autoSave: true,
+  morningBanner: false,
 };
 
 const SleepMotionModule = NativeModules.SleepMotion as

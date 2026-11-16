@@ -310,6 +310,12 @@ export default function SleepDashboardScreen() {
     await setMotionConfig(next);
   };
 
+  const toggleMorningBanner = async (enabled: boolean) => {
+    const next = { ...autoConfig, morningBanner: enabled };
+    setAutoConfig(next);
+    await setMotionConfig(next);
+  };
+
   const applyPickedTime = (minutes: number) => {
     if (!timePicker) return;
     const kind = timePicker.kind;
@@ -382,40 +388,6 @@ export default function SleepDashboardScreen() {
   /** Rate the last night out of 5. */
   const rateNight = (entry: SleepEntry, quality: number) => {
     editEntry(entry.id, { quality }, user?.id);
-  };
-
-  /**
-   * One-tap quick log for the previous night. The length comes from the user's
-   * own average (7 hours when there is no history) and the wake time is 7:00
-   * AM — so it always logs the night that just passed, never a future one.
-   */
-  const typicalSleepMs = useMemo(() => {
-    const recent = sorted.slice(0, 7);
-    if (recent.length === 0) return 7 * 3600000;
-    const total = recent.reduce((s, e) => s + sleepDurationHours(e), 0);
-    return Math.round((total / recent.length) * 3600000);
-  }, [sorted]);
-
-  const quickLogLastNight = () => {
-    const wake = new Date();
-    wake.setHours(7, 0, 0, 0);
-    if (wake.getTime() > Date.now()) {
-      // Before 7 AM the night that just ended woke up yesterday.
-      wake.setDate(wake.getDate() - 1);
-    }
-    const bed = new Date(wake.getTime() - typicalSleepMs);
-    addEntry(
-      {
-        startTime: bed.toISOString(),
-        endTime: wake.toISOString(),
-        quality: null,
-        mood: null,
-        interruptions: 0,
-        notes: 'Quick log — last night',
-        source: 'manual',
-      },
-      user?.id
-    );
   };
 
   const changeReminder = (time: { hour: number; minute: number } | null) => {
@@ -875,6 +847,18 @@ export default function SleepDashboardScreen() {
                     </View>
                   </>
                 )}
+
+                <View style={styles.autoAlarmRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.autoTitle}>Morning banner</Text>
+                    <Text style={styles.autoSub}>Silent "you slept X" summary in the shade · off by default</Text>
+                  </View>
+                  <Toggle
+                    value={autoConfig.morningBanner}
+                    onChange={toggleMorningBanner}
+                    accessibilityLabel="Morning banner"
+                  />
+                </View>
               </>
             )}
           </Card>
@@ -916,23 +900,9 @@ export default function SleepDashboardScreen() {
         </Rise>
       )}
 
-      {/* Quick log */}
-      <Rise index={7}>
-        <PressScale onPress={quickLogLastNight} scale={0.98} style={styles.quickLogBtn} accessibilityLabel="Log last night">
-          <Ionicons name="checkmark-circle-outline" size={17} color={mc.violet} />
-          <View style={styles.quickLogMain}>
-            <Text style={styles.quickLogTitle}>Log last night</Text>
-            <Text style={styles.quickLogSub}>
-              {formatSleepDuration(typicalSleepMs / 3600000)} · until 7:00 AM
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={15} color={mc.textFaint} />
-        </PressScale>
-      </Rise>
-
       {/* AI insight */}
       {entries.length > 0 && (
-        <Rise index={8}>
+        <Rise index={7}>
           <Card>
             {insightLoading ? (
               <Text style={styles.insightText}>Thinking…</Text>
@@ -1449,29 +1419,6 @@ const styles = StyleSheet.create({
   cancelBedText: {
     fontSize: 13,
     color: mc.redSoft,
-  },
-
-  quickLogBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: mc.card,
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  quickLogMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  quickLogTitle: {
-    fontSize: 14,
-    color: mc.text,
-  },
-  quickLogSub: {
-    fontSize: 11,
-    color: mc.textDim,
-    marginTop: 2,
   },
 
   insightText: {

@@ -33,7 +33,13 @@ data class SleepMotionConfig(
     /** Snooze length (minutes). */
     val snoozeMin: Int = 9,
     /** Save a detected session into the sleep log without asking. */
-    val autoSave: Boolean = true
+    val autoSave: Boolean = true,
+    /**
+     * Show the "you slept X" morning banner. Off by default: autoSave already
+     * logs the night and the widget already shows the result, so the banner is
+     * an optional, silent notification rather than a heads-up popup.
+     */
+    val morningBanner: Boolean = false
 ) {
 
     /**
@@ -65,6 +71,7 @@ data class SleepMotionConfig(
         o.put("alarmDurationMin", alarmDurationMin)
         o.put("snoozeMin", snoozeMin)
         o.put("autoSave", autoSave)
+        o.put("morningBanner", morningBanner)
         return o.toString()
     }
 
@@ -90,7 +97,8 @@ data class SleepMotionConfig(
                     wakeEndMin = o.optInt("wakeEndMin", 7 * 60),
                     alarmDurationMin = o.optInt("alarmDurationMin", 2),
                     snoozeMin = o.optInt("snoozeMin", 9),
-                    autoSave = o.optBoolean("autoSave", true)
+                    autoSave = o.optBoolean("autoSave", true),
+                    morningBanner = o.optBoolean("morningBanner", false)
                 )
             } catch (e: Exception) {
                 SleepMotionConfig()
@@ -111,7 +119,8 @@ data class SleepMotionConfig(
                 wakeEndMin = mapInt(map, "wakeEndMin", d.wakeEndMin),
                 alarmDurationMin = mapInt(map, "alarmDurationMin", d.alarmDurationMin),
                 snoozeMin = mapInt(map, "snoozeMin", d.snoozeMin),
-                autoSave = mapBool(map, "autoSave", d.autoSave)
+                autoSave = mapBool(map, "autoSave", d.autoSave),
+                morningBanner = mapBool(map, "morningBanner", d.morningBanner)
             )
         }
 

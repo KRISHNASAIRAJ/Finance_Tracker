@@ -50,7 +50,9 @@ class SleepMotionService : Service(), SensorEventListener {
     companion object {
         const val CHANNEL_TRACKING = "sleep-tracking"
         const val CHANNEL_ALARM = "sleep-alarm"
-        const val CHANNEL_DETECT = "sleep-detected"
+        // New id so existing installs abandon the old IMPORTANCE_HIGH
+        // "Sleep detected" channel (channels cannot be changed once created).
+        const val CHANNEL_DETECT = "sleep-summary"
         const val CHANNEL_START = "sleep-tracking-start"
         const val NOTIF_TRACKING = 1001
         const val NOTIF_ALARM = 1002
@@ -341,17 +343,16 @@ class SleepMotionService : Service(), SensorEventListener {
 
         if (movement > threshold) {
             val minuteOfDay = localMinutesOfDay(now)
-            val today = localDateKey(now)
             val inWakeWindow = minuteOfDay >= config.wakeStartMin && minuteOfDay <= config.wakeEndMin
-            // A movement inside the wake window, after a real night of
-            // stillness = the user is up for good. The "you slept X h Y m"
-            // banner fires ONCE per day — never on a 2 AM roll-over and never
-            // twice in the same morning.
-            if (sleepSessionStart > 0L) {
+            // The optional "you slept X h Y m" banner is OFF by default. When
+            // enabled it fires once per NIGHT (keyed by bedtime), never on a
+            // 2 AM roll-over, a service restart, or a second morning.
+            if (config.morningBanner && sleepSessionStart > 0L) {
                 val sleptMs = now - sleepSessionStart
-                val alreadyPosted = SleepMotionStore.detectedDate(this) == today
+                val nightKey = localDateKey(sleepSessionStart)
+                val alreadyPosted = SleepMotionStore.detectedDate(this) == nightKey
                 if (sleptMs >= MIN_SLEEP_MS && inWakeWindow && !alreadyPosted && isInNightWindow(minuteOfDay)) {
-                    SleepMotionStore.setDetectedDate(this, today)
+                    SleepMotionStore.setDetectedDate(this, nightKey)
                     postSleepDetected(sleptMs)
                 }
             }
@@ -371,10 +372,12 @@ class SleepMotionService : Service(), SensorEventListener {
     }
 
     /**
-     * A brief heads-up banner (it shows over the status bar / notch and hides
-     * itself again instead of sitting in the notification panel).
+     * Optional, silent morning summary. It lands in the notification shade
+     * (not as a heads-up over the widget) and auto-cancels. Only posted when
+     * the user explicitly enables "Morning banner" in Sleep settings.
      */
     private fun postSleepDetected(sleptMs: Long) {
+        if (!config.morningBanner) return
         try {
             val minutes = sleptMs / 60000L
             val h = minutes / 60
@@ -387,7 +390,6 @@ class SleepMotionService : Service(), SensorEventListener {
                 .setAutoCancel(true)
                 .setOngoing(false)
                 .setCategory(Notification.CATEGORY_STATUS)
-                .setPriority(Notification.PRIORITY_HIGH)
                 .setContentIntent(openAppIntent())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 builder.setTimeoutAfter(DETECT_TIMEOUT_MS)
@@ -608,15 +610,15 @@ class SleepMotionService : Service(), SensorEventListener {
                 enableVibration(true)
                 setSound(null, null)
             }
-            // The sleep-detected banner: high importance so it shows as a
-            // heads-up over the status bar (the notch area), silent and it
-            // removes itself again — it never lingers in the panel.
+            // The optional morning summary: DEFAULT importance so it appears
+            // quietly in the shade instead of popping over the home-screen
+            // widget. Silent, no badge, and it auto-cancels.
             val detect = NotificationChannel(
                 CHANNEL_DETECT,
-                "Sleep detected",
-                NotificationManager.IMPORTANCE_HIGH
+                "Sleep summary",
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Shows the detected night of sleep as a brief banner"
+                description = "Optional morning summary of last night's sleep"
                 enableVibration(false)
                 setSound(null, null)
                 setShowBadge(false)
