@@ -94,11 +94,11 @@ const REM_LENGTH_MIN = 25;
 const DEFAULT_TEMP_C = 24;
 
 /** "11:40 PM" — the bed / wake time, the way the widget shows it. */
-/** "11:40p" / "5:30a" — the compact style used inside the red block. */
+/** "11:48PM" / "7:00AM" — the compact style used inside the red block. */
 export function formatShortClockLabel(epochMs: number): string {
   const d = new Date(epochMs);
   const h = d.getHours();
-  const suffix = h >= 12 ? 'p' : 'a';
+  const suffix = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   const mm = String(d.getMinutes()).padStart(2, '0');
   return `${h12}:${mm}${suffix}`;
@@ -120,7 +120,7 @@ export function formatAlarmLabel(minutesFromMidnight: number): string {
   if (!Number.isFinite(minutesFromMidnight)) return '';
   const h24 = Math.floor(minutesFromMidnight / 60) % 24;
   const m = Math.round(minutesFromMidnight % 60);
-  const suffix = h24 >= 12 ? 'pm' : 'am';
+  const suffix = h24 >= 12 ? 'AM' : 'PM';
   let h = h24 % 12;
   if (h === 0) h = 12;
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;

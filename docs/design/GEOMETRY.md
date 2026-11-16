@@ -20,11 +20,13 @@ Q292,0 292,22  L292,108  Q292,132 268,132  L24,132  Q0,132 0,108  Z
   The tab is NOT a separate pill.
 
 ## Texts
-- "SLEEP": x 2, baseline 28, size 11, letter spacing 0.14em, #9A9A9A
-- Duration: x 170, baseline 28, size 25, medium, #1A0006
-- "Score NN": x 170, baseline 48, size 12, #3A0010
+- "SLEEP": x 12, baseline 28, size 13, letter spacing 0.14em, #9A9A9A
+- Duration: x 178, baseline 28, size 27, medium, #1A0006
+- "Score NN": x 171, baseline 46, size 12, #3A0010
 - Score line: x 226..276, y 41..45, radius 2. Track black 18%,
   fill #1A0006 = score percent.
+- Bed / wake labels render as "11:48PM" / "7:00AM" (uppercase,
+  no space).
 
 ## Lanes
 - Labels x 14, baselines 66 / 88 / 110, size 9, medium, #FFE3E8,

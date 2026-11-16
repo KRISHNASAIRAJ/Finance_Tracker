@@ -15,8 +15,8 @@ data class Seg(val startPct: Float, val endPct: Float)
 data class SleepBlockData(
     val duration: String,   // "7H 11M"
     val score: Int,         // 0..100, or -1 to hide the score text + track entirely
-    val bed: String,        // "11:48p"
-    val wake: String,       // "7:00a"
+    val bed: String,        // "11:48PM"
+    val wake: String,       // "7:00AM"
     val deep: List<Seg>,
     val light: List<Seg>,
     val awake: List<Seg>
@@ -84,12 +84,12 @@ object SleepBlockRenderer {
         c.drawPath(path, paint(RED))
 
         // 2. Texts
-        c.drawText("SLEEP", 2f, 28f, paint(GREY, medium, 11f, 0.14f))
-        c.drawText(d.duration, 170f, 28f, paint(INK, medium, 25f))
+        c.drawText("SLEEP", 12f, 28f, paint(GREY, medium, 13f, 0.14f))
+        c.drawText(d.duration, 178f, 28f, paint(INK, medium, 27f))
 
         // score text + track; -1 means "no real score yet" — draw neither
         if (d.score >= 0) {
-            c.drawText("Score ${d.score}", 170f, 48f, paint(INK2, regular, 12f))
+            c.drawText("Score ${d.score}", 171f, 46f, paint(INK2, regular, 12f))
 
             // score line
             val sp = paint(Color.argb(46, 0, 0, 0))

@@ -391,7 +391,7 @@ class ClockSleepWidget : AppWidgetProvider() {
             val today = java.util.Calendar.getInstance()
             val triggerCal = java.util.Calendar.getInstance().apply { timeInMillis = trigger }
             val timeFmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.US)
-            val time = timeFmt.format(java.util.Date(trigger)).lowercase(java.util.Locale.US)
+            val time = timeFmt.format(java.util.Date(trigger))
             val sameDay = triggerCal.get(java.util.Calendar.DAY_OF_YEAR) == today.get(java.util.Calendar.DAY_OF_YEAR) &&
                 triggerCal.get(java.util.Calendar.YEAR) == today.get(java.util.Calendar.YEAR)
             if (sameDay) return time

@@ -1,6 +1,6 @@
 {
   "_comment": "Live-tuning copy of GEOMETRY.md / SleepBlockRenderer.kt. Edit any value, save, and the preview re-renders. Port final numbers back into GEOMETRY.md + SleepBlockRenderer.kt when done.",
-  "canvas": { "w": 0, "h": 132 },
+  "canvas": { "w": 292, "h": 132 },
   "silhouette": {
     "moveTo": 58,
     "tlQuad": [0, 34, 24, 34],

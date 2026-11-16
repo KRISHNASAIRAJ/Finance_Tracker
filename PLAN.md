@@ -271,6 +271,33 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 27 - widget: port user's live-tuned block values + AM/PM labels (2026-11-16)
+
+- Source of truth: user edited `docs/design/preview/geometry.json` in
+  Codespaces (commit `4761da9`) and asked for an exact port, no diversions.
+- `SleepBlockRenderer.kt`: SLEEP label x 2 -> 12, size 11 -> 13; duration
+  x 170 -> 178, size 25 -> 27; Score text x 170 -> 171, baseline 48 -> 46
+  (score track stays 226..276 / y 41..45). Silhouette, lanes, colors,
+  times untouched.
+- Time formats per user's samples: bed/wake now "11:48PM" / "7:00AM"
+  (`formatShortClockLabel` in sleepWidget.ts), alarm value uppercase
+  "6:45 AM" (`formatAlarmLabel` TS + `nextAlarmLabel` in
+  ClockSleepWidget.kt drops the `.lowercase()`). The "EEE" weekday
+  prefix ("Tue 6:45 AM") is KEPT on the phone for next-day alarms —
+  flagged to the user, one-word change if they want it gone.
+- `geometry.json`: restored `canvas.w` 0 -> 292 (accidental edit in
+  `4761da9`; a 0-width canvas cannot render). The user's widget-section
+  tweaks (stats valueSize 19 -> 17, alarmText "6:45 AM") are
+  preview-card values; the phone card chrome is the compact XML layout
+  (9sp values), so no XML change was made for those — flagged.
+- `GEOMETRY.md` updated to the same numbers.
+- [x] Build: `:app:assembleDebug` + `:app:lintDebug` BUILD SUCCESSFUL
+      (fresh APK 10:36, no lint errors), `tsc --noEmit` clean,
+      geometry.json parses.
+- Note: this session the mobile/AGENTS.md reminder points at Expo docs
+  (v57); no Expo API surface was touched (native widget + TS formatters
+  only), so no doc lookup was needed.
+
 ### Batch 26 - widget: single-bitmap SLEEP block per GEOMETRY.md (2026-11-16)
 
 - [x] PLAN MODE findings: the XML pill (separate tab layer-list + weighted
