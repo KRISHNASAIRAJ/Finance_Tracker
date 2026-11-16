@@ -39,7 +39,7 @@ function buildComponents(input: EngineInput): {
   missing: ComponentKey[];
   learning: DayScore['learning'];
 } {
-  const { fallback, score: scoreCfg } = DECISION_CONFIG;
+  const { fallback } = DECISION_CONFIG;
   const components: ScoreComponent[] = [];
   const missing: ComponentKey[] = [];
   const learning: DayScore['learning'] = [];

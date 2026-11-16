@@ -4,8 +4,11 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
-def releaseVersionCode = (project.findProperty('appVersionCode') ?: 1) as int
-def releaseVersionName = project.findProperty('appVersionName') ?: "1.0.0"
+// Bumped from 1 so a local release build installs cleanly over any older
+// build (including EAS builds whose versionCode had auto-incremented past 1).
+// Android refuses to install a lower versionCode over an installed one.
+def releaseVersionCode = (project.findProperty('appVersionCode') ?: 3000) as int
+def releaseVersionName = project.findProperty('appVersionName') ?: "1.0.0-d31"
 
 /**
  * This is the configuration block to customize your React Native Android app.

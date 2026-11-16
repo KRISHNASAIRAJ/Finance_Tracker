@@ -271,6 +271,33 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 31 - make the built APK actually run the new code (2026-11-16)
+
+- User installed the Batch 30 APK but saw none of the new screens. Verified the
+  JS bundle inside `app-release.apk` DID contain all the new strings, so the
+  code was built correctly — the problem was at install/launch time.
+- Root cause 1: the native `AndroidManifest.xml` still had
+  `expo.modules.updates.ENABLED=true` and `EXPO_UPDATES_CHECK_ON_LAUNCH=ALWAYS`.
+  With OTA updates on, a stale EAS update cached in the app's data directory
+  can win at launch and silently replace the freshly embedded JS bundle —
+  installing over an older install without clearing data keeps that cache.
+  Set `ENABLED=false` and `CHECK_ON_LAUNCH=NEVER` in the native manifest (CI
+  uses it verbatim) and in `app.json` so future prebuilds agree. Local builds
+  now always run the JS baked into this APK.
+- Root cause 2: `build.gradle` defaulted `versionCode=1`. Android refuses to
+  install a lower versionCode over an installed build (EAS builds auto-increment
+  past 1). Bumped the default to `versionCode=3000`, `versionName=1.0.0-d31` so
+  the APK installs cleanly over any prior version and is identifiable in
+  Settings → Apps.
+- Added a temporary visible build marker (`BUILD31 1.0.0-D31 DECISION LAYER`)
+  under the Home greeting to confirm which bundle is running; remove once
+  confirmed. Metro's transform cache also had to be cleared (`%TEMP%\metro-cache`
+  + `createBundleReleaseJsAndAssets`) before an edit appeared in the bundle.
+- Verified inside the rebuilt APK: `versionCode=3000`, `versionName=1.0.0-d31`,
+  `expo.modules.updates.ENABLED=0`, `CHECK_ON_LAUNCH=NEVER`, and the bundle
+  contains the marker + all decision-layer strings. tsc clean, ESLint 0 errors,
+  356/356 tests pass. Pushed.
+
 ### Batch 30 - decision-first layer Tiers A+B: rule engine + Today card + Why timeline (2026-11-16)
 
 - Added the Tracend-inspired product pack to `docs/tracend/` (6 source
