@@ -219,16 +219,3 @@ supabase secrets set KEY=VALUE    # Set Edge Function secrets
 | Notification flows | `docs/notification-flows.md` |
 | Screen screenshots index | `docs/screens.md` |
 | Architecture decision (BaaS-first) | `ADR/ADR-008-baas-first.md` |
-
----
-
-## 9. Decision-first layer (additive, feature-flagged)
-
-- Product docs live in `docs/tracend/`. They are the source of truth for Today, Why, Simulator, Proposals, Coverage map, Ask Meridian and Privacy.
-- The engine (`mobile/src/modules/decision/`) is pure, unit-tested functions: baselines, day score and the rule engine. Screens only display its output; all weights and thresholds live in `decision/config.ts`.
-- Every recommendation shows score, decision and evidence together. Evidence chips open the source screen.
-- No automatic changes to user data. Later tiers route changes through Proposals with versioning and Undo.
-- AI is optional and consent-gated; the app must work with AI off and offline. Never send data before consent (includes the pre-existing finance/sleep AI calls).
-- Do not copy wording, branding or images from external sites.
-- New surfaces are gated by `DECISION_LAYER_ENABLED` in `mobile/src/shared/featureFlags.ts` and must not alter existing logic.
-- Build order: Tier A engine → Tier B Today + Why → Tier C Simulator/Proposals/Coverage → Tier D Ask Meridian/Privacy. Stop for approval after each tier.

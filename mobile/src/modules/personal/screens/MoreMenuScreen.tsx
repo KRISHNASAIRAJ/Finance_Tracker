@@ -21,7 +21,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { mc, mr } from '../../../shared/theme/meridian';
-import { DECISION_LAYER_ENABLED } from '../../../shared/featureFlags';
 import { Label, Screen } from '../../../shared/components/meridian';
 import { useFinanceStore } from '../../finance/store';
 import { triggerBackupNow } from '../../../services/backupScheduler';
@@ -245,16 +244,6 @@ export default function MoreMenuScreen() {
           icon: 'flag-outline',
           onPress: () => navigation.navigate('CareerGoals'),
         },
-        ...(DECISION_LAYER_ENABLED
-          ? [
-              {
-                id: 'why-score',
-                label: 'Why this score?',
-                icon: 'analytics-outline',
-                onPress: () => navigation.navigate('WhyThisScore'),
-              },
-            ]
-          : []),
       ],
     },
     {

@@ -54,9 +54,8 @@
     </intent>
   </queries>
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
-    <!-- Local builds must run the JS bundle embedded in THIS APK. With updates
-         enabled, a stale EAS update cached on the device can win at launch and
-         silently hide newly built screens. See PLAN.md Batch 31. -->
+    <!-- Run the JS bundle embedded in THIS APK. With updates enabled, a stale
+         EAS update cached on the device can win at launch and hide new code. -->
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="NEVER"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>

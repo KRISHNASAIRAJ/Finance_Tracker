@@ -5,6 +5,20 @@
 
 ---
 
+### Batch 32 — removed the decision-first layer; app back to batch 29 (2026-11-16, not pushed)
+
+- The user did not want the new decision-layer screens. Reverted batch 30 in
+  full: deleted `docs/tracend/`, `mobile/src/modules/decision/` and
+  `mobile/src/shared/featureFlags.ts`, and restored `AGENTS.md`, `PLAN.md`,
+  `MainHomeScreen.tsx`, `MoreMenuScreen.tsx`, `RootNavigator.tsx` and
+  `navigationRef.ts` to their batch-29 state (kept the `adb4e6b` cleanup).
+- Removed the temporary `BUILD31 1.0.0-D31 DECISION LAYER` marker from Home.
+- Kept the batch-31 build fixes on purpose: `expo-updates` stays disabled in
+  the native manifest + `app.json` so a stale cached EAS update can't override
+  the embedded bundle, and the version stays installable (`versionCode=3000`,
+  `versionName=1.0.0-b32`) so the APK replaces the current install.
+- No push — local only, pending user review.
+
 ## 0. ✅ TODO — sleep, wallets and widgets (v4, this batch)
 
 > **This file is the source of truth.** If a session is interrupted, read §0 first,
@@ -270,59 +284,6 @@
 - [x] Tests: new `deletedNights.test.ts` (tombstone round-trip, 90-cap,
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
-
-### Batch 31 - make the built APK actually run the new code (2026-11-16)
-
-- User installed the Batch 30 APK but saw none of the new screens. Verified the
-  JS bundle inside `app-release.apk` DID contain all the new strings, so the
-  code was built correctly — the problem was at install/launch time.
-- Root cause 1: the native `AndroidManifest.xml` still had
-  `expo.modules.updates.ENABLED=true` and `EXPO_UPDATES_CHECK_ON_LAUNCH=ALWAYS`.
-  With OTA updates on, a stale EAS update cached in the app's data directory
-  can win at launch and silently replace the freshly embedded JS bundle —
-  installing over an older install without clearing data keeps that cache.
-  Set `ENABLED=false` and `CHECK_ON_LAUNCH=NEVER` in the native manifest (CI
-  uses it verbatim) and in `app.json` so future prebuilds agree. Local builds
-  now always run the JS baked into this APK.
-- Root cause 2: `build.gradle` defaulted `versionCode=1`. Android refuses to
-  install a lower versionCode over an installed build (EAS builds auto-increment
-  past 1). Bumped the default to `versionCode=3000`, `versionName=1.0.0-d31` so
-  the APK installs cleanly over any prior version and is identifiable in
-  Settings → Apps.
-- Added a temporary visible build marker (`BUILD31 1.0.0-D31 DECISION LAYER`)
-  under the Home greeting to confirm which bundle is running; remove once
-  confirmed. Metro's transform cache also had to be cleared (`%TEMP%\metro-cache`
-  + `createBundleReleaseJsAndAssets`) before an edit appeared in the bundle.
-- Verified inside the rebuilt APK: `versionCode=3000`, `versionName=1.0.0-d31`,
-  `expo.modules.updates.ENABLED=0`, `CHECK_ON_LAUNCH=NEVER`, and the bundle
-  contains the marker + all decision-layer strings. tsc clean, ESLint 0 errors,
-  356/356 tests pass. Pushed.
-
-### Batch 30 - decision-first layer Tiers A+B: rule engine + Today card + Why timeline (2026-11-16)
-
-- Added the Tracend-inspired product pack to `docs/tracend/` (6 source
-  docs) and an AGENTS.md section 9 describing the additive, feature-flagged
-  decision layer and the Tier A→D order.
-- Tier A (pure engine, no UI): `modules/decision/config.ts` is the single
-  source for weights/thresholds; `baseline.ts` (28-day median + MAD×1.4826
-  spread, weekday-aware spend normal over 8 weeks, <7 days = learning with
-  fixed targets), `score.ts` (4 components, clamped z-scores, missing
-  components dropped and weights re-normalised), `rules.ts` (6 priority
-  rules, 2-3 evidence items, "Also worth a look"). 19 new unit tests.
-- Tier B: `TodayCard` at the top of Home (score ring, call, evidence chips,
-  Why this? / Do it, four real-data rows), `WhyThisScoreScreen` (timeline
-  with per-node effect and "Usually" column), and the "How this is
-  calculated" sheet that reads the same config as the engine.
-- `useDecisionEngine` joins the existing stores read-only (reusing the
-  cash-flow forecast); no new writes, no AI, no network. All new surfaces
-  are behind `DECISION_LAYER_ENABLED` in `shared/featureFlags.ts`.
-- Navigation: `WhyThisScore` added to MoreStack; a link added to More menu;
-  `navigationRef` typed with RootStackParamList so evidence chips can open
-  their source screen from either Home or the Why screen.
-- Verification: tsc clean, ESLint 0 errors (6 pre-existing warnings),
-  356/356 unit tests green including the 19 new engine tests.
-- Mobile only. Consent gating of existing AI calls deferred to Tier D per
-  user decision, but no new AI call was introduced. Not pushed.
 
 ### Batch 29 - garage UX + time picker: whole-card taps, consistent averages, combined breakdown, tappable digits (2026-11-16)
 

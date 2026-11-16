@@ -8,9 +8,8 @@
  * the caller is not inside a navigator.
  */
 import { createNavigationContainerRef } from '@react-navigation/native';
-import type { RootStackParamList } from './RootNavigator';
 
-export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+export const navigationRef = createNavigationContainerRef();
 
 export function getActiveRouteNameFromRef(): string | undefined {
   if (!navigationRef.isReady()) return undefined;

@@ -45,8 +45,6 @@ import { useTasksStore } from '../../tasks/store';
 import { useAuth } from '../../../services/AuthProvider';
 import { supabase } from '../../../services/supabaseClient';
 import { RootStackParamList } from '../../../navigation/RootNavigator';
-import { DECISION_LAYER_ENABLED } from '../../../shared/featureFlags';
-import TodayCard from '../../decision/components/TodayCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -322,8 +320,6 @@ export default function MainHomeScreen() {
           <View style={styles.headerText}>
             <Label small>{dateLabel}</Label>
             <Text style={styles.greeting}>{greeting}</Text>
-            {/* TEMP build marker — remove once the installed build is confirmed. */}
-            <Text style={styles.buildTag}>BUILD31 1.0.0-D31 DECISION LAYER</Text>
           </View>
           {avatarInitial ? (
             <View style={styles.avatar}>
@@ -334,9 +330,6 @@ export default function MainHomeScreen() {
           )}
         </View>
       </Rise>
-
-      {/* Decision-first layer: score, today's call and evidence, together. */}
-      {DECISION_LAYER_ENABLED ? <TodayCard /> : null}
 
       {/* The two-column grid: habits / sleep / due today */}
       <View style={styles.grid}>
@@ -553,14 +546,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '500',
     color: mc.text,
-    marginTop: 2,
-  },
-  buildTag: {
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: mc.red,
     marginTop: 2,
   },
   avatar: {
