@@ -3,9 +3,14 @@
  *
  * The location comes from the phone's GPS (expo-location). The coordinates
  * are rounded to 2 decimals (~1 km) — good enough for a forecast and it keeps
- * the exact position private. If the location permission is denied the app
- * falls back to a manually picked city (Open-Meteo geocoding) and then to the
- * last cached reading.
+ * the exact position private. If the location permission is denied or the
+ * device has location services off, the app falls back to a manually picked
+ * city (Open-Meteo geocoding) and then to the last cached reading.
+ *
+ * IMPORTANT: failures are explicit (see `WeatherFailure` + `getLastWeatherFailure`)
+ * instead of being silently swallowed. The home-screen avatar shows the reason
+ * and offers "Enable location" / "Choose city", so a missing reading is always
+ * recoverable by the user instead of looking like a stuck placeholder.
  *
  * Degrades gracefully: on iOS / Expo Go (no native module) every call returns
  * the cached value or null — never throws.
@@ -44,11 +49,20 @@ export interface WeatherNow {
   fetchedAt: number;
 }
 
+/** Why the last attempt did not produce a fresh reading. */
+export type WeatherFailure =
+  | 'permission-denied'
+  | 'location-off'
+  | 'no-location'
+  | 'network-error'
+  | 'no-city'
+  | 'no-data';
+
 const CACHE_KEY = 'meridian_weather_cache';
 const CITY_KEY = 'meridian_weather_city';
 const POSITION_KEY = 'meridian_weather_position';
-/** A fresh reading is reused for four hours. */
-const FRESH_MS = 4 * 60 * 60 * 1000;
+/** A fresh reading is reused for three hours. */
+const FRESH_MS = 3 * 60 * 60 * 1000;
 /** The cached reading is still shown as a fallback for a day. */
 const STALE_MAX_MS = 24 * 60 * 60 * 1000;
 /** A GPS fix is never awaited for longer than this. */
@@ -60,6 +74,18 @@ const FORECAST_TIMEOUT_MS = 8 * 1000;
 
 const OPEN_METEO_FORECAST = 'https://api.open-meteo.com/v1/forecast';
 const OPEN_METEO_GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search';
+
+/** Set on every `getWeather()` call; read by the UI to explain a failure. */
+let lastFailure: WeatherFailure | null = null;
+
+export function getLastWeatherFailure(): WeatherFailure | null {
+  return lastFailure;
+}
+
+/** Clear the remembered failure (used after a successful manual refresh). */
+export function clearWeatherFailure(): void {
+  lastFailure = null;
+}
 
 /**
  * The WMO weather codes → a label and an icon.
@@ -97,7 +123,7 @@ async function readCache(): Promise<WeatherNow | null> {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as WeatherNow;
-    if (!parsed || typeof parsed.tempC !== 'number') return null;
+    if (!parsed || typeof parsed.tempC !== 'number' || !Number.isFinite(parsed.tempC)) return null;
     return parsed;
   } catch {
     return null;
@@ -107,6 +133,15 @@ async function readCache(): Promise<WeatherNow | null> {
 async function writeCache(weather: WeatherNow): Promise<void> {
   try {
     await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(weather));
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Drop the stored reading (used when the user changes city / wants a clean retry). */
+export async function clearWeatherCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CACHE_KEY);
   } catch {
     /* best-effort */
   }
@@ -135,6 +170,37 @@ export async function setManualCity(city: string): Promise<void> {
   } catch {
     /* best-effort */
   }
+}
+
+/**
+ * Ask the OS for foreground location permission. Exported so the weather
+ * sheet can call it from a real tap — the OS then always shows the prompt.
+ */
+export async function ensureLocationPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') return false;
+  try {
+    const { Location } = require('expo-location');
+    const current = (await Location.getForegroundPermissionsAsync())?.status;
+    if (current === 'granted') return true;
+    const next = (await Location.requestForegroundPermissionsAsync())?.status;
+    return next === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+/** True when the OS-level location services are switched on (unknown → true). */
+export async function locationServicesEnabled(): Promise<boolean> {
+  try {
+    const { Location } = require('expo-location');
+    const status = await Location.getProviderStatusAsync();
+    if (status && typeof status.locationServicesEnabled === 'boolean') {
+      return status.locationServicesEnabled;
+    }
+  } catch {
+    /* not available — do not block a GPS attempt */
+  }
+  return true;
 }
 
 /** A position (rounded to ~1 km) with the time it was taken. */
@@ -224,15 +290,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 async function getGpsPosition(): Promise<{ lat: number; lon: number } | null> {
   if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
   try {
-    // Lazy require: the module is missing in Expo Go / on a build without it.
     const { Location } = require('expo-location');
-    // Only ask for the permission when it is not granted yet.
-    let status = (await Location.getForegroundPermissionsAsync())?.status;
-    if (status !== 'granted') {
-      status = (await Location.requestForegroundPermissionsAsync())?.status;
-    }
-    if (status !== 'granted') return await readPositionCache();
-
     // 1. The last known position — instant.
     try {
       const last = await withTimeout<PositionLike>(
@@ -289,6 +347,23 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number; na
   }
 }
 
+/** Fetch and cache the forecast for a city the user typed in. */
+export async function fetchWeatherForCity(city: string): Promise<WeatherNow | null> {
+  const hit = await geocodeCity(city.trim());
+  if (!hit) {
+    lastFailure = 'no-city';
+    return null;
+  }
+  const weather = await fetchForecast(hit.lat, hit.lon, hit.name);
+  if (!weather) {
+    lastFailure = 'network-error';
+    return null;
+  }
+  await writeCache(weather);
+  lastFailure = null;
+  return weather;
+}
+
 /** The forecast for the given coordinates. */
 async function fetchForecast(
   lat: number,
@@ -311,19 +386,28 @@ async function fetchForecast(
     if (!res || !res.ok) return null;
     const json = await res.json();
     const current = json?.current;
-    if (!current) return null;
+    const rawTemp = current?.temperature_2m;
+    // `Number(null)` is 0 — explicitly reject missing values so we never
+    // invent a fake "0°" reading from a broken API response.
+    const tempC = rawTemp == null || rawTemp === '' ? Number.NaN : Number(rawTemp);
+    // Never invent a temperature from a missing/bogus reading.
+    if (!current || !Number.isFinite(tempC) || tempC < -90 || tempC > 60) return null;
     const daily = json?.daily || {};
     const { label, icon } = weatherCodeToLabel(current.weather_code);
+    const feelsLikeC = Number(current.apparent_temperature);
+    const humidity = Number(current.relative_humidity_2m);
+    const minC = Number(daily.temperature_2m_min?.[0]);
+    const maxC = Number(daily.temperature_2m_max?.[0]);
     return {
-      tempC: Number(current.temperature_2m) || 0,
-      feelsLikeC: Number(current.apparent_temperature) || 0,
-      humidity: Number(current.relative_humidity_2m) || 0,
+      tempC,
+      feelsLikeC: Number.isFinite(feelsLikeC) ? feelsLikeC : tempC,
+      humidity: Number.isFinite(humidity) ? humidity : 0,
       condition: label,
       icon,
       isDay: current.is_day === 1 || current.is_day === true,
-      minC: Number(daily.temperature_2m_max?.[0] ?? daily.temperature_2m_min?.[0] ?? 0),
-      maxC: Number(daily.temperature_2m_max?.[0] ?? 0),
-      precipChance: Number(daily.precipitation_probability_max?.[0] ?? 0),
+      minC: Number.isFinite(minC) ? minC : tempC,
+      maxC: Number.isFinite(maxC) ? maxC : tempC,
+      precipChance: Number(daily.precipitation_probability_max?.[0]) || 0,
       lat,
       lon,
       placeName,
@@ -337,21 +421,36 @@ async function fetchForecast(
 /**
  * The current weather.
  *
- * The order: a fresh reading (GPS → the manual city) → the cached reading
- * (up to a day old) → null.
+ * Order: fresh GPS reading → manual city → cached reading (up to a day old).
+ * A force refresh bypasses the freshness cache but still falls back safely.
+ * Every unsuccessful path records a `WeatherFailure` for the UI.
  */
 export async function getWeather(force = false): Promise<WeatherNow | null> {
+  lastFailure = null;
   const cached = await readCache();
   if (!force && cached && Date.now() - cached.fetchedAt < FRESH_MS) return cached;
 
-  // 1. The GPS.
-  const gps = await getGpsPosition();
-  if (gps) {
-    const weather = await fetchForecast(gps.lat, gps.lon, cached?.placeName || '');
-    if (weather) {
-      await writeCache(weather);
-      return weather;
+  // 1. The GPS — ask for the permission explicitly so the OS prompt can show.
+  const granted = await ensureLocationPermission();
+  if (granted) {
+    const servicesOn = await locationServicesEnabled();
+    if (!servicesOn) {
+      lastFailure = 'location-off';
+    } else {
+      const gps = await getGpsPosition();
+      if (gps) {
+        const weather = await fetchForecast(gps.lat, gps.lon, cached?.placeName || '');
+        if (weather) {
+          await writeCache(weather);
+          return weather;
+        }
+        lastFailure = 'network-error';
+      } else {
+        lastFailure = 'no-location';
+      }
     }
+  } else {
+    lastFailure = 'permission-denied';
   }
 
   // 2. The manually picked city.
@@ -362,17 +461,22 @@ export async function getWeather(force = false): Promise<WeatherNow | null> {
       const weather = await fetchForecast(hit.lat, hit.lon, hit.name);
       if (weather) {
         await writeCache(weather);
+        lastFailure = null;
         return weather;
       }
     }
+    if (lastFailure === 'permission-denied' || lastFailure === 'no-location' || lastFailure === 'location-off') {
+      lastFailure = 'no-city';
+    }
   }
 
-  // 3. The last known reading (up to a day old).
+  // 3. The last known reading (up to a day old) — never fake a number.
   if (cached && Date.now() - cached.fetchedAt < STALE_MAX_MS) return cached;
+  if (!lastFailure) lastFailure = cached ? 'network-error' : 'no-data';
   return null;
 }
 
-/** The one-line summary the home card and the widget show. */
+/** The one-line summary the widgets and the home card show. */
 export function weatherSummary(weather: WeatherNow | null): string {
   if (!weather) return '—';
   const range = weather.maxC > weather.minC

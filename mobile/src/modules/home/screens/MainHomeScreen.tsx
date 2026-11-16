@@ -10,8 +10,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   TouchableOpacity,
 } from 'react-native';
@@ -44,6 +47,12 @@ import { useFinanceStore } from '../../finance/store';
 import { useTasksStore } from '../../tasks/store';
 import { useAuth } from '../../../services/AuthProvider';
 import { supabase } from '../../../services/supabaseClient';
+import useWeather from '../../../hooks/useWeather';
+import {
+  formatTemp,
+  type WeatherFailure,
+  type WeatherIcon,
+} from '../../../services/weather';
 import { RootStackParamList } from '../../../navigation/RootNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -57,14 +66,63 @@ const PRINCIPLE_ICONS: Array<keyof typeof Ionicons.glyphMap> = [
   'flash-outline', 'ban-outline', 'cube-outline', 'flag-outline', 'trending-up-outline', 'hardware-chip-outline',
 ];
 
+const WEATHER_ICONS: Record<WeatherIcon, keyof typeof Ionicons.glyphMap> = {
+  sun: 'sunny',
+  cloud: 'cloudy',
+  rain: 'rainy',
+  snow: 'snow',
+  storm: 'thunderstorm',
+};
+
+const WEATHER_FAILURE_TEXT: Record<WeatherFailure, string> = {
+  'permission-denied': 'Location is off for Meridian. Enable it or use a city.',
+  'location-off': 'Location services are off on this phone. Turn them on or use a city.',
+  'no-location': "We couldn't get your location. Try again or use a city.",
+  'network-error': "Couldn't reach the weather service. Try again.",
+  'no-city': "We couldn't find that city. Check the name and retry.",
+  'no-data': 'No reading yet. Enable location or add a city.',
+};
+
 export default function MainHomeScreen() {
   const navigation = useNavigation<Nav>();
   const days = useHabitStore((s) => s.days);
   const sleepEntries = useSleepStore((s) => s.entries);
   const tasks = useTasksStore((s) => s.tasks);
   const transactions = useFinanceStore((s) => s.transactions);
-  const onboardingName = useFinanceStore((s) => s.onboardingName);
   const { user } = useAuth();
+
+  // Live weather — the avatar is the app's temperature readout.
+  const { weather, failure, refreshing, refresh, grantLocation, useCity } = useWeather();
+  const [showWeather, setShowWeather] = useState(false);
+  const [showCityInput, setShowCityInput] = useState(false);
+  const [cityInput, setCityInput] = useState('');
+  const [cityBusy, setCityBusy] = useState(false);
+  const avatarPulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!refreshing) {
+      avatarPulse.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(avatarPulse, {
+          toValue: 1,
+          duration: 550,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(avatarPulse, {
+          toValue: 0,
+          duration: 550,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [refreshing, avatarPulse]);
 
   const today = todayKey();
   const ticked = habitsForDay(days, today);
@@ -296,8 +354,6 @@ export default function MainHomeScreen() {
     .toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
     .toUpperCase();
 
-  const avatarInitial = (onboardingName || user?.email || '').trim().charAt(0).toUpperCase();
-
   const sleepBed = sleepInfo.last
     ? new Date(sleepInfo.last.startTime).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
     : null;
@@ -321,13 +377,41 @@ export default function MainHomeScreen() {
             <Label small>{dateLabel}</Label>
             <Text style={styles.greeting}>{greeting}</Text>
           </View>
-          {avatarInitial ? (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{avatarInitial}</Text>
-            </View>
-          ) : (
-            <View style={styles.avatar} />
-          )}
+          <Animated.View
+            style={[
+              styles.avatarWrap,
+              {
+                opacity: avatarPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0.55],
+                }),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.avatar}
+              activeOpacity={0.85}
+              accessibilityLabel="Weather — tap for details"
+              onPress={() => {
+                setShowCityInput(!!failure);
+                setShowWeather(true);
+              }}
+            >
+              {weather ? (
+                <>
+                  <Text style={styles.avatarTemp}>{formatTemp(weather.tempC)}</Text>
+                  <Ionicons
+                    name={WEATHER_ICONS[weather.icon]}
+                    size={10}
+                    color={mc.white}
+                    style={styles.avatarIcon}
+                  />
+                </>
+              ) : (
+                <Ionicons name="cloudy-outline" size={20} color={mc.white} />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </Rise>
 
@@ -528,6 +612,143 @@ export default function MainHomeScreen() {
           </View>
         </View>
       </Rise>
+
+      {/* Weather detail sheet — opened by the temperature avatar */}
+      <Modal
+        visible={showWeather}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowWeather(false)}
+      >
+        <Pressable style={weatherStyles.backdrop} onPress={() => setShowWeather(false)}>
+          <Pressable style={weatherStyles.sheet} onPress={() => {}}>
+            <View style={weatherStyles.handle} />
+            <View style={weatherStyles.sheetHead}>
+              <Label small>WEATHER</Label>
+              <TouchableOpacity
+                onPress={() => setShowWeather(false)}
+                accessibilityLabel="Close weather"
+              >
+                <Ionicons name="close" size={18} color={mc.textDim} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={weatherStyles.nowRow}>
+              <View style={weatherStyles.nowIcon}>
+                <Ionicons
+                  name={weather ? WEATHER_ICONS[weather.icon] : 'cloudy-outline'}
+                  size={30}
+                  color={mc.red}
+                />
+              </View>
+              <View style={weatherStyles.nowText}>
+                <Text style={weatherStyles.bigTemp}>
+                  {weather ? formatTemp(weather.tempC) : '—'}
+                </Text>
+                <Text style={weatherStyles.condition}>
+                  {weather?.condition || 'No reading yet'}
+                </Text>
+              </View>
+            </View>
+
+            {weather && (
+              <>
+                <View style={weatherStyles.statRow}>
+                  <View style={weatherStyles.stat}>
+                    <Text style={weatherStyles.statLabel}>FEELS LIKE</Text>
+                    <Text style={weatherStyles.statValue}>{formatTemp(weather.feelsLikeC)}</Text>
+                  </View>
+                  <View style={weatherStyles.stat}>
+                    <Text style={weatherStyles.statLabel}>LOW</Text>
+                    <Text style={weatherStyles.statValue}>{formatTemp(weather.minC)}</Text>
+                  </View>
+                  <View style={weatherStyles.stat}>
+                    <Text style={weatherStyles.statLabel}>HIGH</Text>
+                    <Text style={weatherStyles.statValue}>{formatTemp(weather.maxC)}</Text>
+                  </View>
+                  <View style={weatherStyles.stat}>
+                    <Text style={weatherStyles.statLabel}>HUMIDITY</Text>
+                    <Text style={weatherStyles.statValue}>{Math.round(weather.humidity)}%</Text>
+                  </View>
+                </View>
+                <Text style={weatherStyles.updated}>
+                  {weather.placeName ? `${weather.placeName} · ` : ''}
+                  {'Updated '}
+                  {Math.max(0, Math.round((Date.now() - weather.fetchedAt) / 60000))} min ago
+                </Text>
+              </>
+            )}
+
+            {failure && (
+              <View style={weatherStyles.warning}>
+                <Ionicons name="warning-outline" size={16} color={mc.amber} />
+                <Text style={weatherStyles.warningText}>{WEATHER_FAILURE_TEXT[failure]}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={weatherStyles.primaryBtn} onPress={() => { refresh(); }}>
+              <Text style={weatherStyles.primaryBtnText}>
+                {refreshing ? 'REFRESHING…' : 'REFRESH NOW'}
+              </Text>
+            </TouchableOpacity>
+
+            {failure === 'permission-denied' && (
+              <TouchableOpacity style={weatherStyles.secondaryBtn} onPress={grantLocation}>
+                <Text style={weatherStyles.secondaryBtnText}>ENABLE LOCATION</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={weatherStyles.cityToggle}
+              onPress={() => setShowCityInput((v) => !v)}
+            >
+              <Text style={weatherStyles.cityToggleText}>
+                {showCityInput ? 'Hide city input' : 'Use a city instead'}
+              </Text>
+            </TouchableOpacity>
+
+            {showCityInput && (
+              <View style={weatherStyles.cityRow}>
+                <TextInput
+                  style={weatherStyles.cityInput}
+                  placeholder="e.g. Bengaluru"
+                  placeholderTextColor={mc.textFaint}
+                  value={cityInput}
+                  onChangeText={setCityInput}
+                  autoCapitalize="words"
+                  returnKeyType="go"
+                  onSubmitEditing={async () => {
+                    if (!cityInput.trim()) return;
+                    setCityBusy(true);
+                    const ok = await useCity(cityInput);
+                    setCityBusy(false);
+                    if (ok) {
+                      setCityInput('');
+                      setShowCityInput(false);
+                    }
+                  }}
+                />
+                <TouchableOpacity
+                  style={weatherStyles.cityButton}
+                  disabled={cityBusy || !cityInput.trim()}
+                  onPress={async () => {
+                    setCityBusy(true);
+                    const ok = await useCity(cityInput);
+                    setCityBusy(false);
+                    if (ok) {
+                      setCityInput('');
+                      setShowCityInput(false);
+                    }
+                  }}
+                >
+                  <Text style={weatherStyles.cityButtonText}>{cityBusy ? '…' : 'USE'}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -548,18 +769,29 @@ const styles = StyleSheet.create({
     color: mc.text,
     marginTop: 2,
   },
+  avatarWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: mc.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 17,
-    fontWeight: '500',
+  avatarTemp: {
+    fontSize: 16,
+    fontWeight: '700',
     color: mc.white,
+    letterSpacing: -0.4,
+  },
+  avatarIcon: {
+    position: 'absolute',
+    top: 3,
+    right: 4,
   },
 
   grid: {
@@ -794,5 +1026,172 @@ const styles = StyleSheet.create({
   carouselDotActive: {
     backgroundColor: mc.mint,
     width: 18,
+  },
+});
+
+/** The weather sheet — kept separate from the screen's dense style table. */
+const weatherStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: mc.overlay,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: mc.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 28,
+    borderTopWidth: 1,
+    borderColor: mc.lineSoft,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: mc.track,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  nowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+  },
+  nowIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: mc.redDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nowText: {
+    flex: 1,
+  },
+  bigTemp: {
+    fontSize: 40,
+    fontWeight: '600',
+    color: mc.text,
+    letterSpacing: -1,
+  },
+  condition: {
+    fontSize: 14,
+    color: mc.textDim,
+    marginTop: -2,
+  },
+  statRow: {
+    flexDirection: 'row',
+    backgroundColor: mc.raised,
+    borderRadius: 16,
+    paddingVertical: 14,
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: mc.lineSoft,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 1,
+    color: mc.textDim,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: mc.text,
+    marginTop: 5,
+  },
+  updated: {
+    fontSize: 11,
+    color: mc.textFaint,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  warning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: mc.amberDim,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: mc.amber,
+    lineHeight: 17,
+  },
+  primaryBtn: {
+    backgroundColor: mc.red,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  primaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: mc.white,
+  },
+  secondaryBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: mc.red,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  secondaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: mc.redSoft,
+  },
+  cityToggle: {
+    alignSelf: 'center',
+    paddingVertical: 14,
+  },
+  cityToggleText: {
+    fontSize: 12,
+    color: mc.textDim,
+    textDecorationLine: 'underline',
+  },
+  cityRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cityInput: {
+    flex: 1,
+    backgroundColor: mc.raised,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: mc.text,
+  },
+  cityButton: {
+    backgroundColor: mc.red,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cityButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: mc.white,
   },
 });

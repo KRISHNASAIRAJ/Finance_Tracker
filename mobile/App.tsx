@@ -58,11 +58,9 @@ TaskManager.defineTask(MEDICATION_ACTION_TASK, async ({ data, actionIdentifier }
 });
 
 /**
- * Refresh the weather (every four hours) and repaint the home-screen widget.
- *
- * Called when the app is opened and every time it comes back to the
- * foreground. The reading itself is reused for four hours, so this only
- * costs a request when the weather is actually stale.
+ * Refresh the weather (cached for three hours) and repaint the home-screen
+ * widget. Called on open and on every foreground. The service reuses a
+ * reading for three hours, so this only costs a request when it is stale.
  */
 async function refreshWeather(): Promise<void> {
   try {
