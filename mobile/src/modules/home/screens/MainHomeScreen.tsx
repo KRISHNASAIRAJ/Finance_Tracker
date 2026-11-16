@@ -45,6 +45,8 @@ import { useTasksStore } from '../../tasks/store';
 import { useAuth } from '../../../services/AuthProvider';
 import { supabase } from '../../../services/supabaseClient';
 import { RootStackParamList } from '../../../navigation/RootNavigator';
+import { DECISION_LAYER_ENABLED } from '../../../shared/featureFlags';
+import TodayCard from '../../decision/components/TodayCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -330,6 +332,9 @@ export default function MainHomeScreen() {
           )}
         </View>
       </Rise>
+
+      {/* Decision-first layer: score, today's call and evidence, together. */}
+      {DECISION_LAYER_ENABLED ? <TodayCard /> : null}
 
       {/* The two-column grid: habits / sleep / due today */}
       <View style={styles.grid}>

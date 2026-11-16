@@ -271,6 +271,32 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 30 - decision-first layer Tiers A+B: rule engine + Today card + Why timeline (2026-11-16)
+
+- Added the Tracend-inspired product pack to `docs/tracend/` (6 source
+  docs) and an AGENTS.md section 9 describing the additive, feature-flagged
+  decision layer and the Tier A→D order.
+- Tier A (pure engine, no UI): `modules/decision/config.ts` is the single
+  source for weights/thresholds; `baseline.ts` (28-day median + MAD×1.4826
+  spread, weekday-aware spend normal over 8 weeks, <7 days = learning with
+  fixed targets), `score.ts` (4 components, clamped z-scores, missing
+  components dropped and weights re-normalised), `rules.ts` (6 priority
+  rules, 2-3 evidence items, "Also worth a look"). 19 new unit tests.
+- Tier B: `TodayCard` at the top of Home (score ring, call, evidence chips,
+  Why this? / Do it, four real-data rows), `WhyThisScoreScreen` (timeline
+  with per-node effect and "Usually" column), and the "How this is
+  calculated" sheet that reads the same config as the engine.
+- `useDecisionEngine` joins the existing stores read-only (reusing the
+  cash-flow forecast); no new writes, no AI, no network. All new surfaces
+  are behind `DECISION_LAYER_ENABLED` in `shared/featureFlags.ts`.
+- Navigation: `WhyThisScore` added to MoreStack; a link added to More menu;
+  `navigationRef` typed with RootStackParamList so evidence chips can open
+  their source screen from either Home or the Why screen.
+- Verification: tsc clean, ESLint 0 errors (6 pre-existing warnings),
+  356/356 unit tests green including the 19 new engine tests.
+- Mobile only. Consent gating of existing AI calls deferred to Tier D per
+  user decision, but no new AI call was introduced. Not pushed.
+
 ### Batch 29 - garage UX + time picker: whole-card taps, consistent averages, combined breakdown, tappable digits (2026-11-16)
 
 - Garage dashboard FUEL / SERVICE / PER KM tiles: the WHOLE card is now
