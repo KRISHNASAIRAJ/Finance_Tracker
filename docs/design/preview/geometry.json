@@ -52,7 +52,7 @@
     "clock": { "y": 98, "size": 54, "weight": 500, "hours": "#E8002A", "colonMinutes": "#FFFFFF",
                "subSize": 20, "seconds": "#6A6A6A", "ampm": "#BDBDBD",
                "gapBeforeSub": 8, "gapBetweenSub": 4 },
-    "block": { "x": 24, "y": 118 },
+    "block": { "x": 10.2, "y": 111.7, "scale": 1.095 },
     "stats": {
       "valueSize": 17, "valueY": 284, "valueWeight": 500,
       "labelSize": 9, "labelY": 300, "labelSpacing": 1.5, "labelWeight": 500,

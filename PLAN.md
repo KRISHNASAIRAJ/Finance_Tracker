@@ -271,6 +271,35 @@
       auto-save skip, store tombstones on delete) — **332 unit green**,
       e2e 9/9, tsc/ESLint clean, Kotlin + resources compile.
 
+### Batch 28 - widget: block +20% area (94/3/3) and alarm cell shows "6:45 AM" (2026-11-16)
+
+- User asked for the whole red block 20% bigger, texts included; one
+  bitmap means a width change scales everything uniformly. Width +20%
+  is impossible (85.8% -> would need 103% of the row), so the exact
+  achievable "20% larger overall (area)" was implemented: block width
+  x1.095 = area x1.20.
+- widget_clock_sleep.xml: block row weights 7.1 / 85.8 / 7.1 ->
+  3 / 94 / 3 (block = 94% of the row).
+- ClockSleepWidget.blockWidthPx: bitmap factor 0.859 -> 0.94 so the
+  larger placement stays crisp (bitmap >= displayed size).
+- GEOMETRY.md placement section updated (inset 10.2 units, 94%,
+  spacer 3 / ImageView 94 / spacer 3).
+- preview: geometry.json widget.block now { x 10.2, y 111.7, scale
+  1.095 }; widget.html applies block.scale; new compare.html renders
+  old vs new side by side (also screenshotted via headless Edge to
+  D:\KrishnaTrackrer\block_size_compare.png, 2x zoom, exact renderer
+  code - not committed, local artifact).
+- User's phone screenshot showed the ALARM cell as "Tue 6:45" - the
+  Batch-27 build kept the weekday prefix and "Tue 6:45 AM" clipped at
+  9sp maxLines=1. Per user request the weekday prefix is now dropped
+  entirely: ClockSleepWidget.nextAlarmLabel returns time only, "6:45
+  AM" (SimpleDateFormat "h:mm a", Locale.US, uppercase by default).
+  The JS fallback formatAlarmLabel already matches.
+- [x] Build: :app:assembleDebug + :app:lintDebug BUILD SUCCESSFUL
+      (APK 11:02, exit 0, no lint errors).
+- Note: user confirmed Batch 27 on the phone (11:48PM / 7:00AM labels
+  visible in their screenshot).
+
 ### Batch 27 - widget: port user's live-tuned block values + AM/PM labels (2026-11-16)
 
 - Source of truth: user edited `docs/design/preview/geometry.json` in

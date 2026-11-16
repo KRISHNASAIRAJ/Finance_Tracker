@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meridian - block size comparison (old vs new)</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; color: #e8e8ea;
+    font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 16px;
+    background: radial-gradient(1200px 800px at 30% 20%, #1d3a3a 0%, #12262b 45%, #0d1a20 100%);
+  }
+  h1 { font-size: 14px; font-weight: 600; margin: 4px 0 0; color: #9fc4c4; }
+  h1 b { color: #fff; }
+  .row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .card { text-align: center; }
+  .card .tag { font-size: 12px; margin-bottom: 6px; letter-spacing: .04em; }
+  .old .tag { color: #9a9a9a; }
+  .new .tag { color: #7ab8ff; }
+  canvas { display: block; }
+  .hint { color: #6f8f8f; font-size: 11px; max-width: 720px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>Block size comparison <b>- 85.8% (old) vs 94% (+20% area, new)</b></h1>
+  <div class="row">
+    <div class="card old"><div class="tag">OLD &mdash; weights 7.1 / 85.8 / 7.1</div><canvas id="cvOld" width="680" height="632"></canvas></div>
+    <div class="card new"><div class="tag">NEW &mdash; weights 3 / 94 / 3 (+20% area)</div><canvas id="cvNew" width="680" height="632"></canvas></div>
+  </div>
+  <div class="hint">Both cards draw the identical bitmap geometry; only the placement scale differs
+  (old inset 24 units, scale 1 &mdash; new inset 10.2 units, scale 1.095). The card chrome (date,
+  clock, stats) is unchanged.</div>
+
+<script src="sleep-block.js"></script>
+<script>
+'use strict';
+const ZOOM = 2;
+
+function drawCardOn(c, g, blockOverride) {
+  const w = g.widget;
+  c.setTransform(ZOOM, 0, 0, ZOOM, 0, 0);
+  c.clearRect(0, 0, w.card.w, w.card.h);
+
+  // shell
+  const cd = w.card, r = Math.min(cd.radius, cd.w / 2, cd.h / 2);
+  c.beginPath();
+  c.moveTo(cd.inset + r, cd.inset);
+  c.arcTo(cd.w - cd.inset, cd.inset, cd.w - cd.inset, cd.h - cd.inset, r);
+  c.arcTo(cd.w - cd.inset, cd.h - cd.inset, cd.inset, cd.h - cd.inset, r);
+  c.arcTo(cd.inset, cd.h - cd.inset, cd.inset, cd.inset, r);
+  c.arcTo(cd.inset, cd.inset, cd.w - cd.inset, cd.inset, r);
+  c.closePath();
+  c.fillStyle = cd.bg; c.fill();
+  if (cd.strokeWidth > 0) { c.strokeStyle = cd.stroke; c.lineWidth = cd.strokeWidth; c.stroke(); }
+
+  // date (static sample so both frames match)
+  const d = w.date;
+  c.textBaseline = 'alphabetic';
+  c.font = d.weight + ' ' + d.size + 'px "Segoe UI", Roboto, sans-serif';
+  const parts = [{ t: 'Mon ', c: d.muted }, { t: '16', c: d.day }, { t: ' Nov', c: d.muted }];
+  let tw = 0; for (const p of parts) tw += c.measureText(p.t).width;
+  let x = w.card.w / 2 - tw / 2;
+  for (const p of parts) { c.fillStyle = p.c; c.fillText(p.t, x, d.y); x += c.measureText(p.t).width; }
+
+  // clock (static sample)
+  const ck = w.clock;
+  const segs = [
+    { t: '09', c: ck.hours, f: ck.weight + ' ' + ck.size + 'px "Segoe UI", Roboto, sans-serif' },
+    { t: ':', c: ck.colonMinutes, f: ck.weight + ' ' + ck.size + 'px "Segoe UI", Roboto, sans-serif' },
+    { t: '48', c: ck.colonMinutes, f: ck.weight + ' ' + ck.size + 'px "Segoe UI", Roboto, sans-serif' },
+    { t: ' 30', c: ck.seconds, f: '400 ' + ck.subSize + 'px "Segoe UI", Roboto, sans-serif' },
+    { t: ' am', c: ck.ampm, f: '400 ' + ck.subSize + 'px "Segoe UI", Roboto, sans-serif' },
+  ];
+  tw = 0; for (const p of segs) tw += c.measureText(p.t).width;
+  x = w.card.w / 2 - tw / 2;
+  for (const p of segs) { c.font = p.f; c.fillStyle = p.c; c.fillText(p.t, x, ck.y); x += c.measureText(p.t).width; }
+
+  // the block (old vs new placement)
+  const block = blockOverride || w.block;
+  c.save();
+  c.translate(block.x, block.y);
+  if (block.scale && block.scale !== 1) c.scale(block.scale, block.scale);
+  SleepBlock.render(c, g, {});
+  c.restore();
+
+  // stats footer
+  const s = w.stats;
+  c.strokeStyle = s.dividerColor; c.lineWidth = s.dividerWidth;
+  for (const dx of s.dividerXs) { c.beginPath(); c.moveTo(dx, s.dividerY0); c.lineTo(dx, s.dividerY1); c.stroke(); }
+  c.font = s.valueWeight + ' ' + s.valueSize + 'px "Segoe UI", Roboto, sans-serif';
+  c.textAlign = 'center';
+  c.fillStyle = s.alarmColor; c.fillText(s.alarmText, s.alarmX, s.valueY);
+  c.fillStyle = s.valueColor; c.fillText(s.battText, s.battX, s.valueY);
+  c.fillStyle = s.valueColor; c.fillText(s.tempText, s.tempX, s.valueY);
+  c.font = s.labelWeight + ' ' + s.labelSize + 'px "Segoe UI", Roboto, sans-serif';
+  try { c.letterSpacing = s.labelSpacing + 'px'; } catch (_) {}
+  c.fillStyle = s.labelColor;
+  ['ALARM', 'BATT', 'TEMP'].forEach((label, i) => c.fillText(label, [s.alarmX, s.battX, s.tempX][i], s.labelY));
+  try { c.letterSpacing = '0px'; } catch (_) {}
+  c.textAlign = 'left';
+}
+
+async function main() {
+  const res = await fetch('geometry.json?t=' + Date.now(), { cache: 'no-store' });
+  const g = await res.json();
+  const old = JSON.parse(JSON.stringify(g));
+  old.widget.block = { x: 24, y: 118, scale: 1 };   // the previous placement
+  drawCardOn(document.getElementById('cvOld').getContext('2d'), old, old.widget.block);
+  drawCardOn(document.getElementById('cvNew').getContext('2d'), g, null);
+}
+main().catch(e => {
+  document.body.insertAdjacentHTML('beforeend',
+    '<div style="color:#ff7a7a">Could not render: ' + e.message + '</div>');
+});
+</script>
+</body>
+</html>

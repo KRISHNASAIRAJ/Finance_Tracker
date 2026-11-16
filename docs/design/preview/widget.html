@@ -197,6 +197,7 @@ function render(g) {
   drawClock(g);
   ctx.save();
   ctx.translate(w.block.x, w.block.y);
+  if (w.block.scale && w.block.scale !== 1) ctx.scale(w.block.scale, w.block.scale);
   SleepBlock.render(ctx, g, { guides: guidesChk.checked });
   ctx.restore();
   drawStats(g);

@@ -12,7 +12,7 @@
                     SleepBlockRenderer (draws silhouette + tab, SLEEP caption,
                     duration + Score row, lane labels/tracks/bars, dotted
                     awake line, bed/wake times). Three-child row:
-                    spacer 7.1 / ImageView 85.8 / spacer 7.1 (GEOMETRY.md).
+                    spacer 3 / ImageView 94 / spacer 3 (GEOMETRY.md).
     stats row       ALARM (red) | BATT (white) | TEMP (white)
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -108,9 +108,10 @@
 
     <!-- The red SLEEP block: ONE bitmap from SleepBlockRenderer, 292x132 design
          units scaled by the block width. Hosted by a three-child horizontal
-         row: spacer 7.1 / ImageView 85.8 / spacer 7.1 (GEOMETRY.md placement).
-         The row keeps layout_weight=1 with center_vertical so the stats row
-         stays pinned to the bottom at any widget height. -->
+         row: spacer 3 / ImageView 94 / spacer 3 (GEOMETRY.md placement, block
+         = 94 percent of the row = 20 percent larger area than the previous
+         85.8 placement). The row keeps layout_weight=1 with center_vertical
+         so the stats row stays pinned to the bottom at any widget height. -->
     <LinearLayout
         android:id="@+id/clock_sleep_pill"
         android:layout_width="match_parent"
@@ -122,13 +123,13 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="7.1" />
+            android:layout_weight="3" />
 
         <ImageView
             android:id="@+id/clock_sleep_block"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="85.8"
+            android:layout_weight="94"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
             android:contentDescription="Sleep stages" />
@@ -136,7 +137,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="7.1" />
+            android:layout_weight="3" />
     </LinearLayout>
 
     <!-- The stats row (Alarm, Batt, Temp) -->

@@ -4,11 +4,13 @@ Everything is in design units. The block is W = 292 by H = 132 units.
 Scale uniformly: s = blockWidthPx / 292. Never stretch X and Y separately.
 
 ## Placement in the card
-- Card design width = 340 units. Block left and right inset = 24 units
-  each (7.1% of the card width). Block width = 85.9% of the card width.
+- Card design width = 340 units. Block left and right inset = 10.2 units
+  each (3% of the card width). Block width = 94% of the card width
+  (Batch 28: enlarged from the previous 7.1 / 85.8 / 7.1 placement for
+  a 20% larger area).
 - In a RemoteViews layout use a horizontal LinearLayout with three
-  children: spacer (weight 7.1), ImageView (weight 85.8, 0dp width,
-  wrap_content height, adjustViewBounds, fitCenter), spacer (weight 7.1).
+  children: spacer (weight 3), ImageView (weight 94, 0dp width,
+  wrap_content height, adjustViewBounds, fitCenter), spacer (weight 3).
 
 ## Silhouette (path, in block units)
 M0,58  Q0,34 24,34  L136,34  Q152,34 152,22  Q152,0 174,0  L270,0
