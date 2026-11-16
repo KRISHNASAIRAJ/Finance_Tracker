@@ -26,6 +26,7 @@
 | `vehicles` | Garage | Vehicle registry |
 | `fuel_fills` | Garage | Fuel fill-up logs with mileage |
 | `vehicle_spends` | Garage | Service, repair, insurance logs |
+| `vehicle_service_issues` | Garage | Issues to report at the next service: per-vehicle title, notes, severity (low/medium/high), status (open/fixed), odometer_km, created_at, fixed_at — migration 0053. NOT a financial event, so no `transactions` row. |
 | `tasks` | Tasks | Task records with recurrence |
 | `portfolio_snapshots` | Equity | Daily portfolio value history |
 | `investment_goals` | Equity | Investment goal targets |
@@ -116,6 +117,9 @@ Migrations are numbered sequentially in supabase/migrations/:
 0015_card_documents.sql    — Card T&C documents
 0016_user_settings.sql     — Expected incomes + user settings
 0017_tasks_completed_at.sql — Task completion timestamps
+...
+0052_realtime_publication_reconcile.sql - one idempotent pass over all user tables
+0053_vehicle_service_issues.sql - next-service issue list (RLS + Realtime)
 ```
 
 Push to remote: `supabase db push --linked`

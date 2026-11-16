@@ -53,8 +53,6 @@ class ClockSleepWidget : AppWidgetProvider() {
         private const val WEATHER_NATIVE_MAX_AGE_MS = 12L * 60 * 60_000L
 
         private const val NO_VALUE = "—"
-        /** Shown until the realtime weather lands. */
-        private const val DEFAULT_TEMP_C = 24.0
 
         /** The muted grey of the stats (the "--" of a missing alarm). */
         private val MUTED = Color.parseColor("#8A8A8A")
@@ -223,7 +221,9 @@ class ClockSleepWidget : AppWidgetProvider() {
         var bedLabel = ""
         var wakeLabel = ""
         var alarmLabel = ""
-        var tempC = DEFAULT_TEMP_C
+        // No placeholder number: until a real reading lands the widget shows
+        // "--", never a fake temperature that looks live.
+        var tempC: Double? = null
         val deep = mutableListOf<Seg>()
         val light = mutableListOf<Seg>()
         val awake = mutableListOf<Seg>()
@@ -256,7 +256,7 @@ class ClockSleepWidget : AppWidgetProvider() {
                     else -> {
                         // Legacy payloads pushed before the weather extras.
                         val tc = o.optDouble("tempC", Double.NaN)
-                        if (!tc.isNaN() && tc > -50.0 && tc < 60.0) tc else DEFAULT_TEMP_C
+                        if (!tc.isNaN() && tc > -50.0 && tc < 60.0) tc else null
                     }
                 }
                 val stages = o.optJSONObject("stages")
@@ -304,7 +304,10 @@ class ClockSleepWidget : AppWidgetProvider() {
         // The temperature — realtime: whichever of the JS payload (GPS-fresh
         // on every app open) and the widget's own fetch (every ~10 minutes)
         // is the fresher one.
-        views.setTextViewText(R.id.clock_sleep_temp_value, "${Math.round(tempC)}°")
+        views.setTextViewText(
+            R.id.clock_sleep_temp_value,
+            tempC?.let { "${Math.round(it)}°" } ?: "--"
+        )
 
         // The SLEEP block — one Bitmap drawn to GEOMETRY.md (silhouette, tab,
         // duration, Score row, lanes, dotted awake line, bed/wake times).

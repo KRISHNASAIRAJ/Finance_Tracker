@@ -5,6 +5,54 @@
 
 ---
 
+### Batch 33 — weather fix, avatar temperature, service issues, motion, sync, cleanup (2026-11-16)
+
+> App-only batch. The website was deliberately NOT touched and was not deployed.
+> Marked done locally; pushed to `origin/v4` with the final release build.
+
+- [x] **Weather actually fetches now.** `services/weather.ts` was silently
+      returning `null` on every failure (no location prompt, no city picker,
+      `minC` read from the max array). Added typed `WeatherFailure` reporting,
+      explicit `ensureLocationPermission()`, a location-services check, a
+      manual-city fallback (`fetchWeatherForCity` + sheet UI), forced refresh,
+      a 3-hour freshness cache, and rejection of bogus/missing temperatures.
+- [x] **The top-right avatar shows the live temperature** (inside the red
+      circle) instead of the account initial, with a bottom sheet for
+      condition / feels-like / low / high / humidity, "Updated N min ago",
+      Refresh, Enable location and Choose city. Profile stays in drawer / More.
+      A shared `useWeather` hook drives both the avatar and the widget push.
+- [x] **The widget no longer invents 24°.** With no real reading it shows `--`
+      instead of a fake placeholder; the GPS fix now reaches the native
+      Open-Meteo fetch reliably through the JS payload.
+- [x] **Sync completeness.** `usePeopleSync` and `useMedicationsSync` are now
+      mounted globally (they used to run only when their screen opened), and a
+      new `useUniversalSync` hydrates `weekly_diary`, `career_events` and
+      `vehicle_service_issues`, which had no pull at all. Migration `0052`
+      idempotently reconciles the whole Realtime publication.
+- [x] **Issues to report at the next service** — a new section inside the
+      existing Service screen (`VehicleSpendScreen`), not a new bottom-nav tab.
+      Add with title / notes / severity / odometer, mark fixed, reopen, delete,
+      show fixed. Migration `0053` adds `vehicle_service_issues` with RLS,
+      index and Realtime; a local-first Zustand store enqueues every change.
+- [x] **Fuel-fills flicker fixed.** `AllFuelFillsScreen` seeded its vehicle from
+      `vehicles[0]` before async hydration and subscribed to the whole store.
+      The active vehicle is now derived per render with selector subscriptions;
+      the same pattern was applied to the other garage screens.
+- [x] **Reanimated motion.** Installed the SDK-54 compatible `react-native-reanimated`
+      + `react-native-worklets`, added shared `ScreenEnter` / `SpringPress`
+      primitives and wired `ScreenEnter` into the universal `Screen` frame, so
+      every screen gets a short fade/lift on top of the existing `Rise` staggers
+      and native-stack transitions. Honours reduce-motion.
+- [x] **Cleanup / docs.** Removed the unreferenced old `PetrolVault-backup-*.json`,
+      corrected `mobile/AGENTS.md` to the SDK 54 docs (it pointed at v57), and
+      bumped the release to `versionCode=3004 / 1.0.0-b36`.
+- [x] **Verification:** typecheck ✓ · ESLint 0 errors ✓ · 40 suites / 360 tests ✓
+      · `assembleRelease` ✓ (Reanimated worklets present in the bundle).
+- [ ] **On the device (hand over to the user):** location prompt appears and
+      the avatar/widget show the real temperature; the widget keeps updating
+      with the app closed; issues added on the app are visible in the cloud;
+      no one-frame flash when opening Fuel fills; screen entrances are smooth.
+
 ### Batch 32 — removed the decision-first layer; app back to batch 29 (2026-11-16, not pushed)
 
 - The user did not want the new decision-layer screens. Reverted batch 30 in

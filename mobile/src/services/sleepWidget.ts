@@ -91,7 +91,7 @@ const REM_LENGTH_MIN = 25;
  * every app open, and the widget re-reads Open-Meteo itself every ~10 minutes
  * while the app is closed — see ClockSleepWidget / SleepWidgetAlarmReceiver.
  */
-const DEFAULT_TEMP_C = 24;
+const NO_TEMP_C = Number.NaN;
 
 /** "11:40 PM" — the bed / wake time, the way the widget shows it. */
 /** "11:48PM" / "7:00AM" — the compact style used inside the red block. */
@@ -243,7 +243,7 @@ export function computeSleepWidgetPayload(
       wakeLabel: '',
       interruptions: 0,
       stages: { deep: [], light: [], awake: [] },
-      tempC: extra?.tempC ?? DEFAULT_TEMP_C,
+      tempC: extra?.tempC ?? NO_TEMP_C,
       weatherLat: extra?.weatherLat,
       weatherLon: extra?.weatherLon,
       weatherFetchedAt: extra?.weatherFetchedAt,
@@ -280,7 +280,7 @@ export function computeSleepWidgetPayload(
     wakeLabel: formatShortClockLabel(wakeTime),
     interruptions,
     stages: computeStageSegments(buckets, sensitivity),
-    tempC: extra?.tempC ?? DEFAULT_TEMP_C,
+    tempC: extra?.tempC ?? NO_TEMP_C,
     weatherLat: extra?.weatherLat,
     weatherLon: extra?.weatherLon,
     weatherFetchedAt: extra?.weatherFetchedAt,
@@ -318,7 +318,7 @@ async function cachedWeather(): Promise<{
   try {
     const { getCachedWeather } = require('./weather');
     const reading = await getCachedWeather();
-    if (!reading) return { tempC: DEFAULT_TEMP_C };
+    if (!reading) return { tempC: NO_TEMP_C };
     return {
       tempC: Math.round(reading.tempC),
       lat: reading.lat,
@@ -326,7 +326,7 @@ async function cachedWeather(): Promise<{
       fetchedAt: reading.fetchedAt,
     };
   } catch {
-    return { tempC: DEFAULT_TEMP_C };
+    return { tempC: NO_TEMP_C };
   }
 }
 
