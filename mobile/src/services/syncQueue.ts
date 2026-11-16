@@ -282,6 +282,11 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
     minSpendPaise: 'min_spend_paise',
     expiresOn: 'expires_on',
   },
+  vehicle_service_issues: {
+    odometerKm: 'odometer_km',
+    createdAt: 'created_at',
+    fixedAt: 'fixed_at',
+  },
 };
 
 function normalizePayload(entity: string, raw: Record<string, unknown>): Record<string, unknown> {

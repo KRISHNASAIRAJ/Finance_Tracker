@@ -15,6 +15,10 @@ import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../services/AuthProvider';
 import { useDiaryStore, type DiaryEntry } from '../modules/diary/store';
 import { useCareerStore, type CareerEvent } from '../modules/career/store';
+import {
+  useServiceIssuesStore,
+  type ServiceIssue,
+} from '../modules/garage/serviceIssuesStore';
 
 interface Spec<T> {
   table: string;
@@ -24,7 +28,7 @@ interface Spec<T> {
   toRow: (item: T, userId: string) => Record<string, unknown>;
 }
 
-const SPECS: Spec<DiaryEntry | CareerEvent>[] = [
+const SPECS: Spec<DiaryEntry | CareerEvent | ServiceIssue>[] = [
   {
     table: 'weekly_diary',
     map: (r) => ({
@@ -67,6 +71,39 @@ const SPECS: Spec<DiaryEntry | CareerEvent>[] = [
         date: item.date,
         type: item.type,
         notes: item.notes,
+      };
+    },
+  },
+  {
+    table: 'vehicle_service_issues',
+    map: (r) => ({
+      id: r.id as string,
+      vehicle: (r.vehicle as string) ?? '',
+      title: (r.title as string) ?? '',
+      notes: (r.notes as string) ?? '',
+      severity: ((r.severity as string) ?? 'medium') as ServiceIssue['severity'],
+      status: ((r.status as string) ?? 'open') as ServiceIssue['status'],
+      odometerKm: r.odometer_km === null || r.odometer_km === undefined
+        ? null
+        : Number(r.odometer_km) || null,
+      createdAt: (r.created_at as string) ?? '',
+      fixedAt: (r.fixed_at as string) ?? null,
+    }),
+    local: () => useServiceIssuesStore.getState().issues as ServiceIssue[],
+    set: (rows) => useServiceIssuesStore.setState({ issues: rows as ServiceIssue[] }),
+    toRow: (e, userId) => {
+      const item = e as ServiceIssue;
+      return {
+        id: item.id,
+        user_id: userId,
+        vehicle: item.vehicle,
+        title: item.title,
+        notes: item.notes,
+        severity: item.severity,
+        status: item.status,
+        odometer_km: item.odometerKm,
+        created_at: item.createdAt,
+        fixed_at: item.fixedAt,
       };
     },
   },
@@ -116,7 +153,7 @@ export async function pull(userId: string) {
     }
 
     const cloudRows = (data ?? []) as Array<Record<string, unknown>>;
-    const byId = new Map<string, DiaryEntry | CareerEvent>();
+    const byId = new Map<string, DiaryEntry | CareerEvent | ServiceIssue>();
     for (const local of spec.local()) byId.set(local.id, local);
     for (const row of cloudRows) {
       const id = row.id as string;

@@ -4,6 +4,7 @@
 import { pull } from '../useUniversalSync';
 import { useDiaryStore } from '../../modules/diary/store';
 import { useCareerStore } from '../../modules/career/store';
+import { useServiceIssuesStore } from '../../modules/garage/serviceIssuesStore';
 
 const rows: Record<string, unknown[]> = {
   weekly_diary: [
@@ -11,6 +12,12 @@ const rows: Record<string, unknown[]> = {
   ],
   career_events: [
     { id: 'c1', name: 'Promotion', date: '2026-10-01', type: 'up', notes: 'Great news' },
+  ],
+  vehicle_service_issues: [
+    {
+      id: 'si1', vehicle: 'Bike', title: 'Brake noise', notes: '', severity: 'high',
+      status: 'open', odometer_km: 4200, created_at: '2026-11-01T00:00:00Z', fixed_at: null,
+    },
   ],
 };
 
@@ -33,6 +40,7 @@ jest.mock('../../services/syncQueue', () => ({
 beforeEach(() => {
   useDiaryStore.setState({ entries: [] });
   useCareerStore.setState({ events: [] });
+  useServiceIssuesStore.setState({ issues: [] });
 });
 
 describe('universal sync pull', () => {
@@ -60,5 +68,14 @@ describe('universal sync pull', () => {
     const ids = useCareerStore.getState().events.map((e) => e.id);
     expect(ids).toContain('local-1');
     expect(ids).toContain('c1');
+  });
+
+  it('hydrates vehicle service issues', async () => {
+    await pull('user-1');
+    const issues = useServiceIssuesStore.getState().issues;
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({
+      id: 'si1', vehicle: 'Bike', title: 'Brake noise', severity: 'high', odometerKm: 4200,
+    });
   });
 });

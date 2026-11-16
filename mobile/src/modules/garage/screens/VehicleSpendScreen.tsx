@@ -30,6 +30,12 @@ import {
   TimelineItem,
 } from '../../../shared/components/meridian';
 import { useGarageStore } from '../store';
+import {
+  useServiceIssuesStore,
+  openIssuesFor,
+  type ServiceIssueSeverity,
+} from '../serviceIssuesStore';
+import { useAuth } from '../../../services/AuthProvider';
 import { GarageStackParamList } from '../../../navigation/RootNavigator';
 
 type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'VehicleSpend'>;
@@ -39,14 +45,41 @@ const SERVICE_TYPES = ['General Service', 'Insurance', 'Part Change', 'Tyre Chan
 export default function VehicleSpendScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, fills, maintenance, addMaintenanceLog } = useGarageStore();
+  const { user } = useAuth();
+  const issues = useServiceIssuesStore((s) => s.issues);
+  const addIssue = useServiceIssuesStore((s) => s.addIssue);
+  const toggleIssueFixed = useServiceIssuesStore((s) => s.toggleFixed);
+  const deleteIssue = useServiceIssuesStore((s) => s.deleteIssue);
   const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [serviceType, setServiceType] = useState('');
   const [notes, setNotes] = useState('');
 
+  // The vehicle list hydrates asynchronously — derive a fallback so the first
+  // frame already has a selection (no empty flash).
+  const activeVehicle = selectedVehicle || vehicles[0];
+  React.useEffect(() => {
+    if (!selectedVehicle && vehicles.length > 0) setSelectedVehicle(vehicles[0]);
+  }, [selectedVehicle, vehicles]);
+
+  // Issues to tell the service centre about.
+  const [showIssueForm, setShowIssueForm] = useState(false);
+  const [issueTitle, setIssueTitle] = useState('');
+  const [issueNotes, setIssueNotes] = useState('');
+  const [issueSeverity, setIssueSeverity] = useState<ServiceIssueSeverity>('medium');
+  const [issueOdo, setIssueOdo] = useState('');
+  const [showFixed, setShowFixed] = useState(false);
+  const openIssues = activeVehicle ? openIssuesFor(issues, activeVehicle) : [];
+  const fixedIssues = activeVehicle
+    ? issues
+        .filter((i) => i.vehicle === activeVehicle && i.status === 'fixed')
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    : [];
+  const visibleIssues = showFixed ? [...openIssues, ...fixedIssues] : openIssues;
+
   const vehicleMaint = maintenance
-    .filter((m) => m.vehicle === selectedVehicle)
+    .filter((m) => m.vehicle === activeVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   // Vehicle spend = BOTH running costs: fuel fills + maintenance logs.
@@ -54,7 +87,7 @@ export default function VehicleSpendScreen() {
   // by km), so the tile and this breakdown screen always agree. Fuel is
   // usually the largest running cost - leaving it out understated the
   // total several-fold.
-  const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
+  const vehicleFills = fills.filter((f) => f.vehicle === activeVehicle);
   const totalFuelSpend = vehicleFills.reduce((sum, f) => sum + f.amount, 0);
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
   const totalSpend = totalFuelSpend + totalMaintSpend;
@@ -95,7 +128,7 @@ export default function VehicleSpendScreen() {
     }
 
     addMaintenanceLog({
-      vehicle: selectedVehicle,
+      vehicle: activeVehicle,
       amount: Math.round(rawAmount * 100),
       serviceType: serviceType.trim(),
       notes: notes.trim() || undefined,
@@ -105,6 +138,37 @@ export default function VehicleSpendScreen() {
     setNotes('');
     setShowForm(false);
   };
+
+  const handleAddIssue = () => {
+    if (!activeVehicle) return;
+    if (!issueTitle.trim()) {
+      alert('Please describe the issue');
+      return;
+    }
+    const odo = issueOdo.trim() ? Number(issueOdo) : null;
+    if (issueOdo.trim() && (!Number.isFinite(odo) || (odo as number) < 0)) {
+      alert('Enter a valid odometer reading');
+      return;
+    }
+    addIssue(
+      {
+        vehicle: activeVehicle,
+        title: issueTitle.trim(),
+        notes: issueNotes.trim(),
+        severity: issueSeverity,
+        odometerKm: odo,
+      },
+      user?.id
+    );
+    setIssueTitle('');
+    setIssueNotes('');
+    setIssueSeverity('medium');
+    setIssueOdo('');
+    setShowIssueForm(false);
+  };
+
+  const severityColor = (s: ServiceIssueSeverity) =>
+    s === 'high' ? mc.red : s === 'medium' ? mc.amber : mc.mint;
 
   return (
     <Screen bottomInset={40}>
@@ -134,7 +198,7 @@ export default function VehicleSpendScreen() {
           contentContainerStyle={[styles.vehicleRow, vehicles.length <= 1 && styles.vehicleRowCentered]}
         >
           {vehicles.map((v) => {
-            const isSelected = selectedVehicle === v;
+            const isSelected = activeVehicle === v;
             return (
               <PressScale key={v} onPress={() => setSelectedVehicle(v)} scale={0.96}>
                 <View style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}>
@@ -290,6 +354,141 @@ export default function VehicleSpendScreen() {
           />
         </Rise>
       )}
+
+      {/* Issues to report at the next service */}
+      <Rise index={5}>
+        <Card style={styles.issuesCard}>
+          <View style={styles.issuesHead}>
+            <View style={styles.issuesTitleWrap}>
+              <IconTile icon="alert-circle-outline" color={mc.red} size={36} radius={12} />
+              <View style={{ flex: 1 }}>
+                <Label>ISSUES TO REPORT</Label>
+                <Text style={styles.issuesSub}>
+                  {openIssues.length} open · tell the service centre at the next service
+                </Text>
+              </View>
+            </View>
+            <PressScale
+              onPress={() => setShowIssueForm((v) => !v)}
+              scale={0.92}
+              style={styles.issueAddBtn}
+              accessibilityLabel={showIssueForm ? 'Close issue form' : 'Add issue'}
+            >
+              <Ionicons name={showIssueForm ? 'close' : 'add'} size={18} color={mc.white} />
+            </PressScale>
+          </View>
+
+          {showIssueForm ? (
+            <View style={styles.issueForm}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="What's the issue? e.g. squeaky front brake"
+                placeholderTextColor={mc.textGhost}
+                value={issueTitle}
+                onChangeText={setIssueTitle}
+              />
+              <TextInput
+                style={[styles.textInput, styles.issueNotesInput]}
+                placeholder="Details (optional)"
+                placeholderTextColor={mc.textGhost}
+                value={issueNotes}
+                onChangeText={setIssueNotes}
+                multiline
+              />
+              <View style={styles.issueRow}>
+                {(['low', 'medium', 'high'] as ServiceIssueSeverity[]).map((s) => (
+                  <PressScale
+                    key={s}
+                    onPress={() => setIssueSeverity(s)}
+                    scale={0.96}
+                    style={[
+                      styles.severityChip,
+                      issueSeverity === s && { borderColor: severityColor(s) },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.severityText,
+                        issueSeverity === s && { color: severityColor(s) },
+                      ]}
+                    >
+                      {s.toUpperCase()}
+                    </Text>
+                  </PressScale>
+                ))}
+              </View>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Odometer in km (optional)"
+                placeholderTextColor={mc.textGhost}
+                keyboardType="numeric"
+                value={issueOdo}
+                onChangeText={setIssueOdo}
+              />
+              <PressScale onPress={handleAddIssue} scale={0.97} style={styles.saveBtn} accessibilityLabel="Save issue">
+                <Text style={styles.saveBtnText}>SAVE ISSUE</Text>
+              </PressScale>
+            </View>
+          ) : null}
+
+          {visibleIssues.map((issue) => (
+            <View key={issue.id} style={styles.issueRowItem}>
+              <View style={[styles.severityDot, { backgroundColor: severityColor(issue.severity) }]} />
+              <View style={styles.issueBody}>
+                <Text
+                  style={[
+                    styles.issueTitle,
+                    issue.status === 'fixed' && styles.issueTitleFixed,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {issue.title}
+                </Text>
+                <Text style={styles.issueMeta} numberOfLines={2}>
+                  {issue.notes}
+                  {issue.odometerKm !== null
+                    ? `${issue.notes ? ' · ' : ''}${issue.odometerKm.toLocaleString('en-IN')} km`
+                    : ''}
+                </Text>
+              </View>
+              <PressScale
+                onPress={() => toggleIssueFixed(issue.id, user?.id)}
+                scale={0.9}
+                style={styles.issueCheck}
+                accessibilityLabel={issue.status === 'open' ? 'Mark fixed' : 'Reopen issue'}
+              >
+                <Ionicons
+                  name={issue.status === 'fixed' ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={issue.status === 'fixed' ? mc.mint : mc.textDim}
+                />
+              </PressScale>
+              <PressScale
+                onPress={() => deleteIssue(issue.id, user?.id)}
+                scale={0.9}
+                style={styles.issueDelete}
+                accessibilityLabel="Delete issue"
+              >
+                <Ionicons name="trash-outline" size={17} color={mc.textFaint} />
+              </PressScale>
+            </View>
+          ))}
+
+          {visibleIssues.length === 0 ? (
+            <Text style={styles.issuesEmpty}>
+              No issues noted. Add anything you want the service centre to check.
+            </Text>
+          ) : null}
+
+          {fixedIssues.length > 0 ? (
+            <PressScale onPress={() => setShowFixed((v) => !v)} scale={0.98}>
+              <Text style={styles.showFixedText}>
+                {showFixed ? 'Hide fixed' : `Show ${fixedIssues.length} fixed`}
+              </Text>
+            </PressScale>
+          ) : null}
+        </Card>
+      </Rise>
     </Screen>
   );
 }
@@ -505,5 +704,108 @@ const styles = StyleSheet.create({
   logDate: {
     fontSize: 11,
     color: mc.textDim,
+  },
+
+  // Issues to report at next service
+  issuesCard: {
+    gap: 12,
+    marginTop: 4,
+  },
+  issuesHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  issuesTitleWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  issuesSub: {
+    fontSize: 12,
+    color: mc.textDim,
+    marginTop: 3,
+  },
+  issueAddBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: mc.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  issueForm: {
+    gap: 10,
+    paddingTop: 4,
+  },
+  issueNotesInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  issueRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  severityChip: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: mc.lineSoft,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  severityText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: mc.textDim,
+  },
+  issueRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    borderTopWidth: 1,
+    borderTopColor: mc.line,
+  },
+  severityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  issueBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  issueTitle: {
+    fontSize: 14,
+    color: mc.text,
+  },
+  issueTitleFixed: {
+    color: mc.textFaint,
+    textDecorationLine: 'line-through',
+  },
+  issueMeta: {
+    fontSize: 11,
+    color: mc.textDim,
+    marginTop: 2,
+  },
+  issueCheck: {
+    padding: 4,
+  },
+  issueDelete: {
+    padding: 4,
+  },
+  issuesEmpty: {
+    fontSize: 12,
+    color: mc.textFaint,
+    lineHeight: 17,
+  },
+  showFixedText: {
+    fontSize: 12,
+    color: mc.textDim,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
