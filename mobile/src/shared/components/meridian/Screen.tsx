@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { mc } from '../../theme/meridian';
+import { ScreenEnter } from '../motion';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -54,7 +55,9 @@ const Screen = forwardRef<ScrollView | null, ScreenProps>(function Screen(
   if (!scroll) {
     return (
       <View style={[styles.root, style]}>
-        <View style={[styles.body, contentStyle]}>{children}</View>
+        <ScreenEnter style={styles.flex}>
+          <View style={[styles.body, contentStyle]}>{children}</View>
+        </ScreenEnter>
         {floating}
       </View>
     );
@@ -62,16 +65,18 @@ const Screen = forwardRef<ScrollView | null, ScreenProps>(function Screen(
 
   return (
     <View style={[styles.root, style]}>
-      <ScrollView
-        ref={ref as any}
-        style={styles.flex}
-        contentContainerStyle={[styles.content, pad, contentStyle]}
-        showsVerticalScrollIndicator={false}
-        onScroll={onScroll}
-        scrollEventThrottle={scrollEventThrottle}
-      >
-        {children}
-      </ScrollView>
+      <ScreenEnter style={styles.flex}>
+        <ScrollView
+          ref={ref as any}
+          style={styles.flex}
+          contentContainerStyle={[styles.content, pad, contentStyle]}
+          showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={scrollEventThrottle}
+        >
+          {children}
+        </ScrollView>
+      </ScreenEnter>
       {floating}
     </View>
   );
