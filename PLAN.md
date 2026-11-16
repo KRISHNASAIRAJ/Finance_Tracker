@@ -17,6 +17,18 @@
   the native manifest + `app.json` so a stale cached EAS update can't override
   the embedded bundle, and the version stays installable (`versionCode=3000`,
   `versionName=1.0.0-b32`) so the APK replaces the current install.
+- **Repo cleanup (same batch):** removed the widget-tuning harness
+  `docs/design/preview/` (6 files — a stale Codespaces playground whose numbers
+  were already ported to `GEOMETRY.md` + the Kotlin renderer), the duplicate
+  `docs/design/SleepBlockRenderer.kt` snapshot, the one-off
+  `docs/fixes-report-2026-11-14.md`, the unused Vite template assets
+  (`web/src/assets/{react.svg,vite.svg,hero.png}`, `web/src/App.css`,
+  `web/public/icons.svg`) and the dead `supabase/functions/_shared/claude.ts`.
+  Every removed file was verified to have zero references. Earlier batches in
+  this log still mention the preview tool — those are historical records, not
+  live paths. `docs/design/GEOMETRY.md` remains the source of truth.
+- Cleared only regenerable local caches (Metro, Gradle, `web/dist`,
+  `supabase/.temp`); kept `node_modules` and the release APK.
 - No push — local only, pending user review.
 
 ## 0. ✅ TODO — sleep, wallets and widgets (v4, this batch)
