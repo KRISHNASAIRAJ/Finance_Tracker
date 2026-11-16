@@ -53,7 +53,8 @@ export default function AddFuelFillScreen() {
   const { vehicles, addFuelFill } = useGarageStore();
   const { user } = useAuth();
 
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(undefined);
+  const activeVehicle = selectedVehicle ?? vehicles[0] ?? '';
   const [liters, setLiters] = useState('');
   const [pricePerLiter, setPricePerLiter] = useState(() => lastFuelPriceText(vehicles[0]));
   const [odometer, setOdometer] = useState('');
@@ -67,7 +68,7 @@ export default function AddFuelFillScreen() {
   const selectVehicle = (v: string) => {
     const suggestion = lastFuelPriceText(v);
     setPricePerLiter((prev) =>
-      prev.trim() === '' || prev === lastFuelPriceText(selectedVehicle) ? suggestion : prev
+      prev.trim() === '' || prev === lastFuelPriceText(activeVehicle) ? suggestion : prev
     );
     setSelectedVehicle(v);
   };
@@ -80,7 +81,7 @@ export default function AddFuelFillScreen() {
   };
 
   const handleSubmit = () => {
-    if (!selectedVehicle) {
+    if (!activeVehicle) {
       alert('Please add a vehicle first before logging a fuel fill.');
       return;
     }
@@ -108,7 +109,7 @@ export default function AddFuelFillScreen() {
 
     addFuelFill(
       {
-        vehicle: selectedVehicle,
+        vehicle: activeVehicle,
         amount: totalAmountInPaise,
         liters: rawLiters,
         pricePerLiter: priceInPaise,
@@ -142,7 +143,7 @@ export default function AddFuelFillScreen() {
             <Label style={styles.sectionLabel}>VEHICLE</Label>
             <View style={styles.chipRow}>
               {vehicles.map((v) => {
-                const isSelected = selectedVehicle === v;
+                const isSelected = activeVehicle === v;
                 return (
                   <PressScale
                     key={v}

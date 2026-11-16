@@ -50,7 +50,7 @@ export default function VehicleSpendScreen() {
   const addIssue = useServiceIssuesStore((s) => s.addIssue);
   const toggleIssueFixed = useServiceIssuesStore((s) => s.toggleFixed);
   const deleteIssue = useServiceIssuesStore((s) => s.deleteIssue);
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(undefined);
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [serviceType, setServiceType] = useState('');
@@ -58,10 +58,7 @@ export default function VehicleSpendScreen() {
 
   // The vehicle list hydrates asynchronously — derive a fallback so the first
   // frame already has a selection (no empty flash).
-  const activeVehicle = selectedVehicle || vehicles[0];
-  React.useEffect(() => {
-    if (!selectedVehicle && vehicles.length > 0) setSelectedVehicle(vehicles[0]);
-  }, [selectedVehicle, vehicles]);
+  const activeVehicle = selectedVehicle ?? vehicles[0];
 
   // Issues to tell the service centre about.
   const [showIssueForm, setShowIssueForm] = useState(false);

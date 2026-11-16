@@ -47,36 +47,31 @@ export default function AllMaintenanceScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, fills, maintenance, serviceReminderSettings, setServiceReminderSettings } =
     useGarageStore();
-  const [selectedVehicle, setSelectedVehicle] = React.useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = React.useState<string | undefined>(undefined);
+  const activeVehicle = selectedVehicle ?? vehicles[0] ?? '';
   const [reminderModalVisible, setReminderModalVisible] = React.useState(false);
   const [intervalKmInput, setIntervalKmInput] = React.useState('3000');
   const [intervalMonthsInput, setIntervalMonthsInput] = React.useState('3');
 
   React.useEffect(() => {
-    if (!selectedVehicle && vehicles.length > 0) {
-      setSelectedVehicle(vehicles[0]);
-    }
-  }, [vehicles, selectedVehicle]);
-
-  React.useEffect(() => {
-    const s = serviceReminderSettings[selectedVehicle];
+    const s = serviceReminderSettings[activeVehicle];
     setIntervalKmInput(String(s?.intervalKm ?? 3000));
     setIntervalMonthsInput(String(s?.intervalMonths ?? 3));
-  }, [selectedVehicle, serviceReminderSettings]);
+  }, [activeVehicle, serviceReminderSettings]);
 
   const vehicleMaint = maintenance
-    .filter((m) => m.vehicle === selectedVehicle)
+    .filter((m) => m.vehicle === activeVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalMaintSpend = vehicleMaint.reduce((sum, m) => sum + m.amount, 0);
 
-  const vehicleFills = fills.filter((f) => f.vehicle === selectedVehicle);
+  const vehicleFills = fills.filter((f) => f.vehicle === activeVehicle);
   const currentOdometer =
     vehicleFills.length > 0 ? Math.max(...vehicleFills.map((f) => f.odometer || 0)) : 0;
 
-  const reminderSettings = serviceReminderSettings[selectedVehicle];
+  const reminderSettings = serviceReminderSettings[activeVehicle];
   const nextService = getNextServiceInfo(
-    selectedVehicle,
+    activeVehicle,
     maintenance,
     currentOdometer,
     reminderSettings
@@ -96,7 +91,7 @@ export default function AllMaintenanceScreen() {
       : 0;
 
   const openReminderModal = () => {
-    const s = serviceReminderSettings[selectedVehicle];
+    const s = serviceReminderSettings[activeVehicle];
     setIntervalKmInput(String(s?.intervalKm ?? 3000));
     setIntervalMonthsInput(String(s?.intervalMonths ?? 3));
     setReminderModalVisible(true);
@@ -106,7 +101,7 @@ export default function AllMaintenanceScreen() {
     const km = Math.round(parseFloat(intervalKmInput));
     const months = Math.round(parseFloat(intervalMonthsInput));
     if (!isNaN(km) && km > 0 && !isNaN(months) && months > 0) {
-      setServiceReminderSettings(selectedVehicle, { intervalKm: km, intervalMonths: months });
+      setServiceReminderSettings(activeVehicle, { intervalKm: km, intervalMonths: months });
     }
     setReminderModalVisible(false);
   };
@@ -159,7 +154,7 @@ export default function AllMaintenanceScreen() {
           ]}
         >
           {vehicles.map((v) => {
-            const isSelected = selectedVehicle === v;
+            const isSelected = activeVehicle === v;
             return (
               <PressScale key={v} onPress={() => setSelectedVehicle(v)} scale={0.96}>
                 <View style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}>

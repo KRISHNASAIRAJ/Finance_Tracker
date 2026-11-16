@@ -28,12 +28,13 @@ type NavigationProp = NativeStackNavigationProp<GarageStackParamList, 'VehicleRe
 export default function VehicleReportsScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { vehicles, fills, maintenance } = useGarageStore();
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | undefined>(undefined);
+  const activeVehicle = selectedVehicle ?? vehicles[0] ?? '';
 
   const vehicleFills = fills
-    .filter((f) => f.vehicle === selectedVehicle)
+    .filter((f) => f.vehicle === activeVehicle)
     .sort((a, b) => a.odometer - b.odometer);
-  const vehicleMaint = maintenance.filter((m) => m.vehicle === selectedVehicle);
+  const vehicleMaint = maintenance.filter((m) => m.vehicle === activeVehicle);
 
   const formatCurrency = (paise: number) => {
     return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -122,7 +123,7 @@ export default function VehicleReportsScreen() {
       <View style={styles.tabContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
           {vehicles.map((v) => {
-            const isSelected = selectedVehicle === v;
+            const isSelected = activeVehicle === v;
             return (
               <TouchableOpacity
                 key={v}

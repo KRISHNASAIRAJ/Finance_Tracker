@@ -42,20 +42,24 @@ const formatCurrency = (paise: number) => {
 
 export default function AllFuelFillsScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { fills, vehicles } = useGarageStore();
-  const [selectedVehicle, setSelectedVehicle] = React.useState(vehicles[0]);
+  // Selector subscriptions: unrelated store updates (a sync flush, another
+  // module's write) no longer re-render this whole screen and replay its
+  // entrance animations.
+  const fills = useGarageStore((s) => s.fills);
+  const vehicles = useGarageStore((s) => s.vehicles);
+  const [selectedVehicle, setSelectedVehicle] = React.useState<string | undefined>(undefined);
 
-  React.useEffect(() => {
-    if (!selectedVehicle && vehicles.length > 0) {
-      setSelectedVehicle(vehicles[0]);
-    }
-  }, [vehicles, selectedVehicle]);
+  // Derive the active vehicle on EVERY render instead of seeding state from
+  // `vehicles[0]`. The store hydrates asynchronously, so the old version
+  // briefly rendered with no vehicle and then snapped to the data — the
+  // flicker seen when opening this screen.
+  const activeVehicle = selectedVehicle ?? vehicles[0];
 
   const vehicleFills = fills
-    .filter((f) => f.vehicle === selectedVehicle)
+    .filter((f) => f.vehicle === activeVehicle)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const sortedByOdo = [...fills.filter((f) => f.vehicle === selectedVehicle)].sort(
+  const sortedByOdo = [...fills.filter((f) => f.vehicle === activeVehicle)].sort(
     (a, b) => a.odometer - b.odometer
   );
 
@@ -114,7 +118,7 @@ export default function AllFuelFillsScreen() {
           ]}
         >
           {vehicles.map((v) => {
-            const isSelected = selectedVehicle === v;
+            const isSelected = activeVehicle === v;
             return (
               <PressScale key={v} onPress={() => setSelectedVehicle(v)} scale={0.96}>
                 <View style={[styles.vehicleChip, isSelected && styles.vehicleChipActive]}>
