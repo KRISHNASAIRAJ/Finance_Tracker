@@ -1,6 +1,6 @@
 {
   "_comment": "Live-tuning copy of GEOMETRY.md / SleepBlockRenderer.kt. Edit any value, save, and the preview re-renders. Port final numbers back into GEOMETRY.md + SleepBlockRenderer.kt when done.",
-  "canvas": { "w": 292, "h": 132 },
+  "canvas": { "w": 0, "h": 132 },
   "silhouette": {
     "moveTo": 58,
     "tlQuad": [0, 34, 24, 34],
@@ -16,9 +16,9 @@
     "bottomLeftQuad": [0, 132, 0, 108]
   },
   "texts": {
-    "sleep":      { "x": 2,   "baseline": 28, "size": 11, "spacing": 0.14, "color": "#9A9A9A", "weight": 500 },
-    "duration":   { "x": 170, "baseline": 28, "size": 25, "spacing": 0,    "color": "#1A0006", "weight": 500 },
-    "score":      { "x": 170, "baseline": 48, "size": 12, "spacing": 0,    "color": "#3A0010", "weight": 400 },
+    "sleep":      { "x": 12,   "baseline": 28, "size": 13, "spacing": 0.14, "color": "#9A9A9A", "weight": 500 },
+    "duration":   { "x": 178, "baseline": 28, "size": 27, "spacing": 0,    "color": "#1A0006", "weight": 500 },
+    "score":      { "x": 171, "baseline": 46, "size": 12, "spacing": 0,    "color": "#3A0010", "weight": 400 },
     "scoreTrack": { "x0": 226, "y": 41, "x1": 276, "h": 4, "radius": 2, "trackAlpha": 0.18 },
     "labels":     { "x": 14,  "baselines": [66, 88, 110], "size": 9, "spacing": 0.11, "color": "#FFE3E8", "weight": 500 },
     "times":      { "bedX": 68, "baseline": 126, "size": 10, "color": "#FFE3E8", "wakeRightX": 276 }
@@ -38,8 +38,8 @@
   "sampleNight": {
     "duration": "7H 11M",
     "score": 98,
-    "bed": "11:48p",
-    "wake": "7:00a",
+    "bed": "11:48PM",
+    "wake": "7:00AM",
     "deep":  [ [10.6, 28.8], [51.4, 63.9], [76.9, 84.8] ],
     "light": [ [0, 8.2], [33.7, 51.4], [63.5, 77.4], [85.6, 100] ],
     "awake": [ [0, 21.2], [67.3, 70.2], [95.7, 98.6] ]
@@ -54,12 +54,12 @@
                "gapBeforeSub": 8, "gapBetweenSub": 4 },
     "block": { "x": 24, "y": 118 },
     "stats": {
-      "valueSize": 19, "valueY": 284, "valueWeight": 500,
+      "valueSize": 17, "valueY": 284, "valueWeight": 500,
       "labelSize": 9, "labelY": 300, "labelSpacing": 1.5, "labelWeight": 500,
       "labelColor": "#8A8A8A", "alarmColor": "#E8002A", "valueColor": "#FFFFFF",
       "dividerXs": [124, 216], "dividerY0": 264, "dividerY1": 298,
       "dividerColor": "#2A2A2A", "dividerWidth": 1.5,
-      "alarmText": "Tue 6:45 am", "battText": "64%", "tempText": "24°",
+      "alarmText": "6:45 AM", "battText": "64%", "tempText": "24°",
       "alarmX": 74, "battX": 170, "tempX": 262
     }
   }
