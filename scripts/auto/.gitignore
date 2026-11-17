@@ -1,0 +1,5 @@
+# Runtime output of the task queue runner.
+tasks/logs/
+tasks/running/
+tasks/done/
+tasks/failed/
