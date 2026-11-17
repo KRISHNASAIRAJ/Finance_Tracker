@@ -297,18 +297,61 @@ interface Gap {
   minutes: number;
 }
 
+/** Normalize a minute-of-day into 0..1439. */
+function modDay(minute: number): number {
+  return ((minute % 1440) + 1440) % 1440;
+}
+
 /**
- * Is this minute-of-day at or after the wake window? A movement inside (or
- * after) the wake window means the user got up for good; an earlier movement
- * is a short interruption.
+ * Project a minute-of-day onto the NIGHT's absolute timeline.
+ *
+ * A night window that wraps midnight (the default 21:30 → 09:30) starts in the
+ * evening and finishes the NEXT calendar day. Comparing minute-of-day values
+ * directly is therefore wrong: 22:39 (1359) is numerically greater than the
+ * 06:30 wake start (390), but it is the BEGINNING of the night, not after the
+ * morning. This was the bug that turned a short evening break into a fake
+ * "9:39 pm → 10:39 pm" night.
+ *
+ * For a wrapping window, evening minutes (>= nightStart) keep their value and
+ * morning minutes (< nightStart, i.e. after midnight) get +1440, so the whole
+ * night is one increasing line: 21:30 … 23:59 … 00:00 … 09:30.
  */
-export function inOrAfterWakeStart(minute: number, wakeStartMin: number, wakeEndMin: number): boolean {
-  const m = ((minute % 1440) + 1440) % 1440;
-  const s = ((wakeStartMin % 1440) + 1440) % 1440;
-  const e = ((wakeEndMin % 1440) + 1440) % 1440;
-  if (s <= e) return m >= s;
-  // The wake window wraps midnight.
-  return m >= s || m <= e;
+export function nightAbsoluteMinute(
+  minute: number,
+  nightStartMin: number,
+  nightEndMin: number
+): number {
+  const m = modDay(minute);
+  const start = modDay(nightStartMin);
+  const end = modDay(nightEndMin);
+  // Only a wrapping night has a "morning belongs to tomorrow" offset. A window
+  // that does not cross midnight (start <= end) is a single calendar day.
+  return start > end && m < start ? m + 1440 : m;
+}
+
+/**
+ * Is this minute at or after the wake window, ON THE NIGHT'S TIMELINE?
+ *
+ * A movement at/after the morning wake window means "the user got up for
+ * good"; an earlier movement (including any evening break before midnight) is
+ * a short interruption and must never end the night.
+ *
+ * `nightStartMin` / `nightEndMin` are required so a caller can never forget
+ * the wrapping window and reintroduce the evening-is-morning bug.
+ */
+export function inOrAfterWakeStart(
+  minute: number,
+  wakeStartMin: number,
+  wakeEndMin: number,
+  nightStartMin: number,
+  nightEndMin: number
+): boolean {
+  const abs = nightAbsoluteMinute(minute, nightStartMin, nightEndMin);
+  const absStart = nightAbsoluteMinute(wakeStartMin, nightStartMin, nightEndMin);
+  const absEnd = nightAbsoluteMinute(wakeEndMin, nightStartMin, nightEndMin);
+  // The wake window itself may wrap midnight; the small hours before `absStart`
+  // are then also "in" it (same rule as the old function, now in night space).
+  return absStart <= absEnd ? abs >= absStart : abs >= absStart || abs <= absEnd;
 }
 
 /**
@@ -474,7 +517,13 @@ function inferSingleNight(
       (x) =>
         x.minutes > INTERRUPTION_MAX_MIN &&
         x.minutes <= AMBIGUOUS_GAP_MAX_MIN &&
-        !inOrAfterWakeStart(minuteOfDay(x.start * 60000), wakeStartMin, wakeEndMin)
+        !inOrAfterWakeStart(
+          minuteOfDay(x.start * 60000),
+          wakeStartMin,
+          wakeEndMin,
+          options.sleepStartMin,
+          options.sleepEndMin
+        )
     ) || null;
 
   // --- clip the block to the night window ---------------------------------
@@ -507,7 +556,13 @@ function inferSingleNight(
   let wakeEvent: number;
   if (
     lastGap &&
-    inOrAfterWakeStart(minuteOfDay(lastGap.start * 60000), wakeStartMin, wakeEndMin)
+    inOrAfterWakeStart(
+      minuteOfDay(lastGap.start * 60000),
+      wakeStartMin,
+      wakeEndMin,
+      options.sleepStartMin,
+      options.sleepEndMin
+    )
   ) {
     // The last movement is in the wake window — that is the wake-up.
     wakeEvent = lastGap.start;
@@ -554,7 +609,15 @@ function inferSingleNight(
   let interruptions = 0;
   for (const gap of gaps) {
     if (gap.start < bedMin || gap.end > wakeMin) continue;
-    if (inOrAfterWakeStart(minuteOfDay(gap.start * 60000), wakeStartMin, wakeEndMin)) continue;
+    if (
+      inOrAfterWakeStart(
+        minuteOfDay(gap.start * 60000),
+        wakeStartMin,
+        wakeEndMin,
+        options.sleepStartMin,
+        options.sleepEndMin
+      )
+    ) continue;
     if (gap.minutes <= INTERRUPTION_MAX_MIN) {
       interruptions += 1;
     } else if (gap.minutes > AMBIGUOUS_GAP_MAX_MIN && gap.minutes <= maxInterruption) {

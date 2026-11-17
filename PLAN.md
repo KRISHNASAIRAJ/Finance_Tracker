@@ -5,6 +5,45 @@
 
 ---
 
+### Batch 34 — sleep: an evening break no longer ends the night (2026-11-17)
+
+> Bug reported by the user: "it started automatically at 9:39 PM and at 10:39
+> it ended like morning ... a break comes and it treats that as the end time of
+> sleep." Deep-dive confirmed a **minute-of-day comparison bug** in
+> `sleepInference.ts`, fixed with a night-aware comparison. App-only.
+
+- [x] **Root cause.** `inOrAfterWakeStart()` compared the gap's minute-of-day
+      linearly against the morning wake start (`wakeStartMin` default 06:30 =
+      390). The night window wraps midnight (21:30 → 09:30), so an evening
+      break at 22:39 (1359) satisfied `1359 >= 390` and was classified as "after
+      the wake window". That single wrong boolean (a) set the wake time to the
+      22:39 break, (b) suppressed the ambiguous-gap prompt and (c) dropped the
+      interruption count. The hourly live backup (`sleepLiveSync`, min 30 min)
+      then wrote a bogus `live_` row: 21:39 → 22:39, 60 minutes — exactly the
+      reported symptom. The native tracker was NOT at fault: `SleepMotionService`
+      never ends a night on movement.
+- [x] **Fix.** Added `nightAbsoluteMinute(minute, nightStart, nightEnd)` which
+      projects evening and morning minutes onto one increasing timeline (+1440
+      for the after-midnight part of a wrapping night). `inOrAfterWakeStart()`
+      now takes the night window as required parameters and compares in that
+      space, so every evening minute is correctly BEFORE the morning wake
+      window. All three call sites (wake time, ambiguous gap, interruption
+      count) pass the window.
+- [x] **Result (verified by reproduction).** Before: `BED 21:39, WAKE 22:39,
+      60m, 0 interruptions`. After: `BED 21:39, WAKE 06:59, 560m, 1
+      interruption`. A 5–10 minute evening break now raises the existing
+      "was that the end of sleep?" question instead of silently ending the
+      night; a real morning movement still ends it.
+- [x] **Regression tests** (+9): `nightAbsoluteMinute` timeline, evening cases
+      for `inOrAfterWakeStart`, and five end-to-end cases (1-minute break,
+      live-backup threshold, 10-minute break prompt, real morning wake, manual
+      "Going to bed" anchor). Full suite 40 suites / 369 tests, typecheck and
+      lint clean, `assembleRelease` green — APK `3005 / 1.0.0-b37`.
+- [ ] **On the device:** install the new APK; confirm a brief break after bed
+      no longer produces a ~1-hour night, the night runs to the morning, and
+      the interruption is counted. Delete any already-logged bogus 1-hour row
+      in Sleep History (the bug row can't be removed automatically).
+
 ### Batch 33 — weather fix, avatar temperature, service issues, motion, sync, cleanup (2026-11-16)
 
 > App-only batch. The website was deliberately NOT touched and was not deployed.

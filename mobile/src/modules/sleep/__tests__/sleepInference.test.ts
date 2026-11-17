@@ -8,6 +8,7 @@ import {
   movingSecondsThreshold,
   inNightWindow,
   inOrAfterWakeStart,
+  nightAbsoluteMinute,
   minuteOfDay,
   nightKeyForMinute,
   currentStillness,
@@ -102,11 +103,45 @@ describe('inNightWindow', () => {
   });
 });
 
+describe('nightAbsoluteMinute', () => {
+  const START = 21 * 60 + 30; // 21:30
+  const END = 9 * 60 + 30; // 09:30 (next day)
+
+  it('puts the evening and the morning on one increasing timeline', () => {
+    const abs = (m: number) => nightAbsoluteMinute(m, START, END);
+    expect(abs(21 * 60 + 39)).toBe(21 * 60 + 39); // evening keeps its value
+    expect(abs(23 * 60 + 59)).toBe(23 * 60 + 59);
+    expect(abs(2 * 60)).toBe(2 * 60 + 1440); // after midnight = next day
+    expect(abs(6 * 60 + 45)).toBe(6 * 60 + 45 + 1440);
+    expect(abs(6 * 60 + 45)).toBeGreaterThan(abs(23 * 60 + 59));
+  });
+
+  it('leaves a window that does not cross midnight alone', () => {
+    expect(nightAbsoluteMinute(22 * 60, 20 * 60, 23 * 60)).toBe(22 * 60);
+  });
+});
+
 describe('inOrAfterWakeStart', () => {
+  // The production night window — it wraps midnight.
+  const START = 21 * 60 + 30;
+  const END = 9 * 60 + 30;
+  const wake = (m: number) => inOrAfterWakeStart(m, 6 * 60 + 30, 7 * 60, START, END);
+
   it('is true from the wake window on', () => {
-    expect(inOrAfterWakeStart(6 * 60 + 45, 6 * 60 + 30, 7 * 60)).toBe(true);
-    expect(inOrAfterWakeStart(9 * 60, 6 * 60 + 30, 7 * 60)).toBe(true);
-    expect(inOrAfterWakeStart(3 * 60, 6 * 60 + 30, 7 * 60)).toBe(false);
+    expect(wake(6 * 60 + 45)).toBe(true);
+    expect(wake(9 * 60)).toBe(true);
+  });
+
+  it('is false in the small hours before the wake window', () => {
+    expect(wake(3 * 60)).toBe(false);
+  });
+
+  it('is false for EVERY evening minute — the night has only just begun', () => {
+    // Regression: the old linear comparison made 22:39 (1359) look "after" the
+    // 06:30 wake start (390), so a short evening break ended the night.
+    expect(wake(21 * 60 + 39)).toBe(false);
+    expect(wake(22 * 60 + 39)).toBe(false);
+    expect(wake(23 * 60 + 59)).toBe(false);
   });
 });
 
@@ -428,5 +463,69 @@ describe('manual bedtime anchor (Going to bed)', () => {
     const buckets = buildBuckets(at(23, 0, -1), 480); // 23:00 → 06:59
     const result = inferSleepSession(buckets, REAL_WINDOW);
     expect(result!.bedTime).toBe(at(23, 0, -1).getTime());
+  });
+});
+
+/**
+ * Regression: a short break in the EVENING must never end the night.
+ *
+ * The user's report: "it started at 9:39 PM and at 10:39 PM it ended like
+ * morning". A one-minute wake-up at 22:39 was fed to the wake detector, whose
+ * linear minute-of-day comparison (1359 >= wakeStart 390) called it "morning"
+ * and logged a 60-minute night — accepted by the hourly live backup (min 30
+ * min) even though the full auto-save path would reject it (min 120 min).
+ */
+describe('evening breaks belong to the night', () => {
+  // 21:39 phone put down; index 60 = 22:39 (the break); 561-565 = 07:00-07:04.
+  const bed = at(21, 39);
+  const indices = (...extra: number[]) => [0, ...extra, 561, 562, 563, 564, 565];
+  const buckets = (awake: number[]) => buildMovingBuckets(bed, 566, awake);
+
+  it('counts a one-minute evening break as an interruption and keeps sleeping', () => {
+    const result = inferSleepSession(buckets(indices(60)), REAL_WINDOW);
+    expect(result).not.toBeNull();
+    expect(result!.bedTime).toBe(bed.getTime());
+    // The night ends at the real morning pick-up, NOT at 22:39.
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+    expect(result!.durationMin).toBe(9 * 60 + 20);
+    expect(result!.interruptions).toBe(1);
+  });
+
+  it('does the same for the live-backup threshold (min 30 min)', () => {
+    // Mirrors sleepLiveSync, which accepts partial nights from 30 minutes.
+    const result = inferSleepSession(buckets(indices(60)), {
+      ...REAL_WINDOW,
+      minSessionMin: 30,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+    expect(result!.durationMin).toBeGreaterThan(8 * 60);
+  });
+
+  it('asks about a 5-10 minute evening break instead of ending the night', () => {
+    const break10 = Array.from({ length: 10 }, (_, i) => 60 + i); // 22:39-22:48
+    const result = inferSleepSession(buckets(indices(...break10)), REAL_WINDOW);
+    expect(result).not.toBeNull();
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+    expect(result!.pendingGap).not.toBeNull();
+    expect(result!.pendingGap!.startMs).toBe(at(22, 39).getTime());
+  });
+
+  it('still ends the night at a real movement in the morning wake window', () => {
+    const result = inferSleepSession(buckets(indices(60)), REAL_WINDOW);
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+    // A movement at 06:45 (index 546) is the wake-up.
+    const late = buildMovingBuckets(bed, 566, [0, 60, 546, 547]);
+    const withLate = inferSleepSession(late, REAL_WINDOW);
+    expect(withLate!.wakeTime).toBe(at(6, 45, 1).getTime());
+  });
+
+  it('keeps the manual "Going to bed" anchor with an evening break', () => {
+    const result = inferSleepSession(buckets(indices(60)), {
+      ...REAL_WINDOW,
+      manualBedtimeMs: bed.getTime(),
+    });
+    expect(result!.bedTime).toBe(bed.getTime());
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
   });
 });
