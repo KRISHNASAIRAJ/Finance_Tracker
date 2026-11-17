@@ -8,7 +8,7 @@
 ### Batch 38 — widget: restore DEEP / LIGHT bars on the Clock + Sleep widget (2026-11-17)
 
 > User: "I can see deep light as empty blocks in widgets … earlier it's there
-> after new update it's gone." Not git-pushed.
+> after new update it's gone." Committed and pushed as `51e4839`.
 
 - [x] `services/sleepWidget.ts`: `lastNightBuckets()` now groups buckets by the
       canonical `nightKeyForMinute(sleepStartMin, sleepEndMin)` rule when the
