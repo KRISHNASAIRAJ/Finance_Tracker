@@ -353,10 +353,22 @@ async function doPull(userId: string) {
       const existingIds = new Set(sleepStore.getState().entries.map((e: any) => e.id));
       const localEntries = sleepStore.getState().entries as any[];
       const newEntries: any[] = [];
+      // Cloud stores the wake-up list as JSON; older rows may still be a string.
+      const parseWakeUps = (r: Record<string, unknown>): any[] => {
+        const raw = r.wake_ups;
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw === 'string') {
+          try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch { return []; }
+        }
+        return [];
+      };
       // Live rows (hourly backup of the running night, id `live_<date>`) are
       // refreshed in place, not skipped as "already present" — otherwise the
       // log would freeze at the hour they were first pulled.
-      const liveRefresh = new Map<string, { startTime: string; endTime: string; interruptions: number; notes: string; source: string }>();
+      const liveRefresh = new Map<string, { startTime: string; endTime: string; interruptions: number; wakeUps: any[]; notes: string; source: string }>();
       for (const r of sleepData as Array<Record<string, unknown>>) {
         const id = r.id as string;
         // The user deleted this night — never re-add or refresh it.
@@ -368,6 +380,7 @@ async function doPull(userId: string) {
               startTime: r.start_time as string,
               endTime: r.end_time as string,
               interruptions: (r.interruptions as number) ?? 0,
+              wakeUps: parseWakeUps(r),
               notes: (r.notes as string) ?? 'Auto-detected (live)',
               source: (r.source as string) ?? 'auto-motion',
             });
@@ -390,6 +403,7 @@ async function doPull(userId: string) {
           quality: (r.quality as number) ?? null,
           mood: (r.mood as string) ?? null,
           interruptions: (r.interruptions as number) ?? 0,
+          wakeUps: parseWakeUps(r),
           notes: (r.notes as string) ?? '',
           source: (r.source as string) ?? 'manual',
         });

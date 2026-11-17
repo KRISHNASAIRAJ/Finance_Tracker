@@ -270,6 +270,7 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   sleep_logs: {
     startTime: 'start_time',
     endTime: 'end_time',
+    wakeUps: 'wake_ups',
   },
   habit_logs: {},
   meal_plans: {

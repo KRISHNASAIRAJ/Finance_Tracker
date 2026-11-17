@@ -48,6 +48,7 @@ export async function autoSaveLastNight(
       sleepStartMin: cfg.sleepStartMin,
       sleepEndMin: cfg.sleepEndMin,
       minSessionMin: MIN_SESSION_MIN,
+      sensitivity: cfg.sensitivity,
       wakeStartMin: cfg.wakeStartMin,
       wakeEndMin: cfg.wakeEndMin,
       // A "Going to bed" tap is the exact bedtime — use it instead of the
@@ -59,8 +60,6 @@ export async function autoSaveLastNight(
     if (await isSleepNightRangeDeleted(inferred.bedTime, inferred.wakeTime)) return null;
     // The night may still be running — never auto-save before it settled.
     if (now - inferred.wakeTime < SETTLE_MS) return null;
-    // A 5–10 minute gap needs the user's answer first.
-    if (inferred.pendingGap) return null;
 
     const candidate = {
       startTime: new Date(inferred.bedTime).toISOString(),
@@ -77,6 +76,11 @@ export async function autoSaveLastNight(
             startTime: candidate.startTime,
             endTime: candidate.endTime,
             interruptions: inferred.interruptions,
+            wakeUps: inferred.wakeUps,
+            microArousals: inferred.microArousals,
+            sleepMinutes: inferred.sleepMinutes,
+            unknownMinutes: inferred.unknownMinutes,
+            cutoffUsed: inferred.cutoffUsed,
             notes: 'Detected automatically (motion sensor)',
             source: 'auto-motion',
           },
@@ -93,6 +97,11 @@ export async function autoSaveLastNight(
         quality: null,
         mood: null,
         interruptions: inferred.interruptions,
+        wakeUps: inferred.wakeUps,
+        microArousals: inferred.microArousals,
+        sleepMinutes: inferred.sleepMinutes,
+        unknownMinutes: inferred.unknownMinutes,
+        cutoffUsed: inferred.cutoffUsed,
         notes: 'Detected automatically (motion sensor)',
         source: 'auto-motion',
       },

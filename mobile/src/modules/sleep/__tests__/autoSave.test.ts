@@ -91,13 +91,19 @@ describe('autoSaveLastNight', () => {
     expect(useSleepStore.getState().entries).toHaveLength(0);
   });
 
-  it('waits for the user when the night has a 5–10 minute ambiguous gap', async () => {
+  it('remembers a 7-minute wake-up and still auto-saves the night', async () => {
     buildNight({ awakeFrom: 200, awakeTo: 206 }); // 7 consecutive awake minutes
     const { autoSaveLastNight, useSleepStore } = freshModules();
     enableTracker(useSleepStore);
     const id = await autoSaveLastNight(WAKE_MIN * MINUTE + 10 * MINUTE);
-    expect(id).toBeNull();
-    expect(useSleepStore.getState().entries).toHaveLength(0);
+    expect(id).not.toBeNull();
+    const entry = useSleepStore.getState().entries[0];
+    expect(entry.interruptions).toBe(1);
+    expect(entry.wakeUps).toHaveLength(1);
+    // The -4..+2 scoring window spreads the 7 awake minutes to ~11.
+    expect(entry.wakeUps![0].minutes).toBe(11);
+    expect(entry.wakeUps![0].startMs).toBe((BED_MIN + 199) * MINUTE);
+    expect(entry.cutoffUsed).toBeGreaterThan(0);
   });
 
   it('does nothing when auto-tracking is disabled', async () => {

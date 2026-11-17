@@ -6,8 +6,8 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 // Keep the installable version high so a locally built APK installs cleanly
 // over any prior EAS build (whose versionCode auto-increments past 1).
-def releaseVersionCode = (project.findProperty('appVersionCode') ?: 3005) as int
-def releaseVersionName = project.findProperty('appVersionName') ?: "1.0.0-b37"
+def releaseVersionCode = (project.findProperty('appVersionCode') ?: 3007) as int
+def releaseVersionName = project.findProperty('appVersionName') ?: "1.0.0-b39"
 
 /**
  * This is the configuration block to customize your React Native Android app.

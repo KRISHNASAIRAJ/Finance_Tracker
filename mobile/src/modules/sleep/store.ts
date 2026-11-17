@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_SLEEP_MOTION_CONFIG, type SleepMotionConfig } from './sleepMotion';
+import type { WakeUp } from './sleepInference';
 import { dedupeEntries, findSameNight } from './sleepNights';
 import { tombstoneDeletedNightRange } from './deletedNights';
 
@@ -21,6 +22,16 @@ export interface SleepEntry {
   mood: string | null;
   /** night wake-ups */
   interruptions: number;
+  /** Every wake-up with its exact time and length (the "remember it" data). */
+  wakeUps?: WakeUp[];
+  /** Short blips absorbed into sleep by the scoring rescoring. */
+  microArousals?: number;
+  /** Minutes scored as sleep (excludes unknown/no-data minutes). */
+  sleepMinutes?: number;
+  /** Minutes with no bucket — never counted as sleep. */
+  unknownMinutes?: number;
+  /** Scoring cutoff used — logged so it can be tuned against real nights. */
+  cutoffUsed?: number;
   notes: string;
   /** 'manual' | 'auto' | 'auto-motion' */
   source: string;
@@ -32,6 +43,11 @@ export interface DetectedSleepSession {
   wakeTime: number;
   interruptions: number;
   durationMin: number;
+  wakeUps: WakeUp[];
+  microArousals?: number;
+  sleepMinutes?: number;
+  unknownMinutes?: number;
+  cutoffUsed?: number;
 }
 
 interface SleepState {
@@ -42,15 +58,12 @@ interface SleepState {
   autoConfig: SleepMotionConfig;
   /** Latest session detected by the motion tracker (not saved yet). */
   autoSession: DetectedSleepSession | null;
-  /** Gap starts the user already answered — never ask about them again. */
-  resolvedGapKeys: string[];
   addEntry: (entry: Omit<SleepEntry, 'id'>, userId?: string) => string;
   editEntry: (id: string, data: Partial<SleepEntry>, userId?: string) => void;
   deleteEntry: (id: string, userId?: string) => void;
   setReminderTime: (time: { hour: number; minute: number } | null) => void;
   setAutoConfig: (patch: Partial<SleepMotionConfig>) => void;
   setAutoSession: (session: DetectedSleepSession | null) => void;
-  markGapResolved: (gapStartMs: number) => void;
 }
 
 function flush() {
@@ -103,7 +116,6 @@ export const useSleepStore = create<SleepState>()(
       reminderTime: null,
       autoConfig: { ...DEFAULT_SLEEP_MOTION_CONFIG },
       autoSession: null,
-      resolvedGapKeys: [],
       addEntry: (entry, userId) => {
         // Idempotency guard: one NIGHT = one record. The widget deep link, the
         // dashboard's SharedPreferences fallback and the motion tracker can all
@@ -119,6 +131,11 @@ export const useSleepStore = create<SleepState>()(
           quality: entry.quality ?? null,
           mood: entry.mood ?? null,
           interruptions: entry.interruptions ?? 0,
+          wakeUps: entry.wakeUps ?? [],
+          microArousals: entry.microArousals,
+          sleepMinutes: entry.sleepMinutes,
+          unknownMinutes: entry.unknownMinutes,
+          cutoffUsed: entry.cutoffUsed,
           notes: entry.notes || '',
           source: entry.source || 'manual',
         };
@@ -135,6 +152,7 @@ export const useSleepStore = create<SleepState>()(
           quality: full.quality,
           mood: full.mood,
           interruptions: full.interruptions,
+          wake_ups: full.wakeUps ?? [],
           notes: full.notes,
           source: full.source,
           updated_at: new Date().toISOString(),
@@ -160,6 +178,7 @@ export const useSleepStore = create<SleepState>()(
           quality: merged.quality,
           mood: merged.mood,
           interruptions: merged.interruptions,
+          wake_ups: merged.wakeUps ?? [],
           notes: merged.notes,
           source: merged.source,
           updated_at: new Date().toISOString(),
@@ -207,15 +226,6 @@ export const useSleepStore = create<SleepState>()(
 
       setAutoSession: (session) => {
         set({ autoSession: session });
-      },
-
-      markGapResolved: (gapStartMs) => {
-        const key = String(gapStartMs);
-        set((s) =>
-          s.resolvedGapKeys.includes(key)
-            ? s
-            : { resolvedGapKeys: [...s.resolvedGapKeys, key] }
-        );
       },
     }),
     {

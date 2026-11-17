@@ -26,6 +26,8 @@ import {
 } from '../modules/sleep/sleepInference';
 import { isSameNight } from '../modules/sleep/sleepNights';
 import { isSleepNightRangeDeleted } from '../modules/sleep/deletedNights';
+import { maybePostSleepSummary } from '../modules/sleep/sleepSummaryNotify';
+import { pushMotionNights } from './sleepMotionCloudSync';
 import { localDayKey } from '../modules/finance/financeFormat';
 import { supabase } from './supabaseClient';
 
@@ -56,6 +58,7 @@ export interface LiveNight {
   startMs: number;
   endMs: number;
   interruptions: number;
+  wakeUps: Array<{ startMs: number; endMs: number; minutes: number }>;
 }
 
 /** The in-progress (or just-ended) night from the motion timeline. */
@@ -75,6 +78,7 @@ export async function collectLiveNight(now: number = Date.now()): Promise<LiveNi
       sleepStartMin: cfg.sleepStartMin,
       sleepEndMin: cfg.sleepEndMin,
       minSessionMin: 30, // partial nights are worth backing up
+      sensitivity: cfg.sensitivity,
       wakeStartMin: cfg.wakeStartMin,
       wakeEndMin: cfg.wakeEndMin,
       // Honour an explicit "Going to bed" time so the live row starts where the
@@ -85,7 +89,12 @@ export async function collectLiveNight(now: number = Date.now()): Promise<LiveNi
     const startMs = inferred?.bedTime ?? recent[0].m * 60000;
     const endMs = inferred?.wakeTime ?? lastBucketEnd;
     if (endMs - startMs < 30 * 60 * 1000) return null;
-    return { startMs, endMs, interruptions: inferred?.interruptions ?? 0 };
+    return {
+      startMs,
+      endMs,
+      interruptions: inferred?.interruptions ?? 0,
+      wakeUps: inferred?.wakeUps ?? [],
+    };
   } catch {
     return null;
   }
@@ -99,6 +108,13 @@ export async function pushLiveNight(now: number = Date.now()): Promise<LiveSyncR
     // Flush anything the user did on this device first — ordering matters
     // for the "final record supersedes live row" cleanup below.
     await processSyncQueue().catch(() => {});
+    // Post the finished night's summary once. This is the hourly background
+    // task, so it works even when the app is closed; the per-night marker makes
+    // it safe to call every hour.
+    maybePostSleepSummary(now).catch(() => {});
+    // Upload the raw buckets alongside the night summary so the scoring can be
+    // validated/tuned from the cloud without needing the physical device.
+    pushMotionNights().catch(() => {});
     const night = await collectLiveNight(now);
     if (!night) return 'none';
     const { data: { user } } = await supabase.auth.getUser();
@@ -124,6 +140,7 @@ export async function pushLiveNight(now: number = Date.now()): Promise<LiveSyncR
         start_time: new Date(night.startMs).toISOString(),
         end_time: new Date(night.endMs).toISOString(),
         interruptions: night.interruptions,
+        wake_ups: night.wakeUps,
         notes: LIVE_NOTES,
         source: 'auto-motion',
         updated_at: new Date().toISOString(),
@@ -201,4 +218,7 @@ export async function registerSleepLiveSync(): Promise<boolean> {
 /** Fire-and-forget push — called on every app open/foreground. */
 export function triggerSleepLiveSync(): void {
   pushLiveNight().catch(() => {});
+  // Foreground catch-up in case the hourly task was throttled / missed.
+  maybePostSleepSummary().catch(() => {});
+  pushMotionNights().catch(() => {});
 }

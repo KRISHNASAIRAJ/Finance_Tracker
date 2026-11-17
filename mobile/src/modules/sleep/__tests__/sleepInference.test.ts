@@ -12,7 +12,6 @@ import {
   minuteOfDay,
   nightKeyForMinute,
   currentStillness,
-  resolvePendingGap,
   type SleepInferenceOptions,
 } from '../sleepInference';
 import type { MotionBucket } from '../sleepMotion';
@@ -204,14 +203,15 @@ describe('inferSleepSession', () => {
     expect(relaxed!.interruptions).toBe(0);
   });
 
-  it('treats a short movement in the middle of the night as an interruption', () => {
-    // With a sensitive threshold the bump counts as movement — but a one
-    // minute gap is an interruption, the night goes on.
+  it('absorbs a one-minute blip as a micro-arousal, not a wake-up', () => {
+    // A single legacy bump is too short to clear the 5-minute wake-up floor:
+    // the windowed scorer absorbs it into sleep and counts a micro-arousal.
     const buckets = buildBuckets(at(22, 0), 600, [300], 0.05, 0.3);
     const sensitive = inferSleepSession(buckets, { ...OPTIONS, threshold: 0.2 });
     expect(sensitive).not.toBeNull();
     expect(sensitive!.wakeTime).toBe(at(7, 0, 1).getTime());
-    expect(sensitive!.interruptions).toBe(1);
+    expect(sensitive!.interruptions).toBe(0);
+    expect(sensitive!.microArousals).toBeGreaterThanOrEqual(1);
   });
 
   it('keeps the wake time at the end of the main sleep stretch', () => {
@@ -253,13 +253,18 @@ describe('inferSleepSession', () => {
 
   // --- the interruption rules ---------------------------------------------
 
-  it('asks the user about a gap of 5 to 10 minutes', () => {
+  it('remembers a 7-minute wake-up instead of asking the user', () => {
     const buckets = buildMovingBuckets(at(22, 0), 600, [240, 241, 242, 243, 244, 245, 246]);
     const result = inferSleepSession(buckets, OPTIONS);
     expect(result).not.toBeNull();
-    expect(result!.pendingGap).not.toBeNull();
-    expect(result!.pendingGap!.minutes).toBe(7);
-    expect(result!.pendingGap!.startMs).toBe(at(2, 0, 1).getTime());
+    expect(result!.interruptions).toBe(1);
+    expect(result!.wakeUps).toHaveLength(1);
+    // The -4..+2 window spreads a 7-minute awake run to ~12 minutes and pulls
+    // its start ~2 minutes earlier. That is expected from the windowed scorer.
+    expect(result!.wakeUps[0].minutes).toBe(12);
+    expect(result!.wakeUps[0].startMs).toBe(at(1, 58, 1).getTime());
+    // The night still ends in the morning, not at the wake-up.
+    expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
   });
 
   it('keeps the night going at a gap of more than 10 minutes (long interruption)', () => {
@@ -272,7 +277,9 @@ describe('inferSleepSession', () => {
     );
     const result = inferSleepSession(buckets, OPTIONS);
     expect(result).not.toBeNull();
-    expect(result!.pendingGap).toBeNull();
+    expect(result!.wakeUps).toHaveLength(1);
+    expect(result!.wakeUps[0].minutes).toBe(17);
+    expect(result!.wakeUps[0].startMs).toBe(at(1, 58, 1).getTime());
     expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
     expect(result!.interruptions).toBe(1);
   });
@@ -286,7 +293,9 @@ describe('inferSleepSession', () => {
     );
     const result = inferSleepSession(buckets, OPTIONS);
     expect(result).not.toBeNull();
-    expect(result!.pendingGap).toBeNull();
+    expect(result!.wakeUps).toHaveLength(1);
+    expect(result!.wakeUps[0].minutes).toBe(50);
+    expect(result!.wakeUps[0].startMs).toBe(at(1, 58, 1).getTime());
     expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
     expect(result!.interruptions).toBe(1);
   });
@@ -327,41 +336,6 @@ describe('inferSleepSession', () => {
     // A screen-on stretch is a wake-up; the night continues afterwards.
     expect(result!.wakeTime).toBe(at(7, 0, 1).getTime());
     expect(result!.interruptions).toBe(1);
-  });
-});
-
-describe('resolvePendingGap', () => {
-  const session = {
-    bedTime: at(22, 0).getTime(),
-    wakeTime: at(7, 0, 1).getTime(),
-    interruptions: 1,
-    durationMin: 9 * 60,
-    confidence: 0.8,
-    pendingGap: {
-      startMs: at(2, 0, 1).getTime(),
-      endMs: at(2, 7, 1).getTime(),
-      minutes: 7,
-    },
-  };
-
-  it('ends the night at the gap when the user says the sleep ended there', () => {
-    const resolved = resolvePendingGap(session, 'ended');
-    expect(resolved.wakeTime).toBe(at(2, 0, 1).getTime());
-    expect(resolved.durationMin).toBe(4 * 60);
-    expect(resolved.pendingGap).toBeNull();
-    expect(resolved.interruptions).toBe(1);
-  });
-
-  it('takes the awake time out of the sleep for a long interruption', () => {
-    const resolved = resolvePendingGap(session, 'interruption', 12);
-    expect(resolved.durationMin).toBe(9 * 60 - 12);
-    expect(resolved.interruptions).toBe(2);
-    expect(resolved.pendingGap).toBeNull();
-  });
-
-  it('uses the detected gap length when no time is given', () => {
-    const resolved = resolvePendingGap(session, 'interruption');
-    expect(resolved.durationMin).toBe(9 * 60 - 7);
   });
 });
 
@@ -502,13 +476,15 @@ describe('evening breaks belong to the night', () => {
     expect(result!.durationMin).toBeGreaterThan(8 * 60);
   });
 
-  it('asks about a 5-10 minute evening break instead of ending the night', () => {
+  it('remembers a 10-minute evening break and keeps sleeping', () => {
     const break10 = Array.from({ length: 10 }, (_, i) => 60 + i); // 22:39-22:48
     const result = inferSleepSession(buckets(indices(...break10)), REAL_WINDOW);
     expect(result).not.toBeNull();
     expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
-    expect(result!.pendingGap).not.toBeNull();
-    expect(result!.pendingGap!.startMs).toBe(at(22, 39).getTime());
+    expect(result!.interruptions).toBe(1);
+    expect(result!.wakeUps).toHaveLength(1);
+    expect(result!.wakeUps[0].minutes).toBe(15);
+    expect(result!.wakeUps[0].startMs).toBe(at(22, 37).getTime());
   });
 
   it('still ends the night at a real movement in the morning wake window', () => {
@@ -527,5 +503,42 @@ describe('evening breaks belong to the night', () => {
     });
     expect(result!.bedTime).toBe(bed.getTime());
     expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+  });
+});
+
+/** The "remember it" data: every gap is kept with its own length and time. */
+describe('wake-up details', () => {
+  const bed = at(21, 39);
+  // A 3-minute break at 22:39 (i=60) and a 22-minute break at 02:00 (i=261).
+  const awake = [
+    0,
+    60, 61, 62,
+    ...Array.from({ length: 22 }, (_, i) => 261 + i),
+    561, 562, 563, 564, 565,
+  ];
+
+  it('records both wake-ups with minutes and start times', () => {
+    const result = inferSleepSession(buildMovingBuckets(bed, 566, awake), REAL_WINDOW);
+    expect(result).not.toBeNull();
+    expect(result!.interruptions).toBe(2);
+    expect(result!.wakeUps).toHaveLength(2);
+    // The windowed score spreads each awake run, so lengths are >= the raw
+    // break and start times can be a couple of minutes earlier.
+    expect(result!.wakeUps[0].minutes).toBeGreaterThanOrEqual(3);
+    expect(result!.wakeUps[1].minutes).toBeGreaterThanOrEqual(22);
+    expect(result!.wakeUps[0].startMs).toBeLessThanOrEqual(at(22, 39).getTime());
+    expect(result!.wakeUps[1].startMs).toBeLessThanOrEqual(at(2, 0, 1).getTime());
+    // The new scoring metadata is always present for tuning.
+    expect(result!.cutoffUsed).toBeGreaterThan(0);
+    expect(result!.sleepMinutes).toBeGreaterThan(0);
+    expect(result!.unknownMinutes).toBe(0);
+    expect(typeof result!.microArousals).toBe('number');
+    // Neither break ended the night.
+    expect(result!.wakeTime).toBe(at(6, 59, 1).getTime());
+  });
+
+  it('lets a gap over 15 minutes be recognised as a long wake-up', () => {
+    const result = inferSleepSession(buildMovingBuckets(bed, 566, awake), REAL_WINDOW);
+    expect(result!.wakeUps.some((w) => w.minutes > 15)).toBe(true);
   });
 });

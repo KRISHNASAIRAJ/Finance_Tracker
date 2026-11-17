@@ -50,7 +50,8 @@ import {
   motionThreshold,
   movingSecondsThreshold,
   currentStillness,
-  resolvePendingGap,
+  nightKeyForMinute,
+  LONG_WAKEUP_MIN,
   type InferredSleep,
 } from '../sleepInference';
 import { isSameNight } from '../sleepNights';
@@ -79,13 +80,6 @@ const STORAGE_KEY = 'meridian_sleep_pending_bedtime';
 
 /** A sleep session shorter than this is never accepted as sleep. */
 const MIN_SESSION_MIN = 120;
-
-/**
- * A gap question is only useful the morning after the night ended. The tracker
- * keeps 36 h of buckets, so without this an old night's gap can resurface days
- * later and look like a question about last night.
- */
-const GAP_PROMPT_MAX_AGE_MS = 18 * 60 * 60 * 1000;
 
 /** "22:30" → "10:30 PM" */
 function fmtClock(minutesFromMidnight: number): string {
@@ -124,10 +118,6 @@ export default function SleepDashboardScreen() {
   const setReminderTime = useSleepStore((s) => s.setReminderTime);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
-  /** The pending-gap question (a 5–10 minute awake gap inside the night). */
-  const [gapPrompt, setGapPrompt] = useState<{ minutes: number } | null>(null);
-  const [gapMinutesInput, setGapMinutesInput] = useState('');
-
   // The sleep log, newest first.
   const sorted = useMemo(
     () => [...entries].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
@@ -137,8 +127,6 @@ export default function SleepDashboardScreen() {
   // --- automatic (accelerometer) sleep tracking ---
   const autoConfig = useSleepStore((s) => s.autoConfig);
   const setAutoConfig = useSleepStore((s) => s.setAutoConfig);
-  const resolvedGapKeys = useSleepStore((s) => s.resolvedGapKeys);
-  const markGapResolved = useSleepStore((s) => s.markGapResolved);
   const [autoStatus, setAutoStatus] = useState<SleepMotionStatus | null>(null);
   const [autoBuckets, setAutoBuckets] = useState<MotionBucket[]>([]);
   const [autoSession, setAutoSession] = useState<InferredSleep | null>(null);
@@ -241,6 +229,7 @@ export default function SleepDashboardScreen() {
       sleepStartMin: autoConfig.sleepStartMin,
       sleepEndMin: autoConfig.sleepEndMin,
       minSessionMin: MIN_SESSION_MIN,
+      sensitivity: autoConfig.sensitivity,
       // A movement inside the wake window is the wake-up, an earlier one is
       // a short interruption.
       wakeStartMin: autoConfig.wakeStartMin,
@@ -249,16 +238,8 @@ export default function SleepDashboardScreen() {
       // configured window is detected from the moment the user got in bed.
       manualBedtimeMs: pendingBedtime ? new Date(pendingBedtime).getTime() : 0,
     });
-    // Never re-ask about a gap already answered, and never ask about a night
-    // that ended long ago. Inference is pure, so without this the same old gap
-    // comes back every 30 s and on every app open.
-    const staleGap =
-      !!raw?.pendingGap &&
-      (Date.now() - raw.wakeTime > GAP_PROMPT_MAX_AGE_MS ||
-        resolvedGapKeys.includes(String(raw.pendingGap.startMs)));
-    const inferred =
-      raw && raw.pendingGap && staleGap ? { ...raw, pendingGap: null } : raw;
-    setAutoSession(inferred);
+    setAutoSession(raw);
+    const inferred = raw;
     if (!inferred) {
       setAutoSaved(false);
       return;
@@ -273,9 +254,9 @@ export default function SleepDashboardScreen() {
     setAutoSaved(already);
 
     // Auto-save once the session has settled (the phone was picked up).
-    // A night with an open question (a 5–10 min gap) waits for the user.
+    // Every interruption is recorded; none of them blocks the save.
     const settled = Date.now() - inferred.wakeTime > 5 * 60000;
-    if (autoConfig.autoSave && settled && !already && !inferred.pendingGap) {
+    if (autoConfig.autoSave && settled && !already) {
       // The user deleted this night — the motion buckets still describe it,
       // but nothing automatic may bring it back. (A manual tap on "Save"
       // is a deliberate re-create and stays allowed.)
@@ -290,6 +271,11 @@ export default function SleepDashboardScreen() {
           quality: null,
           mood: null,
           interruptions: inferred.interruptions,
+          wakeUps: inferred.wakeUps,
+          microArousals: inferred.microArousals,
+          sleepMinutes: inferred.sleepMinutes,
+          unknownMinutes: inferred.unknownMinutes,
+          cutoffUsed: inferred.cutoffUsed,
           notes: 'Detected automatically (motion sensor)',
           source: 'auto-motion',
         },
@@ -297,7 +283,7 @@ export default function SleepDashboardScreen() {
       );
       setAutoSaved(true);
     }
-  }, [autoConfig, entries, addEntry, user?.id, resolvedGapKeys, pendingBedtime]);
+  }, [autoConfig, entries, addEntry, user?.id, pendingBedtime]);
 
   useEffect(() => {
     if (!autoAvailable) return;
@@ -383,6 +369,44 @@ export default function SleepDashboardScreen() {
     setTimePicker(null);
   };
 
+  /** Share the raw motion timeline so the scoring algorithm can be tuned on
+   *  real nights (the buckets never leave the device otherwise). */
+  const exportMotionData = async () => {
+    try {
+      const buckets = await getMotionBuckets();
+      if (buckets.length === 0) return;
+      const byNight = new Map<number, typeof buckets>();
+      for (const b of buckets) {
+        const key = nightKeyForMinute(
+          Math.floor(b.m),
+          autoConfig.sleepStartMin,
+          autoConfig.sleepEndMin
+        );
+        if (key === null) continue;
+        const list = byNight.get(key) ?? [];
+        list.push(b);
+        byNight.set(key, list);
+      }
+      const nights = Array.from(byNight.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([, list]) => list);
+      const FileSystem = require('expo-file-system');
+      const Sharing = require('expo-sharing');
+      const uri = `${FileSystem.cacheDirectory}meridian-sleep-buckets.json`;
+      await FileSystem.writeAsStringAsync(uri, JSON.stringify({ nights }), {
+        encoding: 'utf8',
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/json',
+          dialogTitle: 'Meridian sleep motion data',
+        });
+      }
+    } catch {
+      /* export is a debug aid — never break the screen */
+    }
+  };
+
   const saveDetectedSession = () => {
     if (!autoSession) return;
     addEntry(
@@ -392,52 +416,17 @@ export default function SleepDashboardScreen() {
         quality: null,
         mood: null,
         interruptions: autoSession.interruptions,
+        wakeUps: autoSession.wakeUps,
+        microArousals: autoSession.microArousals,
+        sleepMinutes: autoSession.sleepMinutes,
+        unknownMinutes: autoSession.unknownMinutes,
+        cutoffUsed: autoSession.cutoffUsed,
         notes: 'Detected automatically (motion sensor)',
         source: 'auto-motion',
       },
       user?.id
     );
     setAutoSaved(true);
-  };
-
-  /**
-   * The night has a 5–10 minute gap: the user says whether it was a long
-   * interruption (and for how long) or the end of the sleep.
-   */
-  const resolveGap = (resolution: 'interruption' | 'ended', awakeMinutes?: number) => {
-    if (!autoSession) return;
-    if (autoSession.pendingGap) markGapResolved(autoSession.pendingGap.startMs);
-    const resolved = resolvePendingGap(autoSession, resolution, awakeMinutes);
-    addEntry(
-      {
-        startTime: new Date(resolved.bedTime).toISOString(),
-        endTime: new Date(resolved.wakeTime).toISOString(),
-        quality: null,
-        mood: null,
-        interruptions: resolved.interruptions,
-        notes:
-          resolution === 'ended'
-            ? 'Detected automatically (motion sensor)'
-            : 'Detected automatically (motion sensor) · long interruption',
-        source: 'auto-motion',
-      },
-      user?.id
-    );
-    setAutoSession({ ...resolved, pendingGap: null });
-    setAutoSaved(true);
-    setGapPrompt(null);
-    setGapMinutesInput('');
-  };
-
-  const openGapPrompt = () => {
-    const minutes = autoSession?.pendingGap?.minutes ?? 5;
-    setGapMinutesInput(String(minutes));
-    setGapPrompt({ minutes });
-  };
-
-  const confirmGapPrompt = () => {
-    const typed = parseInt(gapMinutesInput.replace(/[^0-9]/g, ''), 10);
-    resolveGap('interruption', Number.isFinite(typed) ? typed : undefined);
   };
 
   /** Rate the last night out of 5. */
@@ -717,38 +706,28 @@ export default function SleepDashboardScreen() {
                 ? `${autoSession.interruptions} wake-up${autoSession.interruptions > 1 ? 's' : ''} · ${Math.round(autoSession.confidence * 100)}% confident`
                 : `${Math.round(autoSession.confidence * 100)}% confident`}
             </Text>
+            {autoSession.wakeUps.length > 0 && (
+              <Text style={styles.gapText}>
+                Wake-ups:{' '}
+                {[...autoSession.wakeUps]
+                  .sort((a, b) => a.startMs - b.startMs)
+                  .map(
+                    (w) =>
+                      `${w.minutes} min at ${new Date(w.startMs).toLocaleTimeString('en-IN', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}${w.minutes > LONG_WAKEUP_MIN ? ' (long)' : ''}`
+                  )
+                  .join(' · ')}
+              </Text>
+            )}
             <View style={styles.detectActions}>
               <PressScale onPress={saveDetectedSession} scale={0.95} style={styles.detectAccept}>
                 <Text style={styles.detectAcceptText}>Save</Text>
               </PressScale>
               <PressScale onPress={() => setAutoSession(null)} scale={0.95} style={styles.detectDismiss}>
                 <Text style={styles.detectDismissText}>Dismiss</Text>
-              </PressScale>
-            </View>
-          </Card>
-        </Rise>
-      )}
-
-      {/* A 5–10 minute awake gap inside the night */}
-      {autoAvailable && autoSession?.pendingGap && (
-        <Rise index={3}>
-          <Card>
-            <View style={styles.detectHead}>
-              <Ionicons name="help-circle-outline" size={17} color={mc.amber} />
-              <Text style={styles.detectTitle}>You were up for a while</Text>
-            </View>
-            <Text style={styles.gapText}>
-              Around{' '}
-              {new Date(autoSession.pendingGap.startMs).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}
-              {' — about '}
-              {autoSession.pendingGap.minutes} min. Was that a long interruption, or did your sleep end there?
-            </Text>
-            <View style={styles.detectActions}>
-              <PressScale onPress={openGapPrompt} scale={0.95} style={styles.detectAccept}>
-                <Text style={styles.detectAcceptText}>Long interruption</Text>
-              </PressScale>
-              <PressScale onPress={() => resolveGap('ended')} scale={0.95} style={styles.detectDismiss}>
-                <Text style={styles.detectDismissText}>Sleep ended there</Text>
               </PressScale>
             </View>
           </Card>
@@ -917,6 +896,16 @@ export default function SleepDashboardScreen() {
                 </View>
               </>
             )}
+
+            <PressScale
+              onPress={exportMotionData}
+              scale={0.97}
+              style={styles.exportBtn}
+              accessibilityLabel="Export sleep motion data"
+            >
+              <Ionicons name="download-outline" size={15} color={mc.textDim} />
+              <Text style={styles.exportBtnText}>Export motion data for tuning</Text>
+            </PressScale>
           </Card>
         </Rise>
       )}
@@ -1155,37 +1144,6 @@ export default function SleepDashboardScreen() {
         </View>
       </Modal>
 
-      {/* How long was the interruption? (the gap inside the night) */}
-      <Modal
-        visible={!!gapPrompt}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setGapPrompt(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Long interruption</Text>
-            <Text style={styles.gapText}>
-              How long were you up? The awake time is taken out of your sleep.
-            </Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={gapMinutesInput}
-              onChangeText={(t) => setGapMinutesInput(t.replace(/[^0-9]/g, ''))}
-              keyboardType="number-pad"
-              placeholder="minutes"
-              placeholderTextColor={mc.textDim}
-            />
-            <TouchableOpacity style={styles.saveBtn} onPress={confirmGapPrompt}>
-              <Text style={styles.saveBtnText}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setGapPrompt(null)}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* Night window / wake window picker */}
       <TimePicker
         visible={!!timePicker}
@@ -1405,6 +1363,20 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: 14,
     marginBottom: 6,
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: mc.line,
+  },
+  exportBtnText: {
+    fontSize: 12,
+    color: mc.textDim,
   },
   chipRow: {
     flexDirection: 'row',

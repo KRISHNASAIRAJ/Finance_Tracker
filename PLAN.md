@@ -5,6 +5,101 @@
 
 ---
 
+### Batch 37 — sleep: raw motion buckets backed up to Supabase (2026-11-17)
+
+> User asked to "store it also in supabase and start push". Not git-pushed.
+
+- [x] New table `sleep_motion_nights` (migration **0055**, applied to
+      production): one `JSONB` row per night holding the raw per-minute
+      buckets (`id = mn_<yyyy-mm-dd>`, `user_id`, `buckets`, `start_minute`,
+      `end_minute`, `bucket_count`), RLS owner policy + Realtime. Cheaper than
+      ~720 rows a night.
+- [x] `services/sleepMotionCloudSync.ts`: groups `getMotionBuckets()` into
+      nights using the same `nightKeyForMinute` rule as inference and upserts
+      one row per night. Best-effort (offline never affects tracking).
+- [x] Wired into `sleepLiveSync`: pushes on the hourly background task and on
+      every foreground, alongside the night summary and morning notification.
+- [x] `scripts/tune-sleep-scoring.js` now also accepts Supabase CLI query JSON
+      (rows with a `buckets` column), so once the app uploads, real-night
+      tuning is one query + one command.
+- [x] Verification: typecheck ✓ · ESLint 0 errors ✓ · 43 suites / 386 tests ✓;
+      migration 0055 verified applied (`information_schema` column check).
+      APK `3007 / 1.0.0-b39` built for the upload to start on a device.
+
+### Batch 36 — sleep: windowed personalised scoring (user-supplied `sleepScoring.ts`, 2026-11-17)
+
+> Not pushed — awaiting review / tuning on real nights. Pure JS, no native or
+> DB change (beyond the earlier unapplied 0054).
+
+- [x] Added `modules/sleep/sleepScoring.ts` verbatim from the attached design:
+      a weighted −4..+2 minute Cole-Kripke-style window, `unknown` minutes for
+      missing buckets, Webster-style rescoring (sub-5-min blips →
+      `microArousals`, sub-3-min sleep fragments → awake), and
+      `personalCutoff()` using the 85th percentile of the last 7 nights clamped
+      to 0.6×–1.6× the preset (9 / 6 / 4 s for low / medium / high).
+- [x] `inferSleepSession()` keeps its night grouping, block merging, bedtime and
+      wake-time logic; only the fine-grained wake-up detection inside
+      `[bedMin, wakeMin]` now uses `analyzeNight()`. `recentNights` (up to 7,
+      from the existing night-grouping map) feeds `personalCutoff()`.
+      `sensitivity` was added to `SleepInferenceOptions` and passed by all four
+      callers (autoSave, live backup, dashboard, summary notification).
+- [x] Output extended: `wakeUps` (5+ min only), `interruptions = wakeUps.length`,
+      `microArousals`, `sleepMinutes`, `unknownMinutes`, `cutoffUsed`. Stored
+      locally on `SleepEntry`; `microArousals` is local-only for now (no new DB
+      column). Cloud `wake_ups` stays via migration 0054.
+- [x] Caveat carried over from the design: cutoffs are starting guesses. The
+      window spreads awake runs (a 7-min break scores as ~12 min), so counts
+      differ from the raw motion gaps. Tune against 3–5 real nights using the
+      stored `cutoffUsed` / scores before shipping.
+- [x] Verification: typecheck ✓ · ESLint 0 errors ✓ · 42 suites / 383 tests ✓
+      (9 new tests for the scoring module + updated integration expectations).
+- [x] **Migration 0054 applied to production** (2026-11-17): `supabase db push
+      --remote --yes` → `sleep_logs.wake_ups JSONB` exists; dry-run now reports
+      "Remote database is up to date".
+- [x] **Real-night tuning tooling.** Motion buckets live only on the Android
+      device (no cloud column, no device attached), so genuine validation is
+      not possible from here. Added a "Export motion data for tuning" button to
+      the Sleep dashboard (shares `meridian-sleep-buckets.json`) and
+      `scripts/tune-sleep-scoring.js`, which runs `analyzeNight` +
+      `personalCutoff` on that export and prints each night's cutoff, scored
+      minutes, unknowns, wake-ups and micro-arousals. Smoke-tested on 5
+      synthetic nights built from saved log time ranges (cutoff 3.6 s, counts
+      preserved) — **not** a substitute for real bucket data.
+
+### Batch 35 — sleep: remember every wake-up + automatic morning summary (2026-11-17)
+
+> Requested by the user after batch 34: a break during sleep must NEVER end the
+> night or ask "was that the end?". Instead, remember interruptions with their
+> exact minutes (highlighting those > 15 min) and send an automatic morning
+> notification with sleep duration + interruption minutes. **Not pushed —
+> awaiting review.** Native unchanged.
+
+- [x] **Inference model** (`sleepInference.ts`): removed `pendingGap` /
+      `resolvePendingGap` / the 5–10 min question. Every awake gap before the
+      wake window is now a `WakeUp { startMs, endMs, minutes }`, stored on
+      `InferredSleep.wakeUps` with `interruptions = wakeUps.length`.
+      `LONG_WAKEUP_MIN = 15` marks the ones highlighted in the summary.
+      The 2-hour `MAX_MIDNIGHT_INTERRUPTION_MIN` block-split is unchanged, so a
+      real get-up still produces a second night record.
+- [x] **Persistence / sync**: `SleepEntry.wakeUps` (local + cloud); migration
+      `0054_sleep_wake_ups.sql` adds `wake_ups JSONB NOT NULL DEFAULT '[]'` to
+      `sleep_logs`; syncQueue alias `wakeUps → wake_ups`; `usePersonalSync` maps
+      the cloud value (array or string) back; autoSave, live backup and the
+      dashboard all write it. **Migration 0054 is NOT applied yet** — apply
+      before installing a build, or sleep_logs sync will hit an unknown column.
+- [x] **Automatic morning notification** (`sleepSummaryNotify.ts`): posts once
+      per night from the hourly `sleepLiveSync` background task and on
+      foreground. Waits 5 min for the night to settle, ignores nights older
+      than 14 h, skips deleted nights, and persists the notified night key in
+      AsyncStorage (90-key cap) so it can never double-post. Uses the existing
+      `sleep-reminders` channel and `scheduleImmediate`. Summary text lists
+      every wake-up with minutes and time, with `Long:` / `Others:` groups.
+- [x] **Dashboard**: removed the "You were up for a while" card, the minute
+      input Modal and the resolved-gap store state; the detected-session card
+      now shows the recorded wake-ups. No gap blocks auto-save any more.
+- [x] **Verification:** typecheck ✓ · ESLint 0 errors ✓ · 41 suites / 374 tests ✓
+      (incl. new wake-up-detail and summary-text tests). No APK build / push.
+
 ### Batch 34 — sleep: an evening break no longer ends the night (2026-11-17)
 
 > Bug reported by the user: "it started automatically at 9:39 PM and at 10:39

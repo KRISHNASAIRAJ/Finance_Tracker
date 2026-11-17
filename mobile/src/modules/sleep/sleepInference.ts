@@ -24,31 +24,23 @@
  * and splits it — the longer half is reported as the sleep.
  *
  * Interruption rules:
- *  - an awake gap of up to 5 minutes is a normal interruption (a quick phone
- *    check) — the night continues and the gap is counted
- *  - an awake gap of 5–10 minutes is ambiguous: in the morning the user is
- *    asked whether it was a long interruption or the end of the sleep
- *  - an awake gap of more than 10 minutes and at most
- *    {@link MAX_MIDNIGHT_INTERRUPTION_MIN} minutes (before the wake window)
- *    is a long interruption — the night continues and the gap is counted
+ *  - EVERY awake gap before the wake window is remembered as a wake-up with
+ *    its exact length. No gap is ever treated as "the end of sleep" while the
+ *    night is still running, and the user is never asked to guess.
+ *  - a gap longer than {@link LONG_WAKEUP_MIN} is a LONG wake-up — it is
+ *    highlighted in the morning summary notification.
+ *  - a gap longer than {@link MAX_MIDNIGHT_INTERRUPTION_MIN} (2 h) is a real
+ *    get-up: the night splits there and the longer half is reported.
  *  - an awake gap starting at or after the wake window is the wake-up — the
- *    night ends there
+ *    night ends there.
  *
  * Everything in this file is pure so it can be unit tested without a phone.
  */
 import type { MotionBucket, SleepSensitivity } from './sleepMotion';
+import { analyzeNight, personalCutoff, type WakeUp } from './sleepScoring';
 
-/**
- * An awake gap of up to this many minutes is a normal interruption — the
- * night continues and the gap is counted as a wake-up.
- */
-export const INTERRUPTION_MAX_MIN = 5;
-
-/**
- * A gap longer than {@link INTERRUPTION_MAX_MIN} but not longer than this one
- * needs the user's answer in the morning.
- */
-export const AMBIGUOUS_GAP_MAX_MIN = 10;
+export { LONG_WAKEUP_MIN } from './sleepScoring';
+export type { WakeUp } from './sleepScoring';
 
 /**
  * A still run shorter than this is a rest, not sleep — the phone lying still
@@ -83,6 +75,8 @@ export interface SleepInferenceOptions {
   sleepEndMin: number;
   /** Shortest session that is accepted as sleep (minutes). */
   minSessionMin: number;
+  /** Sensitivity of the tracker — selects the scoring base cutoff. */
+  sensitivity?: SleepSensitivity;
   /**
    * Sustained movement (seconds per minute) needed to call a minute awake.
    * Defaults to {@link MOVING_SECONDS_AWAKE}.
@@ -115,37 +109,28 @@ export interface SleepInferenceOptions {
   manualBedtimeMs?: number;
 }
 
-/** A wake gap the user still has to classify in the morning. */
-export interface PendingGap {
-  /** Epoch ms — the user fell asleep again. */
-  startMs: number;
-  /** Epoch ms — the user got up. */
-  endMs: number;
-  /** Length of the gap in minutes. */
-  minutes: number;
-}
-
 export interface InferredSleep {
   /** Bedtime (epoch ms). */
   bedTime: number;
   /** Wake time (epoch ms). */
   wakeTime: number;
-  /** Night wake-ups (a movement burst inside the session). */
+  /** Number of wake-ups inside the session. */
   interruptions: number;
+  /** Every wake-up (5+ min) with its time and length — the "remember it" data. */
+  wakeUps: WakeUp[];
+  /** Short blips absorbed into sleep by the Webster-style rescoring. */
+  microArousals: number;
+  /** Minutes scored as sleep inside the session (excludes unknowns). */
+  sleepMinutes: number;
+  /** Minutes with no bucket at all — never counted as sleep. */
+  unknownMinutes: number;
+  /** The cutoff actually used, for tuning against real nights. */
+  cutoffUsed: number;
   /** Sleep length in minutes. */
   durationMin: number;
   /** 0..1 — how sure we are about this session. */
   confidence: number;
-  /**
-   * A gap of 5–10 minutes inside the night: the user has to say whether it
-   * was a long interruption or the end of the sleep. `null` when there is
-   * nothing to answer.
-   */
-  pendingGap?: PendingGap | null;
 }
-
-/** How the user answered the pending-gap question. */
-export type PendingGapResolution = 'interruption' | 'ended';
 
 /** Movement threshold per sensitivity (mirrors SleepMotionConfig.threshold). */
 export function motionThreshold(sensitivity: SleepSensitivity): number {
@@ -388,9 +373,8 @@ function absoluteMinuteFor(blockStart: number, blockEnd: number, targetMin: numb
  *    MIN_SLEEP_RUN_MIN minutes (the moment the phone was really put down)
  *  - the wake time is the last awake gap at or after the wake window, or the
  *    end of the block when the phone never moved again
- *  - awake gaps inside the session are interruptions (up to 5 min, or a long
- *    scroll of up to the cap), ambiguous (5–10 min — the user is asked in the
- *    morning) or, starting at the wake window, the wake-up itself
+ *  - every awake gap inside the session is remembered as a wake-up with its
+ *    length; a gap starting at the wake window is the final wake-up instead
  *
  * Returns null when there is no long enough stillness inside the night window.
  */
@@ -398,7 +382,9 @@ function inferSingleNight(
   buckets: MotionBucket[],
   options: SleepInferenceOptions,
   /** Latest plausible bedtime (epoch minute) — two thirds into the window. */
-  maxBedMin: number = Number.POSITIVE_INFINITY
+  maxBedMin: number = Number.POSITIVE_INFINITY,
+  /** The last 7 nights' raw buckets, used to personalise the scoring cutoff. */
+  recentNights: MotionBucket[][] = []
 ): InferredSleep | null {
   const samples = toSampleMap(buckets);
   if (samples.size === 0) return null;
@@ -509,23 +495,6 @@ function inferSingleNight(
   const wakeStartMin = options.wakeStartMin ?? ((options.sleepEndMin - 60 + 1440) % 1440);
   const wakeEndMin = options.wakeEndMin ?? (options.sleepEndMin % 1440);
 
-  // A gap of 5–10 minutes that starts BEFORE the wake window is ambiguous —
-  // the user answers in the morning. (A gap at or after the wake window is
-  // simply the wake-up and is never asked about.)
-  const ambiguousGap =
-    gaps.find(
-      (x) =>
-        x.minutes > INTERRUPTION_MAX_MIN &&
-        x.minutes <= AMBIGUOUS_GAP_MAX_MIN &&
-        !inOrAfterWakeStart(
-          minuteOfDay(x.start * 60000),
-          wakeStartMin,
-          wakeEndMin,
-          options.sleepStartMin,
-          options.sleepEndMin
-        )
-    ) || null;
-
   // --- clip the block to the night window ---------------------------------
   // The bedtime is the start of the FIRST still run of at least
   // MIN_SLEEP_RUN_MIN minutes — a short stretch of stillness before the real
@@ -601,38 +570,18 @@ function inferSingleNight(
   const durationMin = Math.round((wakeTime - bedTime) / 60000);
   if (durationMin < options.minSessionMin) return null;
 
-  // --- interruptions: the awake gaps inside the night -----------------------
-  // A gap at or after the wake window is the wake-up, not an interruption. A
-  // gap of up to 5 minutes, or a longer gap of up to the cap (a phone check, a
-  // long scroll — the night goes on), counts as an interruption. A 5–10
-  // minute gap stays pending the user's answer and is counted on resolve.
-  let interruptions = 0;
-  for (const gap of gaps) {
-    if (gap.start < bedMin || gap.end > wakeMin) continue;
-    if (
-      inOrAfterWakeStart(
-        minuteOfDay(gap.start * 60000),
-        wakeStartMin,
-        wakeEndMin,
-        options.sleepStartMin,
-        options.sleepEndMin
-      )
-    ) continue;
-    if (gap.minutes <= INTERRUPTION_MAX_MIN) {
-      interruptions += 1;
-    } else if (gap.minutes > AMBIGUOUS_GAP_MAX_MIN && gap.minutes <= maxInterruption) {
-      interruptions += 1;
-    }
-  }
-
-  const pendingGap: PendingGap | null =
-    ambiguousGap && ambiguousGap.start >= bedMin && ambiguousGap.start <= wakeMin
-      ? {
-          startMs: ambiguousGap.start * 60000,
-          endMs: (ambiguousGap.end + 1) * 60000,
-          minutes: ambiguousGap.minutes,
-        }
-      : null;
+  // --- wake-ups: windowed, Webster-style scoring ----------------------------
+  // Bedtime and wake time above stay on the proven motion-run logic. Inside
+  // that range the fine classification comes from sleepScoring: a weighted
+  // -4..+2 minute window per minute, a cutoff personalised from the last 7
+  // nights, and rescoring that absorbs sub-5-minute blips as micro-arousals.
+  // Only 5+ minute awake runs become wakeUps — a brief phone check is no
+  // longer reported as an interruption.
+  const sensitivity = options.sensitivity ?? 'medium';
+  const cutoff = personalCutoff(recentNights, sensitivity);
+  const res = analyzeNight(buckets, bedMin, wakeMin, sensitivity, cutoff);
+  const wakeUps = res.wakeUps;
+  const interruptions = wakeUps.length;
 
   const stillRatio = bestInWindow / Math.max(1, wakeMin - bedMin + 1);
   const lengthScore = Math.min(1, durationMin / 420);
@@ -641,7 +590,18 @@ function inferSingleNight(
     Math.min(1, 0.35 * stillRatio + 0.65 * lengthScore)
   );
 
-  return { bedTime, wakeTime, interruptions, durationMin, confidence, pendingGap };
+  return {
+    bedTime,
+    wakeTime,
+    interruptions,
+    wakeUps,
+    microArousals: res.microArousals,
+    sleepMinutes: res.sleepMinutes,
+    unknownMinutes: res.unknownMinutes,
+    cutoffUsed: res.cutoffUsed,
+    durationMin,
+    confidence,
+  };
 }
 
 /**
@@ -696,6 +656,9 @@ export function inferSleepSession(
     else byNight.set(key, [b]);
   }
   const keys = Array.from(byNight.keys()).sort((a, b) => b - a); // newest night first
+  // The personal cutoff is derived from up to 7 recent nights already present
+  // in the buffer — no extra storage or native change needed.
+  const recentNights = keys.slice(0, 7).map((k) => byNight.get(k)!);
   const lenMin =
     (((options.sleepEndMin - options.sleepStartMin) % 1440) + 1440) % 1440 || 1440;
   for (const key of keys) {
@@ -711,7 +674,7 @@ export function inferSleepSession(
       0
     ).getTime();
     const maxBedMin = Math.floor((start + (lenMin * 60000 * 2) / 3) / 60000);
-    let result = inferSingleNight(byNight.get(key)!, options, maxBedMin);
+    let result = inferSingleNight(byNight.get(key)!, options, maxBedMin, recentNights);
     // Motion only sees the phone being put down; the user's tap is earlier and
     // exact. Anchor to it when it precedes the inferred bedtime, provided the
     // resulting night is still a plausible length.
@@ -724,43 +687,6 @@ export function inferSleepSession(
     if (result) return result;
   }
   return null;
-}
-
-/**
- * Apply the user's answer to the pending gap.
- *
- *  - `ended` — the sleep ended when the user got up: the night stops there.
- *  - `interruption` — the user was up for a while and then went back to bed:
- *    the awake minutes are taken out of the sleep (the night ends that much
- *    earlier) and the gap is counted as one more interruption.
- */
-export function resolvePendingGap(
-  session: InferredSleep,
-  resolution: PendingGapResolution,
-  awakeMinutes?: number
-): InferredSleep {
-  const gap = session.pendingGap;
-  if (!gap) return session;
-
-  if (resolution === 'ended') {
-    const wakeTime = Math.max(session.bedTime, gap.startMs);
-    return {
-      ...session,
-      wakeTime,
-      durationMin: Math.max(0, Math.round((wakeTime - session.bedTime) / 60000)),
-      pendingGap: null,
-    };
-  }
-
-  const minutes = Math.max(0, Math.round(awakeMinutes ?? gap.minutes));
-  const wakeTime = Math.max(session.bedTime, session.wakeTime - minutes * 60000);
-  return {
-    ...session,
-    wakeTime,
-    durationMin: Math.max(0, Math.round((wakeTime - session.bedTime) / 60000)),
-    interruptions: session.interruptions + 1,
-    pendingGap: null,
-  };
 }
 
 /**
