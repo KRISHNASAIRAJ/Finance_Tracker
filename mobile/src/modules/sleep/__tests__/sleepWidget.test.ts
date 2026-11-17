@@ -4,8 +4,39 @@
  */
 import {
   computeSleepWidgetPayload,
+  lastNightBuckets,
   latestSleepEntry,
 } from '../../../services/sleepWidget';
+import type { MotionBucket } from '../sleepMotion';
+
+const START = 21 * 60 + 30; // 21:30
+const END = 9 * 60 + 30; // 09:30
+
+/** Epoch minute for a local wall-clock time. */
+function minute(y: number, m: number, d: number, h: number, min: number): number {
+  return Math.floor(new Date(y, m - 1, d, h, min).getTime() / 60000);
+}
+
+describe('lastNightBuckets', () => {
+  it('keeps the sleep night and drops post-wake daytime motion', () => {
+    const evening = minute(2026, 11, 16, 22, 0);
+    const afterMidnight = minute(2026, 11, 17, 2, 0);
+    const noon = minute(2026, 11, 17, 14, 0);
+    const b = (m: number): MotionBucket => ({ m, v: 0.1, s: 0 });
+    const all = [b(noon), b(afterMidnight), b(evening)];
+
+    // With the window, only the real night survives — a stray noon bucket must
+    // never become the "last night" and blank the widget's DEEP / LIGHT bars.
+    const night = lastNightBuckets(all, START, END);
+    expect(night.map((x) => x.m)).toEqual([evening, afterMidnight]);
+  });
+
+  it('still splits by a plain gap when no window is given', () => {
+    const b = (m: number): MotionBucket => ({ m, v: 0.1, s: 0 });
+    const all = [b(1000), b(1010), b(2000)];
+    expect(lastNightBuckets(all).map((x) => x.m)).toEqual([2000]);
+  });
+});
 import type { SleepEntry } from '../store';
 
 function entry(start: string, end: string, id = 'e1'): SleepEntry {

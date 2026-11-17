@@ -5,6 +5,27 @@
 
 ---
 
+### Batch 38 — widget: restore DEEP / LIGHT bars on the Clock + Sleep widget (2026-11-17)
+
+> User: "I can see deep light as empty blocks in widgets … earlier it's there
+> after new update it's gone." Not git-pushed.
+
+- [x] `services/sleepWidget.ts`: `lastNightBuckets()` now groups buckets by the
+      canonical `nightKeyForMinute(sleepStartMin, sleepEndMin)` rule when the
+      sleep window is known, instead of a naive 120-minute gap split. Post-wake
+      daytime motion can no longer become the "last night" and leave the
+      native widget's stage lanes empty. The window is threaded through
+      `computeStageSegments` / `deepMinutes` / `computeSleepWidgetPayload` and
+      pushed from `autoConfig`. Gap-split kept as a fallback (no window).
+- [x] Widget refresh no longer depends on weather: `useWeather` calls
+      `pushSleepWidget()` on every load, and `triggerSleepLiveSync()` (boot +
+      foreground) pushes it too. Previously a failed weather fetch left the
+      widget showing a stale/empty payload.
+- [x] Verification: typecheck ✓ · ESLint 0 errors ✓ · 43 suites / 388 tests ✓
+      (2 new `lastNightBuckets` tests); real uploaded buckets still yield
+      `deep=4, light=8, awake=13` segments, deep 455 m, score 80. APK
+      `3008 / 1.0.0-b40` built for the user to install.
+
 ### Batch 37 — sleep: raw motion buckets backed up to Supabase (2026-11-17)
 
 > User asked to "store it also in supabase and start push". Not git-pushed.
@@ -16,7 +37,10 @@
       ~720 rows a night.
 - [x] `services/sleepMotionCloudSync.ts`: groups `getMotionBuckets()` into
       nights using the same `nightKeyForMinute` rule as inference and upserts
-      one row per night. Best-effort (offline never affects tracking).
+      one row per night. Best-effort (offline never affects tracking). The
+      debug "Export motion data" button was removed from the Sleep screen
+      afterwards (2026-11-17) at the user's request — the automatic cloud
+      upload is unaffected.
 - [x] Wired into `sleepLiveSync`: pushes on the hourly background task and on
       every foreground, alongside the night summary and morning notification.
 - [x] `scripts/tune-sleep-scoring.js` now also accepts Supabase CLI query JSON

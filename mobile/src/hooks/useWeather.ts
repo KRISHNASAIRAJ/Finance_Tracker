@@ -56,9 +56,11 @@ export function useWeather(): WeatherViewController {
       if (!mounted.current) return;
       setWeather(reading);
       setFailure(getLastWeatherFailure());
-      // A cached reading is still worth pushing to the widget (it may have
-      // been installed after the reading was stored).
-      if (reading) pushSleepWidget().catch(() => {});
+      // Refresh the widget on EVERY load, not just when weather succeeds.
+      // The sleep stage bars come from the motion timeline, so a failed /
+      // pending weather fetch must never leave the widget's DEEP / LIGHT
+      // lanes empty with stale data.
+      pushSleepWidget().catch(() => {});
     } catch {
       if (mounted.current) setFailure(getLastWeatherFailure() || 'no-data');
     } finally {

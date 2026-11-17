@@ -50,7 +50,6 @@ import {
   motionThreshold,
   movingSecondsThreshold,
   currentStillness,
-  nightKeyForMinute,
   LONG_WAKEUP_MIN,
   type InferredSleep,
 } from '../sleepInference';
@@ -367,44 +366,6 @@ export default function SleepDashboardScreen() {
     setAutoConfig(next);
     setMotionConfig(next);
     setTimePicker(null);
-  };
-
-  /** Share the raw motion timeline so the scoring algorithm can be tuned on
-   *  real nights (the buckets never leave the device otherwise). */
-  const exportMotionData = async () => {
-    try {
-      const buckets = await getMotionBuckets();
-      if (buckets.length === 0) return;
-      const byNight = new Map<number, typeof buckets>();
-      for (const b of buckets) {
-        const key = nightKeyForMinute(
-          Math.floor(b.m),
-          autoConfig.sleepStartMin,
-          autoConfig.sleepEndMin
-        );
-        if (key === null) continue;
-        const list = byNight.get(key) ?? [];
-        list.push(b);
-        byNight.set(key, list);
-      }
-      const nights = Array.from(byNight.entries())
-        .sort((a, b) => b[0] - a[0])
-        .map(([, list]) => list);
-      const FileSystem = require('expo-file-system');
-      const Sharing = require('expo-sharing');
-      const uri = `${FileSystem.cacheDirectory}meridian-sleep-buckets.json`;
-      await FileSystem.writeAsStringAsync(uri, JSON.stringify({ nights }), {
-        encoding: 'utf8',
-      });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/json',
-          dialogTitle: 'Meridian sleep motion data',
-        });
-      }
-    } catch {
-      /* export is a debug aid — never break the screen */
-    }
   };
 
   const saveDetectedSession = () => {
@@ -896,16 +857,6 @@ export default function SleepDashboardScreen() {
                 </View>
               </>
             )}
-
-            <PressScale
-              onPress={exportMotionData}
-              scale={0.97}
-              style={styles.exportBtn}
-              accessibilityLabel="Export sleep motion data"
-            >
-              <Ionicons name="download-outline" size={15} color={mc.textDim} />
-              <Text style={styles.exportBtnText}>Export motion data for tuning</Text>
-            </PressScale>
           </Card>
         </Rise>
       )}
@@ -1363,20 +1314,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: 14,
     marginBottom: 6,
-  },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: mc.line,
-  },
-  exportBtnText: {
-    fontSize: 12,
-    color: mc.textDim,
   },
   chipRow: {
     flexDirection: 'row',

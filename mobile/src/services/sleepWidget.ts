@@ -22,6 +22,7 @@ import {
   type StageSegment,
 } from '../modules/sleep/sleepStages';
 import { sleepScore } from '../modules/sleep/sleepScore';
+import { nightKeyForMinute } from '../modules/sleep/sleepInference';
 
 const SleepWidgetModule = NativeModules.ClockSleepWidgetBridge as
   | { setSleep: (json: string) => Promise<void> }
@@ -148,10 +149,43 @@ const NIGHT_GAP_MIN = 120;
 /**
  * The buckets of the LAST night — the tracker keeps 36 h of history, so the
  * night before it has to be cut off.
+ *
+ * When the sleep window is known we group by the SAME `nightKeyForMinute` rule
+ * the tracker and the cloud backup use. This matters after waking: motion from
+ * later that morning must not become the "last night" and leave the widget's
+ * DEEP / LIGHT lanes empty. The plain 120-minute gap split is kept as a
+ * fallback for callers without a configured window (and for tests).
  */
-export function lastNightBuckets(buckets: MotionBucket[]): MotionBucket[] {
+export function lastNightBuckets(
+  buckets: MotionBucket[],
+  sleepStartMin?: number,
+  sleepEndMin?: number
+): MotionBucket[] {
   if (!buckets || buckets.length === 0) return [];
   const sorted = [...buckets].sort((a, b) => a.m - b.m);
+
+  if (
+    typeof sleepStartMin === 'number' &&
+    typeof sleepEndMin === 'number' &&
+    Number.isFinite(sleepStartMin) &&
+    Number.isFinite(sleepEndMin)
+  ) {
+    const byNight = new Map<number, MotionBucket[]>();
+    for (const b of sorted) {
+      const key = nightKeyForMinute(b.m, sleepStartMin, sleepEndMin);
+      if (key === null) continue; // daytime — never part of a sleep night
+      const list = byNight.get(key);
+      if (list) list.push(b);
+      else byNight.set(key, [b]);
+    }
+    const keys = Array.from(byNight.keys()).sort((a, b) => b - a);
+    for (const key of keys) {
+      const group = byNight.get(key)!;
+      if (group.length >= 2) return group; // skip stray 1-bucket groups
+    }
+    return [];
+  }
+
   let start = 0;
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i].m - sorted[i - 1].m > NIGHT_GAP_MIN) start = i;
@@ -162,10 +196,12 @@ export function lastNightBuckets(buckets: MotionBucket[]): MotionBucket[] {
 /** The stage bars of the last night, split by lane. */
 export function computeStageSegments(
   buckets: MotionBucket[],
-  sensitivity: SleepSensitivity
+  sensitivity: SleepSensitivity,
+  sleepStartMin?: number,
+  sleepEndMin?: number
 ): SleepStageSegments {
   const empty: SleepStageSegments = { deep: [], light: [], awake: [] };
-  const night = lastNightBuckets(buckets);
+  const night = lastNightBuckets(buckets, sleepStartMin, sleepEndMin);
   if (night.length < 2) return empty;
   const bed = night[0].m;
   const wake = night[night.length - 1].m + 1;
@@ -195,9 +231,11 @@ export function computeStageSegments(
 /** The minutes of deep sleep in the last night. */
 export function deepMinutes(
   buckets: MotionBucket[],
-  sensitivity: SleepSensitivity = 'medium'
+  sensitivity: SleepSensitivity = 'medium',
+  sleepStartMin?: number,
+  sleepEndMin?: number
 ): number {
-  const night = lastNightBuckets(buckets);
+  const night = lastNightBuckets(buckets, sleepStartMin, sleepEndMin);
   if (night.length < 2) return 0;
   const bed = night[0].m;
   const wake = night[night.length - 1].m + 1;
@@ -227,6 +265,10 @@ export function computeSleepWidgetPayload(
     weatherFetchedAt?: number;
     /** The smart alarm: the wake window start, or null when there is no alarm. */
     alarmMin?: number | null;
+    /** Sleep window start (minutes from midnight) — selects the stage night. */
+    sleepStartMin?: number;
+    /** Sleep window end (minutes from midnight) — selects the stage night. */
+    sleepEndMin?: number;
   }
 ): SleepWidgetPayload {
   const buckets = extra?.buckets ?? [];
@@ -271,7 +313,12 @@ export function computeSleepWidgetPayload(
     durationMin,
     score: sleepScore({
       durationMin,
-      deepMin: deepMinutes(buckets, sensitivity),
+      deepMin: deepMinutes(
+        buckets,
+        sensitivity,
+        extra?.sleepStartMin,
+        extra?.sleepEndMin
+      ),
       interruptions,
     }),
     bedTime,
@@ -279,7 +326,12 @@ export function computeSleepWidgetPayload(
     bedLabel: formatShortClockLabel(bedTime),
     wakeLabel: formatShortClockLabel(wakeTime),
     interruptions,
-    stages: computeStageSegments(buckets, sensitivity),
+    stages: computeStageSegments(
+      buckets,
+      sensitivity,
+      extra?.sleepStartMin,
+      extra?.sleepEndMin
+    ),
     tempC: extra?.tempC ?? NO_TEMP_C,
     weatherLat: extra?.weatherLat,
     weatherLon: extra?.weatherLon,
@@ -342,6 +394,8 @@ export async function pushSleepWidget(payload?: SleepWidgetPayload): Promise<voi
     data = computeSleepWidgetPayload(sleep.entries, new Date(), {
       buckets,
       sensitivity: sleep.autoConfig.sensitivity,
+      sleepStartMin: sleep.autoConfig.sleepStartMin,
+      sleepEndMin: sleep.autoConfig.sleepEndMin,
       tempC: weather.tempC,
       weatherLat: weather.lat,
       weatherLon: weather.lon,

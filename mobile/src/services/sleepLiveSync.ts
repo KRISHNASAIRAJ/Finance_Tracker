@@ -221,4 +221,12 @@ export function triggerSleepLiveSync(): void {
   // Foreground catch-up in case the hourly task was throttled / missed.
   maybePostSleepSummary().catch(() => {});
   pushMotionNights().catch(() => {});
+  // Refresh the Clock + Sleep widget's DEEP / LIGHT bars from the current
+  // timeline. This does not depend on weather succeeding.
+  try {
+    const { pushSleepWidget } = require('./sleepWidget');
+    pushSleepWidget().catch(() => {});
+  } catch {
+    /* best-effort */
+  }
 }
