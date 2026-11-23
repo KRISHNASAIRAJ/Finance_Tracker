@@ -7,7 +7,7 @@ import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { mc, mr } from '../../../shared/theme/meridian';
+import { mc } from '../../../shared/theme/meridian';
 import { Card, Label, PressScale } from '../../../shared/components/meridian';
 import type { Folder, Note } from '../types';
 

@@ -29,8 +29,7 @@ jest.mock('../../../services/backupService', () => ({ exportAllData: jest.fn(asy
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createMigrationBackup, isMigrationDone, mapLegacyNote, mapV2ToLegacy,
-  NOTES_V2_BACKUP_KEY, NOTES_V2_MIGRATED_KEY, planMigration,
-  rollbackMigration, runMigration,
+  NOTES_V2_BACKUP_KEY, planMigration, rollbackMigration, runMigration,
 } from '../migration';
 import { NOTES_V2_STORAGE_KEY } from '../repository';
 import { emptyNotesState, Note } from '../types';

@@ -119,7 +119,7 @@ export function planMigration(
   legacyNotes: LegacyNoteLike[], state: NotesState, userId: string, deviceId: string, now: string
 ): { state: NotesState; events: SyncEvent[] } {
   const done = new Set(state.migratedLegacyIds ?? []);
-  let next: NotesState = { ...state, notes: [...state.notes], folders: [...state.folders] };
+  const next: NotesState = { ...state, notes: [...state.notes], folders: [...state.folders] };
   const events: SyncEvent[] = [];
   const folderByName = new Map(next.folders.filter((f) => !f.deleted_at).map((f) => [f.name.toLowerCase(), f]));
 

@@ -138,7 +138,7 @@ export function resolveConflict(
 export function mergeRemoteNotes(
   state: NotesState, remoteNotes: Note[], now: string, deviceId: string
 ): { state: NotesState; events: SyncEvent[] } {
-  let notes = [...state.notes];
+  const notes = [...state.notes];
   const events: SyncEvent[] = [];
 
   for (const remote of remoteNotes) {

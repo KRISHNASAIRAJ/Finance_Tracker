@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { mc, mr, mm } from '../../../shared/theme/meridian';
+import { mc, mm } from '../../../shared/theme/meridian';
 import {
   Card, EmptyState, Fab, Label, PressScale, Rise, Screen, TopBar,
 } from '../../../shared/components/meridian';

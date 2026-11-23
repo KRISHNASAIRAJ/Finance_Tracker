@@ -1,6 +1,6 @@
 /** Undo toast for a swiped-to-delete note. Uses only Meridian motion tokens. */
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { mc, mr, mm } from '../../../shared/theme/meridian';

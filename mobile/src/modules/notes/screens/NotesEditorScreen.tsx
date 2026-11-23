@@ -12,7 +12,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { mc, mr } from '../../../shared/theme/meridian';
+import { mc } from '../../../shared/theme/meridian';
 import { Chip, PressScale, TopBar } from '../../../shared/components/meridian';
 import { useNotesBootstrap } from '../hooks/useNotesBootstrap';
 import { useNotesStore } from '../store';
