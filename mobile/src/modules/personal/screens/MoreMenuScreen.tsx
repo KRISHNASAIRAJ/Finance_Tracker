@@ -293,6 +293,12 @@ export default function MoreMenuScreen() {
           icon: 'book-outline',
           onPress: () => navigation.navigate('RecipesLibrary'),
         },
+        {
+          id: 'occipital',
+          label: 'Occipital Care',
+          icon: 'medkit-outline',
+          onPress: () => navigation.navigate('OccipitalCare'),
+        },
       ],
     },
   ];

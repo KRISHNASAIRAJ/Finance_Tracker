@@ -100,6 +100,7 @@ import SleepHistoryScreen from '../modules/sleep/screens/SleepHistoryScreen';
 import MainHomeScreen from '../modules/home/screens/MainHomeScreen';
 import HabitTrackerScreen from '../modules/habits/screens/HabitTrackerScreen';
 import CareerGoalsScreen from '../modules/habits/screens/CareerGoalsScreen';
+import OccipitalCareScreen from '../modules/occipitalCare/screens/OccipitalCareScreen';
 
 // Stack Parameter Lists
 export type FinanceStackParamList = {
@@ -186,6 +187,7 @@ export type MoreStackParamList = {
   SleepHistory: undefined;
   HabitTracker: undefined;
   CareerGoals: undefined;
+  OccipitalCare: undefined;
 };
 
 export type RootTabParamList = {
@@ -352,6 +354,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="SleepHistory" component={SleepHistoryScreen} />
       <MoreStack.Screen name="HabitTracker" component={HabitTrackerScreen} />
       <MoreStack.Screen name="CareerGoals" component={CareerGoalsScreen} />
+      <MoreStack.Screen name="OccipitalCare" component={OccipitalCareScreen} />
     </MoreStack.Navigator>
   );
 }

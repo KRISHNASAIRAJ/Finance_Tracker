@@ -5,6 +5,32 @@
 
 ---
 
+### Batch 39 — health: animated Occipital Care module (2026-11-23)
+
+> User asked to add the occipital-neuralgia exercises/habits (with animation)
+> inside Meridian. Implemented on `v4`; not git-pushed.
+
+- [x] New local-first module `mobile/src/modules/occipitalCare/`: `careData.ts`
+      (pure exercise/habit definitions, IST day helpers, streak/progress math,
+      educational content), `store.ts` (Zustand + AsyncStorage, no Supabase
+      table / no sync queue — personal device-only self-care data),
+      `components/ExerciseDemo.tsx` (core `Animated` looping figure for warm
+      compress, chin tucks, neck tilt/turn, shoulder squeezes and breathing;
+      every loop 1.4s, honours reduce-motion) and `screens/OccipitalCareScreen.tsx`.
+- [x] Screen has three tabs: **Exercises** (animated demos with play/pause,
+      written steps, cautions, mark-done), **Daily habits** (15 grouped habits
+      with pain 0–10 log and streaks), and **Guide** (causes, foods, red flags,
+      disclaimer). Uses the Meridian v2 kit (`Screen`/`Card`/`Ring`/`Rise`/
+      `SegmentedControl`) and dark tokens throughout.
+- [x] Navigation: `OccipitalCare` added to `MoreStackParamList` and registered
+      in `RootNavigator.tsx`; shortcut added to More → HEALTH and to the
+      drawer's DAILY group.
+- [x] Verification: typecheck ✓ · ESLint 0 errors (6 pre-existing warnings) ✓ ·
+      53 suites / 469 tests ✓ (5 new pure-helper tests).
+- [x] Local Android debug APK built successfully (`assembleDebug`, 20m41s) and
+      copied to `mobile/Meridian-OccipitalCare-debug.apk` (~184 MB) for the user
+      to install. Version still 3008 / 1.0.0-b40 (debug build, not bumped).
+
 ### Batch 38 — widget: restore DEEP / LIGHT bars on the Clock + Sleep widget (2026-11-17)
 
 > User: "I can see deep light as empty blocks in widgets … earlier it's there

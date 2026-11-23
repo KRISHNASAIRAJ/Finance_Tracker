@@ -314,6 +314,14 @@ export default function DrawerMenu() {
         onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'SleepTracker' })),
       },
       {
+        id: 'occipital',
+        label: 'Occipital care',
+        icon: 'medkit-outline',
+        color: mc.mint,
+        bg: mc.mintDim,
+        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'OccipitalCare' })),
+      },
+      {
         id: 'diary',
         label: 'Diary',
         icon: 'journal-outline',
