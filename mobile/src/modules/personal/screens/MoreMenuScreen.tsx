@@ -35,6 +35,7 @@ import { processSyncQueue, getSyncStatus, onSyncStatusChange, type SyncStatus } 
 import { generateMonthlyReport } from '../../../services/reportService';
 import { useInvestmentsStore } from '../../equity/store';
 import { usePersonalStore } from '../store';
+import { isFeatureEnabled } from '../../../shared/featureFlags';
 
 
 import SyncStatusCard from '../../../shared/components/SyncStatusCard';
@@ -77,6 +78,13 @@ export default function MoreMenuScreen() {
   const [backupState, setBackupState] = useState<'idle' | 'backing' | 'done' | 'error'>('idle');
   const [showAuth, setShowAuth] = useState(false);
   const [kiteSyncing, setKiteSyncing] = useState(false);
+  const [notesV2, setNotesV2] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    isFeatureEnabled('notes_v2').then((on) => { if (alive) setNotesV2(on); });
+    return () => { alive = false; };
+  }, []);
   const [kiteSyncResult, setKiteSyncResult] = useState<string | null>(null);
   const [kiteConnected, setKiteConnected] = useState(false);
   const [emailInput, setEmailInput] = useState('');
@@ -181,9 +189,9 @@ export default function MoreMenuScreen() {
       items: [
         {
           id: 'notes',
-          label: 'Personal Notes',
+          label: notesV2 ? 'Notes' : 'Personal Notes',
           icon: 'document-text-outline',
-          onPress: () => navigation.navigate('PersonalNotes'),
+          onPress: () => navigation.navigate(notesV2 ? 'NotesV2List' : 'PersonalNotes'),
         },
         {
           id: 'diary',

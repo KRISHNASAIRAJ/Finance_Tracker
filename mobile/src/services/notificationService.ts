@@ -44,6 +44,16 @@ function istNow(): Date {
   return ensureIST(new Date());
 }
 
+/** Absolute instant for an IST wall-clock time, correct on any device TZ. */
+function dateAtIST(year: number, monthIndex: number, day: number, hour: number, minute: number): Date {
+  return new Date(Date.UTC(year, monthIndex, day, hour, minute, 0, 0) - 5.5 * 60 * 60 * 1000);
+}
+
+/** Stable IST calendar-day key (YYYY-MM-DD) for an absolute instant. */
+export function istDayKey(date: Date): string {
+  return new Date(date.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 function getCurrentMonthWalletLoad(): number {
   const { transactions } = useFinanceStore.getState();
   const now = istNow();
@@ -77,10 +87,43 @@ let isScheduling = false;
 // tight loop. Explicit change points (task save/delete, toggles) pass
 // force=true to bypass it.
 const RESCHEDULE_COOLDOWN_MS = 45000;
+
+/**
+ * A notification this close to firing must NOT be torn down and re-armed by a
+ * reschedule pass. Android (especially OEM skins like OxygenOS) may already
+ * have handed an imminent alarm to the OS — cancelling it cannot always stop
+ * delivery, so re-arming the same trigger produces two notifications a minute
+ * apart (e.g. one at 7:29 and one at 7:30).
+ */
+const IMMINENT_NOTIFICATION_MS = 2 * 60 * 1000;
 let lastScheduleRun = 0;
 let Notifications: any = null;
 let _initialized = false;
 let channelsCreated = false;
+
+/** Absolute fire time of an already-scheduled notification, if discoverable. */
+export function scheduledTriggerTime(n: any): number | null {
+  const trigger = n?.trigger;
+  if (!trigger) return null; // null trigger = delivered immediately
+  if (trigger.type === 'date') {
+    const date = trigger.date;
+    if (date instanceof Date) return date.getTime();
+    if (typeof date === 'number') return date;
+    if (typeof date === 'string') {
+      const parsed = Date.parse(date);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+  // Relative triggers don't expose their original absolute schedule time from
+  // getAllScheduledNotificationsAsync(), so treat them as safe to replace.
+  return null;
+}
+
+/** True when this scheduled notification is about to fire. */
+export function isImminentScheduledNotification(n: any, nowMs: number = Date.now()): boolean {
+  const time = scheduledTriggerTime(n);
+  return time !== null && time - nowMs <= IMMINENT_NOTIFICATION_MS;
+}
 
 function ensureInit() {
   if (_initialized) return Notifications !== null;
@@ -184,11 +227,18 @@ export async function scheduleLocal(
     if (dedupKey) {
       try {
         const existing = await Notifications.getAllScheduledNotificationsAsync();
+        let keepImminent = false;
         for (const n of existing) {
-          if (n?.content?.data?.dedupKey === dedupKey) {
-            await Notifications.cancelScheduledNotificationAsync(n.id);
+          if (n?.content?.data?.dedupKey !== dedupKey) continue;
+          // An equivalent alarm is about to fire — leave it alone. Cancelling
+          // and re-arming it is exactly what makes one notification pop twice.
+          if (isImminentScheduledNotification(n)) {
+            keepImminent = true;
+            continue;
           }
+          await Notifications.cancelScheduledNotificationAsync(n.id);
         }
+        if (keepImminent) return;
       } catch (e) { console.warn('[notificationService] dedup scan failed:', e); }
     }
 
@@ -419,10 +469,28 @@ export async function scheduleAllReminders(force = false) {
     }
 
     if (!Notifications) return;
-    console.log('[notificationService] Cancelling all + rescheduling...');
+    console.log('[notificationService] Rebuilding scheduled notifications...');
+    let existing: any[] | null = null;
     try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch (e) { console.warn('[notificationService] cancelAll failed (continuing):', e); }
+      const listed = await Notifications.getAllScheduledNotificationsAsync();
+      if (Array.isArray(listed)) existing = listed;
+    } catch (e) { console.warn('[notificationService] scheduled scan failed:', e); }
+
+    if (existing === null) {
+      // Can't enumerate — fall back to the legacy cancel-all.
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } catch (e) { console.warn('[notificationService] cancelAll failed (continuing):', e); }
+    } else {
+      // Cancel everything EXCEPT alarms that are about to fire. Leaving those
+      // in place prevents the "7:29 + 7:30" double-pop described above.
+      for (const n of existing) {
+        if (isImminentScheduledNotification(n)) continue;
+        try {
+          await Notifications.cancelScheduledNotificationAsync(n.id);
+        } catch (e) { console.warn('[notificationService] cancel failed (continuing):', e); }
+      }
+    }
 
     // Meal reminders — ONE per slot per day, only for slots not yet logged today.
     // No recurring daily triggers (that caused notification spam).
@@ -739,18 +807,21 @@ export async function scheduleAllReminders(force = false) {
     // a nudge to open Home (habit progress). Deep-links to the Home tab.
     // (Retimed from 9:00 so it no longer lands with the 9:00 breakfast ping.)
     try {
-      const t0 = istNow();
+      const realNow = new Date();
+      const istWall = istNow();
       for (let d = 0; d < 7; d++) {
-        const morning = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + d, 7, 30, 0, 0);
-        if (morning <= t0) continue;
-        const day = new Date(morning);
-        const q = quoteForDate(day);
+        const morning = dateAtIST(
+          istWall.getFullYear(), istWall.getMonth(), istWall.getDate() + d, 7, 30
+        );
+        if (morning <= realNow) continue;
+        const dayKey = istDayKey(morning);
+        const q = quoteForDate(morning);
         await scheduleLocal(
           `\u{2600}\u{FE0F} ${q.text.length > 80 ? q.text.slice(0, 77) + '…' : q.text}`,
           'Open Meridian — check today\u2019s habits & plan.',
           morning,
           'morning-brief',
-          { screen: 'MainHome', dedupKey: `morning_${day.toISOString().slice(0, 10)}` }
+          { screen: 'MainHome', dedupKey: `morning_${dayKey}` }
         );
       }
     } catch (e) { console.warn('[notificationService] morning brief failed:', e); }

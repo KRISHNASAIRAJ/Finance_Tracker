@@ -73,6 +73,9 @@ export async function scheduleMedicationReminders(now: Date = new Date()): Promi
               [MED_KEY_DATE]: dateKey,
               [MED_KEY_TIME]: time,
               [MED_KEY_DOSE]: key,
+              // Without a dedupKey the central scheduler re-arms a second copy
+              // of every dose on each boot / medication edit.
+              dedupKey: key,
             },
             MEDICATION_CATEGORY,
           );
@@ -129,6 +132,7 @@ export async function handleMedicationAction(
         [MED_KEY_DATE]: dateKey,
         [MED_KEY_TIME]: time,
         [MED_KEY_DOSE]: doseKey(medId, dateKey, time),
+        dedupKey: `${doseKey(medId, dateKey, time)}_snooze_${Date.now()}`,
       },
       MEDICATION_CATEGORY,
     );

@@ -70,6 +70,10 @@ import LoansManagerScreen from '../modules/equity/screens/LoansManagerScreen';
 
 import MoreMenuScreen from '../modules/personal/screens/MoreMenuScreen';
 import PersonalNotesScreen from '../modules/personal/screens/PersonalNotesScreen';
+import NotesListScreen from '../modules/notes/screens/NotesListScreen';
+import NotesGalleryScreen from '../modules/notes/screens/NotesGalleryScreen';
+import NotesFoldersScreen from '../modules/notes/screens/NotesFoldersScreen';
+import NotesEditorScreen from '../modules/notes/screens/NotesEditorScreen';
 import CombinedReportScreen from '../modules/personal/screens/CombinedReportScreen';
 import GoalsTrackerScreen from '../modules/personal/screens/GoalsTrackerScreen';
 import RecipesLibraryScreen from '../modules/personal/screens/RecipesLibraryScreen';
@@ -154,6 +158,10 @@ export type MoreStackParamList = {
   MoreMenu: undefined;
   CombinedReport: undefined;
   PersonalNotes: undefined;
+  NotesV2List: { folder?: string } | undefined;
+  NotesV2Gallery: undefined;
+  NotesV2Folders: undefined;
+  NotesV2Editor: { noteId: string };
   GoalsTracker: undefined;
   RecipesLibrary: undefined;
   DailyReport: undefined;
@@ -316,6 +324,10 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} />
       <MoreStack.Screen name="CombinedReport" component={CombinedReportScreen} />
       <MoreStack.Screen name="PersonalNotes" component={PersonalNotesScreen} />
+      <MoreStack.Screen name="NotesV2List" component={NotesListScreen} />
+      <MoreStack.Screen name="NotesV2Gallery" component={NotesGalleryScreen} />
+      <MoreStack.Screen name="NotesV2Folders" component={NotesFoldersScreen} />
+      <MoreStack.Screen name="NotesV2Editor" component={NotesEditorScreen} />
       <MoreStack.Screen name="GoalsTracker" component={GoalsTrackerScreen} />
       <MoreStack.Screen name="RecipesLibrary" component={RecipesLibraryScreen} />
       <MoreStack.Screen name="DailyReport" component={DailyReportScreen} />

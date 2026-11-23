@@ -31,6 +31,7 @@ import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { navigationRef, getActiveRouteNameFromRef } from '../../navigation/navigationRef';
 import { useAuth } from '../../services/AuthProvider';
+import { isFeatureEnabled } from '../featureFlags';
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -83,6 +84,12 @@ export default function DrawerMenu() {
   // hydrating, assume onboarded so the trigger is never delayed on launch.
   const isOnboarded = useFinanceStore((state) => state.isOnboarded);
   const [hydrated, setHydrated] = useState(false);
+  const [notesV2, setNotesV2] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    isFeatureEnabled('notes_v2').then((on) => { if (alive) setNotesV2(on); });
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     const store = useFinanceStore;
     if (store.persist?.hasHydrated?.()) {
@@ -320,7 +327,9 @@ export default function DrawerMenu() {
         icon: 'document-text-outline',
         color: mc.mint,
         bg: mc.mintDim,
-        onPress: () => go(() => navigation.navigate('MoreStack', { screen: 'PersonalNotes' })),
+        onPress: () => go(() => navigation.navigate('MoreStack', {
+          screen: notesV2 ? 'NotesV2List' : 'PersonalNotes',
+        })),
       },
     ];
 
