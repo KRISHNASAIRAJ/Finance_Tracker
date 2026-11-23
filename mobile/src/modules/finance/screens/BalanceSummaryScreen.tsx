@@ -132,15 +132,18 @@ export default function BalanceSummaryScreen() {
     onPress: undefined as undefined | (() => void),
   }));
 
-  const walletItems = (wallets || []).map((w) => ({
-    key: w.id,
-    label: w.name,
-    bank: undefined as string | undefined,
-    value: w.amount,
-    subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
-    alert: false,
-    onPress: () => openWalletEditor(w.id, w.name, w.amount),
-  }));
+  const walletItems = (wallets || [])
+    .slice()
+    .sort((a: any, b: any) => (b.amount ?? 0) - (a.amount ?? 0))
+    .map((w) => ({
+      key: w.id,
+      label: w.name,
+      bank: undefined as string | undefined,
+      value: w.amount,
+      subtitle: w.amount > 0 ? 'Wallet · tap to update' : 'Wallet · tap to set balance',
+      alert: false,
+      onPress: () => openWalletEditor(w.id, w.name, w.amount),
+    }));
   const zeroWallets = (wallets || []).filter((w) => (w.amount ?? 0) <= 0).length;
 
   const cardItems = cards

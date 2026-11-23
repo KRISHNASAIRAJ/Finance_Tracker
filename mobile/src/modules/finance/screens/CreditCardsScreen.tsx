@@ -94,6 +94,9 @@ export default function CreditCardsScreen() {
     const current = parseFloat(amountInput) || 0;
     const next = mode === 'plus' ? current + quick : Math.max(0, current - quick);
     setAmountInput(String(Math.round(next * 100) / 100));
+    // The adjust value is a one-shot delta — clear it so a second tap (or a
+    // stale value) can't accidentally apply it again.
+    setQuickInput('');
   };
 
   const handleAddCard = () => {

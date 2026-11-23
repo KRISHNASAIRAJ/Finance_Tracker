@@ -61,6 +61,11 @@ export default function BankAccountsScreen() {
   const walletTotal = getWalletTotal();
   const accountsTotal = totalBalance - walletTotal;
 
+  // Wallets ordered by how much they currently hold (highest first).
+  const sortedWallets = [...(wallets || [])].sort(
+    (a: any, b: any) => (b.amount ?? 0) - (a.amount ?? 0)
+  );
+
   // This month's Payzapp wallet loads — the same filter the Payzapp screen
   // uses, so the card always matches the history there.
   const now = new Date();
@@ -93,6 +98,8 @@ export default function BankAccountsScreen() {
     const current = parseFloat(editValue) || 0;
     const next = mode === 'plus' ? current + quick : Math.max(0, current - quick);
     setEditValue(String(Math.round(next * 100) / 100));
+    // One-shot delta — clear the quick-amount field after applying it.
+    setQuickValue('');
   };
 
   const handleSave = () => {
@@ -164,7 +171,6 @@ export default function BankAccountsScreen() {
             accounts.map((acc: any, idx: number) => {
               const minLimit = getMinBalanceForAccount(acc.title);
               const isBelowMin = minLimit > 0 && acc.amount < minLimit;
-              const atMin = minLimit > 0 && acc.amount <= minLimit;
               const deficit = minLimit - acc.amount;
               // The bar shows how far the balance is above its own minimum.
               const barPct =
@@ -190,21 +196,16 @@ export default function BankAccountsScreen() {
                               styles.minBarFill,
                               {
                                 width: `${Math.max(3, barPct * 100)}%`,
-                                backgroundColor: atMin ? mc.amber : mc.sky,
+                                backgroundColor: isBelowMin ? mc.redSoft : mc.sky,
                               },
                             ]}
                           />
                         </View>
-                        <Text
-                          style={[
-                            styles.minLabel,
-                            atMin && { color: mc.amber },
-                          ]}
-                        >
-                          {atMin
-                            ? `At minimum ${formatCurrency(minLimit)}`
-                            : `Min ${formatCurrency(minLimit)}`}
-                        </Text>
+                        {isBelowMin ? (
+                          <Text style={[styles.minLabel, { color: mc.redSoft }]}>
+                            {formatCurrency(deficit)} below minimum
+                          </Text>
+                        ) : null}
                       </>
                     ) : (
                       <Text style={styles.minLabel}>Tap to edit balance</Text>
@@ -249,7 +250,7 @@ export default function BankAccountsScreen() {
               <Text style={styles.emptyText}>No wallets yet.</Text>
             </View>
           ) : (
-            (wallets || []).map((w: any, idx: number) => (
+            sortedWallets.map((w: any, idx: number) => (
               <PressScale
                 key={w.id}
                 onPress={() => setEditingWallet({ id: w.id, name: w.name, amount: w.amount })}
