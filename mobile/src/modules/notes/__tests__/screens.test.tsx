@@ -37,14 +37,19 @@ import NotesListScreen from '../screens/NotesListScreen';
 import NotesGalleryScreen from '../screens/NotesGalleryScreen';
 import NotesFoldersScreen from '../screens/NotesFoldersScreen';
 
-const note = (id: string, extra: any = {}) => ({
-  id, user_id: 'u1', title: id === 'n1' ? 'Money rules' : 'Grocery list',
-  body_md: `${id === 'n1' ? 'Money rules' : 'Grocery list'}\n\n- [x] Jaggery\n- [ ] Soaps`,
-  folder_id: 'f1', pinned: id === 'n1', pinned_at: '2026-11-23T02:00:00.000Z',
-  locked: false, cipher_blob: null,
-  created_at: '2026-11-23T01:00:00.000Z', updated_at: '2026-11-23T02:00:00.000Z',
-  deleted_at: null, version: 1, device_id: 'd1', ...extra,
-});
+const note = (id: string, extra: any = {}) => {
+  // Relative to today so the TODAY/YESTERDAY grouping never rots at midnight.
+  const now = new Date();
+  const updatedAt = new Date(now.getTime() - 60_000).toISOString();
+  return {
+    id, user_id: 'u1', title: id === 'n1' ? 'Money rules' : 'Grocery list',
+    body_md: `${id === 'n1' ? 'Money rules' : 'Grocery list'}\n\n- [x] Jaggery\n- [ ] Soaps`,
+    folder_id: 'f1', pinned: id === 'n1', pinned_at: updatedAt,
+    locked: false, cipher_blob: null,
+    created_at: updatedAt, updated_at: updatedAt,
+    deleted_at: null, version: 1, device_id: 'd1', ...extra,
+  };
+};
 
 beforeEach(() => {
   mockState = {
