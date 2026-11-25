@@ -1,7 +1,7 @@
 /**
  * AuthGate — Login/skip gate wrapping the app; shows auth screen if unauthenticated.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -31,8 +31,16 @@ export default function AuthGate({ children }: Props) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [authTimedOut, setAuthTimedOut] = useState(false);
 
-  if (loading) {
+  // Never leave a permanent blank screen if the auth session lookup stalls
+  // after a task resume. Show the gate so the user can continue offline.
+  useEffect(() => {
+    const timer = setTimeout(() => setAuthTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading && !authTimedOut) {
     // The launch overlay (LoadingScreen) covers the auth check — nothing to
     // render here yet; the native splash persists until the app mounts.
     return null;

@@ -306,23 +306,48 @@ if (data.screen === 'TaskDetail' && data.taskId) {
     }, 2500);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        processSyncQueue()
-          .then(() => pushStatsWidget())
-          .catch((e) => console.warn('[App] foreground sync failed:', e));
-        runMarketSyncWatchdog().catch(() => {});
-        // The weather is refreshed every time the app comes back.
-        refreshWeather().catch(() => {});
-        // The morning check: a night that ended while the app was away is
-        // auto-saved now (no-op when it was already).
-        autoSaveLastNight().catch(() => {});
-        // An hourly cloud backup of the in-progress night — refreshed here too.
-        triggerSleepLiveSync();
+      const resuming = appState.current.match(/inactive|background/) && nextState === 'active';
+      try {
+        if (resuming) {
+          processSyncQueue()
+            .then(() => pushStatsWidget())
+            .catch((e) => console.warn('[App] foreground sync failed:', e));
+          runMarketSyncWatchdog().catch(() => {});
+          // The weather is refreshed every time the app comes back.
+          refreshWeather().catch(() => {});
+          // The morning check: a night that ended while the app was away is
+          // auto-saved now (no-op when it was already).
+          autoSaveLastNight().catch(() => {});
+          // An hourly cloud backup of the in-progress night — refreshed here too.
+          triggerSleepLiveSync();
+        }
+        if (nextState === 'background') {
+          processSyncQueue()
+            .then(() => pushStatsWidget())
+            .catch((e) => console.warn('[App] background sync failed:', e));
+        }
+      } catch (e) {
+        // One optional foreground job must never break the resume path.
+        console.warn('[App] foreground handler failed:', e);
       }
-      if (nextState === 'background') {
-        processSyncQueue()
-          .then(() => pushStatsWidget())
-          .catch((e) => console.warn('[App] background sync failed:', e));
+
+      // Recovery for a blank screen when returning from Android's Recents:
+      // if the React Navigation container never became ready (or has no
+      // routes) after the resume, put the user back on a known-good screen.
+      if (resuming) {
+        setTimeout(() => {
+          try {
+            const nav = navigationRef as any;
+            if (!nav.isReady?.()) {
+              nav.reset?.({ index: 0, routes: [{ name: 'MainTabs' }] });
+              return;
+            }
+            const state = nav.getRootState?.();
+            if (!state || !Array.isArray(state.routes) || state.routes.length === 0) {
+              nav.reset?.({ index: 0, routes: [{ name: 'MainTabs' }] });
+            }
+          } catch (e) { console.warn('[App] resume recovery failed:', e); }
+        }, 500);
       }
       appState.current = nextState;
     });

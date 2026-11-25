@@ -85,6 +85,13 @@ function Root() {
 
 registerRootComponent(Root);
 
+// If Android recreates the activity when returning from Recents, the native
+// splash window can otherwise stay up over the React root. Always dismiss it.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('expo-splash-screen').hideAsync?.();
+} catch { /* the native splash is not available in this build */ }
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
