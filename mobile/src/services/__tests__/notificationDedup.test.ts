@@ -7,8 +7,8 @@
  * helpers below identify those imminent alarms so they are left untouched.
  */
 import {
-  isImminentScheduledNotification, istDayKey, planOverdueReminders,
-  receivableOutstanding, scheduledTriggerTime,
+  chooseAlarmsToKeep, isImminentScheduledNotification, istDayKey,
+  planOverdueReminders, receivableOutstanding, scheduledTriggerTime,
 } from '../notificationService';
 
 const NOW = new Date('2026-11-23T02:00:00.000Z').getTime(); // 07:30 IST
@@ -58,6 +58,48 @@ describe('istDayKey', () => {
     expect(istDayKey(new Date('2026-11-23T01:30:00.000Z'))).toBe('2026-11-23');
     // 18:30 UTC = 00:00 IST on 24 Nov — UTC day is 23 but IST day is 24.
     expect(istDayKey(new Date('2026-11-23T18:30:00.000Z'))).toBe('2026-11-24');
+  });
+});
+
+describe('chooseAlarmsToKeep', () => {
+  const KEY = 'meal_2026-11-26_lunch';
+  const at = new Date('2026-11-26T14:15:00.000Z').getTime();
+  const alarm = (id: string, date: number) => ({
+    id,
+    content: { data: { dedupKey: KEY } },
+    trigger: { type: 'date', date: new Date(date) },
+  });
+
+  it('keeps exactly one alarm when an older build left duplicates armed', () => {
+    const result = chooseAlarmsToKeep(
+      [alarm('a', at), alarm('b', at), alarm('c', at)], KEY, at, at - 3600_000
+    );
+    expect(result.keepIds).toEqual(['a']);
+    expect(result.cancelIds).toEqual(['b', 'c']);
+    expect(result.skipScheduling).toBe(true);
+  });
+
+  it('replaces stale alarms whose trigger changed', () => {
+    const result = chooseAlarmsToKeep([alarm('old', at - 86400000)], KEY, at, at - 3600_000);
+    expect(result.keepIds).toEqual([]);
+    expect(result.cancelIds).toEqual(['old']);
+    expect(result.skipScheduling).toBe(false);
+  });
+
+  it('leaves a single imminent copy alone but drops its duplicates', () => {
+    const imminent = at - 30_000;
+    const result = chooseAlarmsToKeep(
+      [alarm('a', imminent), alarm('b', imminent)], KEY, at + 3600_000, at - 60_000
+    );
+    expect(result.keepIds).toEqual(['a']);
+    expect(result.cancelIds).toEqual(['b']);
+    expect(result.skipScheduling).toBe(true);
+  });
+
+  it('does nothing when no alarm carries the key', () => {
+    expect(chooseAlarmsToKeep([], KEY, at)).toEqual({
+      keepIds: [], cancelIds: [], skipScheduling: false,
+    });
   });
 });
 

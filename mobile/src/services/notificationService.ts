@@ -148,6 +148,9 @@ const RESCHEDULE_COOLDOWN_MS = 45000;
 const IMMINENT_NOTIFICATION_MS = 2 * 60 * 1000;
 /** Two DATE triggers this close apart are the same alarm (clock rounding). */
 const SAME_TRIGGER_EPSILON_MS = 60 * 1000;
+/** A second delivery of the same key inside this window is a duplicate pop. */
+const DUPLICATE_DELIVERY_WINDOW_MS = 5 * 60 * 1000;
+const recentDeliveries = new Map<string, number>();
 let lastScheduleRun = 0;
 let Notifications: any = null;
 let _initialized = false;
@@ -200,10 +203,53 @@ export function scheduledTriggerTime(n: any): number | null {
   return null;
 }
 
-/** True when this scheduled notification is about to fire. */
+/** True when this scheduled notification is about to fire (not long overdue). */
 export function isImminentScheduledNotification(n: any, nowMs: number = Date.now()): boolean {
   const time = scheduledTriggerTime(n);
-  return time !== null && time - nowMs <= IMMINENT_NOTIFICATION_MS;
+  if (time === null) return false;
+  const delta = time - nowMs;
+  return delta <= IMMINENT_NOTIFICATION_MS && delta >= -IMMINENT_NOTIFICATION_MS;
+}
+
+export interface AlarmDedupResult {
+  keepIds: string[];       // at most ONE equivalent alarm survives
+  cancelIds: string[];     // every other copy, stale or duplicate, goes
+  skipScheduling: boolean; // an equivalent alarm is already armed
+}
+
+/**
+ * Decide what to do with the alarms already armed under one dedupKey. A rebuild
+ * can inherit SEVERAL copies of the same alarm from an older build; keeping all
+ * of them (as the first version of the reconcile did) just preserves the spam.
+ * Rule: at most one equivalent alarm survives — never re-arm it.
+ */
+export function chooseAlarmsToKeep(
+  entries: any[],
+  dedupKey: string,
+  triggerTime: number,
+  nowMs: number = Date.now(),
+): AlarmDedupResult {
+  const matching = (entries || []).filter(
+    (n) => n?.content?.data?.dedupKey === dedupKey,
+  );
+  if (matching.length === 0) {
+    return { keepIds: [], cancelIds: [], skipScheduling: false };
+  }
+
+  const equivalent = matching.filter((n) => {
+    const t = scheduledTriggerTime(n);
+    return t !== null && Math.abs(t - triggerTime) <= SAME_TRIGGER_EPSILON_MS;
+  });
+  // An already-firing (or just-fired) copy must not be torn down either.
+  const pool = equivalent.length > 0 ? equivalent : matching.filter((n) => isImminentScheduledNotification(n, nowMs));
+  const keep = pool[0];
+  const keepId = keep?.id;
+
+  return {
+    keepIds: keepId !== undefined ? [keepId] : [],
+    cancelIds: matching.filter((n) => n?.id !== keepId).map((n) => n.id),
+    skipScheduling: Boolean(keep),
+  };
 }
 
 function ensureInit() {
@@ -217,13 +263,34 @@ function ensureInit() {
   try {
     Notifications = require('expo-notifications');
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification: any) => {
+        // Safety net for the OEM case where Android posts a copy of an alarm
+        // that was already shown: one visible pop per key per short window.
+        const rawKey = notification?.request?.content?.data?.dedupKey;
+        const key = typeof rawKey === 'string' ? rawKey : null;
+        let show = true;
+        if (key) {
+          const now = Date.now();
+          const last = recentDeliveries.get(key);
+          if (last !== undefined && now - last < DUPLICATE_DELIVERY_WINDOW_MS) {
+            show = false;
+          } else {
+            recentDeliveries.set(key, now);
+            if (recentDeliveries.size > 100) {
+              for (const [k, at] of recentDeliveries) {
+                if (now - at >= DUPLICATE_DELIVERY_WINDOW_MS) recentDeliveries.delete(k);
+              }
+            }
+          }
+        }
+        return {
+          shouldShowAlert: show,
+          shouldPlaySound: show,
+          shouldSetBadge: false,
+          shouldShowBanner: show,
+          shouldShowList: show,
+        };
+      },
     });
     setupChannels();
     console.log('[notificationService] Initialized successfully');
@@ -300,43 +367,22 @@ export async function scheduleLocal(
   }
 
   try {
-    // Dedup guard — one armed alarm per dedupKey, and NEVER tear down an
-    // alarm that is already armed for the same instant: on OEM skins the
-    // cancel can fail while the re-armed copy still fires (double pop).
+    // One armed alarm per dedupKey. Reuse an identical alarm instead of
+    // re-arming it (OEM skins deliver both), and cancel any EXTRA copies left
+    // behind by older builds rather than keeping the whole stack alive.
     const dedupKey = data?.dedupKey;
     if (dedupKey) {
       try {
-        if (rebuildSnapshot) {
-          // Full rebuild: the list was read once at the start of the pass.
-          let keptThisAlarm = false;
-          for (const n of rebuildSnapshot) {
-            if (n?.content?.data?.dedupKey !== dedupKey) continue;
-            const fireAt = scheduledTriggerTime(n);
-            if (fireAt !== null && Math.abs(fireAt - triggerDate.getTime()) <= SAME_TRIGGER_EPSILON_MS) {
-              rebuildKept.add(n.id);
-              keptThisAlarm = true;
-              continue;
-            }
-            // Key still exists but the trigger changed (edited item) — drop
-            // the old alarm; the correct one is armed below.
-            try { await Notifications.cancelScheduledNotificationAsync(n.id); }
-            catch (e) { console.warn('[notificationService] stale key cancel failed:', e); }
-          }
-          if (keptThisAlarm) return;
-        } else {
-          const existing = await Notifications.getAllScheduledNotificationsAsync();
-          let keepImminent = false;
-          for (const n of existing) {
-            if (n?.content?.data?.dedupKey !== dedupKey) continue;
-            // An equivalent alarm is about to fire — leave it alone.
-            if (isImminentScheduledNotification(n)) {
-              keepImminent = true;
-              continue;
-            }
-            await Notifications.cancelScheduledNotificationAsync(n.id);
-          }
-          if (keepImminent) return;
+        const source = rebuildSnapshot ?? await Notifications.getAllScheduledNotificationsAsync();
+        const decision = chooseAlarmsToKeep(source, dedupKey, triggerDate.getTime());
+        for (const id of decision.cancelIds) {
+          try { await Notifications.cancelScheduledNotificationAsync(id); }
+          catch (e) { console.warn('[notificationService] duplicate alarm cancel failed:', e); }
         }
+        if (rebuildSnapshot) {
+          for (const id of decision.keepIds) rebuildKept.add(id);
+        }
+        if (decision.skipScheduling) return;
       } catch (e) { console.warn('[notificationService] dedup scan failed:', e); }
     }
 
