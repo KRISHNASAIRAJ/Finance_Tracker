@@ -2,7 +2,7 @@
  * backupService — Full data export/import to JSON files with backup management and cleanup.
  */
 import { Paths, File, Directory } from 'expo-file-system';
-import { useFinanceStore } from '../modules/finance/store';
+import { migrateFinancePersisted, useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { useGarageStore } from '../modules/garage/store';
 import { useInvestmentsStore } from '../modules/equity/store';
@@ -105,7 +105,9 @@ export async function importData(uri: string): Promise<boolean> {
       return false;
     }
 
-    useFinanceStore.setState(backup.finance);
+    // Old backups still contain the removed onboarding keys — strip them so
+    // restoring cannot reintroduce state the app no longer understands.
+    useFinanceStore.setState(migrateFinancePersisted(backup.finance));
     useTasksStore.setState(backup.tasks);
     useGarageStore.setState(backup.garage);
     if (backup.investments) useInvestmentsStore.setState(backup.investments);

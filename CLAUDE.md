@@ -28,7 +28,7 @@
 | **4 — Equity** | 100% | 🟢 | Kite OAuth + equity+MF sync, allocation donut, pg_cron 8:30 PM IST snapshots, Expo push, goal auto-progress, live prices (Yahoo + AMFI), net worth + loans + FDs | Nothing |
 | **5 — SMS** | — | 🔴 | Removed from project | — |
 | **6 — AI Assistants** | 100% | 🟢 | Card T&C chat (RAG), portfolio recs (goal-aware), meal AI (photo analyze + chat manage + suggest), daily Groq reports | Nothing |
-| **7 — Personal** | 100% | 🟢 | Goals, notes, recipes, diet plans with onboarding flow, diet notifications, Supabase sync on all modules | Nothing |
+| **7 — Personal** | 100% | 🟢 | Goals, notes, recipes, diet plans, diet notifications, Supabase sync on all modules (onboarding removed — single-user app) | Nothing |
 | **9 — Polish** | 100% | 🟢 | CombinedReport, lint/typecheck/jest configs, battery optimization prompt, 4 notification channels, sync queue retry+backoff+crash-safety, Android 13 POST_NOTIFICATIONS | Nothing |
 | **10 — Web App** | 100% | 🟢 | `web/` mirrors mobile (all modules + AI), Supabase Realtime, Netlify deploy | Nothing |
 

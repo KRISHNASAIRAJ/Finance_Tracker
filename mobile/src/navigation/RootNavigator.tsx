@@ -12,15 +12,9 @@ import { View } from 'react-native';
 
 import { colors } from '../shared/theme/colors';
 import { mc } from '../shared/theme/meridian';
-import { useFinanceStore } from '../modules/finance/store';
 import { GarageSyncInitializer } from '../modules/garage/hooks/useGarageSync';
 import AppSyncInitializer from '../services/AppSyncInitializer';
 
-// Onboarding Screens
-import WelcomeSplashScreen from '../modules/personal/screens/WelcomeSplashScreen';
-import NameEntryScreen from '../modules/personal/screens/NameEntryScreen';
-import GoalSelectionScreen from '../modules/personal/screens/GoalSelectionScreen';
-import IdentityDetailsScreen from '../modules/personal/screens/IdentityDetailsScreen';
 import NotificationsScreen from '../modules/personal/screens/NotificationsScreen';
 
 // Screens
@@ -203,10 +197,6 @@ export type HomeStackParamList = {
 };
 
 export type RootStackParamList = {
-  WelcomeSplash: undefined;
-  NameEntry: undefined;
-  GoalSelection: { name: string };
-  IdentityDetails: { name: string; goals: string[] };
   MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
   Notifications: undefined;
   MoreStack: NavigatorScreenParams<MoreStackParamList> | undefined;
@@ -464,38 +454,21 @@ const styles = StyleSheet.create({
 });
 
 export default function RootNavigator() {
-  const isOnboarded = useFinanceStore((state) => state.isOnboarded);
-
   return (
     <>
-      {isOnboarded && (
-        <>
-          <GarageSyncInitializer />
-          <AppSyncInitializer />
-        </>
-      )}
+      <GarageSyncInitializer />
+      <AppSyncInitializer />
       <RootStack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'fade' as const,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
-      {!isOnboarded ? (
-        <>
-          <RootStack.Screen name="WelcomeSplash" component={WelcomeSplashScreen} />
-          <RootStack.Screen name="NameEntry" component={NameEntryScreen} options={{ animation: 'slide_from_right' }} />
-          <RootStack.Screen name="GoalSelection" component={GoalSelectionScreen} />
-          <RootStack.Screen name="IdentityDetails" component={IdentityDetailsScreen} />
-        </>
-      ) : (
-        <>
-          <RootStack.Screen name="MainTabs" component={TabNavigator} />
-          <RootStack.Screen name="MoreStack" component={MoreStackNavigator} />
-          <RootStack.Screen name="Notifications" component={NotificationsScreen} options={modalScreenOptions} />
-        </>
-      )}
-    </RootStack.Navigator>
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade' as const,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <RootStack.Screen name="MainTabs" component={TabNavigator} />
+        <RootStack.Screen name="MoreStack" component={MoreStackNavigator} />
+        <RootStack.Screen name="Notifications" component={NotificationsScreen} options={modalScreenOptions} />
+      </RootStack.Navigator>
     </>
   );
 }

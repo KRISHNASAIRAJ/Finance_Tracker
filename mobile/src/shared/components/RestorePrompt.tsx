@@ -1,13 +1,17 @@
 /**
- * RestorePrompt — Modal prompting to restore from latest backup on first launch (unonboarded).
+ * RestorePrompt — One-time modal offering the latest backup on first launch.
+ * Onboarding was removed, so a dedicated flag replaces `isOnboarded` as the
+ * "have we asked already?" signal.
  */
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { rounded } from '../theme/spacing';
 import { getLatestBackup, importData } from '../../services/backupService';
-import { useFinanceStore } from '../../modules/finance/store';
+
+const RESTORE_PROMPT_FLAG = 'meridian-restore-prompt-shown-v1';
 
 export default function RestorePrompt() {
   const [visible, setVisible] = useState(false);
@@ -21,14 +25,16 @@ export default function RestorePrompt() {
 
   const checkForBackup = async () => {
     try {
-      const isOnboarded = useFinanceStore.getState().isOnboarded;
-      if (isOnboarded) return;
+      const shown = await AsyncStorage.getItem(RESTORE_PROMPT_FLAG);
+      if (shown === '1') return;
 
       const latest = await getLatestBackup();
       if (latest) {
         setBackupUri(latest.uri);
         setBackupDate(latest.date);
         setVisible(true);
+      } else {
+        await AsyncStorage.setItem(RESTORE_PROMPT_FLAG, '1');
       }
     } catch {
       // No backup available or FS unreadable — skip restore prompt
@@ -45,12 +51,14 @@ export default function RestorePrompt() {
     } catch {
       alert('Restore failed. Starting fresh.');
     } finally {
+      try { await AsyncStorage.setItem(RESTORE_PROMPT_FLAG, '1'); } catch { /* best-effort */ }
       setRestoring(false);
       setVisible(false);
     }
   };
 
   const handleSkip = () => {
+    AsyncStorage.setItem(RESTORE_PROMPT_FLAG, '1').catch(() => {});
     setVisible(false);
   };
 

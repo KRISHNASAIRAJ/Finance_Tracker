@@ -27,7 +27,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { mc } from '../theme/meridian';
 import { useDrawerStore } from '../useDrawerStore';
-import { useFinanceStore } from '../../modules/finance/store';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { navigationRef, getActiveRouteNameFromRef } from '../../navigation/navigationRef';
 import { useAuth } from '../../services/AuthProvider';
@@ -80,33 +79,19 @@ export default function DrawerMenu() {
   const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Hydration-aware onboarding gate: until the finance store finishes
-  // hydrating, assume onboarded so the trigger is never delayed on launch.
-  const isOnboarded = useFinanceStore((state) => state.isOnboarded);
-  const [hydrated, setHydrated] = useState(false);
   const [notesV2, setNotesV2] = useState(false);
   useEffect(() => {
     let alive = true;
     isFeatureEnabled('notes_v2').then((on) => { if (alive) setNotesV2(on); });
     return () => { alive = false; };
   }, []);
-  useEffect(() => {
-    const store = useFinanceStore;
-    if (store.persist?.hasHydrated?.()) {
-      setHydrated(true);
-      return;
-    }
-    const unsub = store.persist?.onFinishHydration?.(() => setHydrated(true));
-    return () => { unsub?.(); };
-  }, []);
-  const effectiveOnboarded = isOnboarded || !hydrated;
 
   const [activeRouteName, setActiveRouteName] = useState<string | undefined>(() =>
     getActiveRouteNameFromRef()
   );
 
   // Reactive route tracking: recomputes on every navigation-state change
-  // (tab switches, stack pushes/pops, conditional WelcomeSplash→MainTabs swap).
+  // (tab switches, stack pushes/pops).
   // Uses the shared container ref's 'state' listener instead of
   // useNavigationState — this component renders OUTSIDE any navigator
   // (sibling of RootNavigator in App.tsx), where useNavigationState throws
@@ -164,9 +149,8 @@ export default function DrawerMenu() {
   const isTabScreen = activeRouteName ? TAB_NAMES.has(activeRouteName) : false;
   // The hamburger trigger is now rendered per-screen (DrawerTrigger) by each
   // tab dashboard, so visibility no longer depends on nav-state timing.
-  // The left edge strip (swipe-to-open) stays global and unconditional on
-  // onboarded tab screens.
-  const showEdge = effectiveOnboarded && isTabScreen;
+  // The left edge strip (swipe-to-open) stays global on tab screens.
+  const showEdge = isTabScreen;
   const activeId = activeRouteName ? ACTIVE_MAP[activeRouteName] : undefined;
 
   const progress = useRef(new Animated.Value(0)).current;

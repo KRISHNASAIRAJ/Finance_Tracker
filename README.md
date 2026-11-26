@@ -10,7 +10,7 @@ Meridian is a personal-use app (Android-first mobile + web mirror) that unifies 
 | **Garage** | Fuel fills, mileage tracking, service/maintenance spend, multi-vehicle support |
 | **Tasks** | Tasks with subtasks, recurrence, auto-create from recurrence, local notifications |
 | **Wealth (Equity/MF)** | Holdings, Kite Connect sync, segmented allocation donut, AI portfolio recommendations, daily 8:30 PM IST portfolio snapshots via pg_cron, live price refresh (Yahoo Finance + AMFI) with today's P&L |
-| **Personal** | Goals, notes, recipes, diet plans with onboarding flow, diet notifications |
+| **Personal** | Goals, notes, recipes, diet plans, diet notifications |
 | **Career** | Career ups & downs with area chart visualization, event timeline |
 | **Meals** | Daily meal logging with macro progress bars, Groq AI meal suggestions via chat |
 

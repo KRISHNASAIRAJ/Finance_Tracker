@@ -147,13 +147,6 @@ interface FinanceState {
   fixedExpenses: FixedExpense[];
   categoryBudgets: CategoryBudget[];
   lastSyncedAt: string | null;
-  isOnboarded: boolean;
-  onboardingName: string;
-  onboardingGoals: string[];
-  onboardingDob: string;
-  onboardingGender: string;
-  completeOnboarding: (data: { name: string; goals: string[]; dob: string; gender: string }) => void;
-  updateOnboardingName: (name: string) => void;
   notifications: Array<{ id: string; title: string; body: string; date: string; read: boolean }>;
   addNotification: (title: string, body: string) => void;
   markNotificationRead: (id: string) => void;
@@ -323,30 +316,46 @@ export const getMinBalanceForAccount = (title: string): number => {
  */
 const jsonStorage = createJSONStorage(() => AsyncStorage);
 if (!jsonStorage) throw new Error('[FinanceStore] AsyncStorage is unavailable');
-const PREVIOUS_STORAGE_KEY = 'meridian-finance-storage-v14';
+const PREVIOUS_STORAGE_KEYS = [
+  'meridian-finance-storage-v15',
+  'meridian-finance-storage-v14',
+];
 const financeStorage: PersistStorage<any> = {
   getItem: async (name: string) => {
     const current = await jsonStorage.getItem(name);
     if (current) return current;
-    try {
-      return await jsonStorage.getItem(PREVIOUS_STORAGE_KEY);
-    } catch {
-      return null;
+    for (const key of PREVIOUS_STORAGE_KEYS) {
+      try {
+        const previous = await jsonStorage.getItem(key);
+        if (previous) return previous;
+      } catch { /* try the next older key */ }
     }
+    return null;
   },
   setItem: (name: string, value: any) => jsonStorage.setItem(name, value),
   removeItem: (name: string) => jsonStorage.removeItem(name),
 };
 
+/**
+ * v16 — the welcome/name/DOB/goals flow is gone. Strip its persisted keys
+ * while carrying every real entity (transactions, wallets, cards…) forward.
+ */
+export function migrateFinancePersisted(persisted: any): any {
+  const next: any = { ...(persisted ?? {}) };
+  for (const key of [
+    'isOnboarded', 'onboardingName', 'onboardingGoals', 'onboardingDob',
+    'onboardingGender', 'completeOnboarding', 'updateOnboardingName',
+  ]) {
+    delete next[key];
+  }
+  if (!Array.isArray(next.wallets)) next.wallets = [];
+  return next;
+}
+
 export const useFinanceStore = create<FinanceState>()(
   persist(
     (set, get) => ({
       lastSyncedAt: null,
-      isOnboarded: false,
-      onboardingName: '',
-      onboardingGoals: [],
-      onboardingDob: '',
-      onboardingGender: '',
       notifications: [],
       payzappLoads: [],
       expectedIncomes: [],
@@ -573,18 +582,6 @@ export const useFinanceStore = create<FinanceState>()(
             due_date: nextDueDate.toISOString(),
           });
         } catch (e) { console.warn('[FinanceStore] sync failed:', e); }
-      },
-      completeOnboarding: (data) => {
-        set({
-          isOnboarded: true,
-          onboardingName: data.name,
-          onboardingGoals: data.goals,
-          onboardingDob: data.dob,
-          onboardingGender: data.gender,
-        });
-      },
-      updateOnboardingName: (name) => {
-        set({ onboardingName: name });
       },
       markNotificationRead: (id) => {
         set((state) => ({
@@ -939,17 +936,12 @@ export const useFinanceStore = create<FinanceState>()(
         get().categoryBudgets.find((c) => c.category === category),
     }),
     {
-      // v15 — the store schema gained the `wallets` rows (they are cash and
-      // count towards the balance and the net worth). The bump must never
-      // lose local data, so the storage falls back to the previous key and
-      // the migration adds the new field.
-      name: 'meridian-finance-storage-v15',
+      // v16 — onboarding was removed. Existing installs are carried forward
+      // from v15 (or v14) with the legacy keys stripped; no local data lost.
+      name: 'meridian-finance-storage-v16',
       storage: financeStorage,
-      version: 15,
-      migrate: (persisted: any) => ({
-        ...(persisted ?? {}),
-        wallets: Array.isArray(persisted?.wallets) ? persisted.wallets : [],
-      }),
+      version: 16,
+      migrate: migrateFinancePersisted,
     }
   )
 );
