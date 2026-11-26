@@ -3,7 +3,7 @@
  */
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { useFinanceStore } from '../modules/finance/store';
+import { effectiveBillAmount, useFinanceStore } from '../modules/finance/store';
 
 function formatCurrency(paise: number): string {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(paise / 100);
@@ -43,7 +43,7 @@ export async function generateMonthlyReport(userName?: string): Promise<string |
     return {
       name: c.name,
       endingWith: c.endingWith,
-      billAmount: c.billAmount ?? c.balance,
+      billAmount: effectiveBillAmount(c),
       paidAmount: c.paidAmount ?? 0,
       transactionCount: usage.count,
       transactionTotal: usage.total,

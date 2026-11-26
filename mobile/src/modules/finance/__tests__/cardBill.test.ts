@@ -5,7 +5,18 @@
  * rolls over to the 3rd of March — a card with a 31st billing day skipped a
  * month. The roll is now clamped to the last day of the month.
  */
-import { nextCardDueDate } from '../store';
+import { effectiveBillAmount, nextCardDueDate } from '../store';
+
+describe('effectiveBillAmount', () => {
+  it('uses a real statement when one exists', () => {
+    expect(effectiveBillAmount({ billAmount: 500000, balance: 900000, currentOutstanding: 100000 })).toBe(500000);
+  });
+
+  it('falls back when Supabase sends bill_amount = 0', () => {
+    expect(effectiveBillAmount({ billAmount: 0, balance: 900000, currentOutstanding: 120000 })).toBe(120000);
+    expect(effectiveBillAmount({ billAmount: 0, balance: 900000, currentOutstanding: 0 })).toBe(900000);
+  });
+});
 
 describe('nextCardDueDate', () => {
   it('rolls to the next occurrence of the billing day', () => {

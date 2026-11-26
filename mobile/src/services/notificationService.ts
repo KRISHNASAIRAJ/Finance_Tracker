@@ -2,7 +2,7 @@
  * notificationService — Central notification scheduling for tasks, finance goals, meals, and vehicles.
  */
 import { Platform, PermissionsAndroid } from 'react-native';
-import { useFinanceStore } from '../modules/finance/store';
+import { effectiveBillAmount, useFinanceStore } from '../modules/finance/store';
 import { useTasksStore } from '../modules/tasks/store';
 import { useMealStore } from '../modules/meals/store';
 import { useGarageStore } from '../modules/garage/store';
@@ -151,6 +151,50 @@ const SAME_TRIGGER_EPSILON_MS = 60 * 1000;
 /** A second delivery of the same key inside this window is a duplicate pop. */
 const DUPLICATE_DELIVERY_WINDOW_MS = 5 * 60 * 1000;
 const recentDeliveries = new Map<string, number>();
+
+/** Task alarms must match an exact due instant, not just a rough minute. */
+const TASK_TRIGGER_EPSILON_MS = 2000;
+/**
+ * Inside this window Android already owns a task alarm. Never arm a second
+ * copy — only remove extras, if that is even reliable.
+ */
+const TASK_REARM_FREEZE_MS = 10 * 60 * 1000;
+/** Serialize task alarm writes; the store and the screens both reschedule. */
+const taskReminderLocks = new Map<string, Promise<void>>();
+
+/** Stable key for a task alarm — duplicate chore rows collapse to one alarm. */
+export function taskAlarmKey(name: string, dueMs: number): string {
+  const slug = String(name ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 60) || 'task';
+  return `taskdue_${slug}_${dueMs}`;
+}
+
+/** Recognise a task's alarm, including keys/titles left by older builds. */
+export function isTaskAlarmFor(
+  n: any,
+  task: { id: string; name: string },
+  dueMs?: number,
+): boolean {
+  const content = n?.content;
+  if (!content) return false;
+  const data = content.data ?? {};
+  if (data.taskId === task.id) return true;
+  if (data.dedupKey === `task_${task.id}`) return true;
+  if (Number.isFinite(dueMs) && data.dedupKey === taskAlarmKey(task.name, dueMs as number)) return true;
+  const title = String(content.title ?? '').trim().toLowerCase();
+  return title.startsWith(`${String(task.name ?? '').trim().toLowerCase()},`);
+}
+
+/** Run task alarm writes for one chore one at a time, in call order. */
+function runExclusiveForTask(key: string, job: () => Promise<void>): Promise<void> {
+  const previous = taskReminderLocks.get(key) ?? Promise.resolve();
+  const current = previous.then(job, job);
+  taskReminderLocks.set(key, current);
+  const release = () => {
+    if (taskReminderLocks.get(key) === current) taskReminderLocks.delete(key);
+  };
+  void current.then(release, release);
+  return current;
+}
 let lastScheduleRun = 0;
 let Notifications: any = null;
 let _initialized = false;
@@ -360,8 +404,9 @@ export async function scheduleLocal(
   categoryIdentifier?: string,
 ) {
   if (!ensureInit()) return;
-  const now = istNow();
-  if (triggerDate <= now) {
+  // triggerDate is an absolute instant — compare with the real clock, not the
+  // IST-shifted wall-clock helper used to build calendar times.
+  if (triggerDate.getTime() <= Date.now()) {
     console.log('[notificationService] Skipping past trigger:', title, triggerDate.toISOString());
     return;
   }
@@ -476,15 +521,39 @@ export async function cancelReceivableReminders(id: string): Promise<void> {
   } catch (e) { console.warn('[notificationService] receivable cancel failed:', id, e); }
 }
 
-/** Cancel a task's due-time reminder (keyed by task id). */
-export async function cancelTaskReminder(taskId: string): Promise<void> {
-  await cancelNotificationByDedupKey(`task_${taskId}`);
+/**
+ * Cancel every alarm for a task: current stable key, the old id key, and
+ * legacy alarms that only carried a taskId or the old title.
+ */
+export async function cancelTaskReminder(
+  task: string | { id: string; name: string; dueDate?: string },
+): Promise<void> {
+  if (rebuildSnapshot) return; // the reconciliation pass owns cancellations
+  const id = typeof task === 'string' ? task : task.id;
+  const stableKey = typeof task === 'string' || !task.dueDate
+    ? ''
+    : taskAlarmKey(task.name, new Date(task.dueDate).getTime());
+
+  await runExclusiveForTask(`cancel_${id}`, async () => {
+    if (!ensureInit() || !Notifications) return;
+    let existing: any[] = [];
+    try {
+      const listed = await Notifications.getAllScheduledNotificationsAsync();
+      if (Array.isArray(listed)) existing = listed;
+    } catch { return; }
+    for (const n of existing) {
+      const data = n?.content?.data ?? {};
+      if (data.taskId !== id && data.dedupKey !== `task_${id}` && data.dedupKey !== stableKey) continue;
+      try { await Notifications.cancelScheduledNotificationAsync(n.id); }
+      catch (e) { console.warn('[notificationService] task cancel failed:', e); }
+    }
+  });
 }
 
 /**
- * Replace the single due-time reminder for a task (deduped on task id).
- * Cancels any stale schedule first, then schedules one only when the task
- * is still open and its due date is in the future.
+ * Keep exactly ONE due-time alarm for a chore — even when several task rows
+ * share a name and due time, and even when older builds left alarms with
+ * different keys. Inside the re-arm freeze window we only remove extras.
  */
 export async function scheduleTaskReminder(task: {
   id: string;
@@ -494,22 +563,77 @@ export async function scheduleTaskReminder(task: {
   completed?: boolean;
 }): Promise<void> {
   if (!task) return;
-  await cancelTaskReminder(task.id);
-  if (task.completed) return;
-  const dueDate = new Date(task.dueDate);
-  if (isNaN(dueDate.getTime())) return;
-  if (dueDate <= istNow()) return;
+  const dueMs = new Date(task.dueDate).getTime();
+  if (!Number.isFinite(dueMs)) return;
+  const key = taskAlarmKey(task.name, dueMs);
 
-  const dueStr = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const dueTimeStr = dueDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  await runExclusiveForTask(key, async () => {
+    if (!ensureInit() || !Notifications) return;
+    const isOpen = !task.completed && dueMs > Date.now();
+    const existing = rebuildSnapshot
+      ? (rebuildSnapshot || [])
+      : await (async () => {
+          try {
+            const listed = await Notifications.getAllScheduledNotificationsAsync();
+            return Array.isArray(listed) ? listed : [];
+          } catch { return []; }
+        })();
 
-  await scheduleLocal(
-    `${task.name}, ${dueStr} ${dueTimeStr}`,
-    task.description || 'Task due now',
-    dueDate,
-    'task_reminders',
-    { screen: 'TaskDetail', taskId: task.id, dedupKey: `task_${task.id}` }
-  );
+    const mine = existing.filter((n) => isTaskAlarmFor(n, task, dueMs));
+    const cancel = async (n: any) => {
+      if (rebuildSnapshot) return; // reconciler will drop unkept alarms
+      try { await Notifications.cancelScheduledNotificationAsync(n.id); }
+      catch (e) { console.warn('[notificationService] task dedup cancel failed:', e); }
+    };
+
+    if (!isOpen) {
+      for (const n of mine) await cancel(n);
+      return;
+    }
+
+    const sameDue = mine.filter((n) => {
+      const fireAt = scheduledTriggerTime(n);
+      return fireAt !== null && Math.abs(fireAt - dueMs) <= TASK_TRIGGER_EPSILON_MS;
+    });
+
+    if (rebuildSnapshot) {
+      if (sameDue.length > 0) {
+        rebuildKept.add(sameDue[0].id);
+        return; // no re-arm at all; extras are dropped by finishRebuild()
+      }
+      if (dueMs - Date.now() <= TASK_REARM_FREEZE_MS && mine.length > 0) {
+        for (const n of mine) rebuildKept.add(n.id);
+        return;
+      }
+    } else {
+      if (sameDue.length > 0) {
+        let kept = false;
+        for (const n of mine) {
+          if (!kept && sameDue.includes(n)) { kept = true; continue; }
+          await cancel(n);
+        }
+        return;
+      }
+      if (dueMs - Date.now() <= TASK_REARM_FREEZE_MS && mine.length > 0) return;
+      for (const n of mine) await cancel(n);
+    }
+
+    const dueDate = new Date(dueMs);
+    const dueStr = dueDate.toLocaleDateString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
+    });
+    const dueTimeStr = dueDate.toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
+    });
+
+    await scheduleLocal(
+      `${task.name}, ${dueStr} ${dueTimeStr}`,
+      task.description || 'Task due now',
+      dueDate,
+      'task_reminders',
+      { screen: 'TaskDetail', taskId: task.id, dedupKey: key }
+    );
+  });
 }
 
 /**
@@ -708,7 +832,7 @@ export async function scheduleAllReminders(force = false) {
 
     // Credit card bill reminders
     for (const card of (cards || [])) {
-      const billAmt = card.billAmount ?? card.balance;
+      const billAmt = effectiveBillAmount(card);
       const paidAmt = card.paidAmount ?? 0;
       const billLeft = Math.max(0, billAmt - paidAmt);
       if (billLeft <= 0) continue;
@@ -912,8 +1036,15 @@ export async function scheduleAllReminders(force = false) {
       }
     }
 
-    // Task reminders — one notification at the exact due time
+    // Task reminders — one alarm per chore. Duplicate task rows with the
+    // same name and due time must never stack identical notifications.
+    const seenTaskAlarms = new Set<string>();
     for (const task of (tasks || [])) {
+      const dueMs = new Date(task?.dueDate).getTime();
+      if (!Number.isFinite(dueMs)) continue;
+      const key = taskAlarmKey(task.name, dueMs);
+      if (seenTaskAlarms.has(key)) continue;
+      seenTaskAlarms.add(key);
       await scheduleTaskReminder(task);
     }
 

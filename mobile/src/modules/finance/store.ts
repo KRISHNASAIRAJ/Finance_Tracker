@@ -7,6 +7,19 @@ import { persist, createJSONStorage, type PersistStorage } from 'zustand/middlew
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
+ * Effective bill total for a card. Supabase stores `bill_amount = 0` when no
+ * statement has been generated yet, so `billAmount ?? balance` wrongly shows
+ * ₹0 LEFT. Prefer a real bill, then the outstanding amount, then the balance.
+ */
+export function effectiveBillAmount(
+  card: Pick<CreditCard, 'billAmount' | 'balance' | 'currentOutstanding'>,
+): number {
+  if ((card.billAmount ?? 0) > 0) return card.billAmount as number;
+  if ((card.currentOutstanding ?? 0) > 0) return card.currentOutstanding as number;
+  return card.balance ?? 0;
+}
+
+/**
  * Drop a receivable's pending alarms as soon as it is paid, edited or removed.
  * Lazy require: notificationService imports this store (circular otherwise).
  */
@@ -700,7 +713,7 @@ export const useFinanceStore = create<FinanceState>()(
         const card = get().cards.find((c) => c.id === id);
         if (!card) return;
 
-        const billAmt = card.billAmount ?? card.balance;
+        const billAmt = effectiveBillAmount(card);
         const paidAmt = (card.paidAmount ?? 0) + paymentAmount;
         const billLeft = Math.max(0, billAmt - paidAmt);
 

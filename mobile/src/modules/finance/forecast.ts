@@ -294,7 +294,9 @@ export function buildForecastEvents(args: {
   }
 
   for (const c of cards) {
-    const statement = Math.max(0, (c.billAmount ?? c.balance ?? 0) - (c.paidAmount ?? 0));
+    // bill_amount = 0 from Supabase means "no statement yet", not a zero bill.
+    const bill = (c.billAmount ?? 0) > 0 ? (c.billAmount as number) : (c.balance ?? 0);
+    const statement = Math.max(0, bill - (c.paidAmount ?? 0));
     if (statement <= 0) continue;
     const dateKey = asDayKey(c.dueDate);
     if (!dateKey) continue;

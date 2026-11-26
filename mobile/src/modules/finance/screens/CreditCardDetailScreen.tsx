@@ -29,7 +29,7 @@ import {
   Screen,
   TopBar,
 } from '../../../shared/components/meridian';
-import { useFinanceStore } from '../store';
+import { effectiveBillAmount, useFinanceStore } from '../store';
 import { cardRewardValue } from '../cardRewards';
 import { FinanceStackParamList } from '../../../navigation/RootNavigator';
 import { getCategoryColor } from '../../../shared/categoryMap';
@@ -111,7 +111,7 @@ export default function CreditCardDetailScreen() {
   const cardLimit = card.cardLimit || 0;
   const utilization = cardLimit > 0 ? clamp01(card.balance / cardLimit) : 0;
 
-  const billAmount = card.billAmount ?? card.balance;
+  const billAmount = effectiveBillAmount(card);
   const paidAmount = card.paidAmount ?? 0;
   const billLeft = Math.max(0, billAmount - paidAmount);
   const paidFraction = billAmount > 0 ? clamp01(paidAmount / billAmount) : 0;
@@ -359,7 +359,7 @@ export default function CreditCardDetailScreen() {
       <TouchableOpacity
         style={styles.payButton}
         onPress={() => {
-          const remaining = Math.max(0, (card.billAmount ?? card.balance) - (card.paidAmount ?? 0)) / 100;
+          const remaining = Math.max(0, effectiveBillAmount(card) - (card.paidAmount ?? 0)) / 100;
           setPaymentInput(remaining > 0 ? remaining.toString() : '');
           setShowPayModal(true);
         }}
@@ -568,7 +568,7 @@ export default function CreditCardDetailScreen() {
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Pay bill</Text>
             <Text style={styles.sheetSub}>
-              Total bill: {formatDecimal(card.billAmount ?? card.balance)} · Already paid: {formatDecimal(card.paidAmount ?? 0)}
+              Total bill: {formatDecimal(effectiveBillAmount(card))} · Already paid: {formatDecimal(card.paidAmount ?? 0)}
             </Text>
             <View style={styles.inputGroup}>
               <Text style={styles.settingsInputLabel}>PAYMENT AMOUNT (₹)</Text>
