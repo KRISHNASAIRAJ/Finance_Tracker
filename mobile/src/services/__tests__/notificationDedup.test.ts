@@ -6,7 +6,10 @@
  * still deliver it, while the freshly armed copy fires a minute later. The
  * helpers below identify those imminent alarms so they are left untouched.
  */
-import { isImminentScheduledNotification, istDayKey, scheduledTriggerTime } from '../notificationService';
+import {
+  isImminentScheduledNotification, istDayKey, planOverdueReminders,
+  receivableOutstanding, scheduledTriggerTime,
+} from '../notificationService';
 
 const NOW = new Date('2026-11-23T02:00:00.000Z').getTime(); // 07:30 IST
 
@@ -55,5 +58,37 @@ describe('istDayKey', () => {
     expect(istDayKey(new Date('2026-11-23T01:30:00.000Z'))).toBe('2026-11-23');
     // 18:30 UTC = 00:00 IST on 24 Nov — UTC day is 23 but IST day is 24.
     expect(istDayKey(new Date('2026-11-23T18:30:00.000Z'))).toBe('2026-11-24');
+  });
+});
+
+describe('overdue receivable reminders', () => {
+  const NOW = new Date('2026-11-26T04:00:00.000Z'); // 09:30 IST
+  const debt = {
+    id: 'r1', personName: 'SHARAN', amount: 1592085, paidAmount: 0,
+    dueDate: '2026-11-25T00:00:00.000Z', type: 'lent' as const, status: 'pending',
+  };
+
+  it('arms one 10 AM nudge per day for at most three days', () => {
+    const plans = planOverdueReminders(debt, NOW);
+    expect(plans).toHaveLength(3);
+    expect(plans.map((p) => p.key)).toEqual([
+      'recv_r1_od_2026-11-27_am',
+      'recv_r1_od_2026-11-28_am',
+      'recv_r1_od_2026-11-29_am',
+    ]);
+    expect(plans.every((p) => p.at.getHours() === 10)).toBe(true);
+  });
+
+  it('quotes only the amount still outstanding after a partial collection', () => {
+    expect(receivableOutstanding({ amount: 1592085, paidAmount: 592085 })).toBe(1000000);
+    const plan = planOverdueReminders({ ...debt, paidAmount: 592085 }, NOW)[0];
+    expect(plan.body).toContain('₹10,000');
+    expect(plan.body).not.toContain('₹15,920.85');
+  });
+
+  it('arms nothing once the debt is paid or not yet due', () => {
+    expect(planOverdueReminders({ ...debt, status: 'paid' }, NOW)).toEqual([]);
+    expect(planOverdueReminders({ ...debt, paidAmount: debt.amount }, NOW)).toEqual([]);
+    expect(planOverdueReminders({ ...debt, dueDate: '2026-12-01T00:00:00.000Z' }, NOW)).toEqual([]);
   });
 });

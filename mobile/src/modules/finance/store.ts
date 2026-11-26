@@ -6,6 +6,19 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, type PersistStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * Drop a receivable's pending alarms as soon as it is paid, edited or removed.
+ * Lazy require: notificationService imports this store (circular otherwise).
+ */
+function cancelReceivableAlarms(id: string) {
+  try {
+    const svc = require('../../services/notificationService');
+    svc.cancelReceivableReminders(id).catch((e: unknown) =>
+      console.warn('[FinanceStore] notification cancel failed:', e)
+    );
+  } catch (e) { console.warn('[FinanceStore] notification cancel unavailable:', e); }
+}
+
 export interface Transaction {
   id: string;
   type: 'expense' | 'income' | 'credit_card_bill' | 'lent' | 'borrowed' | 'fixed_expense' | 'fuel_purchase' | 'vehicle_service' | 'portfolio_buy' | 'portfolio_sell';
@@ -448,6 +461,8 @@ export const useFinanceStore = create<FinanceState>()(
             rec.id === id ? { ...rec, ...updated } : rec
           ),
         }));
+        // Due date / amount / status changed — old alarms no longer apply.
+        cancelReceivableAlarms(id);
         try {
           const payload: Record<string, unknown> = { id, user_id: userId || null };
           if (updated.personName !== undefined) payload.person_name = updated.personName;
@@ -470,6 +485,8 @@ export const useFinanceStore = create<FinanceState>()(
             r.id === id ? { ...r, paidAmount: newPaid, status: newStatus } : r
           ),
         }));
+        // Collected (fully or partly) — stop the outstanding-amount alarms.
+        cancelReceivableAlarms(id);
         try {
           enqFlush("receivables", "update", {
             id, user_id: userId || null,
@@ -481,6 +498,7 @@ export const useFinanceStore = create<FinanceState>()(
         set((state) => ({
           receivables: state.receivables.filter((rec) => rec.id !== id),
         }));
+        cancelReceivableAlarms(id);
         enqFlush("receivables", "delete", { id, user_id: userId || null });
       },
       receiveLog: [],

@@ -82,6 +82,56 @@ function formatCurrencyAmount(paise: number): string {
   return `\u20B9${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 }
 
+/** Outstanding paise on a receivable — partial collections count. */
+export function receivableOutstanding(rec: { amount: number; paidAmount?: number }): number {
+  return Math.max(0, (rec.amount || 0) - (rec.paidAmount || 0));
+}
+
+export interface OverduePlan { key: string; at: Date; body: string }
+
+/**
+ * Pure planner for overdue lent/borrowed nudges: ONE 10 AM reminder per day
+ * for at most three days, keyed by the absolute IST date. The old code armed
+ * 10 AM + 8:30 PM for seven days with a relative `od_${d}` key, so every
+ * rebuild produced a fresh set of "Collect …" alarms for the same debt.
+ */
+export function planOverdueReminders(
+  rec: {
+    id: string; personName: string; amount: number; paidAmount?: number;
+    dueDate: string; type?: 'lent' | 'borrowed'; status?: string;
+  },
+  now: Date,
+): OverduePlan[] {
+  if (rec.status === 'paid') return [];
+  const outstanding = receivableOutstanding(rec);
+  if (outstanding <= 0) return [];
+  const dueDate = new Date(rec.dueDate);
+  if (isNaN(dueDate.getTime())) return [];
+  const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0);
+  if (dueStart >= now) return [];
+
+  const isLent = rec.type === 'lent';
+  const leftStr = `\u20B9${(outstanding / 100).toLocaleString('en-IN')}`;
+  const dueStr = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const plans: OverduePlan[] = [];
+  for (let d = 1; d <= OVERDUE_REMINDER_DAYS; d++) {
+    const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 10, 0, 0);
+    plans.push({
+      key: `recv_${rec.id}_od_${istDayKey(at)}_am`,
+      at,
+      body: `${leftStr} ${isLent ? `still to be collected from ${rec.personName}` : `still to pay to ${rec.personName}`}. Due was ${dueStr}.`,
+    });
+  }
+  return plans;
+}
+
+/**
+ * Lent/borrowed debts get ONE nudge per day for this many days once overdue.
+ * The old schedule armed 10 AM + 8:30 PM for seven days on every rebuild —
+ * 14 pending alarms per unpaid record, which is the "Collect …" spam.
+ */
+const OVERDUE_REMINDER_DAYS = 3;
+
 let isScheduling = false;
 // Cooldown so repeated mount-time calls can't cancel-all + reschedule in a
 // tight loop. Explicit change points (task save/delete, toggles) pass
@@ -96,10 +146,41 @@ const RESCHEDULE_COOLDOWN_MS = 45000;
  * apart (e.g. one at 7:29 and one at 7:30).
  */
 const IMMINENT_NOTIFICATION_MS = 2 * 60 * 1000;
+/** Two DATE triggers this close apart are the same alarm (clock rounding). */
+const SAME_TRIGGER_EPSILON_MS = 60 * 1000;
 let lastScheduleRun = 0;
 let Notifications: any = null;
 let _initialized = false;
 let channelsCreated = false;
+
+/**
+ * A full rebuild snapshots the alarms already on the device. scheduleLocal()
+ * then REUSES an alarm whose key + fire instant still match the desired
+ * schedule instead of cancelling and re-arming it — on OxygenOS a cancel of
+ * an alarm already handed to the OS is unreliable, so re-arming the same
+ * trigger delivers it twice. Whatever is left in the snapshot at the end of
+ * the pass is stale (paid / edited / deleted item) and gets cancelled.
+ */
+let rebuildSnapshot: any[] | null = null;
+const rebuildKept = new Set<string>();
+
+function startRebuild(existing: any[] | null): void {
+  rebuildSnapshot = existing;
+  rebuildKept.clear();
+}
+
+async function finishRebuild(): Promise<void> {
+  const snapshot = rebuildSnapshot;
+  const kept = new Set(rebuildKept);
+  rebuildSnapshot = null;
+  rebuildKept.clear();
+  if (!snapshot || !Notifications) return;
+  for (const n of snapshot) {
+    if (kept.has(n?.id)) continue;
+    try { await Notifications.cancelScheduledNotificationAsync(n.id); }
+    catch (e) { console.warn('[notificationService] stale alarm cancel failed:', e); }
+  }
+}
 
 /** Absolute fire time of an already-scheduled notification, if discoverable. */
 export function scheduledTriggerTime(n: any): number | null {
@@ -219,26 +300,43 @@ export async function scheduleLocal(
   }
 
   try {
-    // Dedup guard — if a notification with the same dedupKey is already
-    // scheduled, replace it instead of stacking a second identical one.
-    // This is what prevents duplicate task/meal reminders when
-    // scheduleAllReminders() runs from multiple screens' mounts.
+    // Dedup guard — one armed alarm per dedupKey, and NEVER tear down an
+    // alarm that is already armed for the same instant: on OEM skins the
+    // cancel can fail while the re-armed copy still fires (double pop).
     const dedupKey = data?.dedupKey;
     if (dedupKey) {
       try {
-        const existing = await Notifications.getAllScheduledNotificationsAsync();
-        let keepImminent = false;
-        for (const n of existing) {
-          if (n?.content?.data?.dedupKey !== dedupKey) continue;
-          // An equivalent alarm is about to fire — leave it alone. Cancelling
-          // and re-arming it is exactly what makes one notification pop twice.
-          if (isImminentScheduledNotification(n)) {
-            keepImminent = true;
-            continue;
+        if (rebuildSnapshot) {
+          // Full rebuild: the list was read once at the start of the pass.
+          let keptThisAlarm = false;
+          for (const n of rebuildSnapshot) {
+            if (n?.content?.data?.dedupKey !== dedupKey) continue;
+            const fireAt = scheduledTriggerTime(n);
+            if (fireAt !== null && Math.abs(fireAt - triggerDate.getTime()) <= SAME_TRIGGER_EPSILON_MS) {
+              rebuildKept.add(n.id);
+              keptThisAlarm = true;
+              continue;
+            }
+            // Key still exists but the trigger changed (edited item) — drop
+            // the old alarm; the correct one is armed below.
+            try { await Notifications.cancelScheduledNotificationAsync(n.id); }
+            catch (e) { console.warn('[notificationService] stale key cancel failed:', e); }
           }
-          await Notifications.cancelScheduledNotificationAsync(n.id);
+          if (keptThisAlarm) return;
+        } else {
+          const existing = await Notifications.getAllScheduledNotificationsAsync();
+          let keepImminent = false;
+          for (const n of existing) {
+            if (n?.content?.data?.dedupKey !== dedupKey) continue;
+            // An equivalent alarm is about to fire — leave it alone.
+            if (isImminentScheduledNotification(n)) {
+              keepImminent = true;
+              continue;
+            }
+            await Notifications.cancelScheduledNotificationAsync(n.id);
+          }
+          if (keepImminent) return;
         }
-        if (keepImminent) return;
       } catch (e) { console.warn('[notificationService] dedup scan failed:', e); }
     }
 
@@ -302,6 +400,10 @@ export async function scheduleImmediate(
  * Best-effort; never throws.
  */
 export async function cancelNotificationByDedupKey(dedupKey: string): Promise<void> {
+  // During a rebuild the final reconciliation pass is the ONLY place that
+  // cancels alarms. Helpers such as scheduleTaskReminder() must not tear down
+  // one we have just decided to keep.
+  if (rebuildSnapshot) return;
   if (!dedupKey || !ensureInit() || !Notifications) return;
   try {
     const existing = await Notifications.getAllScheduledNotificationsAsync();
@@ -311,6 +413,21 @@ export async function cancelNotificationByDedupKey(dedupKey: string): Promise<vo
       }
     }
   } catch (e) { console.warn('[notificationService] cancel by dedupKey failed:', dedupKey, e); }
+}
+
+/** Cancel every due/overdue alarm for one lent-borrowed record. */
+export async function cancelReceivableReminders(id: string): Promise<void> {
+  if (!id) return;
+  if (!ensureInit() || !Notifications) return;
+  try {
+    const existing = await Notifications.getAllScheduledNotificationsAsync();
+    for (const n of existing) {
+      const key = n?.content?.data?.dedupKey;
+      if (typeof key === 'string' && key.startsWith(`recv_${id}_`)) {
+        await Notifications.cancelScheduledNotificationAsync(n.id);
+      }
+    }
+  } catch (e) { console.warn('[notificationService] receivable cancel failed:', id, e); }
 }
 
 /** Cancel a task's due-time reminder (keyed by task id). */
@@ -359,15 +476,17 @@ export async function scheduleTaskReminder(task: {
 export async function refreshOfferReminders(): Promise<void> {
   if (!ensureInit() || !Notifications) return;
 
-  try {
-    const existing = await Notifications.getAllScheduledNotificationsAsync();
-    for (const n of existing) {
-      const key = n?.content?.data?.dedupKey;
-      if (typeof key === 'string' && key.startsWith('offer_')) {
-        await Notifications.cancelScheduledNotificationAsync(n.id);
+  if (!rebuildSnapshot) {
+    try {
+      const existing = await Notifications.getAllScheduledNotificationsAsync();
+      for (const n of existing) {
+        const key = n?.content?.data?.dedupKey;
+        if (typeof key === 'string' && key.startsWith('offer_')) {
+          await Notifications.cancelScheduledNotificationAsync(n.id);
+        }
       }
-    }
-  } catch (e) { console.warn('[notificationService] offer cancel failed:', e); }
+    } catch (e) { console.warn('[notificationService] offer cancel failed:', e); }
+  }
 
   try {
     const { useOffersStore } = require('../modules/offers/store');
@@ -416,16 +535,19 @@ export async function schedulePeopleDigest(): Promise<void> {
     const { usePeopleStore } = require('../modules/people/store');
     const due = (usePeopleStore.getState().getDue?.(new Date()) || []) as Array<{ name: string }>;
 
-    // Cancel the previous digest (today's or tomorrow's).
-    try {
-      const existing = await Notifications.getAllScheduledNotificationsAsync();
-      for (const n of existing) {
-        const key = n?.content?.data?.dedupKey;
-        if (typeof key === 'string' && key.startsWith('people_digest_')) {
-          await Notifications.cancelScheduledNotificationAsync(n.id);
+    // Cancel the previous digest (today's or tomorrow's). During a rebuild
+    // the reconciliation pass owns cancellations, so leave it untouched.
+    if (!rebuildSnapshot) {
+      try {
+        const existing = await Notifications.getAllScheduledNotificationsAsync();
+        for (const n of existing) {
+          const key = n?.content?.data?.dedupKey;
+          if (typeof key === 'string' && key.startsWith('people_digest_')) {
+            await Notifications.cancelScheduledNotificationAsync(n.id);
+          }
         }
-      }
-    } catch (e) { console.warn('[notificationService] people digest cancel failed:', e); }
+      } catch (e) { console.warn('[notificationService] people digest cancel failed:', e); }
+    }
 
     if (due.length === 0) return;
 
@@ -481,15 +603,12 @@ export async function scheduleAllReminders(force = false) {
       try {
         await Notifications.cancelAllScheduledNotificationsAsync();
       } catch (e) { console.warn('[notificationService] cancelAll failed (continuing):', e); }
+      startRebuild([]);
     } else {
-      // Cancel everything EXCEPT alarms that are about to fire. Leaving those
-      // in place prevents the "7:29 + 7:30" double-pop described above.
-      for (const n of existing) {
-        if (isImminentScheduledNotification(n)) continue;
-        try {
-          await Notifications.cancelScheduledNotificationAsync(n.id);
-        } catch (e) { console.warn('[notificationService] cancel failed (continuing):', e); }
-      }
+      // Snapshot once, then let each scheduleLocal() call reuse an identical
+      // alarm. Only genuinely stale alarms are cancelled at the end of the
+      // pass — never cancel + re-arm the SAME trigger (double pop on OEM).
+      startRebuild(existing);
     }
 
     // Meal reminders — ONE per slot per day, only for slots not yet logged today.
@@ -650,14 +769,18 @@ export async function scheduleAllReminders(force = false) {
       }
     }
 
-    // Lent/Borrowed reminders — at 10 AM and 8:30 PM on the due date, then recurring if overdue
+    // Lent/Borrowed reminders — at 10 AM and 8:30 PM on the due date, then a
+    // single 10 AM nudge a day for three days once overdue.
     for (const rec of (receivables || [])) {
       if (rec.status === 'paid') continue;
       const dueDate = new Date(rec.dueDate);
       const now = istNow();
       const isLent = rec.type === 'lent';
       const personName = rec.personName;
-      const amountStr = `\u20B9${(rec.amount / 100).toLocaleString('en-IN')}`;
+      // Always quote what is still outstanding, not the original amount.
+      const outstanding = receivableOutstanding(rec);
+      if (outstanding <= 0) continue;
+      const amountStr = `\u20B9${(outstanding / 100).toLocaleString('en-IN')}`;
 
       const tenAm = new Date(dueDate);
       tenAm.setHours(10, 0, 0, 0);
@@ -667,7 +790,7 @@ export async function scheduleAllReminders(force = false) {
           `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
           tenAm,
           'bills_due',
-          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${tenAm.toISOString().slice(0, 10)}_am` }
+          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${istDayKey(tenAm)}_am` }
         );
       }
 
@@ -679,32 +802,19 @@ export async function scheduleAllReminders(force = false) {
           `${amountStr} ${isLent ? 'to be collected' : 'to pay back'}`,
           eightThirtyPm,
           'bills_due',
-          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${eightThirtyPm.toISOString().slice(0, 10)}_pm` }
+          { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_due_${istDayKey(eightThirtyPm)}_pm` }
         );
       }
 
-      // Overdue recurring reminders — if past due and unpaid, remind daily at 10AM and 8:30PM
-      const dueStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0);
-      if (dueStart < now) {
-        const overdueDays = Math.min(30, Math.ceil((now.getTime() - dueStart.getTime()) / 86400000));
-        for (let d = 1; d <= Math.min(7, 31 - overdueDays); d++) {
-          const morningReminder = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 10, 0, 0);
-          await scheduleLocal(
-            `\u23F0 ${isLent ? 'Collect' : 'Pay'} ${personName}`,
-            `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
-            morningReminder,
-            'bills_due',
-            { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_od_${d}_am` }
-          );
-          const eveningReminder = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 20, 30, 0);
-          await scheduleLocal(
-            `\u23F0 ${isLent ? 'Collect' : 'Pay'} ${personName}`,
-            `${amountStr} ${isLent ? 'still to be collected from' : 'still to pay to'} ${personName}. Due was ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.`,
-            eveningReminder,
-            'bills_due',
-            { screen: 'LentBorrowed', dedupKey: `recv_${rec.id}_od_${d}_pm` }
-          );
-        }
+      // Overdue: three dated nudges, never a second 8:30 PM copy.
+      for (const plan of planOverdueReminders(rec, now)) {
+        await scheduleLocal(
+          `\u23F0 ${isLent ? 'Collect' : 'Pay'} ${personName}`,
+          plan.body,
+          plan.at,
+          'bills_due',
+          { screen: 'LentBorrowed', dedupKey: plan.key }
+        );
       }
     }
 
@@ -891,6 +1001,8 @@ export async function scheduleAllReminders(force = false) {
       }
     }
   } finally {
+    try { await finishRebuild(); }
+    catch (e) { console.warn('[notificationService] rebuild reconciliation failed:', e); }
     isScheduling = false;
     lastScheduleRun = Date.now();
   }
