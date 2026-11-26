@@ -51,6 +51,90 @@ export async function syncPersonalNow(userId: string): Promise<SyncState> {
   return state;
 }
 
+/**
+ * Recovery path: replace the local lists with the cloud rows. The normal pull
+ * is add-only, so a local restore keeps stale notes/goals/lists forever.
+ */
+export async function forcePullPersonal(userId: string): Promise<void> {
+  const store = usePersonalStore;
+  const read = async (table: string) => {
+    const { data, error } = await supabase.from(table).select('*').eq('user_id', userId);
+    if (error) console.warn('[PersonalSync] force pull failed:', table, error.message);
+    return (data ?? []) as Array<Record<string, unknown>>;
+  };
+
+  const goals = await read('goals');
+  if (goals.length > 0) {
+    store.setState({
+      goals: goals.map((r) => ({
+        id: r.id as string,
+        name: r.title as string,
+        completed: Boolean(r.is_completed),
+      })) as PersonalGoal[],
+    });
+  }
+
+  const notes = await read('notes');
+  if (notes.length > 0) {
+    store.setState({
+      notes: notes.map((r) => ({
+        id: r.id as string,
+        title: r.title as string,
+        content: (r.content as string) ?? '',
+        date: (r.created_at as string) ?? new Date().toISOString(),
+        folder: (r.folder as string) ?? 'Notes',
+        pinned: (r.pinned as boolean) ?? false,
+        deletedAt: (r.deleted_at as string) ?? null,
+      })) as Note[],
+    });
+  }
+
+  const recipes = await read('recipes');
+  if (recipes.length > 0) {
+    store.setState({
+      recipes: recipes.map((r) => ({
+        id: r.id as string,
+        title: r.title as string,
+        prepTime: String(r.prep_time ?? '') || '0 mins',
+        calories: String(r.calories ?? '') || '0 kcal',
+        ingredients: safeJSON(r.ingredients as string, []),
+        steps: safeJSON(r.steps as string, []),
+      })) as Recipe[],
+    });
+  }
+
+  const buy = await read('buy_list_items');
+  if (buy.length > 0) {
+    store.setState({
+      buyListItems: buy.map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        price: Number(r.price ?? 0),
+        itemDate: (r.item_date as string | null) ?? null,
+        link: (r.link as string | null) ?? '',
+        notes: (r.notes as string | null) ?? '',
+        completed: Boolean(r.completed),
+      })) as BuyListItem[],
+    });
+  }
+
+  const grocery = await read('grocery_items');
+  if (grocery.length > 0) {
+    store.setState({
+      groceryItems: grocery.map((r) => ({
+        id: r.id as string,
+        name: r.name as string,
+        quantity: (r.quantity as string | null) ?? '',
+        price: Number(r.price ?? 0),
+        itemDate: (r.item_date as string | null) ?? null,
+        link: (r.link as string | null) ?? '',
+        notes: (r.notes as string | null) ?? '',
+        completed: Boolean(r.completed),
+      })) as GroceryItem[],
+    });
+  }
+}
+
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

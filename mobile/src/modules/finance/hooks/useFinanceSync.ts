@@ -72,6 +72,27 @@ export function useFinanceSync() {
   return { ...state, pullFromCloud };
 }
 
+/**
+ * Recovery path: overwrite local rows with the cloud versions WITHOUT
+ * flushing the local queue first. Used once after a bad local restore so the
+ * restored stale rows cannot be pushed back over good cloud data.
+ */
+export async function forcePullFinance(userId: string): Promise<void> {
+  for (const table of TABLE_MAP) {
+    const { data, error } = await supabase
+      .from(table.supabaseTable)
+      .select('*')
+      .eq('user_id', userId);
+    if (error) {
+      console.warn('[FinanceSync] force pull failed:', table.supabaseTable, error.message);
+      continue;
+    }
+    if (data && data.length > 0) {
+      table.mergeIntoStore(data as Record<string, unknown>[]);
+    }
+  }
+}
+
 export async function syncNow(userId: string): Promise<SyncState> {
   const state: SyncState = { loading: true, error: null, lastSyncAt: null };
   await doPull(userId);
@@ -190,9 +211,9 @@ function makeMerge(
     for (const [id, item] of cloudById) {
       if (!localIds.has(id)) merged.push(item);
     }
-    if (merged.length !== local.length) {
-      setLocal(merged);
-    }
+    // Always write: matching row counts can still hide changed values (e.g.
+    // a restored old backup with the same rows but stale amounts/status).
+    setLocal(merged);
   };
 }
 

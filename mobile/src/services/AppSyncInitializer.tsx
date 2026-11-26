@@ -6,6 +6,9 @@
  * Garage is handled separately by GarageSyncInitializer (has its own
  * backup-seeding + hydration logic), so it's not mounted here.
  */
+import { useEffect } from 'react';
+import { useAuth } from './AuthProvider';
+import { runOneTimeCloudRecovery } from './cloudRecovery';
 import { useFinanceSync } from '../modules/finance/hooks/useFinanceSync';
 import { useTasksSync } from '../modules/tasks/hooks/useTasksSync';
 import { useEquitySync } from '../modules/equity/hooks/useEquitySync';
@@ -16,6 +19,13 @@ import { useMedicationsSync } from '../modules/medications/hooks/useMedicationsS
 import useUniversalSync from '../hooks/useUniversalSync';
 
 export default function AppSyncInitializer() {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (user?.id) {
+      runOneTimeCloudRecovery(user.id).catch(() => {});
+    }
+  }, [user?.id]);
+
   useFinanceSync();
   useTasksSync();
   useEquitySync();

@@ -55,6 +55,39 @@ async function flushQueueForce() {
   } catch (_e) { /* will retry on next pull / CRUD */ }
 }
 
+function mapTaskRow(r: Record<string, unknown>): Task {
+  let subtasks: Subtask[] = [];
+  try {
+    if (r.subtasks && typeof r.subtasks === 'string') {
+      subtasks = JSON.parse(r.subtasks as string);
+    }
+  } catch { /* no-op */ }
+  return {
+    id: r.id as string,
+    name: r.title as string ?? "",
+    description: r.description as string ?? undefined,
+    priority: (r.priority as string ?? "medium") as Task['priority'],
+    dueDate: r.due_date as string ?? new Date().toISOString(),
+    completed: (r.is_completed as boolean) ?? false,
+    completedAt: (r.completed_at as string ?? null),
+    subtasks,
+    recurrence: (r.recurrence as string ?? "none") as Task['recurrence'],
+  };
+}
+
+/** Recovery path: replace local tasks with cloud tasks, no queue flush. */
+export async function forcePullTasks(userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("user_id", userId);
+  if (error || !data) {
+    console.warn('[TasksSync] force pull failed:', error?.message);
+    return;
+  }
+  getStore().setState({ tasks: (data as Array<Record<string, unknown>>).map(mapTaskRow) });
+}
+
 async function doPull(userId: string) {
   // Flush local changes to the cloud FIRST so the pull cannot resurrect stale
   // cloud data over edits the user just made (completing a task, deleting one).
