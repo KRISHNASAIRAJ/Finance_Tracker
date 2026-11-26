@@ -2,7 +2,10 @@
  * App — Root component: providers, background task registration, notification setup, and navigation.
  */
 import React, { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox, Linking, ToastAndroid } from 'react-native';
+import {
+  AppState, AppStateStatus, LogBox, Linking, ScrollView, Text,
+  ToastAndroid, TouchableOpacity,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -102,6 +105,47 @@ class LoadingBoundary extends React.Component<
   }
   render() {
     return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
+ * In a release build a render exception used to leave a silent blank screen.
+ * Show the real error on device instead, so a failure is visible and reportable.
+ */
+class RootErrorBoundary extends React.Component<
+  React.PropsWithChildren<object>,
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: any) {
+    console.error('[App] root render error:', error, info?.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <ScrollView style={{ flex: 1, backgroundColor: '#0A0A0C', padding: 24 }}>
+          <Text style={{ color: '#ff6b6b', fontSize: 18, fontWeight: '800' }}>
+            Meridian hit an error
+          </Text>
+          <Text style={{ color: '#ffffff', fontSize: 14, marginTop: 16 }}>
+            {this.state.error.message}
+          </Text>
+          <Text style={{ color: '#9aa0a6', fontSize: 10, marginTop: 16 }}>
+            {String(this.state.error.stack || '').slice(0, 2000)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ error: null })}
+            style={{ marginTop: 24, padding: 14, borderRadius: 10, backgroundColor: '#7C3AED' }}
+          >
+            <Text style={{ color: '#ffffff', fontWeight: '700', textAlign: 'center' }}>Retry</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      );
+    }
+    return this.props.children;
   }
 }
 
@@ -309,6 +353,11 @@ if (data.screen === 'TaskDetail' && data.taskId) {
       const resuming = appState.current.match(/inactive|background/) && nextState === 'active';
       try {
         if (resuming) {
+          // Android can recreate the activity on resume, leaving a fresh
+          // native splash window over the React root. Hide it every time.
+          try {
+            require('expo-splash-screen').hideAsync?.().catch?.(() => {});
+          } catch { /* splash unavailable in this build */ }
           processSyncQueue()
             .then(() => pushStatsWidget())
             .catch((e) => console.warn('[App] foreground sync failed:', e));
@@ -360,21 +409,23 @@ if (data.screen === 'TaskDetail' && data.taskId) {
   }, []);
 
   return (
-    <AuthProvider>
-      {/* Launch loading overlay — covers the auth check and the app boot */}
-      <LoadingBoundary>
-        <LoadingScreen />
-      </LoadingBoundary>
-      <AuthGate>
-        <SafeAreaProvider>
-          <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-            <StatusBar style="light" />
-            <RestorePrompt />
-            <RootNavigator />
-            <DrawerMenu />
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </AuthGate>
-    </AuthProvider>
+    <RootErrorBoundary>
+      <AuthProvider>
+        {/* Launch loading overlay — covers the auth check and the app boot */}
+        <LoadingBoundary>
+          <LoadingScreen />
+        </LoadingBoundary>
+        <AuthGate>
+          <SafeAreaProvider>
+            <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+              <StatusBar style="light" />
+              <RestorePrompt />
+              <RootNavigator />
+              <DrawerMenu />
+            </NavigationContainer>
+          </SafeAreaProvider>
+        </AuthGate>
+      </AuthProvider>
+    </RootErrorBoundary>
   );
 }
