@@ -353,11 +353,6 @@ if (data.screen === 'TaskDetail' && data.taskId) {
       const resuming = appState.current.match(/inactive|background/) && nextState === 'active';
       try {
         if (resuming) {
-          // Android can recreate the activity on resume, leaving a fresh
-          // native splash window over the React root. Hide it every time.
-          try {
-            require('expo-splash-screen').hideAsync?.().catch?.(() => {});
-          } catch { /* splash unavailable in this build */ }
           processSyncQueue()
             .then(() => pushStatsWidget())
             .catch((e) => console.warn('[App] foreground sync failed:', e));
